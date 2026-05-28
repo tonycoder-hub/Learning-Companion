@@ -28,6 +28,7 @@ Guardrails:
 - Only files under the resolved web root are allowed to load inside the shell.
 - Native import/export talks to an explicit web bridge and the same workspace JSON schema as the browser app. It does not add a second Mac-only persistence format.
 - `Export Workspace...` uses `Shift+Cmd+E` rather than `Cmd+S` because this is a user-chosen JSON export, not a document save-to-current-file action.
+- `Open Morning Review Pack` opens the generated local fixture dashboard from `dist/morning-demo/review-start-here.html` when it exists. It is a developer review shortcut, not a cloud or production packaging feature.
 - The web bridge is intentionally unprivileged: it only exposes workspace JSON import/export already available in the browser UI, while all native file access remains behind user-initiated AppKit panels.
 - Import rejects files larger than 5 MB or non-UTF-8 content before handing text to WebKit, and surfaces those failures through an `NSAlert`.
 - `Save Clipboard as Capture` reads the pasteboard only after an explicit menu command or `Ctrl+Option+Cmd+C` hotkey, then calls the same web-model capture path as the browser UI. It does not inspect browser state, browser cookies, or the current selection directly.

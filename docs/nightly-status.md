@@ -20,6 +20,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Mac shell can save clipboard text directly as a capture with `Ctrl+Option+Cmd+C` via a best-effort global hotkey, with registration status visible in the Capture menu.
 - Mac shell hotkey capture can attach active Safari/Chromium-family page title and URL when macOS automation access is available, then route through the same source-aware matching path as bookmarklet captures.
 - Mac shell has app-focused workspace JSON import/export menu commands (`Cmd+O`, `Shift+Cmd+E`) that reuse the web workspace bridge.
+- Mac shell can open the generated morning review dashboard (`dist/morning-demo/review-start-here.html`) from `File > Open Morning Review Pack`.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
@@ -155,6 +156,7 @@ Deferred:
 - Mac shell is currently a thin WKWebView wrapper with best-effort selected-text capture, labeled clipboard fallback, browser title/URL context, sidecar window commands, and workspace file commands; packaged permission onboarding and live GUI evidence are still missing.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
 - Mac shell AppKit import/export panels build successfully, but panel cancel/oversize/invalid-file paths are not GUI-automated tonight.
+- `File > Open Morning Review Pack` is a developer shortcut over the generated fixture; it shows an alert when the demo pack is missing and does not generate, sync, or validate live integrations.
 - HarmonyOS native app is not started yet; the read-only schema reader prototype is local JavaScript and still needs DevEco/file-picker integration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

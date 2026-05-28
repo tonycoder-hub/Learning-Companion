@@ -198,6 +198,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
   }
 
+  @objc private func openMorningReviewPack(_ sender: Any?) {
+    guard let reviewPack = morningReviewPackURL() else {
+      showError("Morning review pack is not generated yet. Run `npm run demo:morning`, then try again.")
+      return
+    }
+    if !NSWorkspace.shared.open(reviewPack) {
+      showError("Could not open the morning review pack.")
+    }
+  }
+
   @objc private func enterSidecarWindow(_ sender: Any?) {
     guard let window else {
       NSSound.beep()
@@ -327,6 +337,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     exportWorkspace.keyEquivalentModifierMask = [.command, .shift]
     exportWorkspace.target = self
     fileMenu.addItem(exportWorkspace)
+    fileMenu.addItem(NSMenuItem.separator())
+    let openMorningReview = NSMenuItem(
+      title: "Open Morning Review Pack",
+      action: #selector(openMorningReviewPack(_:)),
+      keyEquivalent: ""
+    )
+    openMorningReview.target = self
+    fileMenu.addItem(openMorningReview)
     fileItem.submenu = fileMenu
     mainMenu.addItem(fileItem)
 
@@ -743,6 +761,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     } catch {
       showError("Could not save the workspace file.")
     }
+  }
+
+  private func morningReviewPackURL() -> URL? {
+    guard let webRoot else {
+      return nil
+    }
+    let repoRoot = webRoot
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .standardizedFileURL
+    let reviewPack = repoRoot
+      .appendingPathComponent("dist/morning-demo/review-start-here.html")
+      .standardizedFileURL
+    return FileManager.default.fileExists(atPath: reviewPack.path) ? reviewPack : nil
   }
 
   private func importWorkspaceJson(_ json: String) {
