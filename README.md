@@ -44,7 +44,10 @@ Smoke test:
 
 ```bash
 npm run smoke
+npm run smoke:browser
 ```
+
+Current MVP status is tracked in [docs/nightly-status.md](docs/nightly-status.md).
 
 ## GitHub Hosting
 
