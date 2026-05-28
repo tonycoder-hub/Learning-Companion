@@ -33,6 +33,10 @@ const dom = {
   materialType: document.querySelector("#materialType"),
   timestampInput: document.querySelector("#timestampInput"),
   sessionTags: document.querySelector("#sessionTags"),
+  captureMetric: document.querySelector("#captureMetric"),
+  cardMetric: document.querySelector("#cardMetric"),
+  dueMetric: document.querySelector("#dueMetric"),
+  sizeMetric: document.querySelector("#sizeMetric"),
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
   captureBtn: document.querySelector("#captureBtn"),
@@ -276,6 +280,7 @@ function render() {
   dom.notesEditor.value = session.notesMarkdown;
   renderFocusMode(session.focusMode);
   renderStorageNotice();
+  renderMetrics();
   renderSessions();
   renderInspector();
 }
@@ -285,6 +290,16 @@ function renderStorageNotice() {
   const shouldShow = Boolean(storageWarning);
   dom.storageNotice.hidden = !shouldShow;
   dom.storageNoticeText.textContent = storageWarning || "";
+}
+
+function renderMetrics() {
+  const session = getActiveSession(workspace);
+  const due = getDueReviewCards(session).length;
+  const bytes = new Blob([JSON.stringify(workspace)]).size;
+  dom.captureMetric.textContent = String(session.captures.length);
+  dom.cardMetric.textContent = String(session.reviewCards.length);
+  dom.dueMetric.textContent = String(due);
+  dom.sizeMetric.textContent = formatBytes(bytes);
 }
 
 function renderFocusMode(mode) {
@@ -323,6 +338,7 @@ function renderInspector() {
   renderCaptures();
   renderReviewCards();
   renderExport();
+  renderMetrics();
 }
 
 function renderCaptures() {
@@ -435,6 +451,12 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
     .slice(0, 80) || "learning-session";
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function escapeHtml(value) {
