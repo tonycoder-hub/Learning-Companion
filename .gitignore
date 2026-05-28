@@ -1,32 +1,7 @@
+.mira-review/
 .DS_Store
-
-# Local environment
-.env
-.env.*
-!.env.example
-
-# macOS / Xcode / Swift
-DerivedData/
-.build/
-.swiftpm/
-*.xcuserdata/
-*.xcuserstate
-
-# HarmonyOS / DevEco
-oh_modules/
-.hvigor/
-build/
-.preview/
-local.properties
-
-# Node tooling
 node_modules/
 dist/
+build/
 coverage/
-
-# App data and generated exports
-data/local/
-exports/
-*.sqlite
-*.sqlite-shm
-*.sqlite-wal
+*.log
