@@ -598,9 +598,12 @@ textarea:focus {
   .app-shell,
   .work-grid,
   .source-strip,
-  .focus-row,
-  .metrics-row {
+  .focus-row {
     grid-template-columns: 1fr;
+  }
+
+  .metrics-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sidebar,
@@ -627,6 +630,11 @@ textarea:focus {
     max-width: var(--mobile-content-width);
   }
 
+  .metric-cell {
+    min-height: 48px;
+    padding: 8px 10px;
+  }
+
   .segmented {
     width: var(--mobile-content-width);
     max-width: var(--mobile-content-width);
@@ -644,5 +652,6 @@ textarea:focus {
 
   .capture-actions .command-button {
     flex: 0 1 auto;
+    padding: 0 10px;
   }
 }

@@ -70,6 +70,11 @@ try {
     setValue("#thoughtInput", "Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
+    setValue("#quoteInput", "Spaced repetition improves durable recall.");
+    const quote = document.querySelector("#quoteInput");
+    const start = quote.value.indexOf("durable");
+    quote.setSelectionRange(start, start + "durable".length);
+    document.querySelector("#captureClozeBtn").click();
     document.querySelector("#notesPreviewBtn").click();
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
@@ -82,19 +87,23 @@ try {
       previewText: document.querySelector("#notesPreview").textContent,
       captures: session.captures.length,
       cards: session.reviewCards.length,
+      latestPrompt: session.reviewCards[0].prompt,
+      latestAnswer: session.reviewCards[0].answer,
       schemaVersion: workspace.schemaVersion,
       clientId: workspace.clientId
     };
   })()`);
 
   assert.equal(exceptions.length, 0);
-  assert.equal(result.captures, 1);
-  assert.equal(result.cards, 1);
-  assert.equal(result.captureMetric, "1");
-  assert.equal(result.cardMetric, "1");
-  assert.equal(result.dueMetric, "1");
+  assert.equal(result.captures, 2);
+  assert.equal(result.cards, 2);
+  assert.equal(result.captureMetric, "2");
+  assert.equal(result.cardMetric, "2");
+  assert.equal(result.dueMetric, "2");
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /compiler-enforced lifetimes/);
+  assert.match(result.latestPrompt, /____/);
+  assert.match(result.latestAnswer, /durable/);
   assert.match(result.previewText, /Learning Companion MVP/);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);

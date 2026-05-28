@@ -224,7 +224,10 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
 
   let createdCard = null;
   if (options.promoteToReview) {
-    createdCard = createReviewCardFromCapture(capture, workspace.clientId);
+    createdCard = createReviewCardFromCapture(capture, workspace.clientId, {
+      prompt: options.reviewPrompt,
+      answer: options.reviewAnswer
+    });
   }
 
   return {
@@ -242,11 +245,11 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   };
 }
 
-export function createReviewCardFromCapture(capture, originClientId = capture.originClientId) {
-  const prompt = capture.thought
+export function createReviewCardFromCapture(capture, originClientId = capture.originClientId, overrides = {}) {
+  const prompt = cleanText(overrides.prompt, MAX_CAPTURE_TEXT_LENGTH) || (capture.thought
     ? `Recall the point behind: ${capture.thought}`
-    : `Explain this excerpt: ${capture.quote.slice(0, 160)}`;
-  const answer = [capture.quote, capture.timestamp ? `Time: ${capture.timestamp}` : ""]
+    : `Explain this excerpt: ${capture.quote.slice(0, 160)}`);
+  const answer = [cleanText(overrides.answer, MAX_CAPTURE_TEXT_LENGTH) || capture.quote, capture.timestamp ? `Time: ${capture.timestamp}` : ""]
     .filter(Boolean)
     .join("\n\n");
   const timestamp = nowIso();

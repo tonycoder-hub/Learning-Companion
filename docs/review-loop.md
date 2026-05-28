@@ -5,10 +5,11 @@ The MVP review system is deliberately small but real enough to guide learning be
 ## Card Lifecycle
 
 1. A capture can be promoted into a review card.
-2. New cards are due immediately.
-3. `Review Next` surfaces the earliest due card.
-4. `Again` lowers strength and keeps the card close.
-5. `Good` increases strength and schedules the next review.
+2. A selected span inside a quote can become a cloze card.
+3. New cards are due immediately.
+4. `Review Next` surfaces the earliest due card.
+5. `Again` lowers strength and keeps the card close.
+6. `Good` increases strength and schedules the next review.
 
 ## Scheduling Buckets
 

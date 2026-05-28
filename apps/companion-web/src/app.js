@@ -43,6 +43,7 @@ const dom = {
   thoughtInput: document.querySelector("#thoughtInput"),
   captureBtn: document.querySelector("#captureBtn"),
   captureCardBtn: document.querySelector("#captureCardBtn"),
+  captureClozeBtn: document.querySelector("#captureClozeBtn"),
   notesEditor: document.querySelector("#notesEditor"),
   notesPreview: document.querySelector("#notesPreview"),
   notesEditBtn: document.querySelector("#notesEditBtn"),
@@ -138,6 +139,7 @@ document.addEventListener("visibilitychange", () => {
 
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
+dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
 dom.reviewNextBtn.addEventListener("click", () => {
   activeTab = "review";
   const session = getActiveSession(workspace);
@@ -248,16 +250,40 @@ function updateSessionFromFields() {
 
 function capture(promoteToReview) {
   const session = getActiveSession(workspace);
+  const cloze = promoteToReview === "cloze" ? buildCloze() : null;
+  if (promoteToReview === "cloze" && !cloze) {
+    showToast("Select text in the quote");
+    dom.quoteInput.focus();
+    return;
+  }
   workspace = addCapture(workspace, session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
     timestamp: dom.timestampInput.value,
     tags: dom.sessionTags.value
-  }, { promoteToReview });
+  }, {
+    promoteToReview: Boolean(promoteToReview),
+    reviewPrompt: cloze?.prompt,
+    reviewAnswer: cloze?.answer
+  });
   dom.quoteInput.value = "";
   dom.thoughtInput.value = "";
   persistAndRender(promoteToReview ? "Capture + card saved" : "Capture saved");
   dom.quoteInput.focus();
+}
+
+function buildCloze() {
+  const quote = dom.quoteInput.value;
+  const start = dom.quoteInput.selectionStart;
+  const end = dom.quoteInput.selectionEnd;
+  const selected = quote.slice(start, end).trim();
+  if (!selected) return null;
+  const before = quote.slice(0, start);
+  const after = quote.slice(end);
+  return {
+    prompt: `${before}____${after}`.trim(),
+    answer: selected
+  };
 }
 
 function scheduleSave() {
