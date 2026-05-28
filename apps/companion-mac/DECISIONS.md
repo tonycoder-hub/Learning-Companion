@@ -18,7 +18,7 @@ Boundaries:
 
 - This is not yet the full Mac app.
 - It has clipboard-to-capture menu commands, a best-effort global clipboard capture hotkey, and native window commands for a narrow sidecar layout.
-- It has best-effort active browser title/URL capture, but no deeper browser bridge or selected-text capture without copy-first.
+- It has best-effort active browser title/URL capture and best-effort selected-text capture, but no deeper browser bridge.
 - No packaged `.app`, signing, notarization, auto-update, or menu bar workflow.
 
 Guardrails:
@@ -31,6 +31,7 @@ Guardrails:
 - The web bridge is intentionally unprivileged: it only exposes workspace JSON import/export already available in the browser UI, while all native file access remains behind user-initiated AppKit panels.
 - Import rejects files larger than 5 MB or non-UTF-8 content before handing text to WebKit, and surfaces those failures through an `NSAlert`.
 - `Save Clipboard as Capture` reads the pasteboard only after an explicit menu command or `Ctrl+Option+Cmd+C` hotkey, then calls the same web-model capture path as the browser UI. It does not inspect browser state, browser cookies, or the current selection directly.
+- `Save Selected Text as Capture` uses macOS Accessibility only after an explicit menu command or `Ctrl+Option+Cmd+X` hotkey, and asks macOS for Accessibility permission at that moment if needed. It reads `AXSelectedText` from the frontmost app, never falls back to the full focused-field value, never writes to the pasteboard, treats an exposed empty selection as "no selection" rather than fallback, and only degrades to clipboard capture when the pasteboard has changed since the last native capture. The fallback path uses an explicit activity label.
 - Global hotkey registration is intentionally visible in the Capture menu. If another app owns the shortcut, the shell marks the hotkey unavailable and writes a short local diagnostic without any clipboard content.
 - Browser page context is best-effort and copy-first: the global hotkey tries to ask the frontmost Safari/Chromium-family browser for active page title and URL before the shell activates, then sends those fields through the same source-aware routing path as bookmarklet captures. If macOS automation access is unavailable, the capture still saves without source context.
 - Browser context is limited to `http` and `https` pages. Browser internal pages, local files, unsupported reading apps, no-tab states, and denied macOS Automation prompts degrade to text-only capture. Private/incognito windows are not detectable through this simple bridge; if a user captures there, the active page title/URL may be saved like any other page.
@@ -49,4 +50,4 @@ Manual QA checklist before treating the sidecar window as release-ready:
 Next decisions:
 
 - Decide whether to grow this shell with native AppKit affordances or pivot to Tauri/Electron before adding user-visible Mac-only features.
-- If this path continues, add selected-text capture without copy-first, packaged `.app` creation, and a richer browser-context bridge deliberately.
+- If this path continues, add packaged `.app` creation, permission onboarding, and a richer browser-context bridge deliberately.

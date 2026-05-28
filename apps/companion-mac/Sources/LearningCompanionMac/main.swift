@@ -1,4 +1,5 @@
 import AppKit
+import ApplicationServices
 import Carbon.HIToolbox
 import UniformTypeIdentifiers
 import WebKit
@@ -8,9 +9,21 @@ private struct BrowserContext {
   let url: String
 }
 
+private enum SelectedTextCaptureState {
+  case text(String)
+  case emptySelection
+  case unavailable
+}
+
+private enum AccessibilityStringAttribute {
+  case value(String)
+  case unavailable
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
   private let maxWorkspaceImportBytes = 5_000_000
   private let clipboardCaptureHotKeyId: UInt32 = 1
+  private let selectedTextCaptureHotKeyId: UInt32 = 2
   private let standardMinSize = NSSize(width: 760, height: 560)
   private let sidecarMinSize = NSSize(width: 390, height: 560)
   private let standardFrameAutosaveName = "LearningCompanionMainWindow"
@@ -19,12 +32,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
   private var webView: WKWebView?
   private var webRoot: URL?
   private var clipboardCaptureHotKeyRef: EventHotKeyRef?
+  private var selectedTextCaptureHotKeyRef: EventHotKeyRef?
   private var clipboardCaptureEventHandler: EventHandlerRef?
   private var clipboardCaptureHotKeyStatusItem: NSMenuItem?
+  private var selectedTextCaptureStatusItem: NSMenuItem?
   private var standardWindowFrame: NSRect?
   private var keepAboveOthersMenuItem: NSMenuItem?
   private var keepsWindowAboveOthers = false
   private var pendingWebSidecarLayout: Bool?
+  private var lastObservedPasteboardChangeCount = NSPasteboard.general.changeCount
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     let webRoot = resolveWebRoot()
@@ -52,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     self.webView = view
     self.webRoot = webRoot.standardizedFileURL
     installMainMenu()
-    registerClipboardCaptureHotKey()
+    registerCaptureHotKeys()
 
     if FileManager.default.fileExists(atPath: indexFile.path) {
       view.loadFileURL(indexFile, allowingReadAccessTo: webRoot)
@@ -97,7 +113,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       NSSound.beep()
       return
     }
-    captureClipboardText(text, promoteToReview: false, browserContext: frontmostBrowserContext())
+    let pasteboardChangeCount = NSPasteboard.general.changeCount
+    captureClipboardText(text, promoteToReview: false, browserContext: frontmostBrowserContext(), captureSource: "clipboard") { [weak self] in
+      self?.lastObservedPasteboardChangeCount = pasteboardChangeCount
+    }
+  }
+
+  @objc private func saveSelectedTextAsCapture(_ sender: Any?) {
+    let browserContext = frontmostBrowserContext()
+    if !AXIsProcessTrusted() {
+      requestAccessibilityPermission()
+      updateSelectedTextCaptureStatus()
+    }
+    switch selectedTextFromFrontmostApplication() {
+    case .text(let selectedText):
+      let pasteboardChangeCount = NSPasteboard.general.changeCount
+      captureClipboardText(selectedText, promoteToReview: false, browserContext: browserContext, captureSource: "selected-text") { [weak self] in
+        self?.lastObservedPasteboardChangeCount = pasteboardChangeCount
+      }
+      return
+    case .emptySelection:
+      updateSelectedTextCaptureStatus("Selected Text: no selection detected")
+      NSSound.beep()
+      return
+    case .unavailable:
+      break
+    }
+    updateSelectedTextCaptureStatus()
+    guard let fallback = freshClipboardTextForSelectedFallback() else {
+      updateSelectedTextCaptureStatus("Selected Text: no selection/new clipboard")
+      NSSound.beep()
+      return
+    }
+    let pasteboardChangeCount = NSPasteboard.general.changeCount
+    captureClipboardText(fallback, promoteToReview: false, browserContext: browserContext, captureSource: "clipboard-fallback") { [weak self] in
+      self?.lastObservedPasteboardChangeCount = pasteboardChangeCount
+    }
   }
 
   @objc private func exportWorkspace(_ sender: Any?) {
@@ -193,6 +244,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     if let clipboardCaptureHotKeyRef {
       UnregisterEventHotKey(clipboardCaptureHotKeyRef)
     }
+    if let selectedTextCaptureHotKeyRef {
+      UnregisterEventHotKey(selectedTextCaptureHotKeyRef)
+    }
     if let clipboardCaptureEventHandler {
       RemoveEventHandler(clipboardCaptureEventHandler)
     }
@@ -278,6 +332,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     let captureItem = NSMenuItem()
     let captureMenu = NSMenu(title: "Capture")
+    let saveSelectedCapture = NSMenuItem(
+      title: "Save Selected Text as Capture",
+      action: #selector(saveSelectedTextAsCapture(_:)),
+      keyEquivalent: "x"
+    )
+    saveSelectedCapture.keyEquivalentModifierMask = [.command, .option, .control]
+    saveSelectedCapture.target = self
+    captureMenu.addItem(saveSelectedCapture)
     let saveClipboardCapture = NSMenuItem(
       title: "Save Clipboard as Capture",
       action: #selector(saveClipboardAsCapture(_:)),
@@ -300,6 +362,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     hotKeyStatus.isEnabled = false
     clipboardCaptureHotKeyStatusItem = hotKeyStatus
     captureMenu.addItem(hotKeyStatus)
+    let selectedTextStatus = NSMenuItem(title: selectedTextCaptureStatusTitle(), action: nil, keyEquivalent: "")
+    selectedTextStatus.isEnabled = false
+    selectedTextCaptureStatusItem = selectedTextStatus
+    captureMenu.addItem(selectedTextStatus)
     captureItem.submenu = captureMenu
     mainMenu.addItem(captureItem)
 
@@ -344,7 +410,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     return text
   }
 
-  private func registerClipboardCaptureHotKey() {
+  private func freshClipboardTextForSelectedFallback() -> String? {
+    let pasteboard = NSPasteboard.general
+    guard pasteboard.changeCount != lastObservedPasteboardChangeCount,
+          pasteboard.types?.contains(.string) == true else {
+      return nil
+    }
+    return clipboardText()
+  }
+
+  private func registerCaptureHotKeys() {
     var eventType = EventTypeSpec(
       eventClass: OSType(kEventClassKeyboard),
       eventKind: UInt32(kEventHotKeyPressed)
@@ -367,13 +442,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
           &hotKeyId
         )
         guard status == noErr,
-              hotKeyId.signature == fourCharCode("LCAP"),
-              hotKeyId.id == 1 else {
+              hotKeyId.signature == fourCharCode("LCAP") else {
           return noErr
         }
         let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
         DispatchQueue.main.async {
-          delegate.saveClipboardAsCapture(nil)
+          if hotKeyId.id == delegate.selectedTextCaptureHotKeyId {
+            delegate.saveSelectedTextAsCapture(nil)
+          } else if hotKeyId.id == delegate.clipboardCaptureHotKeyId {
+            delegate.saveClipboardAsCapture(nil)
+          }
         }
         return noErr
       },
@@ -388,41 +466,87 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       return
     }
 
-    let hotKeyId = EventHotKeyID(signature: fourCharCode("LCAP"), id: clipboardCaptureHotKeyId)
-    let modifiers = UInt32(cmdKey | optionKey | controlKey)
-    let registerStatus = RegisterEventHotKey(
-      UInt32(kVK_ANSI_C),
-      modifiers,
-      hotKeyId,
-      GetApplicationEventTarget(),
-      0,
-      &clipboardCaptureHotKeyRef
+    let clipboardStatus = registerCaptureHotKey(
+      id: clipboardCaptureHotKeyId,
+      keyCode: UInt32(kVK_ANSI_C),
+      ref: &clipboardCaptureHotKeyRef
     )
-    if registerStatus == noErr {
+    if clipboardStatus == noErr {
       updateClipboardCaptureHotKeyStatus("Global Hotkey: Ctrl+Option+Cmd+C")
     } else {
       clipboardCaptureHotKeyRef = nil
+      updateClipboardCaptureHotKeyStatus("Global Hotkey: unavailable")
+      fputs("Learning Companion: global clipboard hotkey registration failed (\(clipboardStatus))\n", stderr)
+    }
+
+    let selectedStatus = registerCaptureHotKey(
+      id: selectedTextCaptureHotKeyId,
+      keyCode: UInt32(kVK_ANSI_X),
+      ref: &selectedTextCaptureHotKeyRef
+    )
+    if selectedStatus == noErr {
+      updateSelectedTextCaptureStatus()
+    } else {
+      selectedTextCaptureHotKeyRef = nil
+      updateSelectedTextCaptureStatus("Selected Text: hotkey unavailable")
+      fputs("Learning Companion: selected text hotkey registration failed (\(selectedStatus))\n", stderr)
+    }
+
+    if clipboardCaptureHotKeyRef == nil && selectedTextCaptureHotKeyRef == nil {
       if let clipboardCaptureEventHandler {
         RemoveEventHandler(clipboardCaptureEventHandler)
         self.clipboardCaptureEventHandler = nil
       }
-      updateClipboardCaptureHotKeyStatus("Global Hotkey: unavailable")
-      fputs("Learning Companion: global clipboard hotkey registration failed (\(registerStatus))\n", stderr)
     }
+  }
+
+  private func registerCaptureHotKey(id: UInt32, keyCode: UInt32, ref: inout EventHotKeyRef?) -> OSStatus {
+    let hotKeyId = EventHotKeyID(signature: fourCharCode("LCAP"), id: id)
+    let modifiers = UInt32(cmdKey | optionKey | controlKey)
+    return RegisterEventHotKey(
+      keyCode,
+      modifiers,
+      hotKeyId,
+      GetApplicationEventTarget(),
+      0,
+      &ref
+    )
   }
 
   private func updateClipboardCaptureHotKeyStatus(_ title: String) {
     clipboardCaptureHotKeyStatusItem?.title = title
   }
 
-  private func captureClipboardText(_ text: String, promoteToReview: Bool, browserContext: BrowserContext? = nil) {
+  private func updateSelectedTextCaptureStatus(_ fallbackTitle: String? = nil) {
+    selectedTextCaptureStatusItem?.title = fallbackTitle ?? selectedTextCaptureStatusTitle()
+  }
+
+  private func selectedTextCaptureStatusTitle() -> String {
+    AXIsProcessTrusted()
+      ? "Selected Text: Ctrl+Option+Cmd+X"
+      : "Selected Text: needs Accessibility permission"
+  }
+
+  private func requestAccessibilityPermission() {
+    let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+    _ = AXIsProcessTrustedWithOptions(options)
+  }
+
+  private func captureClipboardText(
+    _ text: String,
+    promoteToReview: Bool,
+    browserContext: BrowserContext? = nil,
+    captureSource: String = "clipboard",
+    onSuccess: (() -> Void)? = nil
+  ) {
     guard let webView,
           let encoded = jsonStringLiteral(text) else {
       NSSound.beep()
       return
     }
     var options: [String: Any] = [
-      "promoteToReview": promoteToReview
+      "promoteToReview": promoteToReview,
+      "captureSource": captureSource
     ]
     if let browserContext {
       options["sourceTitle"] = browserContext.title
@@ -448,9 +572,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             let data = text.data(using: .utf8),
             let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             payload["ok"] as? Bool == true else {
-        self?.showError("Could not save the clipboard text as a capture.")
+        self?.showError("Could not save the text as a capture.")
         return
       }
+      onSuccess?()
     }
   }
 
@@ -504,6 +629,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       return nil
     }
     return BrowserContext(title: title, url: url)
+  }
+
+  private func selectedTextFromFrontmostApplication() -> SelectedTextCaptureState {
+    guard AXIsProcessTrusted(),
+          let app = NSWorkspace.shared.frontmostApplication,
+          app.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
+      return .unavailable
+    }
+    let appElement = AXUIElementCreateApplication(app.processIdentifier)
+    guard let focused = axAttribute(appElement, kAXFocusedUIElementAttribute) else {
+      return .unavailable
+    }
+    switch axStringAttribute(focused, kAXSelectedTextAttribute) {
+    case .value(let selectedText):
+      let trimmed = selectedText.trimmingCharacters(in: .whitespacesAndNewlines)
+      return trimmed.isEmpty ? .emptySelection : .text(trimmed)
+    case .unavailable:
+      return .unavailable
+    }
+  }
+
+  private func axAttribute(_ element: AXUIElement, _ name: String) -> AXUIElement? {
+    var value: CFTypeRef?
+    let status = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+    guard status == .success,
+          let element = value,
+          CFGetTypeID(element) == AXUIElementGetTypeID() else {
+      return nil
+    }
+    return (element as! AXUIElement)
+  }
+
+  private func axStringAttribute(_ element: AXUIElement, _ name: String) -> AccessibilityStringAttribute {
+    var value: CFTypeRef?
+    let status = AXUIElementCopyAttributeValue(element, name as CFString, &value)
+    guard status == .success,
+          let text = value as? String else {
+      return .unavailable
+    }
+    return .value(text)
   }
 
   private func requestWebSidecarLayout(_ enabled: Bool) {

@@ -685,6 +685,7 @@ function captureTextFromNative(text, options = {}) {
   const sourceTitle = String(options.sourceTitle || "");
   const sourceUrl = String(options.sourceUrl || "");
   const timestamp = String(options.timestamp || "");
+  const captureSource = normalizeNativeCaptureSource(options.captureSource);
   const target = resolveInboundCaptureTarget(workspace, { sourceUrl, sourceTitle });
   const preserveSessionSource = target.resolution !== "active-fallback";
   const activeFallbackSourceUpdated = target.resolution === "active-fallback" && (
@@ -717,15 +718,16 @@ function captureTextFromNative(text, options = {}) {
   activeTab = promoteToReview ? "review" : "captures";
   const updated = getActiveSession(workspace);
   const capture = updated.captures[0];
+  const activityTitle = nativeCaptureActivityTitle(captureSource, promoteToReview);
   setActivity(updated, {
-    title: promoteToReview ? "Clipboard capture and card saved" : "Clipboard capture saved",
+    title: activityTitle,
     detail: sourceTitle || sourceUrl
       ? `${summarizeCapture(capture)} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`
       : summarizeCapture(capture),
     tab: activeTab,
     targetId: promoteToReview ? updated.reviewCards[0]?.id : capture?.id
   });
-  persistAndRender(promoteToReview ? "Clipboard capture + card saved" : "Clipboard capture saved");
+  persistAndRender(activityTitle);
   return {
     ok: true,
     sessionId: updated.id,
@@ -734,8 +736,24 @@ function captureTextFromNative(text, options = {}) {
     captures: updated.captures.length,
     activeTab,
     sourceAttached: Boolean(sourceTitle || sourceUrl),
-    resolution: target.resolution
+    resolution: target.resolution,
+    captureSource
   };
+}
+
+function normalizeNativeCaptureSource(value) {
+  const source = String(value || "").trim();
+  return ["selected-text", "clipboard-fallback", "clipboard"].includes(source) ? source : "clipboard";
+}
+
+function nativeCaptureActivityTitle(captureSource, promoteToReview) {
+  if (captureSource === "selected-text") {
+    return promoteToReview ? "Selected text capture and card saved" : "Selected text capture saved";
+  }
+  if (captureSource === "clipboard-fallback") {
+    return promoteToReview ? "Clipboard fallback capture and card saved" : "Clipboard fallback capture saved";
+  }
+  return promoteToReview ? "Clipboard capture and card saved" : "Clipboard capture saved";
 }
 
 function buildCloze() {

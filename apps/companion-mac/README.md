@@ -2,7 +2,7 @@
 
 This is a minimal native macOS shell for the local web MVP. It deliberately has no package dependencies and loads `apps/companion-web/index.html` in a `WKWebView`.
 
-It is a WKWebView shell, not the finished Mac app: no selected-text capture without copy-first, no notarization, and not redistributable yet.
+It is a WKWebView shell, not the finished Mac app: no notarization, no packaged permission onboarding, and not redistributable yet.
 
 ## Run
 
@@ -21,8 +21,10 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 ## Current Scope
 
 - Opens the existing local-first web app in a resizable Mac window.
+- Adds `Capture > Save Selected Text as Capture` (`Ctrl+Option+Cmd+X`) plus a matching best-effort global hotkey. If macOS Accessibility access is available and the frontmost app exposes selected text, the shell saves that selection directly.
 - Adds `Capture > Save Clipboard as Capture` (`Ctrl+Option+Cmd+C`) plus a matching best-effort global hotkey. Copy text in another app, press the shortcut, and the shell brings Learning Companion forward and saves the clipboard text into the active topic.
 - When the hotkey is pressed while Safari or a Chromium-family browser is frontmost, the shell tries to attach the active page title and URL to the capture. macOS may ask whether Learning Companion can control that browser; if permission is denied or unavailable, the text capture still works without page context.
+- If selected-text capture cannot read a selection because the frontmost app does not expose one, it prompts for Accessibility access when needed and only falls back to clipboard capture when the clipboard has changed since the last native capture. That fallback uses an explicit `Clipboard fallback` activity label. The Capture menu shows whether Accessibility access is currently available.
 - Adds a local `Capture > Fill Capture From Clipboard` command (`Cmd+Shift+V`) that places clipboard text into Quick Capture without requiring global hotkey permissions.
 - Shows the global hotkey registration status in the Capture menu so shortcut collisions are visible during development.
 - Adds app-focused `File > Export Workspace...` (`Shift+Cmd+E`) and `File > Import Workspace...` (`Cmd+O`) commands for local JSON backup/restore without browser downloads.
@@ -35,7 +37,7 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 ## Not Yet
 
 - No deep browser bridge beyond best-effort active page title/URL.
-- No selected-text capture without copying first; the global hotkey reads the clipboard only after you press it and page context is best-effort.
+- Selected-text capture is best-effort only; some browsers, PDFs, and native document apps may not expose selected text through Accessibility. If the focused element exposes an empty selection, the shell does not fall back to an older clipboard item.
 - No packaged `.app` menu polish beyond the current capture, sidecar, and workspace file commands.
 - No packaged `.app` signing/notarization flow.
 

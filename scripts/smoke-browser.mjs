@@ -1200,6 +1200,14 @@ try {
       sourceTitle: "Native browser docs",
       sourceUrl: "https://developer.mozilla.org/en-US/docs/Web/API/Selection"
     });
+    const selectedResult = window.learningCompanionNative.captureClipboardText("Native selected source label.", {
+      captureSource: "selected-text"
+    });
+    const selectedActivityTitle = document.querySelector("#activityTitle").textContent;
+    const fallbackResult = window.learningCompanionNative.captureClipboardText("Native fallback source label.", {
+      captureSource: "clipboard-fallback"
+    });
+    const fallbackActivityTitle = document.querySelector("#activityTitle").textContent;
     document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Native source target");
     setValue("#sourceTitle", "Native original page");
@@ -1220,6 +1228,11 @@ try {
       browserOk: browserResult.ok,
       browserSourceAttached: browserResult.sourceAttached,
       browserResolution: browserResult.resolution,
+      defaultCaptureSource: result.captureSource,
+      selectedCaptureSource: selectedResult.captureSource,
+      selectedActivityTitle,
+      fallbackCaptureSource: fallbackResult.captureSource,
+      fallbackActivityTitle,
       matchedOk: matchedResult.ok,
       matchedResolution: matchedResult.resolution,
       activeTab: result.activeTab,
@@ -1242,6 +1255,11 @@ try {
   assert.equal(nativeClipboardCapture.browserOk, true);
   assert.equal(nativeClipboardCapture.browserSourceAttached, true);
   assert.equal(nativeClipboardCapture.browserResolution, "active-fallback");
+  assert.equal(nativeClipboardCapture.defaultCaptureSource, "clipboard");
+  assert.equal(nativeClipboardCapture.selectedCaptureSource, "selected-text");
+  assert.equal(nativeClipboardCapture.selectedActivityTitle, "Selected text capture saved");
+  assert.equal(nativeClipboardCapture.fallbackCaptureSource, "clipboard-fallback");
+  assert.equal(nativeClipboardCapture.fallbackActivityTitle, "Clipboard fallback capture saved");
   assert.equal(nativeClipboardCapture.matchedOk, true);
   assert.equal(nativeClipboardCapture.matchedResolution, "matched-source-url");
   assert.equal(nativeClipboardCapture.activeTab, "captures");
