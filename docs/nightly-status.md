@@ -15,6 +15,7 @@ product/mvp-learning-sidecar
 - Capture-to-review-card promotion.
 - Cloze review card authoring from selected quote text.
 - Due review queue with simple strength buckets.
+- Self-graded Again/Good review outcomes with isolated scheduling policy.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
