@@ -30,6 +30,10 @@ echo "== Morning demo pack =="
 npm run demo:morning
 echo
 
+echo "== Mirror integrity =="
+npm run mirror:integrity
+echo
+
 echo "== Git status =="
 git status --short
 echo
