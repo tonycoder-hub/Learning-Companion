@@ -2,6 +2,7 @@ import {
   WORKSPACE_SCHEMA,
   MAX_INBOX_PATCH_BYTES,
   MAX_MIRROR_BUNDLE_BYTES,
+  MAX_SEARCH_QUERY_LENGTH,
   addCapture,
   addSession,
   applyMobileInboxPatch,
@@ -29,6 +30,7 @@ import {
   promoteCapture,
   safeHref,
   sanitizeWorkspace,
+  searchWorkspace,
   selectSession,
   updateSession,
   workspaceFromPortableData
@@ -45,6 +47,7 @@ const dom = {
   inspector: document.querySelector(".inspector"),
   workspaceMeta: document.querySelector("#workspaceMeta"),
   searchInput: document.querySelector("#searchInput"),
+  searchResults: document.querySelector("#searchResults"),
   newSessionBtn: document.querySelector("#newSessionBtn"),
   exportWorkspaceBtn: document.querySelector("#exportWorkspaceBtn"),
   importWorkspaceInput: document.querySelector("#importWorkspaceInput"),
@@ -199,7 +202,13 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
   }
 });
 
-dom.searchInput.addEventListener("input", renderSessions);
+dom.searchInput.addEventListener("input", () => {
+  if (dom.searchInput.value.length > MAX_SEARCH_QUERY_LENGTH) {
+    dom.searchInput.value = dom.searchInput.value.slice(0, MAX_SEARCH_QUERY_LENGTH);
+  }
+  renderSessions();
+  renderSearchResults();
+});
 
 ["input", "change"].forEach((eventName) => {
   dom.sessionTitle.addEventListener(eventName, updateSessionFromFields);
@@ -313,6 +322,17 @@ document.addEventListener("keydown", (event) => {
   if (isMod && event.key.toLowerCase() === "s") {
     event.preventDefault();
     persistAndRender("Saved");
+  }
+  if (isMod && event.key.toLowerCase() === "k") {
+    event.preventDefault();
+    if (uiPrefs.sidecarLayout) {
+      uiPrefs = { ...uiPrefs, sidecarLayout: false };
+      saveUiPrefs();
+      renderShellMode();
+      renderActivity(getActiveSession(workspace));
+    }
+    dom.searchInput.focus();
+    dom.searchInput.select();
   }
   if (isMod && event.key === "\\") {
     if (isEditableTarget(event.target)) return;
@@ -564,6 +584,7 @@ function render() {
   renderImportReceipt();
   renderMetrics();
   renderSessions();
+  renderSearchResults();
   renderInspector();
 }
 
@@ -736,6 +757,10 @@ function scrollActivityTarget(activity) {
     : `[data-capture-id="${CSS.escape(activity.targetId)}"]`;
   const target = document.querySelector(selector);
   target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  pulseNode(target);
+}
+
+function pulseNode(target) {
   target?.classList.add("pulse");
   setTimeout(() => target?.classList.remove("pulse"), 900);
 }
@@ -984,6 +1009,10 @@ function renderSessions() {
   const visible = filterSessions(workspace, dom.searchInput.value);
   const active = getActiveSession(workspace);
   clearChildren(dom.sessionList);
+  if (!visible.length) {
+    dom.sessionList.append(emptyState("No matching sessions"));
+    return;
+  }
   visible.forEach((session) => {
     const button = document.createElement("button");
     button.type = "button";
@@ -998,6 +1027,106 @@ function renderSessions() {
     });
     dom.sessionList.append(button);
   });
+}
+
+function renderSearchResults() {
+  if (!dom.searchResults) return;
+  const query = dom.searchInput.value.trim();
+  dom.searchResults.hidden = !query;
+  clearChildren(dom.searchResults);
+  if (!query) return;
+  const results = searchWorkspace(workspace, query, 7);
+  const heading = document.createElement("div");
+  heading.className = "search-results-heading";
+  heading.append(textEl("strong", "", "Find"), textEl("span", "", results.length ? `${results.length} matches` : "No matches"));
+  dom.searchResults.append(heading);
+  if (!results.length) {
+    dom.searchResults.append(textEl("p", "search-empty", "Try source titles, quote text, notes, tags, or card prompts."));
+    return;
+  }
+  results.forEach((result) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "search-result";
+    button.append(
+      textEl("span", "search-result-type", searchTypeLabel(result.type)),
+      textEl("strong", "search-result-title", result.title),
+      textEl("span", "search-result-meta", [result.matchLabel, result.meta].filter(Boolean).join(" · ")),
+      textEl("span", "search-result-excerpt", result.excerpt)
+    );
+    button.addEventListener("click", () => openSearchResult(result));
+    dom.searchResults.append(button);
+  });
+}
+
+function openSearchResult(result) {
+  const targetSession = workspace.sessions.find((session) => session.id === result.sessionId);
+  if (!targetSession) {
+    showToast("Search result no longer exists");
+    renderSearchResults();
+    return;
+  }
+  if (result.type === "capture" && !targetSession.captures.some((capture) => capture.id === result.targetId)) {
+    showToast("Capture no longer exists");
+    renderSearchResults();
+    return;
+  }
+  if (result.type === "review" && !targetSession.reviewCards.some((card) => card.id === result.targetId)) {
+    showToast("Review card no longer exists");
+    renderSearchResults();
+    return;
+  }
+  workspace = selectSession(workspace, result.sessionId);
+  const session = getActiveSession(workspace);
+  if (result.type === "review") {
+    workspace = updateSession(workspace, session.id, { focusMode: "review" });
+    activeTab = "review";
+    activeReviewKey = reviewKey(result.sessionId, result.targetId);
+    revealedReviewCards.delete(activeReviewKey);
+    setActivity(getActiveSession(workspace), {
+      title: "Search result opened",
+      detail: `${result.matchLabel} · ${result.title}`,
+      tab: "review",
+      targetId: result.targetId
+    });
+    persistAndRender();
+    renderDeskReview();
+    scrollActivityTarget({ tab: "review", targetId: result.targetId });
+    return;
+  }
+  if (result.type === "capture") {
+    workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+    activeTab = "captures";
+    setActivity(getActiveSession(workspace), {
+      title: "Search result opened",
+      detail: `${result.matchLabel} · ${result.title}`,
+      tab: "captures",
+      targetId: result.targetId
+    });
+    persistAndRender();
+    scrollActivityTarget({ tab: "captures", targetId: result.targetId });
+    return;
+  }
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  activeTab = "today";
+  notesMode = result.type === "note" ? "preview" : notesMode;
+  setActivity(getActiveSession(workspace), {
+    title: result.type === "note" ? "Notes match opened" : "Session selected",
+    detail: `${result.matchLabel} · ${result.title}`,
+    tab: "captures",
+    targetId: ""
+  });
+  persistAndRender();
+  if (result.type === "note") pulseNode(document.querySelector(".editor-pane"));
+}
+
+function searchTypeLabel(type) {
+  return {
+    session: "Source",
+    note: "Note",
+    capture: "Capture",
+    review: "Card"
+  }[type] || "Match";
 }
 
 function renderInspector() {

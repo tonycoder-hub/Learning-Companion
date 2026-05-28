@@ -16,6 +16,7 @@ product/mvp-learning-sidecar
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
 - Deterministic Focus Brief in the desk with next action, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
+- Workspace Find searches source titles, notes, captures, tags, and review cards, then jumps back to the matching session and surface.
 - Sessions, source context, timestamp, tags.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought.
@@ -47,7 +48,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Today tab/direct Today export/mirror home/study pack/static review pack/static inbox page, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mobile inbox patch import, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Workspace Find jump-to-capture behavior, Today tab/direct Today export/mirror home/study pack/static review pack/static inbox page, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mobile inbox patch import, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -74,8 +75,7 @@ npm run check:morning
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `check:morning` runs the web smoke, browser UX smoke, Mac shell build, and prints git status.
 
-Latest post-hardening checks passed: JS syntax checks, `npm run smoke`, and `npm run mac:build`.
-`npm run smoke:browser` and `npm run check:morning` passed before the final inbox ID/receipt hardening; their final rerun is pending because the local approval layer blocked the browser-smoke escalation.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run smoke:browser`, `npm run mac:build`, and `npm run check:morning`.
 
 ## Review Notes Absorbed
 
@@ -100,6 +100,7 @@ Accepted from Mira:
 - Add a Mac shell clipboard-to-capture command as a local, permission-free step toward native capture.
 - Pin Focus Brief as a pure model-layer object, with deterministic next-action rules shared by desk UI and portable exports; add workspace-due fallback and synthesis-source freshness.
 - Prefer mobile inbox patch before static review-progress patch because capture import is append-only while scheduler merge conflicts are riskier.
+- Add Workspace Find as a local-only jump surface, with result text rendered via `textContent`, capped queries, and read-only navigation into captures/review/notes.
 
 Deferred:
 
@@ -124,6 +125,7 @@ Deferred:
 - Focus Brief workspace-review tie-break currently inherits the due queue ordering; document or expose that policy before making it adaptive.
 - Static `inbox.html` is designed for HarmonyOS/Windows manual capture, but real-device storage and download behavior are still unverified.
 - Mobile inbox patch is still manual transport; it is not real sync and depends on the user importing the patch on Mac.
+- Workspace Find is simple substring search; larger workspaces will need debounce/indexing and more per-result navigation assertions.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.

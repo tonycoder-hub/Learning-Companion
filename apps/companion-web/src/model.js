@@ -10,6 +10,7 @@ export const MAX_MIRROR_BUNDLE_BYTES = 25_000_000;
 export const MAX_MIRROR_CANONICAL_BYTES = 5_000_000;
 export const MAX_INBOX_PATCH_BYTES = 256_000;
 export const MAX_INBOX_PATCH_CAPTURES = 50;
+export const MAX_SEARCH_QUERY_LENGTH = 200;
 export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
 
@@ -792,7 +793,7 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
 }
 
 export function filterSessions(workspace, query) {
-  const needle = String(query || "").trim().toLowerCase();
+  const needle = cleanText(query, MAX_SEARCH_QUERY_LENGTH).toLocaleLowerCase();
   if (!needle) return workspace.sessions;
   return workspace.sessions.filter((session) => {
     const haystack = [
@@ -802,9 +803,85 @@ export function filterSessions(workspace, query) {
       session.notesMarkdown,
       session.tags.join(" "),
       ...session.captures.flatMap((capture) => [capture.quote, capture.thought, capture.tags.join(" ")])
-    ].join(" ").toLowerCase();
+    ].join(" ").toLocaleLowerCase();
     return haystack.includes(needle);
   });
+}
+
+export function searchWorkspace(workspace, query, limit = 8) {
+  const cleanWorkspace = sanitizeWorkspace(workspace);
+  const needle = cleanText(query, MAX_SEARCH_QUERY_LENGTH).toLocaleLowerCase();
+  if (!needle) return [];
+  const results = [];
+
+  cleanWorkspace.sessions.forEach((session) => {
+    addSearchResult(results, needle, {
+      type: "session",
+      sessionId: session.id,
+      targetId: session.id,
+      title: session.title,
+      meta: [session.sourceTitle || session.materialType, session.tags.map((tag) => `#${tag}`).join(" ")]
+        .filter(Boolean)
+        .join(" · "),
+      fields: [
+        { label: "Session", value: session.title, score: 70 },
+        { label: "Source", value: session.sourceTitle, score: 62 },
+        { label: "URL", value: session.sourceUrl, score: 50 },
+        { label: "Tags", value: session.tags.join(" "), score: 48 },
+        { label: "Type", value: session.materialType, score: 34 }
+      ]
+    });
+
+    addSearchResult(results, needle, {
+      type: "note",
+      sessionId: session.id,
+      targetId: "",
+      title: `${session.title} notes`,
+      meta: "Notes",
+      fields: [
+        { label: "Notes", value: session.notesMarkdown, score: 44 }
+      ]
+    });
+
+    session.captures.forEach((capture) => {
+      addSearchResult(results, needle, {
+        type: "capture",
+        sessionId: session.id,
+        targetId: capture.id,
+        title: capture.thought || capture.quote || capture.sourceTitle || "Untitled capture",
+        meta: [session.title, capture.timestamp || "", "Capture"].filter(Boolean).join(" · "),
+        fields: [
+          { label: "Thought", value: capture.thought, score: 66 },
+          { label: "Quote", value: capture.quote, score: 62 },
+          { label: "Source", value: capture.sourceTitle, score: 44 },
+          { label: "Tags", value: capture.tags.join(" "), score: 40 },
+          { label: "Time", value: capture.timestamp, score: 34 }
+        ]
+      });
+    });
+
+    session.reviewCards.forEach((card) => {
+      addSearchResult(results, needle, {
+        type: "review",
+        sessionId: session.id,
+        targetId: card.id,
+        title: card.prompt || "Review card",
+        meta: [session.title, "Review card", `strength ${card.strength}`].join(" · "),
+        fields: [
+          { label: "Prompt", value: card.prompt, score: 58 },
+          { label: "Answer", value: card.answer, score: 52 }
+        ]
+      });
+    });
+  });
+
+  return results
+    .sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      return a.title.localeCompare(b.title);
+    })
+    .slice(0, Math.max(1, Math.min(20, Number(limit) || 8)))
+    .map(({ score, ...result }) => result);
 }
 
 export function generateMarkdown(session) {
@@ -1194,6 +1271,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "        tags: fields.tags.value,",
     "        sourceTitle: clean(fields.sourceTitle.value, 160),",
     "        sourceUrl: safeUrl(fields.sourceUrl.value),",
+    "        sourceUrlProvided: Boolean(fields.sourceUrl.value.trim()),",
     "        materialType: currentTopic().materialType || 'other',",
     "        capturedAt: new Date().toISOString()",
     "      });",
@@ -1218,7 +1296,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "          thought: item.thought,",
     "          timestamp: item.timestamp,",
     "          sourceTitle: item.sourceTitle || topic.sourceTitle || '',",
-    "          sourceUrl: safeUrl(item.sourceUrl || topic.sourceUrl || ''),",
+    "          sourceUrl: item.sourceUrlProvided ? item.sourceUrl : safeUrl(topic.sourceUrl || ''),",
     "          materialType: item.materialType || topic.materialType || 'other',",
     "          tags: item.tags,",
     "          capturedAt: item.capturedAt",
@@ -1568,6 +1646,48 @@ function normalizeImportedPatches(value) {
     .filter(Boolean)
     .filter((item, index, all) => all.indexOf(item) === index)
     .slice(-200);
+}
+
+function addSearchResult(results, needle, candidate) {
+  const match = bestSearchMatch(candidate.fields, needle);
+  if (!match) return;
+  results.push({
+    type: candidate.type,
+    sessionId: candidate.sessionId,
+    targetId: candidate.targetId,
+    title: cleanText(candidate.title, MAX_TITLE_LENGTH) || "Untitled",
+    meta: cleanText(candidate.meta, MAX_TITLE_LENGTH),
+    excerpt: buildSearchExcerpt(match.value, needle),
+    matchLabel: match.label,
+    score: match.score
+  });
+}
+
+function bestSearchMatch(fields, needle) {
+  return fields.reduce((best, field) => {
+    const value = String(field.value || "");
+    if (!value.toLocaleLowerCase().includes(needle)) return best;
+    if (!best || field.score > best.score) {
+      return {
+        label: field.label,
+        value,
+        score: field.score
+      };
+    }
+    return best;
+  }, null);
+}
+
+function buildSearchExcerpt(value, needle) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (!text) return "";
+  const index = text.toLocaleLowerCase().indexOf(needle);
+  if (index < 0) return cleanText(text, 180);
+  const start = Math.max(0, index - 48);
+  const end = Math.min(text.length, index + needle.length + 92);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < text.length ? "..." : "";
+  return cleanText(`${prefix}${text.slice(start, end)}${suffix}`, 180);
 }
 
 function resolveInboxPatchTarget(workspace, patch) {

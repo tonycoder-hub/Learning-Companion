@@ -5,6 +5,7 @@ import {
   WORKSPACE_SCHEMA_VERSION,
   MAX_CAPTURE_TEXT_LENGTH,
   MAX_INBOX_PATCH_CAPTURES,
+  MAX_SEARCH_QUERY_LENGTH,
   MOBILE_INBOX_PATCH_SCHEMA,
   addCapture,
   addSession,
@@ -43,6 +44,7 @@ import {
   reviewIntervalDays,
   safeHref,
   sanitizeWorkspace,
+  searchWorkspace,
   timestampToSeconds,
   updateSession,
   workspaceFromPortableData
@@ -594,6 +596,23 @@ assert.ok(new Date(failed.dueAt).getTime() < new Date(passed.dueAt).getTime());
 
 const filtered = filterSessions(workspace, "ownership");
 assert.equal(filtered.length, 1);
+const captureSearch = searchWorkspace(workspace, "lifetime", 5);
+assert.equal(captureSearch[0].type, "capture");
+assert.equal(captureSearch[0].sessionId, session.id);
+assert.equal(captureSearch[0].targetId, session.captures[0].id);
+assert.match(captureSearch[0].excerpt, /lifetime/);
+const sourceSearch = searchWorkspace(workspace, "RustConf", 5);
+assert.equal(sourceSearch.some((result) => result.type === "session" && result.matchLabel === "Source"), true);
+const reviewSearch = searchWorkspace(workspace, "garbage collector", 5);
+assert.equal(reviewSearch.some((result) => result.type === "review" && result.targetId === session.reviewCards[0].id), true);
+workspace = updateSession(workspace, session.id, {
+  notesMarkdown: `${session.notesMarkdown}\n\nRemember the borrow checker comparison.`
+});
+session = getActiveSession(workspace);
+const noteSearch = searchWorkspace(workspace, "borrow checker", 5);
+assert.equal(noteSearch.some((result) => result.type === "note" && result.sessionId === session.id), true);
+const cappedSearch = searchWorkspace(workspace, `${"x".repeat(MAX_SEARCH_QUERY_LENGTH + 50)}lifetime`, 5);
+assert.equal(cappedSearch.length, 0);
 
 const sanitized = sanitizeWorkspace(JSON.parse(JSON.stringify(workspace)));
 assert.equal(sanitized.activeSessionId, workspace.activeSessionId);

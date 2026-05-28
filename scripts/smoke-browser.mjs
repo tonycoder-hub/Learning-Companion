@@ -199,6 +199,21 @@ try {
       .click();
     const noteInsertions = (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length;
     const noteHasSource = document.querySelector("#notesEditor").value.includes("t=492s");
+    setValue("#searchInput", "lifetime");
+    const searchResults = [...document.querySelectorAll("#searchResults .search-result")];
+    const firstSearchResult = searchResults[0];
+    const searchBeforeOpen = {
+      count: searchResults.length,
+      type: firstSearchResult?.querySelector(".search-result-type")?.textContent || "",
+      title: firstSearchResult?.querySelector(".search-result-title")?.textContent || "",
+      excerpt: firstSearchResult?.querySelector(".search-result-excerpt")?.textContent || ""
+    };
+    firstSearchResult?.click();
+    const searchAfterOpen = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activity: document.querySelector("#activityTitle").textContent,
+      targetPulsed: Boolean(document.querySelector("#captureList .item-card.pulse"))
+    };
     setValue("#quoteInput", "Spaced repetition improves durable recall. <script>alert(1)</script> <b>bold</b>");
     const quote = document.querySelector("#quoteInput");
     const start = quote.value.indexOf("durable");
@@ -345,6 +360,8 @@ try {
           todayHasRecentCapture,
           noteInsertions,
           noteHasSource,
+          searchBeforeOpen,
+          searchAfterOpen,
           activityOpenedReviewTab,
           activityTargetPulsed,
           activityAfterSynthesis,
@@ -456,6 +473,12 @@ try {
   assert.equal(result.todayHasRecentCapture, true);
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
+  assert.ok(result.searchBeforeOpen.count >= 1);
+  assert.equal(result.searchBeforeOpen.type, "Capture");
+  assert.match(result.searchBeforeOpen.excerpt, /lifetime/);
+  assert.equal(result.searchAfterOpen.activeTab, "captures");
+  assert.equal(result.searchAfterOpen.activity, "Search result opened");
+  assert.equal(result.searchAfterOpen.targetPulsed, true);
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");

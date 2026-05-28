@@ -40,6 +40,7 @@ The product borrows selectively from strong existing tools:
 Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 
 - Session list for learning topics.
+- Workspace Find for jumping from source titles, notes, captures, and review cards back into the right session.
 - Source panel for URL, title, material type, and video timestamp.
 - Quick capture for quote + note + tags.
 - Capture-level source snapshots and source/time jump links.
