@@ -17,6 +17,7 @@
 - Credential-free Feishu mirror bundle.
 - Credential-free Feishu upload plan boundary.
 - HarmonyOS read-only schema reader prototype.
+- HarmonyOS DevEco handoff contract.
 - Smoke tests and visual checks.
 
 ## Phase 1: Mac Shell
@@ -38,6 +39,7 @@
 ## Phase 3: HarmonyOS
 
 - Keep `apps/companion-harmony/src/schema-reader.mjs` as the shared view-model prototype until a DevEco project exists.
+- Use `apps/companion-harmony/DEVECO_HANDOFF.md` as the first scaffold contract.
 - Build ArkTS app against the shared schema.
 - Implement capture inbox, session detail, and review.
 - Sync through Feishu mirror or direct JSON payload.

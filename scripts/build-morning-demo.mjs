@@ -32,6 +32,7 @@ const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
 const REVIEW_REPORT_FILE = "review-start-here.html";
 const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
+const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 
 const demoWorkspace = sanitizeWorkspace({
   schema: "learning-companion.workspace.v1",
@@ -300,6 +301,7 @@ await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), buildMacManualQaMarkdown({
   sampleMirrorZipFile,
   feishuUploadReport
 }));
+await writeText(join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE), await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8"));
 const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
   mirrorZip,
@@ -317,6 +319,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
 assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
+assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
 assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
@@ -352,6 +355,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   workspace: SAMPLE_WORKSPACE_FILE,
   reviewReport: REVIEW_REPORT_FILE,
   macManualQa: MAC_MANUAL_QA_FILE,
+  harmonyDevEcoHandoff: HARMONY_DEVECO_HANDOFF_FILE,
   mirrorBundle: SAMPLE_MIRROR_JSON_FILE,
   mirrorZip: sampleMirrorZipFile,
   mirrorFileCount: mirrorBundle.files.length,
@@ -491,6 +495,7 @@ function buildMorningReviewMarkdown({
     "0. Open `dist/morning-demo/review-start-here.html` for a clickable review dashboard.",
     "0a. Read `dist/morning-demo/STAGE.md` before interpreting any artifact as a capability claim.",
     "0b. Use `dist/morning-demo/MAC_MANUAL_QA.md` to record Mac GUI dogfood results.",
+    "0c. Use `dist/morning-demo/HARMONY_DEVECO_HANDOFF.md` as the phone-app scaffold contract.",
     "1. Run `npm run check:morning` from the repo root.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
@@ -506,6 +511,7 @@ function buildMorningReviewMarkdown({
     "- Extracted folder: `mirror-folder/`",
     `- Stage matrix: \`${STAGE_FILE}\` (fixture/dry-run/prototype/internal labels)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
+    `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files)`,
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
@@ -575,6 +581,7 @@ function buildReviewStartHereHtml({
     ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
     ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
+    ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, patch boundary, and device test gates."],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
     ["Mirror home", "mirror-folder/index.html", "Static folder intended for Feishu Drive or Windows reading."],
     ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],

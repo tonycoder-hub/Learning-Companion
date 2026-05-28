@@ -24,9 +24,12 @@ npm run smoke:harmony
 - No write path exists yet. Phone-side capture and review progress still use the static `inbox.html` and `review.html` pages in the mirror bundle.
 - The reader is intentionally close to plain JavaScript so the shape can be ported to ArkTS after the view model feels right.
 
+See [DEVECO_HANDOFF.md](DEVECO_HANDOFF.md) for the proposed DevEco project layout, ArkTS port boundaries, permissions, and device test gates.
+
 ## Next Steps
 
 - Create a minimal DevEco project only after the reader view is stable.
+- Use `DEVECO_HANDOFF.md` as the scaffold contract when DevEco setup is available.
 - Add a file-picker/import path for `workspace.json` or the mirror bundle.
 - Render active topic, due review, and recent captures from `harmony-reader-view.v1`.
 - Keep patch export append-only; do not overwrite Mac workspace state from the phone.
