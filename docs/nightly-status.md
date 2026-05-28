@@ -60,10 +60,12 @@ http://127.0.0.1:5173
 npm run smoke
 npm run smoke:browser
 npm run mac:build
+npm run check:morning
 ```
 
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
+`check:morning` runs the web smoke, browser UX smoke, Mac shell build, and prints git status.
 
 ## Review Notes Absorbed
 

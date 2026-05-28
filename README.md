@@ -54,6 +54,12 @@ npm run smoke
 npm run smoke:browser
 ```
 
+Morning review check:
+
+```bash
+npm run check:morning
+```
+
 Build the minimal Mac shell:
 
 ```bash
