@@ -63,6 +63,7 @@ Keep the generated app separate from the current credential-free prototype until
 ## ArkTS Port Notes
 
 - Port `src/schema-reader.mjs` into `buildHarmonyReaderView.ts`.
+- Port `src/import-boundary.mjs` into `importPortableData.ts` and `exportPatch.ts`.
 - Keep model functions pure and deterministic.
 - Prefer explicit schema interfaces over dynamic object mutation.
 - Keep unsafe URLs sanitized or display-only; opening external URLs should be an explicit user action.

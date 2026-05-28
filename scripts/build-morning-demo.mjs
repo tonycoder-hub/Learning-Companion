@@ -422,7 +422,7 @@ function buildStageMarkdown({
     "| --- | --- | --- | --- |",
     `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
-    `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards. | Real device import, storage, export, or UX. |`,
+    `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
     "",
@@ -593,7 +593,7 @@ function buildMorningReviewMarkdown({
     "## Current Evidence",
     "",
     "- `npm run smoke` covers model contracts and generated static artifacts.",
-    "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract.",
+    "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract plus pure import/patch boundary fixtures.",
     "- `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, patch import receipts, duplicate review patch receipts, and visible issue receipts for bad mirror, malformed JSON, and oversized patch imports.",
     "- `npm run check:morning` runs web smoke, Harmony reader smoke, browser smoke, Mac shell build, and this demo pack generator.",
     ""

@@ -24,7 +24,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
-- HarmonyOS handoff now includes a DevEco/ArkTS scaffold contract with import boundary, patch boundary, screens, and device test gates.
+- HarmonyOS handoff now includes a DevEco/ArkTS scaffold contract plus a pure import/patch boundary module covered by `smoke:harmony`.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -140,6 +140,7 @@ Deferred:
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
 - Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
 - Add broader negative-path demo-generator assertions, such as malformed JSON and oversized patch files; browser smoke already covers visible issue receipts for those cases, while the current demo generator covers duplicate inbox patches, stale review conflicts, unsafe URL stripping, and unsupported inbox patch schema rejection.
+- Keep HarmonyOS import/patch boundary logic pure until DevEco is available; the current module is executable smoke evidence, not a native app.
 
 ## Next Best Commits
 

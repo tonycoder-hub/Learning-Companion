@@ -7,7 +7,7 @@ The first implemented piece is a schema reader that consumes the same portable d
 - `learning-companion.workspace.v1`
 - `learning-companion.mirror-bundle.staging.v1`
 
-It emits `learning-companion.harmony-reader-view.v1`, a compact read-only view model for a future HarmonyOS app: topics, active topic, due review cards, recent captures, and each topic's Focus Brief next action.
+It emits `learning-companion.harmony-reader-view.v1`, a compact read-only view model for a future HarmonyOS app: topics, active topic, due review cards, recent captures, and each topic's Focus Brief next action. `src/import-boundary.mjs` adds a pure import/patch boundary that is shaped for later ArkTS porting.
 
 ## Run The Prototype Smoke
 
@@ -23,6 +23,7 @@ npm run smoke:harmony
 - No Feishu credential, browser state, or local device permission is read.
 - No write path exists yet. Phone-side capture and review progress still use the static `inbox.html` and `review.html` pages in the mirror bundle.
 - The reader is intentionally close to plain JavaScript so the shape can be ported to ArkTS after the view model feels right.
+- Patch envelopes can be built as pure JSON fixtures, but no native HarmonyOS writer UI exists yet.
 
 See [DEVECO_HANDOFF.md](DEVECO_HANDOFF.md) for the proposed DevEco project layout, ArkTS port boundaries, permissions, and device test gates.
 
@@ -32,4 +33,5 @@ See [DEVECO_HANDOFF.md](DEVECO_HANDOFF.md) for the proposed DevEco project layou
 - Use `DEVECO_HANDOFF.md` as the scaffold contract when DevEco setup is available.
 - Add a file-picker/import path for `workspace.json` or the mirror bundle.
 - Render active topic, due review, and recent captures from `harmony-reader-view.v1`.
+- Port `src/import-boundary.mjs` into ArkTS services.
 - Keep patch export append-only; do not overwrite Mac workspace state from the phone.
