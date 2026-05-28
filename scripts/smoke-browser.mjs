@@ -270,6 +270,7 @@ try {
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
     const workspaceExport = JSON.parse(document.querySelector("#workspaceExport").value);
+    const reviewPackExport = document.querySelector("#reviewPackExport").value;
     const todayExport = document.querySelector("#todayExport").value;
     const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const mirrorText = JSON.stringify(mirror);
@@ -277,6 +278,8 @@ try {
     const exportSections = [...document.querySelectorAll(".export-section-title")].map((item) => item.textContent);
     const hasWorkspaceExportButtons = document.querySelector("#copyWorkspaceBtn").textContent === "Copy Workspace"
       && document.querySelector("#downloadWorkspaceBtn").textContent === "Save Workspace";
+    const hasReviewPackButtons = document.querySelector("#copyReviewPackBtn").textContent === "Copy Pack"
+      && document.querySelector("#downloadReviewPackBtn").textContent === "Save Pack";
     const hasTodayExportButtons = document.querySelector("#copyTodayBtn").textContent === "Copy Today"
       && document.querySelector("#downloadTodayBtn").textContent === "Save Today";
     const nativeBridgeExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
@@ -411,6 +414,7 @@ try {
           workspaceExportSchema: workspaceExport.schema,
           workspaceExportSessions: workspaceExport.sessions.length,
           workspaceExportActiveSession: workspaceExport.sessions.find((item) => item.id === workspaceExport.activeSessionId)?.title || "",
+          reviewPackExport,
           workspaceDetailsCollapsed: document.querySelector(".export-details").open === false,
           workspaceExportNote: document.querySelector(".export-note").textContent,
           exportSections,
@@ -425,6 +429,7 @@ try {
           nativeSidecarClassOff,
           todayExport,
           hasWorkspaceExportButtons,
+          hasReviewPackButtons,
           hasTodayExportButtons,
           hasMirrorZipButton,
           mirrorSchema: restoredMirror.schema,
@@ -561,15 +566,22 @@ try {
   assert.equal(result.workspaceExportSchema, "learning-companion.workspace.v1");
   assert.equal(result.workspaceExportSessions, 1);
   assert.equal(result.workspaceExportActiveSession, "Learning Companion MVP");
+  assert.match(result.reviewPackExport, /Learning Companion Review Pack/);
+  assert.match(result.reviewPackExport, /Scope: local MVP fixture\/internal build/);
+  assert.match(result.reviewPackExport, /Feishu: local mirror bundle plus upload plan\/dry-run boundary/);
+  assert.match(result.reviewPackExport, /HarmonyOS: schema reader prototype/);
+  assert.match(result.reviewPackExport, /npm run check:morning/);
   assert.equal(result.workspaceDetailsCollapsed, true);
   assert.match(result.workspaceExportNote, /not cloud sync or Feishu upload/);
   assert.deepEqual(result.exportSections, [
     "Full Workspace (all sessions)",
+    "Review Pack",
     "Current Session",
     "Mirror Folder",
     "Browser Capture"
   ]);
   assert.equal(result.hasWorkspaceExportButtons, true);
+  assert.equal(result.hasReviewPackButtons, true);
   assert.equal(result.nativeBridgeExportSchema, "learning-companion.workspace.v1");
   assert.equal(result.nativeBridgeImportOk, true);
   assert.equal(result.nativeBridgeRoundTripSchema, "learning-companion.workspace.v1");

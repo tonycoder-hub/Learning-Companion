@@ -924,6 +924,10 @@ textarea:focus {
   min-height: 92px;
 }
 
+#reviewPackExport {
+  min-height: 180px;
+}
+
 .empty-state {
   display: grid;
   min-height: 120px;

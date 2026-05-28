@@ -118,12 +118,15 @@ const dom = {
   dueCount: document.querySelector("#dueCount"),
   reviewList: document.querySelector("#reviewList"),
   workspaceExport: document.querySelector("#workspaceExport"),
+  reviewPackExport: document.querySelector("#reviewPackExport"),
   markdownExport: document.querySelector("#markdownExport"),
   payloadExport: document.querySelector("#payloadExport"),
   todayExport: document.querySelector("#todayExport"),
   copyWorkspaceBtn: document.querySelector("#copyWorkspaceBtn"),
+  copyReviewPackBtn: document.querySelector("#copyReviewPackBtn"),
   copyMarkdownBtn: document.querySelector("#copyMarkdownBtn"),
   downloadWorkspaceBtn: document.querySelector("#downloadWorkspaceBtn"),
+  downloadReviewPackBtn: document.querySelector("#downloadReviewPackBtn"),
   downloadMarkdownBtn: document.querySelector("#downloadMarkdownBtn"),
   copyPayloadBtn: document.querySelector("#copyPayloadBtn"),
   downloadPayloadBtn: document.querySelector("#downloadPayloadBtn"),
@@ -388,12 +391,16 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 });
 
 dom.copyWorkspaceBtn.addEventListener("click", () => copyText(dom.workspaceExport.value, "Workspace copied"));
+dom.copyReviewPackBtn.addEventListener("click", () => copyText(dom.reviewPackExport.value, "Review pack copied"));
 dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, "Markdown copied"));
 dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, "JSON copied"));
 dom.copyTodayBtn.addEventListener("click", () => copyText(dom.todayExport.value, "Today study pack copied"));
 dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, "Mirror bundle copied"));
 dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
 dom.downloadWorkspaceBtn.addEventListener("click", exportWorkspace);
+dom.downloadReviewPackBtn.addEventListener("click", () => {
+  downloadText("LEARNING_COMPANION_REVIEW_PACK.md", dom.reviewPackExport.value, "text/markdown");
+});
 dom.downloadMarkdownBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
   downloadText(`${slugify(session.title)}.md`, generateMarkdown(session), "text/markdown");
@@ -1705,6 +1712,7 @@ function reviewKey(sessionId, cardId) {
 function renderExport() {
   const session = getActiveSession(workspace);
   dom.workspaceExport.value = workspaceJson();
+  dom.reviewPackExport.value = buildReviewPackMarkdown(workspace);
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
   dom.todayExport.value = generateTodayMarkdown(workspace);
@@ -1718,6 +1726,61 @@ function exportWorkspace() {
 
 function workspaceJson() {
   return JSON.stringify(workspace, null, 2);
+}
+
+function buildReviewPackMarkdown(workspaceData) {
+  const safeWorkspace = sanitizeWorkspace(workspaceData);
+  const active = getActiveSession(safeWorkspace);
+  const mirror = buildMirrorBundle(safeWorkspace);
+  const due = getDueReviewItems(safeWorkspace);
+  const captures = safeWorkspace.sessions.reduce((sum, session) => sum + session.captures.length, 0);
+  const cards = safeWorkspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0);
+  const focusBrief = buildFocusBrief(active, safeWorkspace);
+  return [
+    "# Learning Companion Review Pack",
+    "",
+    "> Scope: local MVP fixture/internal build. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
+    "",
+    "## Workspace",
+    "",
+    `- Sessions: ${safeWorkspace.sessions.length}`,
+    `- Captures: ${captures}`,
+    `- Review cards: ${cards}`,
+    `- Due now: ${due.length}`,
+    `- Active topic: ${active.title}`,
+    `- Next action: ${focusBrief.nextAction.label}`,
+    "",
+    "## Export Artifacts",
+    "",
+    `- Workspace restore: \`learning-companion-workspace.json\` (${safeWorkspace.sessions.length} sessions)`,
+    `- Mirror bundle: \`learning-companion-feishu-mirror.json\` (${mirror.manifest.fileCount} files, ${mirror.manifest.bundleFingerprint})`,
+    "- Mirror ZIP: `learning-companion-feishu-mirror.zip` (manual folder package)",
+    "- Today pack: `TODAY.md`",
+    "- Current session Markdown and `.feishu.json` sidecar",
+    "",
+    "## Stage Wording",
+    "",
+    "- Mac: internal WKWebView shell, not signed production app.",
+    "- Feishu: local mirror bundle plus upload plan/dry-run boundary, not live sync.",
+    "- HarmonyOS: schema reader prototype, not device-verified app.",
+    "",
+    "## Morning Commands",
+    "",
+    "```bash",
+    "npm run smoke",
+    "npm run smoke:harmony",
+    "npm run smoke:browser",
+    "npm run check:morning",
+    "npm run demo:morning",
+    "```",
+    "",
+    "## Promotion Gates",
+    "",
+    "- Mac dogfood: run sidecar, clipboard capture, selected-text capture, browser context, import/export, and relaunch manual QA.",
+    "- Feishu live writer: configure credentials explicitly, set Drive folder target, then compare upload report against dry-run report.",
+    "- HarmonyOS app: import workspace or mirror bundle on device, render reader view, export append-only inbox/review patches.",
+    ""
+  ].join("\n");
 }
 
 function installNativeBridge() {
