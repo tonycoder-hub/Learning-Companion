@@ -39,7 +39,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Today tab/direct Today export/mirror study pack, desk-native review in sidecar layout, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Today tab/direct Today export/mirror study pack, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -104,7 +104,7 @@ Deferred:
 - `localStorage` is still a temporary store; export often.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
-- Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet.
+- Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.
 - Mac shell is currently a thin WKWebView wrapper; it does not yet add global capture or browser context.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
 - HarmonyOS app is not started yet; schema is ready for exploration.

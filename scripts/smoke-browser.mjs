@@ -461,6 +461,42 @@ try {
   assert.equal(globalReview.dueMetric, "2");
   assert.match(globalReview.reviewText, /Algorithms course/);
   assert.match(globalReview.reviewText, /Spaced repetition improves/);
+
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 2,
+    mobile: true
+  });
+  await sleep(120);
+  const mobileLayout = await cdp.evaluate(`(() => {
+    document.querySelector('[data-focus-mode="review"]').click();
+    document.querySelector('[data-tab="today"]').click();
+    const styleColumns = (selector) => getComputedStyle(document.querySelector(selector)).gridTemplateColumns
+      .split(" ")
+      .filter(Boolean).length;
+    const deskReviewWidth = Math.ceil(document.querySelector("#deskReviewPane").getBoundingClientRect().width);
+    return {
+      innerWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      shellColumns: styleColumns(".app-shell"),
+      workColumns: styleColumns(".work-grid"),
+      tabColumns: styleColumns(".tabs"),
+      deskReviewWidth,
+      deskReviewVisible: !document.querySelector("#deskReviewPane").hidden,
+      todayActive: document.querySelector(".tab.active")?.dataset.tab === "today"
+    };
+  })()`);
+
+  assert.equal(mobileLayout.shellColumns, 1);
+  assert.equal(mobileLayout.workColumns, 1);
+  assert.equal(mobileLayout.tabColumns, 2);
+  assert.equal(mobileLayout.deskReviewVisible, true);
+  assert.equal(mobileLayout.todayActive, true);
+  assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
+  assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
+  assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {

@@ -790,6 +790,7 @@ textarea:focus {
   .work-grid,
   .capture-pane,
   .synthesis-pane,
+  .desk-review-pane,
   .editor-pane,
   .field,
   .input-with-button {
@@ -806,6 +807,10 @@ textarea:focus {
     width: var(--mobile-content-width);
     max-width: var(--mobile-content-width);
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .panel-heading {
