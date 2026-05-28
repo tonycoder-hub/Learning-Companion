@@ -37,6 +37,7 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 
 ## Not Yet
 
+- Manual dogfood evidence should be recorded with `docs/mac-manual-qa.md` or the generated `dist/morning-demo/MAC_MANUAL_QA.md` receipt.
 - No deep browser bridge beyond best-effort active page title/URL.
 - Selected-text capture is best-effort only; some browsers, PDFs, and native document apps may not expose selected text through Accessibility. If the focused element exposes an empty selection, the shell does not fall back to an older clipboard item.
 - No packaged `.app` menu polish beyond the current capture, sidecar, and workspace file commands.

@@ -31,6 +31,7 @@ const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
 const REVIEW_REPORT_FILE = "review-start-here.html";
 const STAGE_FILE = "STAGE.md";
+const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 
 const demoWorkspace = sanitizeWorkspace({
   schema: "learning-companion.workspace.v1",
@@ -295,6 +296,10 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   harmonyReaderView,
   unsupportedInboxPatchRejected
 }));
+await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), buildMacManualQaMarkdown({
+  sampleMirrorZipFile,
+  feishuUploadReport
+}));
 const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
   mirrorZip,
@@ -311,6 +316,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
 });
 assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
+assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
@@ -345,6 +351,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   },
   workspace: SAMPLE_WORKSPACE_FILE,
   reviewReport: REVIEW_REPORT_FILE,
+  macManualQa: MAC_MANUAL_QA_FILE,
   mirrorBundle: SAMPLE_MIRROR_JSON_FILE,
   mirrorZip: sampleMirrorZipFile,
   mirrorFileCount: mirrorBundle.files.length,
@@ -411,6 +418,53 @@ function buildStageMarkdown({
   ].join("\n");
 }
 
+function buildMacManualQaMarkdown({
+  sampleMirrorZipFile,
+  feishuUploadReport
+}) {
+  return [
+    "# Learning Companion Mac Manual QA Receipt",
+    "",
+    "Stage: internal-build manual QA. This receipt does not prove signed packaging, notarization, or live Feishu/HarmonyOS behavior.",
+    "",
+    "Fill this in during the morning review. Use `PASS`, `FAIL`, `BLOCKED`, or `NT` in the Result column.",
+    "",
+    "## Preconditions",
+    "",
+    "- Run `npm run check:morning` from the repository root.",
+    "- Launch the shell with `swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-web`.",
+    "- Import `dist/morning-demo/sample-workspace.json` into the app.",
+    "- Keep `dist/morning-demo/review-start-here.html` open for artifact links.",
+    "- Do not enter Feishu credentials; Feishu evidence here is dry-run only.",
+    "",
+    "## Test Matrix",
+    "",
+    "| Area | Steps | Expected | Result | Notes |",
+    "| --- | --- | --- | --- | --- |",
+    "| Launch | Open the Mac shell from the command above. | App loads the local workspace UI without falling back to `127.0.0.1`. |  |  |",
+    "| Morning pack shortcut | Use `File > Open Morning Review Pack`. | Default browser opens `dist/morning-demo/review-start-here.html`; missing pack shows an alert. |  |  |",
+    "| Sidecar | Use `Window > Enter Sidecar Window`, then `Window > Restore Desk Window`. | Native window narrows/restores and web layout follows. |  |  |",
+    "| Floating | Toggle `Window > Keep Window Above Others` while a browser is frontmost. | Window level changes only when manually toggled. |  |  |",
+    "| Clipboard capture | Copy text in any app, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with `clipboard` source. |  |  |",
+    "| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | If Accessibility exposes `AXSelectedText`, selected text is captured without overwriting pasteboard. |  |  |",
+    "| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | App does not import stale clipboard; status explains no selection/new clipboard. |  |  |",
+    "| Browser context | Capture selected/clipboard text while Safari or Chrome is frontmost on an HTTP(S) page. | Capture can attach page title and URL, or degrades to text-only if Automation is denied. |  |  |",
+    "| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json` via `File > Import Workspace...`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. |  |  |",
+    "| Native import failure | Import a malformed JSON file via `File > Import Workspace...`. | Alert and in-app issue receipt explain the import failure. |  |  |",
+    "| Export backup | Use `File > Export Workspace...`. | A JSON workspace backup can be saved locally. |  |  |",
+    "| Relaunch persistence | Quit and relaunch the shell. | Workspace persists through WebKit localStorage. |  |  |",
+    `| Mirror inspection | Open \`dist/morning-demo/mirror-folder/index.html\` and \`${sampleMirrorZipFile}\`. | Static mirror is readable; ZIP extracts to the same conceptual folder. |  |  |`,
+    `| Feishu dry-run artifact | Inspect \`dist/morning-demo/feishu-upload/feishu-upload-report.json\`. | Boundary says: ${feishuUploadReport.boundary.statement} |  |  |`,
+    "",
+    "## Notes",
+    "",
+    "- Permission prompts are expected for Accessibility or browser Automation. If a prompt appears, record it instead of treating it as a product failure.",
+    "- If a step needs a user approval tonight, mark `BLOCKED` and continue with the rest.",
+    "- Real HarmonyOS and Windows runs belong in a later device roundtrip receipt.",
+    ""
+  ].join("\n");
+}
+
 function buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
@@ -436,6 +490,7 @@ function buildMorningReviewMarkdown({
     "",
     "0. Open `dist/morning-demo/review-start-here.html` for a clickable review dashboard.",
     "0a. Read `dist/morning-demo/STAGE.md` before interpreting any artifact as a capability claim.",
+    "0b. Use `dist/morning-demo/MAC_MANUAL_QA.md` to record Mac GUI dogfood results.",
     "1. Run `npm run check:morning` from the repo root.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
@@ -450,6 +505,7 @@ function buildMorningReviewMarkdown({
     `- Sample mirror ZIP: \`${sampleMirrorZipFile}\` (${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes)`,
     "- Extracted folder: `mirror-folder/`",
     `- Stage matrix: \`${STAGE_FILE}\` (fixture/dry-run/prototype/internal labels)`,
+    `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files)`,
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
@@ -518,6 +574,7 @@ function buildReviewStartHereHtml({
   const artifactRows = [
     ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
     ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
+    ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
     ["Mirror home", "mirror-folder/index.html", "Static folder intended for Feishu Drive or Windows reading."],
     ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],

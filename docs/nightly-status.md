@@ -59,7 +59,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch from both the browser file input and Mac native import menu.
-- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, `STAGE.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, `STAGE.md`, `MAC_MANUAL_QA.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
 - Morning review dashboard self-labels as cross-end fixture-ready, includes a stage matrix, and enumerates what is not proven: live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, and signed Mac packaging.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
@@ -142,7 +142,7 @@ Deferred:
 ## Next Best Commits
 
 1. Add more patch intake negative-path evidence that does not need credentials: malformed JSON, oversized patch files, and duplicate review patch UI receipts.
-2. Add GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
+2. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
 3. Add a minimal HarmonyOS project scaffold or DevEco handoff spec once SDK/project setup is available; until then keep the schema reader honest as a prototype.
 4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
 5. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
@@ -162,6 +162,7 @@ Deferred:
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.
 - Mac shell is currently a thin WKWebView wrapper with best-effort selected-text capture, labeled clipboard fallback, browser title/URL context, sidecar window commands, and workspace file commands; packaged permission onboarding and live GUI evidence are still missing.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
+- Mac manual QA now has a generated receipt template, but it is not filled until a real dogfood run.
 - Mac shell AppKit import/export panels build successfully, but panel cancel/oversize/invalid-file paths are not GUI-automated tonight.
 - `File > Open Morning Review Pack` is a developer shortcut over the generated fixture; it shows an alert when the demo pack is missing and does not generate, sync, or validate live integrations.
 - HarmonyOS native app is not started yet; the read-only schema reader prototype is local JavaScript and still needs DevEco/file-picker integration.
