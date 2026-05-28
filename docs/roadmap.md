@@ -15,6 +15,8 @@
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.
+- Credential-free Feishu upload plan boundary.
+- HarmonyOS read-only schema reader prototype.
 - Smoke tests and visual checks.
 
 ## Phase 1: Mac Shell
@@ -35,6 +37,7 @@
 
 ## Phase 3: HarmonyOS
 
+- Keep `apps/companion-harmony/src/schema-reader.mjs` as the shared view-model prototype until a DevEco project exists.
 - Build ArkTS app against the shared schema.
 - Implement capture inbox, session detail, and review.
 - Sync through Feishu mirror or direct JSON payload.

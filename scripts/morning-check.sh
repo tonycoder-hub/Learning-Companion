@@ -10,6 +10,10 @@ echo "== Web model smoke =="
 npm run smoke
 echo
 
+echo "== HarmonyOS reader smoke =="
+npm run smoke:harmony
+echo
+
 echo "== Browser UX smoke =="
 npm run smoke:browser
 echo

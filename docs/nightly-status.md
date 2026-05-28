@@ -18,6 +18,7 @@ product/mvp-learning-sidecar
 - Mac shell has app-focused workspace JSON import/export menu commands (`Cmd+O`, `Shift+Cmd+E`) that reuse the web workspace bridge.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, and materialize the Drive folder locally without reading live credentials.
+- HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -132,7 +133,7 @@ Deferred:
 
 1. Add real Feishu OpenAPI transport behind explicit credential configuration and approval.
 2. Add GUI/manual QA evidence for selected-text capture and browser context on Tony's Mac.
-3. Start HarmonyOS schema reader prototype after the local upload plan feels stable.
+3. Turn the HarmonyOS reader view into a minimal DevEco screen once SDK/project setup is available.
 4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
 
 ## Known Risks
@@ -150,6 +151,6 @@ Deferred:
 - Mac shell is currently a thin WKWebView wrapper with best-effort selected-text capture, labeled clipboard fallback, browser title/URL context, sidecar window commands, and workspace file commands; packaged permission onboarding and live GUI evidence are still missing.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
 - Mac shell AppKit import/export panels build successfully, but panel cancel/oversize/invalid-file paths are not GUI-automated tonight.
-- HarmonyOS app is not started yet; schema is ready for exploration.
+- HarmonyOS native app is not started yet; the read-only schema reader prototype is local JavaScript and still needs DevEco/file-picker integration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.
