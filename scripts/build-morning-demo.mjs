@@ -21,6 +21,7 @@ const SAMPLE_WORKSPACE_FILE = "sample-workspace.json";
 const SAMPLE_MIRROR_JSON_FILE = "sample-feishu-mirror.json";
 const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
+const REVIEW_REPORT_FILE = "review-start-here.html";
 
 const demoWorkspace = sanitizeWorkspace({
   schema: "learning-companion.workspace.v1",
@@ -248,6 +249,19 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   reviewReceipt: reviewResult.receipt,
   reviewConflictReceipt: reviewConflictResult.receipt
 }));
+const reviewReportHtml = buildReviewStartHereHtml({
+  mirrorBundle,
+  mirrorZip,
+  sampleMirrorZipFile,
+  inboxReceipt: inboxResult.receipt,
+  duplicateInboxReceipt: duplicateInboxResult.receipt,
+  reviewReceipt: reviewResult.receipt,
+  reviewConflictReceipt: reviewConflictResult.receipt
+});
+assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
+assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
+assert.match(reviewReportHtml, /Fixture-only/);
+await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
 
 const outputManifest = await collectOutputManifest(OUT_DIR);
 const credentialSweep = await scanForCredentialLikeText(OUT_DIR);
@@ -263,6 +277,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     generator: "scripts/build-morning-demo.mjs"
   },
   workspace: SAMPLE_WORKSPACE_FILE,
+  reviewReport: REVIEW_REPORT_FILE,
   mirrorBundle: SAMPLE_MIRROR_JSON_FILE,
   mirrorZip: sampleMirrorZipFile,
   mirrorFileCount: mirrorBundle.files.length,
@@ -282,7 +297,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
 });
 
 console.log("morning_demo_ok");
-console.log(`${OUT_DIR}/MORNING_REVIEW.md`);
+console.log(`${OUT_DIR}/${REVIEW_REPORT_FILE}`);
 
 async function writeJson(path, value) {
   await writeText(path, `${JSON.stringify(value, null, 2)}\n`);
@@ -311,6 +326,7 @@ function buildMorningReviewMarkdown({
     "",
     "## Start Here",
     "",
+    "0. Open `dist/morning-demo/review-start-here.html` for a clickable review dashboard.",
     "1. Run `npm run check:morning` from the repo root.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
@@ -360,6 +376,125 @@ function buildMorningReviewMarkdown({
     "- `npm run check:morning` runs web smoke, browser smoke, Mac shell build, and this demo pack generator.",
     ""
   ].join("\n");
+}
+
+function buildReviewStartHereHtml({
+  mirrorBundle,
+  mirrorZip,
+  sampleMirrorZipFile,
+  inboxReceipt,
+  duplicateInboxReceipt,
+  reviewReceipt,
+  reviewConflictReceipt
+}) {
+  const artifactRows = [
+    ["Morning review", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
+    ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
+    ["Mirror home", "mirror-folder/index.html", "Static folder intended for Feishu Drive or Windows reading."],
+    ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],
+    ["Portable review", "mirror-folder/review.html", "Offline review page that exports progress patches."],
+    ["Mobile inbox", "mirror-folder/inbox.html", "Phone/Windows capture draft page."],
+    ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
+    ["Mirror ZIP", sampleMirrorZipFile, `${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes.`],
+    ["Inbox patch", `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`, "Sample append-only phone capture patch."],
+    ["Review patch", `patches/${SAMPLE_REVIEW_PROGRESS_PATCH_FILE}`, "Sample append-only review progress patch."],
+    ["Summary", "SUMMARY.json", "Hashes, provenance, and generator receipts."]
+  ];
+  const receiptRows = [
+    ["Mobile inbox import", `${inboxReceipt.added} added`, `${inboxReceipt.sanitizedSourceUrls} unsafe source link stripped`],
+    ["Duplicate inbox import", `${duplicateInboxReceipt.added} added`, duplicateInboxReceipt.targetResolution],
+    ["Review progress import", `${reviewReceipt.applied} applied`, `${reviewReceipt.skippedConflict} stale conflicts`],
+    ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`]
+  ];
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Learning Companion Morning Review</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f6f3ed; color: #201f1b; }
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 48px; }
+    header { display: grid; gap: 10px; margin-bottom: 24px; }
+    h1 { margin: 0; font-size: 32px; letter-spacing: 0; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    p { line-height: 1.55; max-width: 760px; }
+    .banner { border-left: 4px solid #b45309; background: #fff7ed; padding: 12px 14px; border-radius: 6px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 14px; }
+    section { margin-top: 20px; }
+    .card { background: #fffaf2; border: 1px solid #e5ded1; border-radius: 8px; padding: 16px; }
+    .artifact { display: grid; gap: 6px; }
+    a { color: #0f766e; font-weight: 650; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { color: #666154; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; background: #fffaf2; border: 1px solid #e5ded1; border-radius: 8px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #e5ded1; vertical-align: top; }
+    th { background: #ece7dc; }
+    tr:last-child td { border-bottom: 0; }
+    code { background: #ece7dc; padding: 2px 5px; border-radius: 4px; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #171612; color: #f3efe6; }
+      .banner { background: #2f2415; border-left-color: #f59e0b; }
+      .card, table { background: #201f1b; border-color: #3d382f; }
+      th { background: #2c2923; }
+      th, td { border-bottom-color: #3d382f; }
+      a { color: #5eead4; }
+      .meta { color: #bbb2a1; }
+      code { background: #2c2923; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Learning Companion Morning Review</h1>
+      <p class="banner"><strong>Fixture-only review pack.</strong> This dashboard proves generated local artifacts and safety receipts, not live Feishu sync, real HarmonyOS behavior, or signed Mac packaging.</p>
+      <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
+    </header>
+    <section>
+      <h2>Fast Path</h2>
+      <div class="grid">
+        <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code>. It runs web smoke, browser smoke, Mac build, and this generator.</p></div>
+        <div class="card"><strong>2. Import</strong><p>Open the app and import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>.</p></div>
+        <div class="card"><strong>3. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
+      </div>
+    </section>
+    <section>
+      <h2>Generated Artifacts</h2>
+      <div class="grid">
+        ${artifactRows.map(([title, href, description]) => `<div class="card artifact"><a href="${escapeHtml(href)}">${escapeHtml(title)}</a><span class="meta">${escapeHtml(description)}</span></div>`).join("\n        ")}
+      </div>
+    </section>
+    <section>
+      <h2>Safety Receipts</h2>
+      <table>
+        <thead><tr><th>Check</th><th>Result</th><th>Detail</th></tr></thead>
+        <tbody>
+          ${receiptRows.map(([name, result, detail]) => `<tr><td>${escapeHtml(name)}</td><td>${escapeHtml(result)}</td><td>${escapeHtml(detail)}</td></tr>`).join("\n          ")}
+        </tbody>
+      </table>
+    </section>
+    <section>
+      <h2>Current Gaps</h2>
+      <ul>
+        <li>Live Feishu OpenAPI sync is not implemented.</li>
+        <li>HarmonyOS and Windows behavior still need real-device verification.</li>
+        <li>The Mac shell is an internal WKWebView shell, not a signed production app.</li>
+        <li>Native selected-text capture without copy-first remains a follow-up.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function getGitSha() {
