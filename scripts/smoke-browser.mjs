@@ -297,7 +297,7 @@ try {
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
-          mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack")),
+          mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorTodayEscapesScript: (() => {
             const today = restoredMirror.files.find((file) => file.path === "TODAY.md")?.content || "";
             return today.includes("&lt;script&gt;alert") && !today.includes("<script");

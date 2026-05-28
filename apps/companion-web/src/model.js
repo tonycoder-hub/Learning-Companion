@@ -509,7 +509,11 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const dueLimit = Math.max(1, Number(limits.dueLimit) || 20);
   const recentLimit = Math.max(1, Number(limits.recentLimit) || 8);
-  const dueAll = getDueReviewItems(cleanWorkspace, now).sort((a, b) => {
+  const sessionPaths = new Map(cleanWorkspace.sessions.map((session) => [session.id, getMirrorSessionPaths(session)]));
+  const dueAll = getDueReviewItems(cleanWorkspace, now).map((item) => ({
+    ...item,
+    sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
+  })).sort((a, b) => {
     const nowTime = now.getTime();
     const byOverdue = (nowTime - new Date(b.card.dueAt).getTime()) - (nowTime - new Date(a.card.dueAt).getTime());
     if (byOverdue !== 0) return byOverdue;
@@ -519,7 +523,10 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     if (bySession !== 0) return bySession;
     return a.card.id.localeCompare(b.card.id);
   });
-  const recentAll = getRecentCaptureItems(cleanWorkspace, Number.MAX_SAFE_INTEGER);
+  const recentAll = getRecentCaptureItems(cleanWorkspace, Number.MAX_SAFE_INTEGER).map((item) => ({
+    ...item,
+    sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
+  }));
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   return {
@@ -667,8 +674,8 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
   if (!pack.dueItems.length) {
     lines.push("_No cards are due right now._");
   } else {
-    pack.dueItems.forEach(({ sessionTitle, card }) => {
-      lines.push(`- ${markdownInline(card.prompt)} - ${markdownInline(sessionTitle)}`);
+    pack.dueItems.forEach(({ sessionTitle, sessionPath, card }) => {
+      lines.push(`- ${markdownInline(card.prompt)} - ${markdownRelativeLink(sessionTitle, sessionPath)}`);
       lines.push(`  - Due: ${formatDate(card.dueAt)} · strength ${card.strength}`);
     });
     if (pack.dueOverflow) lines.push(`- +${pack.dueOverflow} more due cards in workspace.json`);
@@ -678,9 +685,9 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
   if (!pack.recentCaptures.length) {
     lines.push("_No captures yet._");
   } else {
-    pack.recentCaptures.forEach(({ sessionTitle, capture }) => {
+    pack.recentCaptures.forEach(({ sessionTitle, sessionPath, capture }) => {
       const summary = markdownInline(capture.thought || capture.quote || "Untitled capture");
-      lines.push(`- ${summary} - ${markdownInline(sessionTitle)}`);
+      lines.push(`- ${summary} - ${markdownRelativeLink(sessionTitle, sessionPath)}`);
       const source = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
       if (source) {
         lines.push(`  - Source: [${markdownInline(capture.sourceTitle || "Open source")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
@@ -735,17 +742,17 @@ export function buildMirrorBundle(workspace) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const files = [];
   const sessionFiles = cleanWorkspace.sessions.flatMap((session) => {
-    const baseName = `${slugifyPath(session.title)}-${shortId(session.id)}`;
+    const paths = getMirrorSessionPaths(session);
     return [
       makeMirrorFile({
-        path: `sessions/${baseName}.md`,
+        path: paths.markdownPath,
         mediaType: "text/markdown",
         role: "readable-session",
         sessionId: session.id,
         content: generateMarkdown(session)
       }),
       makeMirrorFile({
-        path: `sessions/${baseName}.feishu.json`,
+        path: paths.sidecarPath,
         mediaType: "application/json",
         role: "session-sidecar",
         sessionId: session.id,
@@ -780,11 +787,11 @@ export function buildMirrorBundle(workspace) {
     throw new Error("Mirror bundle is too large to export safely.");
   }
   const topicIndex = Object.fromEntries(cleanWorkspace.sessions.map((session) => {
-    const baseName = `${slugifyPath(session.title)}-${shortId(session.id)}`;
+    const paths = getMirrorSessionPaths(session);
     return [session.id, {
       title: session.title,
-      markdownPath: `sessions/${baseName}.md`,
-      sidecarPath: `sessions/${baseName}.feishu.json`
+      markdownPath: paths.markdownPath,
+      sidecarPath: paths.sidecarPath
     }];
   }));
   const manifestFiles = files.map((file) => ({
@@ -863,6 +870,19 @@ function markdownInline(value) {
     .replace(/>/g, "&gt;")
     .replace(/[[\]()`*_{}|]/g, "\\$&")
     .slice(0, 240);
+}
+
+function getMirrorSessionPaths(session) {
+  const baseName = `${slugifyPath(session.title)}-${shortId(session.id)}`;
+  return {
+    markdownPath: `sessions/${baseName}.md`,
+    sidecarPath: `sessions/${baseName}.feishu.json`
+  };
+}
+
+function markdownRelativeLink(label, path) {
+  if (!path) return markdownInline(label);
+  return `[${markdownInline(label)}](${normalizeMirrorPath(path)})`;
 }
 
 function formatCaptureSource(capture, session) {

@@ -79,7 +79,7 @@ Accepted from Mira:
 - Make the activity action explicit when it exits focus mode, use `aria-live`, and scroll/highlight the referenced capture or card where possible.
 - Keep capture source snapshot fields optional in the v1 schema, add source provenance, and harden source jump URL handling.
 - Move core review actions into the desk for sidecar focus, keep reveal state coherent across inspector/desk surfaces, and add keyboard grading shortcuts.
-- Add a derived Today study pack from one pure builder, with explicit generated/window metadata and `workspace.json` as source of truth.
+- Add a derived Today study pack from one pure builder, with explicit generated/window metadata, relative session links, and `workspace.json` as source of truth.
 
 Deferred:
 
