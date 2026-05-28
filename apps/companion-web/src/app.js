@@ -11,6 +11,7 @@ import {
   filterSessions,
   generateMarkdown,
   generateSynthesisDraft,
+  generateTodayMarkdown,
   getSynthesisStats,
   getDueReviewCards,
   getDueReviewItems,
@@ -92,10 +93,13 @@ const dom = {
   reviewList: document.querySelector("#reviewList"),
   markdownExport: document.querySelector("#markdownExport"),
   payloadExport: document.querySelector("#payloadExport"),
+  todayExport: document.querySelector("#todayExport"),
   copyMarkdownBtn: document.querySelector("#copyMarkdownBtn"),
   downloadMarkdownBtn: document.querySelector("#downloadMarkdownBtn"),
   copyPayloadBtn: document.querySelector("#copyPayloadBtn"),
   downloadPayloadBtn: document.querySelector("#downloadPayloadBtn"),
+  copyTodayBtn: document.querySelector("#copyTodayBtn"),
+  downloadTodayBtn: document.querySelector("#downloadTodayBtn"),
   copyMirrorBtn: document.querySelector("#copyMirrorBtn"),
   downloadMirrorBtn: document.querySelector("#downloadMirrorBtn"),
   downloadMirrorZipBtn: document.querySelector("#downloadMirrorZipBtn"),
@@ -293,6 +297,7 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 
 dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, "Markdown copied"));
 dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, "JSON copied"));
+dom.copyTodayBtn.addEventListener("click", () => copyText(dom.todayExport.value, "Today study pack copied"));
 dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, "Mirror bundle copied"));
 dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
 dom.downloadMarkdownBtn.addEventListener("click", () => {
@@ -302,6 +307,9 @@ dom.downloadMarkdownBtn.addEventListener("click", () => {
 dom.downloadPayloadBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
   downloadText(`${slugify(session.title)}.feishu.json`, JSON.stringify(buildFeishuPayload(session), null, 2), "application/json");
+});
+dom.downloadTodayBtn.addEventListener("click", () => {
+  downloadText("TODAY.md", dom.todayExport.value, "text/markdown");
 });
 dom.downloadMirrorBtn.addEventListener("click", () => {
   downloadText("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json");
@@ -1146,6 +1154,7 @@ function renderExport() {
   const session = getActiveSession(workspace);
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
+  dom.todayExport.value = generateTodayMarkdown(workspace);
   dom.mirrorExport.value = JSON.stringify(buildMirrorBundle(workspace), null, 2);
   dom.bookmarkletExport.value = buildBookmarklet();
 }

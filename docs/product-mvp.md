@@ -54,6 +54,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - A simple review queue with due cards and strength buckets.
 - Desk-native review pane for focused sidecar review without relying on the inspector.
 - Feishu export preview: Markdown, JSON payload, and full mirror bundle.
+- Direct `TODAY.md` copy/save for a quick mobile or Feishu handoff.
 - Feishu mirror ZIP export for manual Drive upload or extraction.
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
 - Portable import/export of the full workspace JSON and mirror bundle.

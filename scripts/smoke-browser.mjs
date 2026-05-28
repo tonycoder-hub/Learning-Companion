@@ -229,9 +229,12 @@ try {
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
+    const todayExport = document.querySelector("#todayExport").value;
     const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const mirrorText = JSON.stringify(mirror);
     const hasMirrorZipButton = document.querySelector("#downloadMirrorZipBtn").textContent === "Save ZIP Copy";
+    const hasTodayExportButtons = document.querySelector("#copyTodayBtn").textContent === "Copy Today"
+      && document.querySelector("#downloadTodayBtn").textContent === "Save Today";
     document.querySelector("#newSessionBtn").click();
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
     const importInput = document.querySelector("#importWorkspaceInput");
@@ -286,6 +289,8 @@ try {
           hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
           hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
           bookmarklet: document.querySelector("#bookmarkletExport").value,
+          todayExport,
+          hasTodayExportButtons,
           hasMirrorZipButton,
           mirrorSchema: restoredMirror.schema,
           mirrorFileCount: restoredMirror.manifest.fileCount,
@@ -381,6 +386,9 @@ try {
   assert.match(result.bookmarklet, /^javascript:/);
   assert.match(result.bookmarklet, /127\.0\.0\.1/);
   assert.match(result.bookmarklet, /currentTime/);
+  assert.equal(result.hasTodayExportButtons, true);
+  assert.match(result.todayExport, /Today Study Pack/);
+  assert.match(result.todayExport, /Generated from workspace\.json/);
   assert.equal(result.hasMirrorZipButton, true);
   assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
   assert.equal(result.mirrorFileCount, 5);
