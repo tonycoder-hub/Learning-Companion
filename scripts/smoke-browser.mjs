@@ -685,24 +685,25 @@ try {
   const matchedInboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("Changed browser title")}&sourceUrl=${encodeURIComponent("https://www.youtube.com/watch?v=rust123&t=42s&utm_source=clip")}&quote=${encodeURIComponent("Matched source bookmarklet capture")}&thought=${encodeURIComponent("Should route away from the decoy session")}&t=00:42`;
   await cdp.send("Page.navigate", { url: matchedInboundUrl });
   await sleep(300);
-  const matchedInbound = await cdp.evaluate(`(() => {
+  const matchedInbound = await waitForCdpValue(cdp, `(() => {
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     const decoy = workspace.sessions.find((item) => item.title === "Scratch decoy");
+    const latest = session.captures[0] || {};
     return {
       activeTitle: session.title,
       activeMaterialType: session.materialType,
       sessionSourceTitle: session.sourceTitle,
       sessionSourceUrl: session.sourceUrl,
-      latestQuote: session.captures[0].quote,
-      latestSourceTitle: session.captures[0].sourceTitle,
-      latestSourceUrl: session.captures[0].sourceUrl,
+      latestQuote: latest.quote || "",
+      latestSourceTitle: latest.sourceTitle || "",
+      latestSourceUrl: latest.sourceUrl || "",
       decoyCaptures: decoy?.captures.length || 0,
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
     };
-  })()`);
+  })()`, (value) => value.latestQuote === "Matched source bookmarklet capture");
 
   assert.equal(matchedInbound.activeTitle, "Learning Companion MVP");
   assert.equal(matchedInbound.activeMaterialType, "video");
@@ -855,6 +856,202 @@ try {
   assert.equal(queryOrderInbound.latestQuote, "Query order matched capture");
   assert.equal(queryOrderInbound.decoyCaptures, 0);
   assert.match(queryOrderInbound.activityDetail, /matched existing source URL/);
+
+  const bookmarkletSource = result.bookmarklet.replace(/^javascript:/, "");
+  virtualRoutes.set("/external-video.html", `<!doctype html>
+<html>
+  <head><title>Runtime Bookmarklet Video</title></head>
+  <body>
+    <main>
+      <h1>Runtime Bookmarklet Video</h1>
+      <p id="selected-quote">Virtual video selected sentence.</p>
+      <video id="runtime-video"></video>
+    </main>
+  </body>
+</html>`);
+  await cdp.send("Page.navigate", { url: `${appUrl}external-video.html` });
+  await sleep(200);
+  const openedVideoCaptureUrl = await cdp.evaluate(`(() => {
+    window.__openedLearningCompanionUrl = "";
+    window.open = (url) => {
+      window.__openedLearningCompanionUrl = String(url);
+      return null;
+    };
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(document.querySelector("#selected-quote"));
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const video = document.querySelector("#runtime-video");
+    try {
+      Object.defineProperty(video, "currentTime", { value: 125, configurable: true });
+    } catch {
+      try { video.currentTime = 125; } catch {}
+    }
+    eval(${JSON.stringify(bookmarkletSource)});
+    return window.__openedLearningCompanionUrl;
+  })()`);
+  const parsedVideoCaptureUrl = new URL(openedVideoCaptureUrl);
+  assert.equal(parsedVideoCaptureUrl.origin, new URL(appUrl).origin);
+  assert.equal(parsedVideoCaptureUrl.pathname, "/");
+  assert.equal(parsedVideoCaptureUrl.searchParams.get("capture"), "1");
+  assert.equal(parsedVideoCaptureUrl.searchParams.get("sourceTitle"), "Runtime Bookmarklet Video");
+  assert.equal(parsedVideoCaptureUrl.searchParams.get("sourceUrl"), `${appUrl}external-video.html`);
+  assert.equal(parsedVideoCaptureUrl.searchParams.get("quote"), "Virtual video selected sentence.");
+  assert.equal(parsedVideoCaptureUrl.searchParams.get("t"), "00:02:05");
+
+  await cdp.send("Page.navigate", { url: openedVideoCaptureUrl });
+  await sleep(300);
+  const runtimeVideoCapture = await waitForCdpValue(cdp, `(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const latest = session.captures[0] || {};
+    return {
+      activeTitle: session.title,
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      latestQuote: latest.quote || "",
+      latestTimestamp: latest.timestamp || "",
+      latestSourceTitle: latest.sourceTitle || "",
+      latestSourceUrl: latest.sourceUrl || "",
+      latestSourceProvenance: latest.sourceProvenance || "",
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`, (value) => value.latestQuote === "Virtual video selected sentence.");
+
+  assert.equal(runtimeVideoCapture.activeTitle, "Query order target");
+  assert.equal(runtimeVideoCapture.sourceTitle, "Runtime Bookmarklet Video");
+  assert.equal(runtimeVideoCapture.sourceUrl, `${appUrl}external-video.html`);
+  assert.equal(runtimeVideoCapture.latestQuote, "Virtual video selected sentence.");
+  assert.equal(runtimeVideoCapture.latestTimestamp, "00:02:05");
+  assert.equal(runtimeVideoCapture.latestSourceTitle, "Runtime Bookmarklet Video");
+  assert.equal(runtimeVideoCapture.latestSourceUrl, `${appUrl}external-video.html`);
+  assert.equal(runtimeVideoCapture.latestSourceProvenance, "inbound");
+  assert.equal(runtimeVideoCapture.activityTitle, "Browser capture saved");
+  assert.match(runtimeVideoCapture.activityDetail, /current topic source updated/);
+
+  virtualRoutes.set("/external-doc.html", `<!doctype html>
+<html>
+  <head><title>Runtime Bookmarklet Doc</title></head>
+  <body>
+    <article>
+      <h1>Runtime Bookmarklet Doc</h1>
+      <p id="selected-quote">Virtual <strong>document</strong> selected <span>excerpt.</span></p>
+    </article>
+  </body>
+</html>`);
+  await cdp.send("Page.navigate", { url: `${appUrl}external-doc.html` });
+  await sleep(200);
+  const openedDocCaptureUrl = await cdp.evaluate(`(() => {
+    window.__openedLearningCompanionUrl = "";
+    window.open = (url) => {
+      window.__openedLearningCompanionUrl = String(url);
+      return null;
+    };
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(document.querySelector("#selected-quote"));
+    selection.removeAllRanges();
+    selection.addRange(range);
+    eval(${JSON.stringify(bookmarkletSource)});
+    return window.__openedLearningCompanionUrl;
+  })()`);
+  const parsedDocCaptureUrl = new URL(openedDocCaptureUrl);
+  assert.equal(parsedDocCaptureUrl.origin, new URL(appUrl).origin);
+  assert.equal(parsedDocCaptureUrl.pathname, "/");
+  assert.equal(parsedDocCaptureUrl.searchParams.get("capture"), "1");
+  assert.equal(parsedDocCaptureUrl.searchParams.get("sourceTitle"), "Runtime Bookmarklet Doc");
+  assert.equal(parsedDocCaptureUrl.searchParams.get("sourceUrl"), `${appUrl}external-doc.html`);
+  assert.equal(parsedDocCaptureUrl.searchParams.get("quote"), "Virtual document selected excerpt.");
+  assert.equal(parsedDocCaptureUrl.searchParams.get("t"), "");
+
+  await cdp.send("Page.navigate", { url: openedDocCaptureUrl });
+  await sleep(300);
+  const runtimeDocCapture = await waitForCdpValue(cdp, `(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const latest = session.captures[0] || {};
+    return {
+      activeTitle: session.title,
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      latestQuote: latest.quote || "",
+      latestTimestamp: latest.timestamp || "",
+      latestSourceTitle: latest.sourceTitle || "",
+      latestSourceUrl: latest.sourceUrl || "",
+      latestSourceProvenance: latest.sourceProvenance || "",
+      captureCount: session.captures.length,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`, (value) => value.latestQuote === "Virtual document selected excerpt.");
+
+  assert.equal(runtimeDocCapture.activeTitle, "Query order target");
+  assert.equal(runtimeDocCapture.sourceTitle, "Runtime Bookmarklet Doc");
+  assert.equal(runtimeDocCapture.sourceUrl, `${appUrl}external-doc.html`);
+  assert.equal(runtimeDocCapture.latestQuote, "Virtual document selected excerpt.");
+  assert.equal(runtimeDocCapture.latestTimestamp, "");
+  assert.equal(runtimeDocCapture.latestSourceTitle, "Runtime Bookmarklet Doc");
+  assert.equal(runtimeDocCapture.latestSourceUrl, `${appUrl}external-doc.html`);
+  assert.equal(runtimeDocCapture.latestSourceProvenance, "inbound");
+  assert.equal(runtimeDocCapture.activityTitle, "Browser capture saved");
+  assert.match(runtimeDocCapture.activityDetail, /current topic source updated/);
+
+  virtualRoutes.set("/external-empty.html", `<!doctype html>
+<html>
+  <head><title>Runtime Bookmarklet Empty Selection</title></head>
+  <body>
+    <article>
+      <h1>Runtime Bookmarklet Empty Selection</h1>
+      <p>Nothing is selected on this page.</p>
+    </article>
+  </body>
+</html>`);
+  await cdp.send("Page.navigate", { url: `${appUrl}external-empty.html` });
+  await sleep(200);
+  const openedEmptyCaptureUrl = await cdp.evaluate(`(() => {
+    window.__openedLearningCompanionUrl = "";
+    window.open = (url) => {
+      window.__openedLearningCompanionUrl = String(url);
+      return null;
+    };
+    window.getSelection().removeAllRanges();
+    eval(${JSON.stringify(bookmarkletSource)});
+    return window.__openedLearningCompanionUrl;
+  })()`);
+  const parsedEmptyCaptureUrl = new URL(openedEmptyCaptureUrl);
+  assert.equal(parsedEmptyCaptureUrl.origin, new URL(appUrl).origin);
+  assert.equal(parsedEmptyCaptureUrl.pathname, "/");
+  assert.equal(parsedEmptyCaptureUrl.searchParams.get("capture"), "1");
+  assert.equal(parsedEmptyCaptureUrl.searchParams.get("sourceTitle"), "Runtime Bookmarklet Empty Selection");
+  assert.equal(parsedEmptyCaptureUrl.searchParams.get("sourceUrl"), `${appUrl}external-empty.html`);
+  assert.equal(parsedEmptyCaptureUrl.searchParams.get("quote"), "");
+  assert.equal(parsedEmptyCaptureUrl.searchParams.get("t"), "");
+
+  await cdp.send("Page.navigate", { url: openedEmptyCaptureUrl });
+  await sleep(300);
+  const runtimeEmptySelection = await waitForCdpValue(cdp, `(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    return {
+      activeTitle: session.title,
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      captureCount: session.captures.length,
+      latestQuote: session.captures[0]?.quote || "",
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`, (value) => value.activityTitle === "Browser source updated");
+
+  assert.equal(runtimeEmptySelection.activeTitle, "Query order target");
+  assert.equal(runtimeEmptySelection.sourceTitle, "Runtime Bookmarklet Empty Selection");
+  assert.equal(runtimeEmptySelection.sourceUrl, `${appUrl}external-empty.html`);
+  assert.equal(runtimeEmptySelection.captureCount, runtimeDocCapture.captureCount);
+  assert.equal(runtimeEmptySelection.latestQuote, "Virtual document selected excerpt.");
+  assert.equal(runtimeEmptySelection.activityTitle, "Browser source updated");
+  assert.match(runtimeEmptySelection.activityDetail, /current topic source updated/);
 
   const globalReview = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
@@ -1066,6 +1263,24 @@ async function connectCdp(url) {
       socket.close();
     }
   };
+}
+
+async function waitForCdpValue(cdp, expression, predicate, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastValue;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      lastValue = await cdp.evaluate(expression);
+      lastError = undefined;
+      if (predicate(lastValue)) return lastValue;
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(100);
+  }
+  if (lastError) throw lastError;
+  throw new Error(`Timed out waiting for CDP value: ${JSON.stringify(lastValue)}`);
 }
 
 function sleep(ms) {

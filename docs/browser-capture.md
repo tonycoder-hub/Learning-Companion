@@ -39,6 +39,19 @@ When activated, it opens Learning Companion with:
 If no text is selected, it still updates the current session source context.
 If incoming text is staged instead of auto-saved, the app switches to capture focus and shows whether it matched an existing source or fell back to the current topic.
 
+The browser smoke test executes the generated bookmarklet on local virtual video and document pages, then follows the opened Learning Companion URL and verifies the saved capture. This covers selected text, multi-node document selections, empty-selection source updates, page title, page URL, empty document timestamps, and `<video>.currentTime` formatting without touching browser cookies or real external accounts.
+
+Coverage matrix:
+
+| Capture path | Automated | Manual follow-up |
+| --- | --- | --- |
+| Inbound URL parse and save | Yes | Spot-check after URL contract changes |
+| Generated bookmarklet -> URL on virtual pages | Yes | Spot-check after bookmarklet UI changes |
+| Bookmarklet on YouTube, Feishu Docs, and developer docs | No | Required before calling browser capture broadly compatible |
+| Safari/Firefox bookmarklet install and invocation | No | Required before cross-browser claims |
+
+This smoke does not prove real-site popup behavior, CSP interactions, iframe or shadow-DOM video access, browser bookmarklet length limits, or site-specific Selection API quirks.
+
 Routing is deterministic and conservative:
 
 - URL matching normalizes safe `http`/`https` URLs by dropping fragments, trailing path slashes, common tracking params, and YouTube/Bilibili/Vimeo time params before matching.
