@@ -15,6 +15,7 @@ product/mvp-learning-sidecar
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
+- Deterministic Focus Brief in the desk with next action, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Sessions, source context, timestamp, tags.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought.
@@ -29,6 +30,7 @@ product/mvp-learning-sidecar
 - Desk-native review pane works in focused sidecar layout.
 - Today tab summarizes workspace due review and recent captures.
 - Static mirror `index.html` provides a portable folder home page for Today, Review, Restore, and sessions.
+- Today and mirror exports include a Resume Here / Focus Brief section for mobile, Windows, and Feishu handoff.
 - Static mirror `review.html` supports reveal-only due-card review on mobile/Windows.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
@@ -43,7 +45,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Today tab/direct Today export/mirror home/study pack/static review pack, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Today tab/direct Today export/mirror home/study pack/static review pack, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -91,6 +93,7 @@ Accepted from Mira:
 - Add a derived Today study pack from one pure builder, with explicit generated/window metadata, relative session links, and `workspace.json` as source of truth.
 - Keep the Mac shell honest as a thin WKWebView wrapper: deterministic file origin, external-link handoff, and no silent localhost fallback.
 - Add a Mac shell clipboard-to-capture command as a local, permission-free step toward native capture.
+- Pin Focus Brief as a pure model-layer object, with deterministic next-action rules shared by desk UI and portable exports; add workspace-due fallback and synthesis-source freshness.
 
 Deferred:
 
@@ -98,6 +101,7 @@ Deferred:
 - Native Mac shell beyond the thin wrapper: production packaging, global hotkey, richer menu commands, OS capture, and browser URL bridge.
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
+- Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
 
 ## Next Best Commits
 
@@ -109,6 +113,7 @@ Deferred:
 ## Known Risks
 
 - `localStorage` is still a temporary store; export often.
+- Focus Brief workspace-review tie-break currently inherits the due queue ordering; document or expose that policy before making it adaptive.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.

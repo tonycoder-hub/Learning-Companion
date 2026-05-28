@@ -8,6 +8,7 @@ import {
   addSession,
   applyGrade,
   buildFeishuPayload,
+  buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
   buildSourceJumpUrl,
@@ -27,6 +28,7 @@ import {
   generateTodayMarkdown,
   getRecentCaptureItems,
   getSynthesisStats,
+  getSynthesisSourceStamp,
   getDueReviewCards,
   getDueReviewItems,
   getActiveSession,
@@ -112,6 +114,49 @@ assert.equal(dueItems.some((item) => item.sessionTitle === "Rust ownership cours
 assert.equal(dueItems.some((item) => item.sessionTitle === "Algorithms course"), true);
 assert.equal(getRecentCaptureItems(multiReviewWorkspace, 1)[0].sessionTitle, "Algorithms course");
 
+const workspaceDueElsewhere = sanitizeWorkspace({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  activeSessionId: "focus_active_clean",
+  sessions: [
+    {
+      id: "focus_active_clean",
+      title: "Clean active topic",
+      sourceTitle: "Clean source",
+      sourceUrl: "https://example.com/clean",
+      materialType: "doc",
+      tags: [],
+      focusMode: "capture",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: []
+    },
+    {
+      id: "focus_due_elsewhere",
+      title: "Due elsewhere",
+      sourceTitle: "Other source",
+      sourceUrl: "https://example.com/other",
+      materialType: "doc",
+      tags: [],
+      focusMode: "capture",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [{
+        id: "elsewhere_card",
+        prompt: "Remember this outside the active topic",
+        answer: "Because Today is workspace-scoped.",
+        dueAt: "2026-05-29T00:00:00.000Z",
+        strength: 0
+      }]
+    }
+  ]
+});
+const workspaceDueBrief = buildFocusBrief(getActiveSession(workspaceDueElsewhere), workspaceDueElsewhere, new Date("2026-05-29T00:20:00.000Z"));
+assert.equal(workspaceDueBrief.stats.dueCards, 0);
+assert.equal(workspaceDueBrief.stats.workspaceDueCards, 1);
+assert.equal(workspaceDueBrief.nextAction.kind, "review");
+assert.match(workspaceDueBrief.nextAction.label, /workspace due card/);
+
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
 assert.match(markdown, /08:12/);
@@ -129,12 +174,98 @@ const emptySynthesis = generateSynthesisDraft(createSession({ title: "Empty topi
 assert.match(emptySynthesis, /No captures yet/);
 assert.deepEqual(getSynthesisStats(session), { captures: 1, questions: 0, cards: 1 });
 
+const focusNow = new Date("2026-05-29T00:20:00.000Z");
+const dueFocusBrief = buildFocusBrief(session, workspace, focusNow);
+assert.equal(dueFocusBrief.schema, "learning-companion.focus-brief.v1");
+assert.equal(dueFocusBrief.nextAction.kind, "review");
+assert.equal(dueFocusBrief.stats.dueCards, 1);
+assert.match(dueFocusBrief.source.href, /youtube\.com/);
+const synthesizeBrief = buildFocusBrief(createSession({
+  id: "focus_synthesize",
+  title: "Synthesis needed",
+  sourceUrl: "https://example.com/course",
+  captures: [
+    { id: "cap_a", thought: "First idea", capturedAt: "2026-05-29T00:00:00.000Z" },
+    { id: "cap_b", thought: "Second idea", capturedAt: "2026-05-29T00:01:00.000Z" },
+    { id: "cap_c", thought: "Third idea", capturedAt: "2026-05-29T00:02:00.000Z" }
+  ],
+  reviewCards: []
+}, workspace.clientId), null, focusNow);
+assert.equal(synthesizeBrief.nextAction.kind, "synthesize");
+assert.equal(synthesizeBrief.stats.capturesSinceLastSynthesis, 3);
+assert.equal(synthesizeBrief.warnings.some((warning) => warning.kind === "needs_synthesis"), true);
+const oldCaptureBrief = buildFocusBrief(createSession({
+  id: "focus_capture",
+  title: "Capture next",
+  sourceUrl: "https://example.com/course",
+  captures: [{ id: "cap_old", thought: "Older thought", capturedAt: "2026-05-29T00:00:00.000Z" }],
+  reviewCards: []
+}, workspace.clientId), null, focusNow);
+assert.equal(oldCaptureBrief.nextAction.kind, "capture");
+const recentCaptureBrief = buildFocusBrief(createSession({
+  id: "focus_continue",
+  title: "Continue reading",
+  sourceUrl: "https://example.com/course",
+  captures: [{ id: "cap_recent", thought: "Fresh thought", capturedAt: "2026-05-29T00:15:00.000Z" }],
+  reviewCards: []
+}, workspace.clientId), null, focusNow);
+assert.equal(recentCaptureBrief.nextAction.kind, "continue");
+const noSourceBrief = buildFocusBrief(createSession({ id: "focus_no_source", title: "No source" }, workspace.clientId), null, focusNow);
+assert.equal(noSourceBrief.nextAction.kind, "open_source");
+assert.equal(noSourceBrief.warnings.some((warning) => warning.kind === "missing_source"), true);
+const unsafeSourceBrief = buildFocusBrief(createSession({
+  id: "focus_unsafe_source",
+  title: "Unsafe source",
+  sourceUrl: "javascript:alert(1)",
+  captures: []
+}, workspace.clientId), null, focusNow);
+assert.equal(unsafeSourceBrief.source.href, "");
+assert.equal(unsafeSourceBrief.nextAction.kind, "open_source");
+let synthesizedSession = createSession({
+  id: "focus_synthesized",
+  title: "Synthesized",
+  sourceUrl: "https://example.com/course",
+  captures: [
+    { id: "done_a", thought: "First idea", capturedAt: "2026-05-29T00:00:00.000Z" },
+    { id: "done_b", thought: "Second idea", capturedAt: "2026-05-29T00:01:00.000Z" },
+    { id: "done_c", thought: "Third idea", capturedAt: "2026-05-29T00:02:00.000Z" }
+  ],
+  reviewCards: []
+}, workspace.clientId);
+synthesizedSession = {
+  ...synthesizedSession,
+  notesMarkdown: [
+    "<!-- learning-companion:synthesis:start -->",
+    `<!-- learning-companion:synthesis-source:${getSynthesisSourceStamp(synthesizedSession)} -->`,
+    "Done",
+    "<!-- learning-companion:synthesis:end -->"
+  ].join("\n")
+};
+const synthesizedBrief = buildFocusBrief(synthesizedSession, null, focusNow);
+assert.equal(synthesizedBrief.stats.capturesSinceLastSynthesis, 0);
+assert.equal(synthesizedBrief.warnings.some((warning) => warning.kind === "needs_synthesis"), false);
+assert.equal(getSynthesisSourceStamp({
+  ...synthesizedSession,
+  captures: [...synthesizedSession.captures].reverse(),
+  reviewCards: [...synthesizedSession.reviewCards].reverse()
+}), getSynthesisSourceStamp(synthesizedSession));
+const staleSynthesisBrief = buildFocusBrief({
+  ...synthesizedSession,
+  captures: [
+    { id: "new_after_synth", thought: "New idea after the old synthesis", capturedAt: "2026-05-29T00:19:00.000Z" },
+    ...synthesizedSession.captures
+  ]
+}, null, focusNow);
+assert.equal(staleSynthesisBrief.nextAction.kind, "synthesize");
+
 const frozenToday = new Date("2099-01-02T00:00:00.000Z");
 const todayPack = buildTodayPack(multiReviewWorkspace, frozenToday, { dueLimit: 1, recentLimit: 1 });
 assert.equal(todayPack.stats.due, 2);
 assert.equal(todayPack.dueItems.length, 1);
 assert.equal(todayPack.dueOverflow, 1);
 assert.equal(todayPack.recentCaptures.length, 1);
+assert.equal(todayPack.focusBrief.nextAction.kind, "review");
+assert.equal(todayPack.focusBrief.sessionId, multiReviewWorkspace.activeSessionId);
 assert.match(todayPack.dueItems[0].sessionPath, /^sessions\/.+\.md$/);
 assert.match(todayPack.recentCaptures[0].sessionPath, /^sessions\/.+\.md$/);
 assert.match(todayPack.localDayWindow.start, /T00:00:00[+-]\d{2}:\d{2}$/);
@@ -145,6 +276,8 @@ assert.match(todayMarkdown, /Generated from workspace\.json/);
 assert.match(todayMarkdown, /Today Study Pack/);
 assert.match(todayMarkdown, /Local day window: \[/);
 assert.match(todayMarkdown, /Due rule: review cards with dueAt <= generatedAt/);
+assert.match(todayMarkdown, /Resume Here/);
+assert.match(todayMarkdown, /Next: Review/);
 assert.match(todayMarkdown, /\]\(sessions\/.+\.md\)/);
 assert.match(todayMarkdown, /Due Review/);
 assert.match(todayMarkdown, /Recent Captures/);
@@ -223,6 +356,8 @@ assert.match(mirrorIndexHtml, /href="TODAY\.md"/);
 assert.match(mirrorIndexHtml, /href="review\.html"/);
 assert.match(mirrorIndexHtml, /href="workspace\.json"/);
 assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
+assert.match(mirrorIndexHtml, /Resume Here/);
+assert.match(mirrorIndexHtml, /Review 1 due card/);
 assert.match(mirrorIndexHtml, /Content-Security-Policy/);
 assert.match(mirrorIndexHtml, /learning-companion-workspace-fingerprint/);
 assert.equal(mirrorIndexHtml.includes("<script"), false);
@@ -231,6 +366,8 @@ assert.equal(mirrorIndexHtml, generateMirrorIndexHtml(multiReviewWorkspace, froz
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");
 assert.equal(payload.session.id, session.id);
+assert.equal(payload.focusBrief.sessionId, session.id);
+assert.equal(payload.focusBrief.nextAction.kind, "review");
 
 const mirror = buildMirrorBundle(workspace);
 assert.equal(mirror.schema, "learning-companion.mirror-bundle.staging.v1");

@@ -7,6 +7,8 @@ export const MAX_CAPTURE_TEXT_LENGTH = 12000;
 export const MAX_MIRROR_FILE_BYTES = 1_000_000;
 export const MAX_MIRROR_BUNDLE_BYTES = 25_000_000;
 export const MAX_MIRROR_CANONICAL_BYTES = 5_000_000;
+export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
+export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
@@ -541,11 +543,75 @@ export function getStudyPackStats(workspace, now = new Date()) {
   };
 }
 
+export function buildFocusBrief(session, workspace = null, now = new Date()) {
+  const date = Number.isFinite(now?.getTime?.()) ? now : new Date(now);
+  const captures = Array.isArray(session?.captures) ? [...session.captures] : [];
+  const reviewCards = Array.isArray(session?.reviewCards) ? session.reviewCards : [];
+  const dueCards = getDueReviewCards({ ...session, reviewCards }, date);
+  const workspaceDueCards = workspace ? getDueReviewItems(workspace, date).length : dueCards.length;
+  const latestCapture = captures.sort((a, b) => {
+    const byTime = new Date(b.capturedAt || b.createdAt).getTime() - new Date(a.capturedAt || a.createdAt).getTime();
+    if (byTime !== 0) return byTime;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  })[0] || null;
+  const hasSynthesis = hasSynthesisBlock(session?.notesMarkdown);
+  const synthesisStamp = getSynthesisBlockStamp(session?.notesMarkdown);
+  const hasCurrentSynthesis = hasSynthesis && synthesisStamp && synthesisStamp === getSynthesisSourceStamp(session);
+  const capturesSinceLastSynthesis = hasCurrentSynthesis ? 0 : captures.length;
+  const sourceHref = buildSourceJumpUrl(session?.sourceUrl || "", "");
+  const minutesSinceLastCapture = latestCapture
+    ? Math.max(0, Math.floor((date.getTime() - new Date(latestCapture.capturedAt || latestCapture.createdAt).getTime()) / 60000))
+    : null;
+  const hasRecentCapture = minutesSinceLastCapture !== null && minutesSinceLastCapture < FOCUS_BRIEF_CAPTURE_IDLE_MINUTES;
+  const synthesisDue = isFocusSynthesisDue(capturesSinceLastSynthesis, hasCurrentSynthesis);
+  const warnings = buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref);
+
+  return {
+    schema: "learning-companion.focus-brief.v1",
+    generatedAt: formatLocalIso(date),
+    sessionId: cleanText(session?.id, 128),
+    sessionTitle: cleanText(session?.title || "Untitled learning session", MAX_TITLE_LENGTH),
+    source: {
+      title: cleanText(session?.sourceTitle || "", MAX_TITLE_LENGTH),
+      url: cleanUrl(session?.sourceUrl || ""),
+      href: sourceHref,
+      materialType: MATERIAL_TYPES.has(session?.materialType) ? session.materialType : "other",
+      available: Boolean(sourceHref)
+    },
+    stats: {
+      captures: captures.length,
+      cards: reviewCards.length,
+      dueCards: dueCards.length,
+      workspaceDueCards,
+      capturesSinceLastSynthesis
+    },
+    latestCapture: latestCapture ? {
+      id: cleanText(latestCapture.id, 128),
+      summary: cleanText(latestCapture.thought || latestCapture.quote || "Untitled capture", 240),
+      capturedAt: latestCapture.capturedAt || latestCapture.createdAt || "",
+      timestamp: cleanText(latestCapture.timestamp, 32),
+      sourceTitle: cleanText(latestCapture.sourceTitle || session?.sourceTitle || "", MAX_TITLE_LENGTH),
+      sourceHref: buildSourceJumpUrl(latestCapture.sourceUrl || session?.sourceUrl || "", latestCapture.timestamp)
+    } : null,
+    warnings,
+    nextAction: chooseFocusNextAction({
+      dueCards: dueCards.length,
+      workspaceDueCards,
+      capturesSinceLastSynthesis,
+      synthesisDue,
+      hasCurrentSynthesis,
+      sourceHref,
+      hasRecentCapture
+    })
+  };
+}
+
 export function buildTodayPack(workspace, now = new Date(), limits = {}) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const dueLimit = Math.max(1, Number(limits.dueLimit) || 20);
   const recentLimit = Math.max(1, Number(limits.recentLimit) || 8);
   const sessionPaths = new Map(cleanWorkspace.sessions.map((session) => [session.id, getMirrorSessionPaths(session)]));
+  const activeSession = getActiveSession(cleanWorkspace);
   const dueAll = getDueReviewItems(cleanWorkspace, now).map((item) => ({
     ...item,
     sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
@@ -575,6 +641,10 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     recentDefinition: `latest ${recentLimit} captures by capturedAt`,
     dueDefinition: "review cards with dueAt <= generatedAt",
     stats: getStudyPackStats(cleanWorkspace, now),
+    focusBrief: {
+      ...buildFocusBrief(activeSession, cleanWorkspace, now),
+      sessionPath: sessionPaths.get(activeSession.id)?.markdownPath || ""
+    },
     dueItems: dueAll.slice(0, dueLimit),
     dueOverflow: Math.max(0, dueAll.length - dueLimit),
     recentCaptures: recentAll.slice(0, recentLimit),
@@ -692,6 +762,7 @@ export function generateSynthesisDraft(session) {
 export function generateTodayMarkdown(workspace, now = new Date()) {
   const pack = buildTodayPack(workspace, now);
   const { stats } = pack;
+  const brief = pack.focusBrief;
   const lines = [
     "<!-- Generated from workspace.json. Edits will be overwritten. Source of truth: workspace.json -->",
     "",
@@ -703,9 +774,32 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     `Recent rule: ${pack.recentDefinition}`,
     `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
     "",
-    "## Due Review",
+    "## Resume Here",
+    "",
+    `- Session: ${markdownRelativeLink(brief.sessionTitle, brief.sessionPath)}`,
+    `- Next: ${markdownInline(brief.nextAction.label)} - ${markdownInline(brief.nextAction.detail)}`,
+    brief.source.href
+      ? `- Source: [${markdownInline(brief.source.title || "Open source")}](${brief.source.href})`
+      : "- Source: _Add a source URL before the next export._",
+    brief.latestCapture
+      ? `- Latest capture: ${markdownInline(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` @ ${markdownInline(brief.latestCapture.timestamp)}` : ""}`
+      : "- Latest capture: _No captures yet._",
+    "",
+    "### Resume Signals",
     ""
   ];
+
+  if (brief.warnings.length) {
+    brief.warnings.forEach((warning) => lines.push(`- ${markdownInline(warning.label)} - ${markdownInline(warning.detail)}`));
+  } else {
+    lines.push("- Session is ready to continue.");
+  }
+
+  lines.push(
+    "",
+    "## Due Review",
+    ""
+  );
 
   if (!pack.dueItems.length) {
     lines.push("_No cards are due right now._");
@@ -827,6 +921,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
   const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 6, recentLimit: 4 });
+  const brief = pack.focusBrief;
   const sessionLinks = cleanWorkspace.sessions.map((session) => {
     const paths = getMirrorSessionPaths(session);
     const due = getDueReviewCards(session, now).length;
@@ -843,6 +938,15 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const recentList = pack.recentCaptures.length
     ? pack.recentCaptures.map(({ sessionTitle, capture }) => `<li>${htmlText(capture.thought || capture.quote || "Untitled capture")} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
     : "<li>No captures yet.</li>";
+  const signalList = brief.warnings.length
+    ? brief.warnings.map((warning) => `<li>${htmlText(warning.label)} <span>${htmlText(warning.detail)}</span></li>`).join("\n")
+    : "<li>Session is ready to continue.</li>";
+  const sourceLine = brief.source.href
+    ? `<a href="${htmlAttribute(brief.source.href)}">${htmlText(brief.source.title || "Open source")}</a>`
+    : "Add a source URL before the next export.";
+  const latestLine = brief.latestCapture
+    ? `${htmlText(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` <span>@ ${htmlText(brief.latestCapture.timestamp)}</span>` : ""}`
+    : "No captures yet.";
 
   return [
     "<!doctype html>",
@@ -888,6 +992,14 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "      <a class=\"action\" href=\"workspace.json\"><strong>Restore</strong><span>Canonical workspace JSON</span></a>",
     "    </nav>",
     "    <section class=\"panel\">",
+    "      <h2>Resume Here</h2>",
+    `      <p><strong>${htmlText(brief.nextAction.label)}</strong> <span>${htmlText(brief.nextAction.detail)}</span></p>`,
+    `      <p>Session: <a href="${htmlAttribute(brief.sessionPath)}">${htmlText(brief.sessionTitle)}</a></p>`,
+    `      <p>Source: ${sourceLine}</p>`,
+    `      <p>Latest: ${latestLine}</p>`,
+    `      <ul>${signalList}</ul>`,
+    "    </section>",
+    "    <section class=\"panel\">",
     "      <h2>Due Review Preview</h2>",
     `      <ul>${dueList}</ul>`,
     "    </section>",
@@ -918,14 +1030,35 @@ export function getSynthesisStats(session) {
   };
 }
 
-export function buildFeishuPayload(session) {
+export function getSynthesisSourceStamp(session) {
+  return fingerprintText(JSON.stringify({
+    sourceTitle: session?.sourceTitle || "",
+    sourceUrl: session?.sourceUrl || "",
+    captures: (Array.isArray(session?.captures) ? session.captures : []).map((capture) => ({
+      id: capture.id,
+      quote: capture.quote,
+      thought: capture.thought,
+      timestamp: capture.timestamp,
+      updatedAt: capture.updatedAt
+    })).sort((a, b) => String(a.id || "").localeCompare(String(b.id || ""))),
+    reviewCards: (Array.isArray(session?.reviewCards) ? session.reviewCards : []).map((card) => ({
+      id: card.id,
+      prompt: card.prompt,
+      answer: card.answer,
+      updatedAt: card.updatedAt
+    })).sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")))
+  }));
+}
+
+export function buildFeishuPayload(session, now = new Date()) {
   return {
     schema: "learning-companion.feishu-export.v1",
-    exportedAt: nowIso(),
+    exportedAt: Number.isFinite(now?.getTime?.()) ? now.toISOString() : nowIso(),
     target: {
       drive: "markdown-plus-json",
       docTitle: session.title
     },
+    focusBrief: buildFocusBrief(session, null, now),
     session,
     markdown: generateMarkdown(session)
   };
@@ -952,7 +1085,7 @@ export function buildMirrorBundle(workspace) {
         mediaType: "application/json",
         role: "session-sidecar",
         sessionId: session.id,
-        content: JSON.stringify(buildFeishuPayload(session), null, 2)
+        content: JSON.stringify(buildFeishuPayload(session, new Date(exportedAt)), null, 2)
       })
     ];
   });
@@ -1067,6 +1200,94 @@ export function buildMirrorZip(workspace) {
     bundleFingerprint: bundle.manifest.bundleFingerprint,
     data
   };
+}
+
+function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref) {
+  const captures = Array.isArray(session?.captures) ? session.captures : [];
+  return [
+    !sourceHref ? {
+      kind: "missing_source",
+      label: "Source missing",
+      detail: "Add the browser URL so captures can jump back to the material."
+    } : null,
+    captures.length && !cleanText(session?.notesMarkdown || "", MAX_NOTE_LENGTH) ? {
+      kind: "notes_empty",
+      label: "Notes empty",
+      detail: "Move at least one capture into notes before ending the session."
+    } : null,
+    synthesisDue ? {
+      kind: "needs_synthesis",
+      label: "Synthesis due",
+      detail: `${capturesSinceLastSynthesis} captures are waiting for a synthesis block.`
+    } : null
+  ].filter(Boolean);
+}
+
+function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastSynthesis, synthesisDue, sourceHref, hasRecentCapture }) {
+  if (dueCards > 0) {
+    return {
+      kind: "review",
+      label: `Review ${formatCount(dueCards, "due card")}`,
+      detail: "Reveal and grade before adding more material.",
+      focusMode: "review",
+      tab: "review"
+    };
+  }
+  if (workspaceDueCards > 0) {
+    return {
+      kind: "review",
+      label: `Review ${formatCount(workspaceDueCards, "workspace due card")}`,
+      detail: "Due cards exist outside the active topic.",
+      focusMode: "review",
+      tab: "review"
+    };
+  }
+  if (synthesisDue) {
+    return {
+      kind: "synthesize",
+      label: "Build synthesis",
+      detail: `${capturesSinceLastSynthesis} captures are ready to compress into notes.`,
+      focusMode: "synthesize",
+      tab: "captures"
+    };
+  }
+  if (sourceHref && !hasRecentCapture) {
+    return {
+      kind: "capture",
+      label: "Capture next point",
+      detail: `No capture in the last ${FOCUS_BRIEF_CAPTURE_IDLE_MINUTES} minutes.`,
+      focusMode: "capture",
+      tab: "captures"
+    };
+  }
+  if (sourceHref) {
+    return {
+      kind: "continue",
+      label: "Keep reading",
+      detail: "The source is open; capture the next idea that changes your model.",
+      focusMode: "capture",
+      tab: "captures"
+    };
+  }
+  return {
+    kind: "open_source",
+    label: "Add source",
+    detail: "Paste the browser URL before capturing more notes.",
+    focusMode: "capture",
+    tab: "captures"
+  };
+}
+
+function isFocusSynthesisDue(capturesSinceLastSynthesis, hasCurrentSynthesis) {
+  return capturesSinceLastSynthesis >= FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD && !hasCurrentSynthesis;
+}
+
+function hasSynthesisBlock(notesMarkdown) {
+  return /<!-- learning-companion:synthesis:start -->[\s\S]*?<!-- learning-companion:synthesis:end -->/.test(String(notesMarkdown || ""));
+}
+
+function getSynthesisBlockStamp(notesMarkdown) {
+  return String(notesMarkdown || "").match(/<!-- learning-companion:synthesis-source:([A-Za-z0-9._:-]+) -->/)?.[1] || "";
 }
 
 function formatCount(count, singular) {

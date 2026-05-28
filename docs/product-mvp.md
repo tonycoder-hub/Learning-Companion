@@ -50,6 +50,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.
 - Desk-level activity strip for last capture/review/synthesis feedback.
+- Deterministic Focus Brief that suggests review, workspace review, synthesis, capture, continue, or source setup from the current session state.
 - Today study pack with due review and recent captures across the workspace.
 - Review cards generated from captures.
 - A simple review queue with due cards and strength buckets.
@@ -58,6 +59,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Direct `TODAY.md` copy/save for a quick mobile or Feishu handoff.
 - Feishu mirror ZIP export for manual Drive upload or extraction.
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
+- Today and mirror exports include the active session's Focus Brief so cross-device handoff starts at "resume here."
 - Mirror bundle includes static `index.html` as a folder home page for Today, Review, Restore, and sessions.
 - Mirror bundle includes static `review.html` for reveal-only due-card review on phone or Windows.
 - Portable import/export of the full workspace JSON and mirror bundle.

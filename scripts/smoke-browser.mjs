@@ -160,6 +160,12 @@ try {
     setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
+    const focusBriefAfterCard = {
+      action: document.querySelector("#focusBriefAction").textContent,
+      facts: document.querySelector("#focusBriefFacts").textContent,
+      signals: document.querySelector("#focusBriefSignals").textContent,
+      button: document.querySelector("#focusBriefActionBtn").textContent
+    };
     const activityAfterCard = {
       title: document.querySelector("#activityTitle").textContent,
       detail: document.querySelector("#activityDetail").textContent,
@@ -209,6 +215,10 @@ try {
       bubbles: true,
       cancelable: true
     }));
+    const focusBriefAfterGood = {
+      action: document.querySelector("#focusBriefAction").textContent,
+      kicker: document.querySelector("#focusBriefKicker").textContent
+    };
     document.querySelector('[data-focus-mode="synthesize"]').click();
     const synthesisVisible = !document.querySelector("#synthesisPane").hidden && document.querySelector("#capturePane").hidden;
     document.querySelector("#synthesisDraft").value = "manual synthesis survives";
@@ -225,6 +235,12 @@ try {
     document.querySelector("#buildSynthesisBtn").click();
     const synthesisDraft = document.querySelector("#synthesisDraft").value;
     document.querySelector("#insertSynthesisBtn").click();
+    const focusBriefAfterSynthesis = {
+      action: document.querySelector("#focusBriefAction").textContent,
+      facts: document.querySelector("#focusBriefFacts").textContent,
+      signals: document.querySelector("#focusBriefSignals").textContent,
+      button: document.querySelector("#focusBriefActionBtn").textContent
+    };
     const activityAfterSynthesis = document.querySelector("#activityTitle").textContent;
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector('[data-tab="export"]').click();
@@ -273,6 +289,9 @@ try {
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
           activityAfterCard,
+          focusBriefAfterCard,
+          focusBriefAfterGood,
+          focusBriefAfterSynthesis,
           todayActive,
           todayHasDueReview,
           todayHasRecentCapture,
@@ -364,6 +383,13 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.match(result.focusBriefAfterCard.action, /Review 1 due card/);
+  assert.match(result.focusBriefAfterCard.facts, /compiler-enforced lifetimes/);
+  assert.equal(result.focusBriefAfterCard.button, "Review");
+  assert.match(result.focusBriefAfterGood.action, /Review 1 due card/);
+  assert.match(result.focusBriefAfterGood.kicker, /1 due/);
+  assert.equal(result.focusBriefAfterSynthesis.signals.includes("Synthesis due"), false);
+  assert.match(result.focusBriefAfterSynthesis.facts, /Current/);
   assert.equal(result.todayActive, true);
   assert.equal(result.todayHasDueReview, true);
   assert.equal(result.todayHasRecentCapture, true);

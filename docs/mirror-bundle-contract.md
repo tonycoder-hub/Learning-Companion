@@ -12,8 +12,9 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 
 - `workspace.json` is canonical for restore.
 - `README.md` is derived documentation.
+- `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session.
 - `sessions/*.md` is derived human-readable material.
-- `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync.
+- `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync; it includes the same deterministic focus brief for that session.
 
 Importers restore from `workspace.json` first. They may use derived files for diagnostics, previews, or migration help, but not as the primary source of truth.
 

@@ -4,6 +4,7 @@ import {
   addCapture,
   addSession,
   buildFeishuPayload,
+  buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
   buildSourceJumpUrl,
@@ -15,6 +16,7 @@ import {
   generateSynthesisDraft,
   generateTodayMarkdown,
   getSynthesisStats,
+  getSynthesisSourceStamp,
   getDueReviewCards,
   getDueReviewItems,
   getActiveSession,
@@ -61,6 +63,12 @@ const dom = {
   activityTitle: document.querySelector("#activityTitle"),
   activityDetail: document.querySelector("#activityDetail"),
   activityDetailsBtn: document.querySelector("#activityDetailsBtn"),
+  focusBriefKicker: document.querySelector("#focusBriefKicker"),
+  focusBriefAction: document.querySelector("#focusBriefAction"),
+  focusBriefDetail: document.querySelector("#focusBriefDetail"),
+  focusBriefFacts: document.querySelector("#focusBriefFacts"),
+  focusBriefSignals: document.querySelector("#focusBriefSignals"),
+  focusBriefActionBtn: document.querySelector("#focusBriefActionBtn"),
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
   capturePane: document.querySelector("#capturePane"),
@@ -173,6 +181,7 @@ dom.notesEditor.addEventListener("input", () => {
   const session = getActiveSession(workspace);
   workspace = updateSession(workspace, session.id, { notesMarkdown: dom.notesEditor.value });
   scheduleSave();
+  renderFocusBrief();
   renderInspector();
   renderNotesMode();
 });
@@ -195,6 +204,7 @@ dom.openSourceBtn.addEventListener("click", () => {
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
 dom.activityDetailsBtn.addEventListener("click", showActivityDetails);
+dom.focusBriefActionBtn.addEventListener("click", runFocusBriefAction);
 
 window.addEventListener("pagehide", persist);
 document.addEventListener("visibilitychange", () => {
@@ -221,7 +231,7 @@ dom.insertSynthesisBtn.addEventListener("click", () => {
     return;
   }
   const session = getActiveSession(workspace);
-  const nextNotes = upsertSynthesisBlock(session.notesMarkdown, draft);
+  const nextNotes = upsertSynthesisBlock(session.notesMarkdown, draft, getSynthesisSourceStamp(session));
   workspace = updateSession(workspace, session.id, { notesMarkdown: nextNotes });
   setActivity(getActiveSession(workspace), {
     title: "Synthesis inserted",
@@ -416,6 +426,7 @@ function updateSessionFromFields() {
     tags: dom.sessionTags.value
   });
   scheduleSave();
+  renderFocusBrief();
   renderSessions();
   renderInspector();
 }
@@ -515,6 +526,7 @@ function render() {
   renderFocusMode(session.focusMode);
   renderShellMode();
   renderActivity(session);
+  renderFocusBrief();
   renderNotesMode();
   renderStorageNotice();
   renderMetrics();
@@ -563,6 +575,84 @@ function renderActivity(session) {
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
+}
+
+function renderFocusBrief() {
+  const session = getActiveSession(workspace);
+  const brief = buildFocusBrief(session, workspace);
+  const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
+    ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
+    : `${brief.stats.dueCards} due`;
+  dom.focusBriefKicker.textContent = `${brief.stats.captures} captures · ${dueCopy}`;
+  dom.focusBriefAction.textContent = brief.nextAction.label;
+  dom.focusBriefDetail.textContent = brief.nextAction.detail;
+  dom.focusBriefActionBtn.textContent = focusBriefButtonLabel(brief.nextAction.kind);
+  dom.focusBriefActionBtn.title = brief.nextAction.detail;
+  dom.focusBriefActionBtn.setAttribute("aria-label", brief.nextAction.label);
+  clearChildren(dom.focusBriefFacts);
+  dom.focusBriefFacts.append(
+    focusBriefFact("Source", brief.source.title || (brief.source.available ? "Open source" : "No source")),
+    focusBriefFact("Latest", brief.latestCapture
+      ? `${brief.latestCapture.summary}${brief.latestCapture.timestamp ? ` @ ${brief.latestCapture.timestamp}` : ""}`
+      : "No captures yet"),
+    focusBriefFact("Synthesis", brief.stats.capturesSinceLastSynthesis
+      ? `${brief.stats.capturesSinceLastSynthesis} waiting`
+      : "Current")
+  );
+  clearChildren(dom.focusBriefSignals);
+  if (brief.warnings.length) {
+    brief.warnings.forEach((warning) => {
+      const signal = textEl("span", "focus-signal warn", warning.label);
+      signal.title = warning.detail;
+      dom.focusBriefSignals.append(signal);
+    });
+  } else {
+    dom.focusBriefSignals.append(textEl("span", "focus-signal", "Ready"));
+  }
+}
+
+function focusBriefFact(label, value) {
+  const item = document.createElement("div");
+  item.className = "focus-brief-fact";
+  item.append(textEl("span", "", label), textEl("strong", "", value));
+  return item;
+}
+
+function focusBriefButtonLabel(kind) {
+  return {
+    review: "Review",
+    synthesize: "Build",
+    capture: "Capture",
+    continue: "Open",
+    open_source: "Source"
+  }[kind] || "Go";
+}
+
+function runFocusBriefAction() {
+  const session = getActiveSession(workspace);
+  const brief = buildFocusBrief(session, workspace);
+  if (["review", "synthesize", "capture", "continue"].includes(brief.nextAction.kind)) {
+    workspace = updateSession(workspace, session.id, { focusMode: brief.nextAction.focusMode });
+    activeTab = brief.nextAction.tab || activeTab;
+    if (brief.nextAction.kind === "review") {
+      const [next] = getDueReviewItems(workspace);
+      activeReviewKey = next ? reviewKey(next.sessionId, next.card.id) : "";
+      if (activeReviewKey) revealedReviewCards.delete(activeReviewKey);
+    }
+    persistAndRender();
+  }
+  if (brief.nextAction.kind === "review") {
+    renderDeskReview();
+  } else if (brief.nextAction.kind === "synthesize") {
+    dom.synthesisDraft.focus();
+  } else if (brief.nextAction.kind === "capture") {
+    dom.quoteInput.focus();
+  } else if (brief.nextAction.kind === "continue") {
+    if (brief.source.href) window.open(brief.source.href, "_blank", "noopener,noreferrer");
+    else dom.quoteInput.focus();
+  } else {
+    dom.sourceUrl.focus();
+  }
 }
 
 function getActivity(session) {
@@ -819,47 +909,19 @@ function renderSynthesisStatus() {
   }
 }
 
-function upsertSynthesisBlock(notesMarkdown, draft) {
+function upsertSynthesisBlock(notesMarkdown, draft, sourceStamp = "") {
   const block = [
     "<!-- learning-companion:synthesis:start -->",
+    sourceStamp ? `<!-- learning-companion:synthesis-source:${sourceStamp} -->` : "",
     draft.trim(),
     "<!-- learning-companion:synthesis:end -->"
-  ].join("\n");
+  ].filter(Boolean).join("\n");
   const existingBlock = /\n*<!-- learning-companion:synthesis:start -->[\s\S]*?<!-- learning-companion:synthesis:end -->/;
   const notes = String(notesMarkdown || "").trim();
   if (existingBlock.test(notes)) {
     return notes.replace(existingBlock, `\n\n${block}`).trim();
   }
   return [notes, block].filter(Boolean).join("\n\n");
-}
-
-function getSynthesisSourceStamp(session) {
-  return String(hashString(JSON.stringify({
-    sourceTitle: session.sourceTitle,
-    sourceUrl: session.sourceUrl,
-    captures: session.captures.map((capture) => ({
-      id: capture.id,
-      quote: capture.quote,
-      thought: capture.thought,
-      timestamp: capture.timestamp,
-      updatedAt: capture.updatedAt
-    })),
-    reviewCards: session.reviewCards.map((card) => ({
-      id: card.id,
-      prompt: card.prompt,
-      answer: card.answer,
-      updatedAt: card.updatedAt
-    }))
-  })));
-}
-
-function hashString(value) {
-  let hash = 2166136261;
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
 }
 
 function renderSessions() {

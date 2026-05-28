@@ -255,7 +255,7 @@ textarea:focus {
 
 .desk {
   display: grid;
-  grid-template-rows: auto auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto auto 1fr;
   gap: 14px;
   min-width: 0;
   padding: 18px;
@@ -334,6 +334,90 @@ textarea:focus {
 .activity-copy span {
   color: var(--muted);
   font-size: 12px;
+}
+
+.focus-brief {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) minmax(240px, 1.3fr) minmax(160px, 0.8fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid rgba(47, 111, 94, 0.24);
+  border-radius: 8px;
+  background: #f7fbf8;
+}
+
+.focus-brief-main,
+.focus-brief-fact {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.focus-brief-main span,
+.focus-brief-main p,
+.focus-brief-fact span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.focus-brief-main strong {
+  font-size: 16px;
+}
+
+.focus-brief-main strong,
+.focus-brief-main p,
+.focus-brief-fact strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-brief-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.focus-brief-fact {
+  min-height: 50px;
+  padding: 8px;
+  border: 1px solid rgba(220, 216, 204, 0.8);
+  border-radius: 8px;
+  background: white;
+}
+
+.focus-brief-fact strong {
+  font-size: 12px;
+}
+
+.focus-brief-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.focus-signal {
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid rgba(47, 111, 94, 0.2);
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.focus-signal.warn {
+  border-color: rgba(167, 96, 23, 0.28);
+  background: var(--amber-soft);
+  color: var(--amber);
 }
 
 .field {
@@ -792,6 +876,7 @@ textarea:focus {
   .focus-row,
   .metrics-row,
   .activity-strip,
+  .focus-brief,
   .work-grid,
   .capture-pane,
   .synthesis-pane,
@@ -801,6 +886,14 @@ textarea:focus {
   .input-with-button {
     width: var(--mobile-content-width);
     max-width: var(--mobile-content-width);
+  }
+
+  .focus-brief {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-brief-facts {
+    grid-template-columns: 1fr;
   }
 
   .metric-cell {
