@@ -405,6 +405,8 @@ try {
         setTimeout(() => {
           const afterInboxImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterInboxSession = afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId);
+          document.querySelector('[data-tab="today"]').click();
+          const handoffPanel = document.querySelector(".handoff-card");
           resolve({
           titleAfterNewSession,
           restoredTitle: restoredSession.title,
@@ -428,6 +430,8 @@ try {
           inboxLatestProvenance: afterInboxSession.captures[0].sourceProvenance,
           inboxSanitizedSourceUrls: afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId).captures[0].sourceUrl === "" ? 1 : 0,
           inboxImportedPatch: afterInboxImport.importedPatches.includes("browser_patch_001"),
+          handoffText: handoffPanel.textContent,
+          handoffButtons: [...handoffPanel.querySelectorAll("button")].map((button) => button.textContent),
           inboxNotesPreserved: afterInboxSession.notesMarkdown === restoredSession.notesMarkdown,
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
@@ -553,6 +557,10 @@ try {
   assert.equal(result.inboxLatestProvenance, "inbox");
   assert.equal(result.inboxSanitizedSourceUrls, 1);
   assert.equal(result.inboxImportedPatch, true);
+  assert.match(result.handoffText, /Patch Intake/);
+  assert.match(result.handoffText, /1 inbox · 1 review/);
+  assert.match(result.handoffText, /1 added/);
+  assert.deepEqual(result.handoffButtons, ["Import Patch", "Export Mirror"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
   assert.equal(result.captures, 3);

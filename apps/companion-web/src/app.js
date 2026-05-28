@@ -1454,6 +1454,8 @@ function renderToday() {
     todayStat(String(stats.cards), "cards")
   );
 
+  dom.todayList.append(renderPatchIntakePanel());
+
   dom.todayList.append(textEl("div", "today-section-title", "Due Review"));
   if (!pack.dueItems.length) {
     dom.todayList.append(emptyState("No cards due right now"));
@@ -1515,6 +1517,38 @@ function todayStat(value, label) {
   node.className = "today-stat";
   node.append(textEl("strong", "", value), textEl("small", "", label));
   return node;
+}
+
+function renderPatchIntakePanel() {
+  const panel = document.createElement("article");
+  panel.className = "item-card handoff-card";
+  const inboxCount = workspace.importedPatches.length;
+  const reviewCount = workspace.importedReviewPatches.length;
+  const header = document.createElement("div");
+  header.className = "handoff-header";
+  header.append(
+    textEl("strong", "", "Patch Intake"),
+    textEl("span", "item-meta", `${inboxCount} inbox · ${reviewCount} review`)
+  );
+  const detail = textEl(
+    "p",
+    "handoff-detail",
+    lastImportReceipt ? formatImportReceipt(lastImportReceipt) : "Append-only JSON return path"
+  );
+  const footer = document.createElement("div");
+  footer.className = "item-footer";
+  const importPatch = textEl("button", "mini-button primary", "Import Patch");
+  importPatch.type = "button";
+  importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
+  const exportMirror = textEl("button", "mini-button", "Export Mirror");
+  exportMirror.type = "button";
+  exportMirror.addEventListener("click", () => {
+    activeTab = "export";
+    renderInspector();
+  });
+  footer.append(importPatch, exportMirror);
+  panel.append(header, detail, footer);
+  return panel;
 }
 
 function startReviewAtItem(item) {

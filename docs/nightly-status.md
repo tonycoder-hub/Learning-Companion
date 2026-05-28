@@ -29,6 +29,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
 - Deterministic Focus Brief in the desk with next action, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Workspace Find searches source titles, notes, captures, tags, and review cards, then jumps back to the matching session and surface.
+- Today tab includes a Patch Intake panel with inbox/review patch counts, latest import receipt, and direct import/export handoff actions.
 - Sessions, source context, timestamp, tags.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought.
