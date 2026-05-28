@@ -1,7 +1,9 @@
 import AppKit
+import UniformTypeIdentifiers
 import WebKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
+  private let maxWorkspaceImportBytes = 5_000_000
   private var window: NSWindow?
   private var webView: WKWebView?
   private var webRoot: URL?
@@ -72,6 +74,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
   }
 
+  @objc private func exportWorkspace(_ sender: Any?) {
+    guard let webView else {
+      NSSound.beep()
+      return
+    }
+
+    webView.evaluateJavaScript("window.learningCompanionNative?.exportWorkspaceJson?.() || ''") { [weak self] result, error in
+      guard error == nil, let json = result as? String, !json.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        self?.showError("Could not read the current workspace from the web view.")
+        return
+      }
+      self?.saveWorkspaceJson(json)
+    }
+  }
+
+  @objc private func importWorkspace(_ sender: Any?) {
+    guard webView != nil else {
+      NSSound.beep()
+      return
+    }
+
+    let panel = NSOpenPanel()
+    panel.title = "Import Learning Companion Workspace"
+    panel.allowedContentTypes = [.json]
+    panel.allowsMultipleSelection = false
+    panel.canChooseDirectories = false
+    panel.canChooseFiles = true
+
+    guard panel.runModal() == .OK, let url = panel.url else {
+      return
+    }
+    do {
+      let data = try Data(contentsOf: url)
+      guard data.count <= maxWorkspaceImportBytes else {
+        showError("The selected workspace file is too large.")
+        return
+      }
+      guard let json = String(data: data, encoding: .utf8) else {
+        showError("The selected workspace file is not valid UTF-8 text.")
+        return
+      }
+      importWorkspaceJson(json)
+    } catch {
+      showError("Could not read the selected workspace file.")
+    }
+  }
+
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     true
   }
@@ -130,6 +179,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     appItem.submenu = appMenu
     mainMenu.addItem(appItem)
 
+    let fileItem = NSMenuItem()
+    let fileMenu = NSMenu(title: "File")
+    let importWorkspace = NSMenuItem(
+      title: "Import Workspace...",
+      action: #selector(importWorkspace(_:)),
+      keyEquivalent: "o"
+    )
+    importWorkspace.target = self
+    fileMenu.addItem(importWorkspace)
+    let exportWorkspace = NSMenuItem(
+      title: "Export Workspace...",
+      action: #selector(exportWorkspace(_:)),
+      keyEquivalent: "e"
+    )
+    exportWorkspace.keyEquivalentModifierMask = [.command, .shift]
+    exportWorkspace.target = self
+    fileMenu.addItem(exportWorkspace)
+    fileItem.submenu = fileMenu
+    mainMenu.addItem(fileItem)
+
     let captureItem = NSMenuItem()
     let captureMenu = NSMenu(title: "Capture")
     let fillFromClipboard = NSMenuItem(
@@ -144,6 +213,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     mainMenu.addItem(captureItem)
 
     NSApp.mainMenu = mainMenu
+  }
+
+  private func saveWorkspaceJson(_ json: String) {
+    let panel = NSSavePanel()
+    panel.title = "Export Learning Companion Workspace"
+    panel.allowedContentTypes = [.json]
+    panel.nameFieldStringValue = "learning-companion-workspace.json"
+
+    guard panel.runModal() == .OK, let url = panel.url else {
+      return
+    }
+    do {
+      try json.write(to: url, atomically: true, encoding: .utf8)
+    } catch {
+      showError("Could not save the workspace file.")
+    }
+  }
+
+  private func importWorkspaceJson(_ json: String) {
+    guard let encoded = jsonStringLiteral(json) else {
+      showError("Could not encode the selected workspace file.")
+      return
+    }
+    let script = """
+    (() => {
+      const bridge = window.learningCompanionNative;
+      if (!bridge || typeof bridge.importWorkspaceJson !== "function") return JSON.stringify({ ok: false, error: "bridge_unavailable" });
+      const result = bridge.importWorkspaceJson(\(encoded));
+      return JSON.stringify(result || { ok: false, error: "empty_result" });
+    })()
+    """
+    webView?.evaluateJavaScript(script) { [weak self] result, error in
+      guard error == nil,
+            let text = result as? String,
+            let data = text.data(using: .utf8),
+            let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        self?.showError("Could not import the selected workspace file.")
+        return
+      }
+      if payload["canceled"] as? Bool == true {
+        return
+      }
+      if payload["ok"] as? Bool != true {
+        self?.showError("Could not import the selected workspace file.")
+      }
+    }
+  }
+
+  private func showError(_ message: String) {
+    let alert = NSAlert()
+    alert.messageText = "Learning Companion"
+    alert.informativeText = message
+    alert.alertStyle = .warning
+    alert.runModal()
   }
 
   private func jsonStringLiteral(_ value: String) -> String? {

@@ -12,6 +12,7 @@ product/mvp-learning-sidecar
 - Installable web shell metadata and static offline cache.
 - Minimal macOS WKWebView shell scaffold builds with SwiftPM.
 - Mac shell has an app-focused clipboard-to-capture menu command.
+- Mac shell has app-focused workspace JSON import/export menu commands (`Cmd+O`, `Shift+Cmd+E`) that reuse the web workspace bridge.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -105,6 +106,7 @@ Accepted from Mira:
 - Add a derived Today study pack from one pure builder, with explicit generated/window metadata, relative session links, and `workspace.json` as source of truth.
 - Keep the Mac shell honest as a thin WKWebView wrapper: deterministic file origin, external-link handoff, and no silent localhost fallback.
 - Add a Mac shell clipboard-to-capture command as a local, permission-free step toward native capture.
+- Add Mac shell workspace import/export as permission-light local file commands, without introducing a second persistence format.
 - Pin Focus Brief as a pure model-layer object, with deterministic next-action rules shared by desk UI and portable exports; add workspace-due fallback and synthesis-source freshness.
 - Keep review progress patches conflict-aware: apply only against unchanged card versions, and skip stale events with a receipt instead of overwriting Mac-side review state.
 - Add Workspace Find as a local-only jump surface, with result text rendered via `textContent`, capped queries, and read-only navigation into captures/review/notes.
@@ -114,7 +116,7 @@ Accepted from Mira:
 Deferred:
 
 - Real Feishu OpenAPI sync. One-way export should come before sync.
-- Native Mac shell beyond the thin wrapper: production packaging, global hotkey, richer menu commands, OS capture, and browser URL bridge.
+- Native Mac shell beyond the thin wrapper: production packaging, global hotkey, OS capture, richer browser URL bridge, and packaged menu polish.
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
@@ -139,8 +141,9 @@ Deferred:
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.
-- Mac shell is currently a thin WKWebView wrapper; it does not yet add global capture or browser context.
+- Mac shell is currently a thin WKWebView wrapper with local clipboard capture and workspace file commands; it does not yet add global capture or browser context.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
+- Mac shell AppKit import/export panels build successfully, but panel cancel/oversize/invalid-file paths are not GUI-automated tonight.
 - HarmonyOS app is not started yet; schema is ready for exploration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

@@ -279,6 +279,9 @@ try {
       && document.querySelector("#downloadWorkspaceBtn").textContent === "Save Workspace";
     const hasTodayExportButtons = document.querySelector("#copyTodayBtn").textContent === "Copy Today"
       && document.querySelector("#downloadTodayBtn").textContent === "Save Today";
+    const nativeBridgeExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const nativeBridgeImportResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify(nativeBridgeExport));
+    const nativeBridgeRoundTrip = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
     document.querySelector("#newSessionBtn").click();
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
     const importInput = document.querySelector("#importWorkspaceInput");
@@ -407,6 +410,11 @@ try {
           workspaceDetailsCollapsed: document.querySelector(".export-details").open === false,
           workspaceExportNote: document.querySelector(".export-note").textContent,
           exportSections,
+          nativeBridgeExportSchema: nativeBridgeExport.schema,
+          nativeBridgeImportOk: nativeBridgeImportResult.ok === true,
+          nativeBridgeRoundTripSchema: nativeBridgeRoundTrip.schema,
+          nativeBridgeRoundTripSessions: nativeBridgeRoundTrip.sessions.length,
+          nativeBridgeRoundTripActiveId: nativeBridgeRoundTrip.activeSessionId,
           todayExport,
           hasWorkspaceExportButtons,
           hasTodayExportButtons,
@@ -554,6 +562,11 @@ try {
     "Browser Capture"
   ]);
   assert.equal(result.hasWorkspaceExportButtons, true);
+  assert.equal(result.nativeBridgeExportSchema, "learning-companion.workspace.v1");
+  assert.equal(result.nativeBridgeImportOk, true);
+  assert.equal(result.nativeBridgeRoundTripSchema, "learning-companion.workspace.v1");
+  assert.equal(result.nativeBridgeRoundTripSessions, 1);
+  assert.equal(typeof result.nativeBridgeRoundTripActiveId, "string");
   assert.equal(result.hasTodayExportButtons, true);
   assert.match(result.todayExport, /Today Study Pack/);
   assert.match(result.todayExport, /Generated from workspace\.json/);

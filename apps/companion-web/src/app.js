@@ -152,6 +152,7 @@ const revealedReviewCards = new Set();
 applyUrlCapture();
 render();
 registerServiceWorker();
+installNativeBridge();
 
 dom.newSessionBtn.addEventListener("click", () => {
   workspace = addSession(workspace, "New learning session");
@@ -1626,6 +1627,35 @@ function exportWorkspace() {
 
 function workspaceJson() {
   return JSON.stringify(workspace, null, 2);
+}
+
+function installNativeBridge() {
+  window.learningCompanionNative = {
+    exportWorkspaceJson() {
+      persist();
+      return workspaceJson();
+    },
+    importWorkspaceJson(text) {
+      const imported = JSON.parse(String(text || ""));
+      if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
+        return {
+          ok: false,
+          canceled: true
+        };
+      }
+      workspace = workspaceFromPortableData(imported);
+      activeTab = "today";
+      activeReviewKey = "";
+      lastImportReceipt = null;
+      revealedReviewCards.clear();
+      persistAndRender("Workspace imported");
+      return {
+        ok: true,
+        sessions: workspace.sessions.length,
+        activeSessionId: workspace.activeSessionId
+      };
+    }
+  };
 }
 
 async function copyText(text, message) {
