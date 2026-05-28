@@ -7,6 +7,7 @@
 - Sidecar layout for focused browser-adjacent study.
 - Desk activity feedback for hidden-inspector mode.
 - Capture-level source snapshots and time jump links.
+- Idempotent capture-to-notes insertion.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.

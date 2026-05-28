@@ -16,6 +16,7 @@ product/mvp-learning-sidecar
 - Sessions, source context, timestamp, tags.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought.
+- One-click capture insertion into Notes with idempotent capture blocks.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
 - Capture-to-review-card promotion.
 - Cloze review card authoring from selected quote text.
@@ -33,7 +34,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, capture source snapshots/time links, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, capture source snapshots/time links, capture-to-notes insertion, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 

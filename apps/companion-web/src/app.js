@@ -782,6 +782,23 @@ function renderCaptures() {
       });
       actions.append(openButton);
     }
+    const noteButton = document.createElement("button");
+    noteButton.className = "mini-button";
+    noteButton.type = "button";
+    noteButton.textContent = "Note";
+    noteButton.addEventListener("click", () => {
+      const updatedNotes = upsertCaptureNoteBlock(getActiveSession(workspace).notesMarkdown, capture);
+      workspace = updateSession(workspace, session.id, { notesMarkdown: updatedNotes });
+      notesMode = "preview";
+      setActivity(getActiveSession(workspace), {
+        title: "Capture added to notes",
+        detail: summarizeCapture(capture),
+        tab: "captures",
+        targetId: capture.id
+      });
+      persistAndRender("Capture added to notes");
+    });
+    actions.append(noteButton);
     const promoteButton = document.createElement("button");
     promoteButton.className = "mini-button";
     promoteButton.type = "button";
@@ -975,6 +992,39 @@ function summarizeCapture(capture) {
     .trim();
   const prefix = capture.timestamp ? `${capture.timestamp} · ` : "";
   return `${prefix}${text}`.slice(0, 150);
+}
+
+function upsertCaptureNoteBlock(notesMarkdown, capture) {
+  const start = `<!-- learning-companion:capture:${capture.id}:start -->`;
+  const end = `<!-- learning-companion:capture:${capture.id}:end -->`;
+  const lines = [start];
+  if (capture.quote) lines.push(`> ${String(capture.quote).replace(/\n/g, "\n> ")}`);
+  if (capture.thought) lines.push("", String(capture.thought).trim());
+  const source = formatCaptureNoteSource(capture);
+  if (source) lines.push("", source);
+  lines.push(end);
+  const block = lines.join("\n").replace(/\n{3,}/g, "\n\n");
+  const existing = new RegExp(`\\n*<!-- learning-companion:capture:${escapeRegExp(capture.id)}:start -->[\\s\\S]*?<!-- learning-companion:capture:${escapeRegExp(capture.id)}:end -->`);
+  const notes = String(notesMarkdown || "").trim();
+  if (existing.test(notes)) return notes.replace(existing, `\n\n${block}`).trim();
+  return [notes, block].filter(Boolean).join("\n\n");
+}
+
+function formatCaptureNoteSource(capture) {
+  const href = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
+  const title = capture.sourceTitle || "Open source";
+  const timestamp = capture.timestamp ? ` @ ${capture.timestamp}` : "";
+  if (href) return `_Source: [${escapeMarkdownLinkText(title)}](${href})${timestamp}_`;
+  if (capture.sourceTitle) return `_Source: ${capture.sourceTitle}${timestamp}_`;
+  return capture.timestamp ? `_Time: ${capture.timestamp}_` : "";
+}
+
+function escapeMarkdownLinkText(value) {
+  return String(value || "").replace(/[[\]\\]/g, "\\$&");
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function clearChildren(node) {

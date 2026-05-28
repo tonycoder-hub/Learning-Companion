@@ -171,6 +171,14 @@ try {
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
     const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
+    const noteButton = [...document.querySelectorAll("#captureList .mini-button")]
+      .find((button) => button.textContent === "Note");
+    noteButton.click();
+    [...document.querySelectorAll("#captureList .mini-button")]
+      .find((button) => button.textContent === "Note")
+      .click();
+    const noteInsertions = (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length;
+    const noteHasSource = document.querySelector("#notesEditor").value.includes("t=492s");
     setValue("#quoteInput", "Spaced repetition improves durable recall. <script>alert(1)</script> <b>bold</b>");
     const quote = document.querySelector("#quoteInput");
     const start = quote.value.indexOf("durable");
@@ -241,6 +249,8 @@ try {
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
           activityAfterCard,
+          noteInsertions,
+          noteHasSource,
           activityOpenedReviewTab,
           activityTargetPulsed,
           activityAfterSynthesis,
@@ -301,6 +311,8 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.equal(result.noteInsertions, 2);
+  assert.equal(result.noteHasSource, true);
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
