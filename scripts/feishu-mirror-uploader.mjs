@@ -72,6 +72,11 @@ export function buildFeishuUploadPlan(bundle, options = {}) {
   return {
     schema: FEISHU_UPLOAD_PLAN_SCHEMA,
     planVersion: 1,
+    evidence: {
+      tier: "DRY_RUN",
+      label: "EVIDENCE: DRY_RUN",
+      reason: "Credential-free local upload plan; no Feishu auth, network, or remote write is attempted."
+    },
     generatedAt,
     bundleFingerprint: safeBundle.manifest?.bundleFingerprint || "",
     provider: {
@@ -175,6 +180,11 @@ export function buildFeishuUploadDryRunReport(plan, filesDir, options = {}) {
   const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
   return {
     schema: FEISHU_UPLOAD_REPORT_SCHEMA,
+    evidence: {
+      tier: "DRY_RUN",
+      label: "EVIDENCE: DRY_RUN",
+      reason: "Local files were verified and wouldSend payloads were hashed, but no Feishu auth, network, or remote write was attempted."
+    },
     generatedAt,
     mode: "dry-run",
     ok: true,

@@ -599,6 +599,7 @@ const uploadPlan = buildFeishuUploadPlan(mirror, {
 });
 assert.equal(uploadPlan.schema, FEISHU_UPLOAD_PLAN_SCHEMA);
 assert.equal(uploadPlan.planVersion, 1);
+assert.equal(uploadPlan.evidence.tier, "DRY_RUN");
 assert.equal(uploadPlan.bundleFingerprint, mirror.manifest.bundleFingerprint);
 assert.equal(uploadPlan.provider.name, "feishu-drive");
 assert.equal(uploadPlan.provider.auth.status, "not-included");
@@ -623,6 +624,7 @@ try {
     generatedAt: "2026-05-29T08:01:00.000+08:00"
   });
   assert.equal(dryRunReport.schema, FEISHU_UPLOAD_REPORT_SCHEMA);
+  assert.equal(dryRunReport.evidence.tier, "DRY_RUN");
   assert.equal(dryRunReport.mode, "dry-run");
   assert.equal(dryRunReport.ok, true);
   assert.equal(dryRunReport.boundary.network, "not-called");

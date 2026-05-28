@@ -33,6 +33,26 @@ const REVIEW_REPORT_FILE = "review-start-here.html";
 const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
+const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
+
+const EVIDENCE_TIER_DEFINITIONS = Object.freeze({
+  EXECUTED: {
+    label: "EVIDENCE: EXECUTED",
+    meaning: "Generated or validated by local scripts in this pack."
+  },
+  DRY_RUN: {
+    label: "EVIDENCE: DRY_RUN",
+    meaning: "Credential-free adapter boundary; no network, auth, or remote write."
+  },
+  HANDOFF_ONLY: {
+    label: "EVIDENCE: HANDOFF_ONLY",
+    meaning: "Implementation contract or scaffold guidance; not executed on the target device."
+  },
+  PENDING_USER_GATE: {
+    label: "EVIDENCE: PENDING_USER_GATE",
+    meaning: "Requires Tony approval, device access, credentials, or manual QA before it can be claimed."
+  }
+});
 
 const demoWorkspace = sanitizeWorkspace({
   schema: "learning-companion.workspace.v1",
@@ -308,7 +328,10 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   macManualQaStatus
 }));
 await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), macManualQaMarkdown);
-await writeText(join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE), await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8"));
+await writeText(
+  join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE),
+  `${buildEvidenceBadgeMarkdown(HARMONY_DEVECO_HANDOFF_FILE)}${await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8")}`
+);
 const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
   mirrorZip,
@@ -327,10 +350,17 @@ assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
+assert.match(reviewReportHtml, /href="EVIDENCE_TIERS\.json"/);
 assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
+assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
 
+const preSummaryManifest = await collectOutputManifest(OUT_DIR);
+const evidenceTiers = buildEvidenceTierManifest(preSummaryManifest, {
+  generatedAt: mirrorBundle.exportedAt
+});
+await writeJson(join(OUT_DIR, EVIDENCE_TIERS_FILE), evidenceTiers);
 const outputManifest = await collectOutputManifest(OUT_DIR);
 const credentialSweep = await scanForCredentialLikeText(OUT_DIR);
 assert.equal(credentialSweep.ok, true, `credential-like text found in ${credentialSweep.matches.map((item) => item.path).join(", ")}`);
@@ -338,6 +368,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   ok: true,
   kind: "fixture",
   scope: "local-fixture",
+  evidence: getEvidenceTierForPath("SUMMARY.json"),
   stageStatement: "cross-end fixture-ready, not live cross-end ready",
   integrationStages: [
     { area: "Mac", stage: "internal-build", proof: "SwiftPM build plus browser/native bridge smoke" },
@@ -363,6 +394,8 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   reviewReport: REVIEW_REPORT_FILE,
   macManualQa: MAC_MANUAL_QA_FILE,
   harmonyDevEcoHandoff: HARMONY_DEVECO_HANDOFF_FILE,
+  evidenceTiers: EVIDENCE_TIERS_FILE,
+  evidenceTierCounts: evidenceTiers.summary.counts,
   mirrorBundle: SAMPLE_MIRROR_JSON_FILE,
   mirrorZip: sampleMirrorZipFile,
   mirrorFileCount: mirrorBundle.files.length,
@@ -427,6 +460,8 @@ function buildStageMarkdown({
   return [
     "# Learning Companion Stage Matrix",
     "",
+    buildEvidenceBadgeMarkdown(STAGE_FILE).trim(),
+    "",
     "This file is the morning pack's stage label. Any single artifact in this folder should be read through this matrix.",
     "",
     "| Area | Stage | Evidence in this pack | Not proven |",
@@ -446,6 +481,7 @@ function buildStageMarkdown({
     "| harmony_device | BLOCKED(no_device) | Needs DevEco/device run using the handoff contract. |",
     "| windows_manual | NOT_RUN | Needs manual mirror folder and patch file roundtrip on Windows. |",
     "| mac_signed | NOT_RUN | Needs packaging/signing/notarization flow. |",
+    "| local_browser_smoke | EXECUTED_WITH_LOCAL_PORT | `npm run check:morning` may need a non-sandbox shell because browser smoke binds `127.0.0.1`. |",
     `| patch_intake_fixture | ${unsupportedInboxPatchRejected ? "PASS" : "NEEDS_FIX"} | Browser smoke and generator cover duplicate/conflict/unsupported fixture paths. |`,
     "",
     "Use wording: fixture, dry-run, schema-prototype, internal-build. Do not call this pack live sync, device-ready, or production Mac packaging.",
@@ -476,6 +512,8 @@ function buildMacManualQaMarkdown({
 }) {
   return [
     "# Learning Companion Mac Manual QA Receipt",
+    "",
+    buildEvidenceBadgeMarkdown(MAC_MANUAL_QA_FILE).trim(),
     "",
     "Stage: internal-build manual QA. This receipt does not prove signed packaging, notarization, or live Feishu/HarmonyOS behavior.",
     "",
@@ -534,6 +572,8 @@ function buildMorningReviewMarkdown({
   return [
     "# Learning Companion Morning Review",
     "",
+    buildEvidenceBadgeMarkdown("MORNING_REVIEW.md").trim(),
+    "",
     "> FIXTURE ONLY: this pack is generated sample data. It does not prove live Feishu sync, real HarmonyOS device behavior, or signed Mac packaging.",
     "",
     "This pack is generated from a representative local workspace. It is credential-free and safe to inspect without Feishu or HarmonyOS setup.",
@@ -558,6 +598,7 @@ function buildMorningReviewMarkdown({
     `- Sample mirror ZIP: \`${sampleMirrorZipFile}\` (${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes)`,
     "- Extracted folder: `mirror-folder/`",
     `- Stage matrix: \`${STAGE_FILE}\` (fixture/dry-run/prototype/internal labels)`,
+    `- Evidence tiers: \`${EVIDENCE_TIERS_FILE}\` (machine-readable claim labels for generated artifacts)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
@@ -628,6 +669,7 @@ function buildReviewStartHereHtml({
   const artifactRows = [
     ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
     ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
+    ["Evidence tiers", EVIDENCE_TIERS_FILE, "Machine-readable evidence tier for each generated artifact."],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, patch boundary, and device test gates."],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
@@ -662,6 +704,11 @@ function buildReviewStartHereHtml({
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
+  const tierRows = Object.entries(EVIDENCE_TIER_DEFINITIONS).map(([code, definition]) => [
+    code,
+    definition.label,
+    definition.meaning
+  ]);
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -681,6 +728,7 @@ function buildReviewStartHereHtml({
     section { margin-top: 20px; }
     .card { background: #fffaf2; border: 1px solid #e5ded1; border-radius: 8px; padding: 16px; }
     .artifact { display: grid; gap: 6px; }
+    .badge { display: inline-block; width: fit-content; border: 1px solid #d6cabb; border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 700; color: #5f4b20; background: #fff4d6; }
     a { color: #0f766e; font-weight: 650; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .meta { color: #666154; font-size: 13px; }
@@ -698,6 +746,7 @@ function buildReviewStartHereHtml({
       a { color: #5eead4; }
       .meta { color: #bbb2a1; }
       code { background: #2c2923; }
+      .badge { color: #fde68a; background: #332711; border-color: #6b5521; }
     }
   </style>
 </head>
@@ -707,6 +756,7 @@ function buildReviewStartHereHtml({
       <h1>Learning Companion Morning Review</h1>
       <p class="banner"><strong>Fixture-only review pack.</strong> This dashboard proves generated local artifacts and safety receipts, not live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, or signed Mac packaging.</p>
       <p class="meta">Scope: cross-end fixture-ready · no live Feishu sync · no device run · no signed packaging · see <a href="${escapeHtml(STAGE_FILE)}">STAGE.md</a></p>
+      <p><span class="badge">${escapeHtml(getEvidenceTierForPath(REVIEW_REPORT_FILE).label)}</span></p>
       <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
     </header>
     <section>
@@ -727,9 +777,21 @@ function buildReviewStartHereHtml({
       </table>
     </section>
     <section>
+      <h2>Evidence Tiers</h2>
+      <table>
+        <thead><tr><th>Tier</th><th>Badge</th><th>Meaning</th></tr></thead>
+        <tbody>
+          ${tierRows.map(([tier, badge, meaning]) => `<tr><td>${escapeHtml(tier)}</td><td><span class="badge">${escapeHtml(badge)}</span></td><td>${escapeHtml(meaning)}</td></tr>`).join("\n          ")}
+        </tbody>
+      </table>
+    </section>
+    <section>
       <h2>Generated Artifacts</h2>
       <div class="grid">
-        ${artifactRows.map(([title, href, description]) => `<div class="card artifact"><a href="${escapeHtml(href)}">${escapeHtml(title)}</a><span class="meta">${escapeHtml(description)}</span></div>`).join("\n        ")}
+        ${artifactRows.map(([title, href, description]) => {
+          const evidence = getEvidenceTierForPath(href);
+          return `<div class="card artifact"><a href="${escapeHtml(href)}">${escapeHtml(title)}</a><span class="badge">${escapeHtml(evidence.label)}</span><span class="meta">${escapeHtml(description)}</span></div>`;
+        }).join("\n        ")}
       </div>
     </section>
     <section>
@@ -753,6 +815,66 @@ function buildReviewStartHereHtml({
   </main>
 </body>
 </html>`;
+}
+
+function buildEvidenceTierManifest(outputManifest, options = {}) {
+  const artifacts = outputManifest.map((entry) => ({
+    path: entry.path,
+    bytes: entry.bytes,
+    sha256: entry.sha256,
+    evidence: getEvidenceTierForPath(entry.path)
+  }));
+  const counts = {};
+  for (const artifact of artifacts) {
+    counts[artifact.evidence.tier] = (counts[artifact.evidence.tier] || 0) + 1;
+  }
+  return {
+    schema: "learning-companion.evidence-tiers.v1",
+    generatedAt: options.generatedAt || new Date().toISOString(),
+    evidenceTiers: EVIDENCE_TIER_DEFINITIONS,
+    summary: {
+      artifactCount: artifacts.length,
+      counts,
+      note: "SUMMARY.json is written after this manifest and declares its own evidence tier."
+    },
+    artifacts
+  };
+}
+
+function buildEvidenceBadgeMarkdown(path) {
+  const evidence = getEvidenceTierForPath(path);
+  return `> ${evidence.label}: ${evidence.reason}\n\n`;
+}
+
+function getEvidenceTierForPath(path) {
+  const normalized = String(path).replace(/^dist\/morning-demo\//, "");
+  if (normalized === MAC_MANUAL_QA_FILE) {
+    return evidenceTier("PENDING_USER_GATE", "Manual QA rows are intentionally `NT` until Tony runs the Mac dogfood flow.");
+  }
+  if (normalized === HARMONY_DEVECO_HANDOFF_FILE) {
+    return evidenceTier("HANDOFF_ONLY", "DevEco/ArkTS scaffold guidance and interface contract only; no HarmonyOS device run is claimed.");
+  }
+  if (normalized.startsWith("feishu-upload/")) {
+    return evidenceTier("DRY_RUN", "Feishu folder files, plan, and report are credential-free local dry-run artifacts; no network or remote write is claimed.");
+  }
+  if (normalized === EVIDENCE_TIERS_FILE) {
+    return evidenceTier("EXECUTED", "Generated from the pack's output manifest to label each artifact's evidence tier.");
+  }
+  if (normalized === "SUMMARY.json") {
+    return evidenceTier("EXECUTED", "Generated after local checks and credential sweep; records hashes, gates, and evidence-tier counts.");
+  }
+  return evidenceTier("EXECUTED", "Generated or validated by local scripts in this fixture pack; target-device or credentialed behavior is not implied.");
+}
+
+function evidenceTier(tier, reason) {
+  const definition = EVIDENCE_TIER_DEFINITIONS[tier];
+  if (!definition) throw new Error(`Unknown evidence tier: ${tier}`);
+  return {
+    tier,
+    label: definition.label,
+    meaning: definition.meaning,
+    reason
+  };
 }
 
 function escapeHtml(value) {
