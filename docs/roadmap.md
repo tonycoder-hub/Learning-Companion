@@ -4,6 +4,7 @@
 
 - Static sidecar app.
 - Installable/offline web shell.
+- Sidecar layout for focused browser-adjacent study.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.

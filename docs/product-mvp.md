@@ -24,6 +24,7 @@ The product borrows selectively from strong existing tools:
 ## Product Principles
 
 - Sidecar first: the app should feel natural when it occupies the right side of a Mac screen next to a browser, video, PDF, or docs page.
+- Focus can contract: the current session should be able to hide surrounding navigation when Tony is reading beside another window.
 - Capture without breaking focus: selected text, URL, timestamp, and a short thought should become a note in one motion.
 - Context is part of the note: every note should know its source title, URL, material type, optional video timestamp, and session.
 - Synthesis stays editable: generated study briefs should be drafts made from captured evidence, not opaque final answers.
@@ -42,6 +43,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Synthesis draft generation from captures, questions, and review cards.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
+- Sidecar layout that temporarily collapses session navigation and the inspector.
 - Review cards generated from captures.
 - A simple review queue with due cards and strength buckets.
 - Feishu export preview: Markdown, JSON payload, and full mirror bundle.

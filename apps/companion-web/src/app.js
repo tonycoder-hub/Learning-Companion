@@ -24,8 +24,13 @@ import {
 import { renderMarkdown } from "./markdown.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
+const UI_PREFS_KEY = "learning-companion.ui.v1";
+const UI_PREFS_SCHEMA_VERSION = 1;
 
 const dom = {
+  appShell: document.querySelector(".app-shell"),
+  sidebar: document.querySelector(".sidebar"),
+  inspector: document.querySelector(".inspector"),
   workspaceMeta: document.querySelector("#workspaceMeta"),
   searchInput: document.querySelector("#searchInput"),
   newSessionBtn: document.querySelector("#newSessionBtn"),
@@ -42,6 +47,7 @@ const dom = {
   materialType: document.querySelector("#materialType"),
   timestampInput: document.querySelector("#timestampInput"),
   sessionTags: document.querySelector("#sessionTags"),
+  sidecarLayoutBtn: document.querySelector("#sidecarLayoutBtn"),
   captureMetric: document.querySelector("#captureMetric"),
   cardMetric: document.querySelector("#cardMetric"),
   dueMetric: document.querySelector("#dueMetric"),
@@ -81,6 +87,7 @@ const dom = {
 };
 
 let workspace = loadWorkspace();
+let uiPrefs = loadUiPrefs();
 let activeTab = "captures";
 let notesMode = "edit";
 let saveTimer = null;
@@ -160,6 +167,8 @@ dom.openSourceBtn.addEventListener("click", () => {
   if (href !== "#") window.open(href, "_blank", "noopener,noreferrer");
 });
 
+dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
+
 window.addEventListener("pagehide", persist);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") persist();
@@ -217,6 +226,11 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     persistAndRender("Saved");
   }
+  if (isMod && event.key === "\\") {
+    if (isEditableTarget(event.target)) return;
+    event.preventDefault();
+    toggleSidecarLayout();
+  }
 });
 
 document.querySelectorAll("[data-focus-mode]").forEach((button) => {
@@ -261,6 +275,38 @@ function loadWorkspace() {
   } catch {
     return sanitizeWorkspace(null);
   }
+}
+
+function loadUiPrefs() {
+  try {
+    const raw = localStorage.getItem(UI_PREFS_KEY);
+    if (!raw) return defaultUiPrefs();
+    const parsed = JSON.parse(raw);
+    return {
+      schemaVersion: UI_PREFS_SCHEMA_VERSION,
+      sidecarLayout: Boolean(parsed.sidecarLayout)
+    };
+  } catch {
+    return defaultUiPrefs();
+  }
+}
+
+function saveUiPrefs() {
+  try {
+    localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
+      schemaVersion: UI_PREFS_SCHEMA_VERSION,
+      sidecarLayout: Boolean(uiPrefs.sidecarLayout)
+    }));
+  } catch {
+    // Layout preference is non-critical; workspace persistence handles its own warning path.
+  }
+}
+
+function defaultUiPrefs() {
+  return {
+    schemaVersion: UI_PREFS_SCHEMA_VERSION,
+    sidecarLayout: false
+  };
 }
 
 function applyUrlCapture() {
@@ -389,11 +435,38 @@ function render() {
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
   renderFocusMode(session.focusMode);
+  renderShellMode();
   renderNotesMode();
   renderStorageNotice();
   renderMetrics();
   renderSessions();
   renderInspector();
+}
+
+function toggleSidecarLayout() {
+  const active = document.activeElement;
+  const willHidePanels = !uiPrefs.sidecarLayout;
+  uiPrefs = { ...uiPrefs, sidecarLayout: !uiPrefs.sidecarLayout };
+  saveUiPrefs();
+  renderShellMode();
+  if (willHidePanels && isInSidePanel(active)) {
+    dom.sidecarLayoutBtn.focus();
+  }
+}
+
+function renderShellMode() {
+  dom.appShell.classList.toggle("sidecar-layout", uiPrefs.sidecarLayout);
+  dom.sidecarLayoutBtn.setAttribute("aria-pressed", String(uiPrefs.sidecarLayout));
+}
+
+function isInSidePanel(node) {
+  return Boolean(node && (dom.sidebar.contains(node) || dom.inspector.contains(node)));
+}
+
+function isEditableTarget(node) {
+  if (!(node instanceof HTMLElement)) return false;
+  const tagName = node.tagName.toLowerCase();
+  return node.isContentEditable || tagName === "input" || tagName === "textarea" || tagName === "select";
 }
 
 function renderStorageNotice() {

@@ -15,6 +15,7 @@ The MVP is a dependency-free local web app in `apps/companion-web`. This is inte
 UI shell
   Vanilla HTML/CSS/JS for the MVP
   Web app manifest + service worker for installable/offline shell
+  Sidecar layout preference for focused browser-adjacent study
 
 State model
   Workspace JSON in localStorage
@@ -55,6 +56,8 @@ The native shell should come after the interaction model stabilizes. It should a
 - local SQLite and filesystem vault
 
 The installable web shell is a bridge for Mac and Windows: it gives a standalone window and static offline reloads without creating a native credential or packaging surface tonight.
+
+The sidecar layout preference is intentionally a local UI setting rather than part of the workspace schema. It helps the web MVP act like a compact Mac companion window without polluting portable learning data.
 
 ## Feishu Sync Direction
 

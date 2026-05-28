@@ -47,6 +47,21 @@ button {
   min-height: 100vh;
 }
 
+.app-shell.sidecar-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell.sidecar-layout .sidebar,
+.app-shell.sidecar-layout .inspector {
+  display: none;
+}
+
+.app-shell.sidecar-layout .desk {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
 .sidebar,
 .inspector {
   min-width: 0;
@@ -256,7 +271,7 @@ textarea:focus {
 }
 
 .focus-row {
-  grid-template-columns: auto 120px minmax(180px, 1fr);
+  grid-template-columns: auto 120px minmax(180px, 1fr) 38px;
   align-items: center;
 }
 
@@ -333,6 +348,16 @@ textarea:focus {
   background: var(--amber-soft);
   color: var(--amber);
   font-weight: 750;
+}
+
+.sidecar-toggle {
+  align-self: end;
+}
+
+.sidecar-toggle[aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green);
 }
 
 .work-grid {
@@ -622,6 +647,10 @@ textarea:focus {
 @media (max-width: 1100px) {
   .app-shell {
     grid-template-columns: 240px 1fr;
+  }
+
+  .app-shell.sidecar-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .inspector {

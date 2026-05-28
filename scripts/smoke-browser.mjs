@@ -89,6 +89,56 @@ try {
   assert.equal(pwa.workerCachesStaticAssets, true);
   assert.notEqual(pwa.registration, "unsupported");
 
+  const sidecarLayout = await cdp.evaluate(`(() => {
+    const shell = document.querySelector(".app-shell");
+    const sidebar = document.querySelector(".sidebar");
+    const inspector = document.querySelector(".inspector");
+    const toggle = document.querySelector("#sidecarLayoutBtn");
+    const readState = () => ({
+      shellCompact: shell.classList.contains("sidecar-layout"),
+      sidebarDisplay: getComputedStyle(sidebar).display,
+      inspectorDisplay: getComputedStyle(inspector).display,
+      toggleDisplay: getComputedStyle(toggle).display,
+      activeId: document.activeElement?.id || "",
+      pressed: toggle.getAttribute("aria-pressed"),
+      stored: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").sidecarLayout === true,
+      storedVersion: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").schemaVersion
+    });
+    const before = readState();
+    document.querySelector("#notesEditor").focus();
+    document.querySelector("#notesEditor").dispatchEvent(new KeyboardEvent("keydown", {
+      key: "\\\\",
+      metaKey: true,
+      bubbles: true,
+      cancelable: true
+    }));
+    const afterEditableShortcut = readState();
+    document.querySelector('[data-tab="export"]').click();
+    document.querySelector("#copyMarkdownBtn").focus();
+    document.querySelector("#copyMarkdownBtn").dispatchEvent(new KeyboardEvent("keydown", {
+      key: "\\\\",
+      metaKey: true,
+      bubbles: true,
+      cancelable: true
+    }));
+    const afterPanelShortcut = readState();
+    toggle.click();
+    const restored = readState();
+    return { before, afterEditableShortcut, afterPanelShortcut, restored };
+  })()`);
+
+  assert.equal(sidecarLayout.before.shellCompact, false);
+  assert.equal(sidecarLayout.afterEditableShortcut.shellCompact, false);
+  assert.equal(sidecarLayout.afterPanelShortcut.shellCompact, true);
+  assert.equal(sidecarLayout.afterPanelShortcut.sidebarDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.inspectorDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
+  assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
+  assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
+  assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 1);
+  assert.equal(sidecarLayout.restored.shellCompact, false);
+
   const result = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);

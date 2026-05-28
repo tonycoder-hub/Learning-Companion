@@ -11,6 +11,7 @@ product/mvp-learning-sidecar
 - Local web MVP runs without installing dependencies.
 - Installable web shell metadata and static offline cache.
 - Three-pane learning sidecar for Mac/browser workflow.
+- Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Sessions, source context, timestamp, tags.
 - Quick capture quote/thought.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
@@ -30,7 +31,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -66,6 +67,7 @@ Accepted from Mira:
 - Add self-grading before pretending the review loop is real.
 - Harden Synthesize with stale-source warning, edit overwrite confirmation, generated counts, and idempotent insertion.
 - Treat Feishu mirror export as a staging bundle, with explicit canonical/derived authority and snapshot semantics.
+- Keep the sidecar layout local-only, guard its keyboard shortcut inside editable fields, and keep a visible way back when panels are hidden.
 
 Deferred:
 
@@ -86,3 +88,4 @@ Deferred:
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - HarmonyOS app is not started yet; schema is ready for exploration.
+- Sidecar layout currently hides inspector details; saved-action toasts remain visible, but richer desk-level feedback should be added before relying on it for review-heavy sessions.
