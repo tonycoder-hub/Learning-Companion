@@ -17,12 +17,13 @@ product/mvp-learning-sidecar
 - Due review queue with simple strength buckets.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
+- Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for Feishu mirror.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies Cloze cards and notes preview rendering.
+- Browser smoke also verifies Cloze cards, capture formatting, and notes preview rendering.
 
 ## Run
 
@@ -64,10 +65,10 @@ Deferred:
 
 ## Next Best Commits
 
-1. Add safe capture preview formatting alongside notes preview.
-2. Add a real Feishu one-way export adapter after credentials are explicitly configured.
-3. Start Mac shell exploration with global capture and sidecar window as the first native affordances.
-4. Start HarmonyOS schema reader prototype after one-way export is stable.
+1. Add a real Feishu one-way export adapter after credentials are explicitly configured.
+2. Start Mac shell exploration with global capture and sidecar window as the first native affordances.
+3. Start HarmonyOS schema reader prototype after one-way export is stable.
+4. Test bookmarklet capture on YouTube, Feishu Docs, and developer docs.
 
 ## Known Risks
 

@@ -67,7 +67,7 @@ try {
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
     setValue("#quoteInput", "Ownership lets Rust make memory safety guarantees.");
-    setValue("#thoughtInput", "Connect this with compiler-enforced lifetimes.");
+    setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
     setValue("#quoteInput", "Spaced repetition improves durable recall.");

@@ -413,7 +413,12 @@ function renderCaptures() {
     item.className = "item-card";
     item.append(textEl("div", "item-meta", `${capture.timestamp || "No time"} · ${new Date(capture.createdAt).toLocaleString()}`));
     if (capture.quote) item.append(textEl("blockquote", "", capture.quote));
-    if (capture.thought) item.append(textEl("p", "", capture.thought));
+    if (capture.thought) {
+      const thought = document.createElement("div");
+      thought.className = "capture-thought markdown-lite";
+      renderMarkdown(thought, capture.thought);
+      item.append(thought);
+    }
 
     const footer = document.createElement("div");
     footer.className = "item-footer";
@@ -459,7 +464,10 @@ function renderReviewCards() {
     );
 
     const details = document.createElement("details");
-    details.append(textEl("summary", "", "Answer"), textEl("p", "", card.answer));
+    const answer = document.createElement("div");
+    answer.className = "review-answer markdown-lite";
+    renderMarkdown(answer, card.answer);
+    details.append(textEl("summary", "", "Answer"), answer);
     item.append(details);
 
     const footer = document.createElement("div");

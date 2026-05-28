@@ -391,34 +391,39 @@ textarea:focus {
   line-height: 1.55;
 }
 
-.notes-preview h3,
-.notes-preview h4,
-.notes-preview h5 {
+.markdown-lite h3,
+.markdown-lite h4,
+.markdown-lite h5 {
   margin: 0 0 10px;
 }
 
-.notes-preview p,
-.notes-preview ul,
-.notes-preview blockquote,
-.notes-preview pre {
+.markdown-lite p,
+.markdown-lite ul,
+.markdown-lite blockquote,
+.markdown-lite pre {
   margin: 0 0 12px;
 }
 
-.notes-preview blockquote {
+.markdown-lite blockquote {
   padding-left: 10px;
   border-left: 3px solid var(--green);
   color: #34383c;
 }
 
-.notes-preview pre {
+.markdown-lite pre {
   overflow: auto;
   padding: 10px;
   border-radius: 8px;
   background: #f0eee5;
 }
 
-.notes-preview a {
+.markdown-lite a {
   color: var(--blue);
+}
+
+.capture-thought,
+.review-answer {
+  font-size: 14px;
 }
 
 .tabs {
