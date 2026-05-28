@@ -12,6 +12,7 @@ product/mvp-learning-sidecar
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sessions, source context, timestamp, tags.
 - Quick capture quote/thought.
+- Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
 - Capture-to-review-card promotion.
 - Cloze review card authoring from selected quote text.
 - Due review queue with simple strength buckets.
@@ -24,7 +25,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies Cloze cards, capture formatting, and notes preview rendering.
+- Browser smoke also verifies Cloze cards, synthesis insertion, stale-draft handling, capture formatting, and notes preview rendering.
 
 ## Run
 
@@ -57,12 +58,14 @@ Accepted from Mira:
 - Make the review loop real enough to test.
 - Move user/page-sourced text away from `innerHTML`.
 - Add browser-level smoke coverage.
+- Add self-grading before pretending the review loop is real.
+- Harden Synthesize with stale-source warning, edit overwrite confirmation, generated counts, and idempotent insertion.
 
 Deferred:
 
-- Native Mac shell. The local learning loop needs a little more product truth first.
 - Real Feishu OpenAPI sync. One-way export should come before sync.
 - Native Mac shell. The local learning loop is now stronger, but shell work should still add OS capture rather than just wrap the UI.
+- AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 
 ## Next Best Commits
 

@@ -53,6 +53,11 @@ export function renderMarkdown(container, markdown) {
       flushQuote();
       return;
     }
+    if (/^<!--\s*learning-companion:synthesis:(start|end)\s*-->$/.test(trimmed)) {
+      flushList();
+      flushQuote();
+      return;
+    }
 
     const heading = /^(#{1,3})\s+(.+)$/.exec(trimmed);
     if (heading) {

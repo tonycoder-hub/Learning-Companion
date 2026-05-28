@@ -23,6 +23,7 @@ State model
 Learning artifacts
   Markdown notes
   Capture records
+  Synthesis drafts
   Review cards
   Feishu export payload
 

@@ -10,8 +10,11 @@ import {
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
+  createSession,
   filterSessions,
   generateMarkdown,
+  generateSynthesisDraft,
+  getSynthesisStats,
   getDueReviewCards,
   getActiveSession,
   gradeCard,
@@ -57,6 +60,16 @@ const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
 assert.match(markdown, /08:12/);
 assert.match(markdown, /Review Cards/);
+
+const synthesis = generateSynthesisDraft(session);
+assert.match(synthesis, /Synthesis - Rust ownership course/);
+assert.match(synthesis, /Generated from 1 capture \/ 0 questions \/ 1 card/);
+assert.match(synthesis, /compile-time lifetime checks/);
+assert.match(synthesis, /Review Targets/);
+
+const emptySynthesis = generateSynthesisDraft(createSession({ title: "Empty topic" }, workspace.clientId));
+assert.match(emptySynthesis, /No captures yet/);
+assert.deepEqual(getSynthesisStats(session), { captures: 1, questions: 0, cards: 1 });
 
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");

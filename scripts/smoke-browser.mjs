@@ -70,16 +70,33 @@ try {
     setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
-    setValue("#quoteInput", "Spaced repetition improves durable recall.");
+    setValue("#quoteInput", "Spaced repetition improves durable recall. <script>alert(1)</script> <b>bold</b>");
     const quote = document.querySelector("#quoteInput");
     const start = quote.value.indexOf("durable");
     quote.setSelectionRange(start, start + "durable".length);
     document.querySelector("#captureClozeBtn").click();
     const dueBeforeGood = document.querySelector("#dueMetric").textContent;
     document.querySelector('[data-grade="good"]').click();
-    document.querySelector("#notesPreviewBtn").click();
+    document.querySelector('[data-focus-mode="synthesize"]').click();
+    const synthesisVisible = !document.querySelector("#synthesisPane").hidden && document.querySelector("#capturePane").hidden;
+    document.querySelector("#synthesisDraft").value = "manual synthesis survives";
+    document.querySelector("#synthesisDraft").dispatchEvent(new Event("input", { bubbles: true }));
+    window.confirm = () => false;
+    document.querySelector("#buildSynthesisBtn").click();
+    const manualDraftAfterCancel = document.querySelector("#synthesisDraft").value;
+    document.querySelector('[data-focus-mode="capture"]').click();
+    setValue("#quoteInput", "A later capture changes source material.");
+    document.querySelector("#captureBtn").click();
+    document.querySelector('[data-focus-mode="synthesize"]').click();
+    const staleStatus = document.querySelector("#synthesisStatus").textContent;
+    window.confirm = () => true;
+    document.querySelector("#buildSynthesisBtn").click();
+    const synthesisDraft = document.querySelector("#synthesisDraft").value;
+    document.querySelector("#insertSynthesisBtn").click();
+    document.querySelector("#insertSynthesisBtn").click();
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const synthesisOccurrences = (session.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
     return {
       captureMetric: document.querySelector("#captureMetric").textContent,
       cardMetric: document.querySelector("#cardMetric").textContent,
@@ -87,6 +104,14 @@ try {
       captureText: document.querySelector("#captureList").textContent,
       reviewText: document.querySelector("#reviewList").textContent,
       previewText: document.querySelector("#notesPreview").textContent,
+      notesMarkdown: session.notesMarkdown,
+      synthesisVisible,
+      synthesisDraft,
+      manualDraftAfterCancel,
+      staleStatus,
+      synthesisOccurrences,
+      hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
+      hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
       captures: session.captures.length,
       cards: session.reviewCards.length,
       latestPrompt: session.reviewCards[0].prompt,
@@ -100,9 +125,9 @@ try {
   })()`);
 
   assert.equal(exceptions.length, 0);
-  assert.equal(result.captures, 2);
+  assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
-  assert.equal(result.captureMetric, "2");
+  assert.equal(result.captureMetric, "3");
   assert.equal(result.cardMetric, "2");
   assert.equal(result.dueBeforeGood, "2");
   assert.equal(result.dueMetric, "1");
@@ -110,9 +135,21 @@ try {
   assert.equal(result.gradedCount, 1);
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /compiler-enforced lifetimes/);
+  assert.equal(result.synthesisVisible, true);
+  assert.equal(result.manualDraftAfterCancel, "manual synthesis survives");
+  assert.match(result.staleStatus, /Source changed/);
+  assert.match(result.synthesisDraft, /Synthesis - Learning Companion MVP/);
+  assert.match(result.synthesisDraft, /Generated from 3 captures \/ 0 questions \/ 2 cards/);
+  assert.match(result.synthesisDraft, /Spaced repetition improves/);
+  assert.match(result.synthesisDraft, /A later capture changes/);
+  assert.equal(result.synthesisOccurrences, 1);
+  assert.match(result.notesMarkdown, /Synthesis - Learning Companion MVP/);
   assert.match(result.latestPrompt, /____/);
   assert.match(result.latestAnswer, /durable/);
   assert.match(result.previewText, /Learning Companion MVP/);
+  assert.match(result.previewText, /Synthesis - Learning Companion MVP/);
+  assert.equal(result.hasScriptNode, false);
+  assert.equal(result.hasBoldNode, false);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
   await cdp.close();

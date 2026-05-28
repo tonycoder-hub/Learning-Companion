@@ -26,6 +26,7 @@ The product borrows selectively from strong existing tools:
 - Sidecar first: the app should feel natural when it occupies the right side of a Mac screen next to a browser, video, PDF, or docs page.
 - Capture without breaking focus: selected text, URL, timestamp, and a short thought should become a note in one motion.
 - Context is part of the note: every note should know its source title, URL, material type, optional video timestamp, and session.
+- Synthesis stays editable: generated study briefs should be drafts made from captured evidence, not opaque final answers.
 - Local-first by default: the first store is browser/local app state; the durable model is JSON plus Markdown export, then SQLite in the native shell.
 - Review loop is built in: highlights should be promotable into review cards without opening another app.
 - Feishu is a mirror, not the source of truth: sync should publish readable Markdown and a structured payload, while the canonical local model remains ours.
@@ -38,6 +39,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Session list for learning topics.
 - Source panel for URL, title, material type, and video timestamp.
 - Quick capture for quote + note + tags.
+- Synthesis draft generation from captures, questions, and review cards.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Review cards generated from captures.

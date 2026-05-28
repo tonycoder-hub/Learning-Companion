@@ -104,7 +104,7 @@
         </section>
 
         <section class="work-grid">
-          <div class="capture-pane" aria-label="Quick capture">
+          <div id="capturePane" class="capture-pane" aria-label="Quick capture">
             <div class="panel-heading">
               <h2>Quick Capture</h2>
               <div class="capture-actions">
@@ -117,6 +117,19 @@
             <textarea id="quoteInput" class="quote-box" placeholder="Paste a quote, transcript line, or key idea"></textarea>
             <label for="thoughtInput" class="sr-only">Thought</label>
             <textarea id="thoughtInput" class="thought-box" placeholder="Your note, question, or synthesis"></textarea>
+          </div>
+
+          <div id="synthesisPane" class="synthesis-pane" aria-label="Synthesis" hidden>
+            <div class="panel-heading">
+              <h2>Synthesis</h2>
+              <div class="capture-actions">
+                <button id="buildSynthesisBtn" class="command-button primary" type="button">Build</button>
+                <button id="insertSynthesisBtn" class="command-button" type="button">Insert</button>
+                <span id="synthesisStatus" class="synthesis-status"></span>
+              </div>
+            </div>
+            <label for="synthesisDraft" class="sr-only">Synthesis draft</label>
+            <textarea id="synthesisDraft" class="synthesis-draft" placeholder="Build a draft from captures, then insert it into Notes"></textarea>
           </div>
 
           <div class="editor-pane" aria-label="Session notes">

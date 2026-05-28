@@ -5,6 +5,8 @@ import {
   buildFeishuPayload,
   filterSessions,
   generateMarkdown,
+  generateSynthesisDraft,
+  getSynthesisStats,
   getDueReviewCards,
   getActiveSession,
   gradeCard,
@@ -41,9 +43,15 @@ const dom = {
   sizeMetric: document.querySelector("#sizeMetric"),
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
+  capturePane: document.querySelector("#capturePane"),
   captureBtn: document.querySelector("#captureBtn"),
   captureCardBtn: document.querySelector("#captureCardBtn"),
   captureClozeBtn: document.querySelector("#captureClozeBtn"),
+  synthesisPane: document.querySelector("#synthesisPane"),
+  synthesisDraft: document.querySelector("#synthesisDraft"),
+  buildSynthesisBtn: document.querySelector("#buildSynthesisBtn"),
+  insertSynthesisBtn: document.querySelector("#insertSynthesisBtn"),
+  synthesisStatus: document.querySelector("#synthesisStatus"),
   notesEditor: document.querySelector("#notesEditor"),
   notesPreview: document.querySelector("#notesPreview"),
   notesEditBtn: document.querySelector("#notesEditBtn"),
@@ -140,6 +148,28 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
+dom.synthesisDraft.addEventListener("input", () => {
+  dom.synthesisDraft.dataset.dirty = "true";
+  renderSynthesisStatus();
+});
+dom.buildSynthesisBtn.addEventListener("click", () => {
+  if (!confirmSynthesisOverwrite()) return;
+  fillSynthesisDraft(true);
+  renderSynthesisStatus();
+  showToast("Synthesis draft built");
+});
+dom.insertSynthesisBtn.addEventListener("click", () => {
+  const draft = dom.synthesisDraft.value.trim();
+  if (!draft) {
+    showToast("Build a draft first");
+    return;
+  }
+  const session = getActiveSession(workspace);
+  const nextNotes = upsertSynthesisBlock(session.notesMarkdown, draft);
+  workspace = updateSession(workspace, session.id, { notesMarkdown: nextNotes });
+  notesMode = "preview";
+  persistAndRender("Synthesis inserted");
+});
 dom.reviewNextBtn.addEventListener("click", () => {
   activeTab = "review";
   const session = getActiveSession(workspace);
@@ -170,6 +200,9 @@ document.querySelectorAll("[data-focus-mode]").forEach((button) => {
   button.addEventListener("click", () => {
     const session = getActiveSession(workspace);
     workspace = updateSession(workspace, session.id, { focusMode: button.dataset.focusMode });
+    if (button.dataset.focusMode === "review") activeTab = "review";
+    if (button.dataset.focusMode === "capture") activeTab = "captures";
+    if (button.dataset.focusMode === "synthesize") activeTab = "captures";
     persistAndRender();
   });
 });
@@ -363,9 +396,101 @@ function renderNotesMode() {
 }
 
 function renderFocusMode(mode) {
+  const session = getActiveSession(workspace);
   document.querySelectorAll("[data-focus-mode]").forEach((button) => {
     button.classList.toggle("active", button.dataset.focusMode === mode);
   });
+  const synthesizing = mode === "synthesize";
+  dom.synthesisPane.hidden = !synthesizing;
+  dom.capturePane.hidden = synthesizing;
+  if (synthesizing) fillSynthesisDraft();
+  renderSynthesisStatus();
+  if (!synthesizing && dom.synthesisDraft.dataset.sessionId !== session.id) {
+    dom.synthesisDraft.value = "";
+    delete dom.synthesisDraft.dataset.sessionId;
+    delete dom.synthesisDraft.dataset.sourceStamp;
+    delete dom.synthesisDraft.dataset.dirty;
+  }
+}
+
+function fillSynthesisDraft(force = false) {
+  const session = getActiveSession(workspace);
+  const belongsToSession = dom.synthesisDraft.dataset.sessionId === session.id;
+  const sourceStamp = getSynthesisSourceStamp(session);
+  const matchesSource = dom.synthesisDraft.dataset.sourceStamp === sourceStamp;
+  const isDirty = dom.synthesisDraft.dataset.dirty === "true";
+  if (!force && belongsToSession && dom.synthesisDraft.value.trim() && (matchesSource || isDirty)) return;
+  dom.synthesisDraft.value = generateSynthesisDraft(session);
+  dom.synthesisDraft.dataset.sessionId = session.id;
+  dom.synthesisDraft.dataset.sourceStamp = sourceStamp;
+  dom.synthesisDraft.dataset.dirty = "false";
+}
+
+function confirmSynthesisOverwrite() {
+  if (dom.synthesisDraft.dataset.dirty !== "true" || !dom.synthesisDraft.value.trim()) return true;
+  return window.confirm("Replace your edited synthesis draft with a regenerated version?");
+}
+
+function renderSynthesisStatus() {
+  if (!dom.synthesisStatus) return;
+  const session = getActiveSession(workspace);
+  const stats = getSynthesisStats(session);
+  const hasDraft = Boolean(dom.synthesisDraft.value.trim());
+  const isDirty = dom.synthesisDraft.dataset.dirty === "true";
+  const sourceChanged = hasDraft && dom.synthesisDraft.dataset.sourceStamp !== getSynthesisSourceStamp(session);
+  dom.synthesisStatus.classList.toggle("warn", sourceChanged);
+  if (!hasDraft) {
+    dom.synthesisStatus.textContent = "";
+  } else if (sourceChanged) {
+    dom.synthesisStatus.textContent = "Source changed since last Build";
+  } else if (isDirty) {
+    dom.synthesisStatus.textContent = "Edited draft";
+  } else {
+    dom.synthesisStatus.textContent = `${stats.captures}/${stats.questions}/${stats.cards}`;
+  }
+}
+
+function upsertSynthesisBlock(notesMarkdown, draft) {
+  const block = [
+    "<!-- learning-companion:synthesis:start -->",
+    draft.trim(),
+    "<!-- learning-companion:synthesis:end -->"
+  ].join("\n");
+  const existingBlock = /\n*<!-- learning-companion:synthesis:start -->[\s\S]*?<!-- learning-companion:synthesis:end -->/;
+  const notes = String(notesMarkdown || "").trim();
+  if (existingBlock.test(notes)) {
+    return notes.replace(existingBlock, `\n\n${block}`).trim();
+  }
+  return [notes, block].filter(Boolean).join("\n\n");
+}
+
+function getSynthesisSourceStamp(session) {
+  return String(hashString(JSON.stringify({
+    sourceTitle: session.sourceTitle,
+    sourceUrl: session.sourceUrl,
+    captures: session.captures.map((capture) => ({
+      id: capture.id,
+      quote: capture.quote,
+      thought: capture.thought,
+      timestamp: capture.timestamp,
+      updatedAt: capture.updatedAt
+    })),
+    reviewCards: session.reviewCards.map((card) => ({
+      id: card.id,
+      prompt: card.prompt,
+      answer: card.answer,
+      updatedAt: card.updatedAt
+    }))
+  })));
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
 }
 
 function renderSessions() {

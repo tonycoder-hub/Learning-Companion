@@ -390,6 +390,67 @@ export function generateMarkdown(session) {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
+export function generateSynthesisDraft(session) {
+  const title = cleanText(session.title || "Learning session", MAX_TITLE_LENGTH);
+  const captures = Array.isArray(session.captures) ? session.captures : [];
+  const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
+  const stats = getSynthesisStats(session);
+  const lines = [
+    `## Synthesis - ${title}`,
+    "",
+    session.sourceTitle ? `Source: ${cleanText(session.sourceTitle, MAX_TITLE_LENGTH)}` : "",
+    session.sourceUrl ? `URL: ${cleanUrl(session.sourceUrl)}` : "",
+    `Generated from ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "question")} / ${formatCount(stats.cards, "card")}.`,
+    "",
+    "### Key Takeaways",
+    ""
+  ].filter((line) => line !== "");
+
+  if (!captures.length) {
+    lines.push("- No captures yet. Add quotes or thoughts first.");
+  } else {
+    captures.slice(0, 8).forEach((capture) => {
+      const point = cleanText(capture.thought || capture.quote, MAX_CAPTURE_TEXT_LENGTH);
+      lines.push(`- ${point.replace(/\n+/g, " ").slice(0, 240)}`);
+      if (capture.quote && capture.thought) {
+        lines.push(`  - Evidence: ${cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH).replace(/\n+/g, " ").slice(0, 180)}`);
+      }
+    });
+  }
+
+  lines.push("", "### Open Questions", "");
+  const questions = captures
+    .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH))
+    .filter((thought) => /\?/.test(thought));
+  if (questions.length) {
+    questions.slice(0, 5).forEach((question) => lines.push(`- ${question}`));
+  } else {
+    lines.push("- What should I be able to recall without looking?");
+    lines.push("- Which idea changes how I would solve a real problem?");
+  }
+
+  lines.push("", "### Review Targets", "");
+  if (reviewCards.length) {
+    reviewCards.slice(0, 6).forEach((card) => lines.push(`- ${cleanText(card.prompt, MAX_CAPTURE_TEXT_LENGTH)}`));
+  } else {
+    lines.push("- Promote the strongest captures into review cards.");
+  }
+
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+}
+
+export function getSynthesisStats(session) {
+  const captures = Array.isArray(session.captures) ? session.captures : [];
+  const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
+  return {
+    captures: captures.length,
+    questions: captures
+      .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH))
+      .filter((thought) => /\?/.test(thought)).length,
+    cards: reviewCards.length
+  };
+}
+
 export function buildFeishuPayload(session) {
   return {
     schema: "learning-companion.feishu-export.v1",
@@ -401,6 +462,10 @@ export function buildFeishuPayload(session) {
     session,
     markdown: generateMarkdown(session)
   };
+}
+
+function formatCount(count, singular) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
 export function formatDate(value) {

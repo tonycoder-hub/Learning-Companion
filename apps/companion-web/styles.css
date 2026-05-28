@@ -100,9 +100,22 @@ h2 {
 .item-meta,
 .session-subtitle,
 .save-state,
+.synthesis-status,
 label {
   color: var(--muted);
   font-size: 12px;
+}
+
+.synthesis-status {
+  max-width: 190px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.synthesis-status.warn {
+  color: var(--amber);
 }
 
 .search-wrap input,
@@ -331,6 +344,7 @@ textarea:focus {
 }
 
 .capture-pane,
+.synthesis-pane,
 .editor-pane {
   display: grid;
   grid-template-rows: auto minmax(110px, 0.45fr) minmax(130px, 0.55fr);
@@ -344,7 +358,16 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
+.capture-pane[hidden],
+.synthesis-pane[hidden] {
+  display: none;
+}
+
 .editor-pane {
+  grid-template-rows: auto 1fr;
+}
+
+.synthesis-pane {
   grid-template-rows: auto 1fr;
 }
 
@@ -369,6 +392,7 @@ textarea:focus {
 
 .quote-box,
 .thought-box,
+.synthesis-draft,
 .notes-editor {
   min-height: 0;
   padding: 12px;
@@ -379,6 +403,11 @@ textarea:focus {
 .notes-editor {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 14px;
+}
+
+.synthesis-draft {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
 }
 
 .notes-preview {
@@ -628,6 +657,7 @@ textarea:focus {
   .metrics-row,
   .work-grid,
   .capture-pane,
+  .synthesis-pane,
   .editor-pane,
   .field,
   .input-with-button {

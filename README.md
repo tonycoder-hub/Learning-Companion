@@ -20,10 +20,12 @@ docs/
   github-permissions.md
   product-mvp.md
   roadmap.md
+  synthesis-loop.md
 scripts/
   setup-github-ssh.sh
   configure-github-remote.sh
   smoke-web.mjs
+  smoke-browser.mjs
 ```
 
 The first runnable MVP lives in `apps/companion-web`.
