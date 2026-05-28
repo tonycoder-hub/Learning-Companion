@@ -373,13 +373,19 @@ try {
           importInput.files = reviewTransfer.files;
           importInput.dispatchEvent(new Event("change", { bubbles: true }));
           setTimeout(() => {
-          const reviewReceiptBeforeInbox = document.querySelector("#importReceipt").textContent;
-          const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
-          const cardMetricBeforeInbox = document.querySelector("#cardMetric").textContent;
-          const dueMetricBeforeInbox = document.querySelector("#dueMetric").textContent;
-          const captureTextBeforeInbox = document.querySelector("#captureList").textContent;
-        const reviewTextBeforeInbox = document.querySelector("#reviewList").textContent;
-        const inboxPatch = {
+            const reviewReceiptBeforeInbox = document.querySelector("#importReceipt").textContent;
+            const duplicateReviewTransfer = new DataTransfer();
+            duplicateReviewTransfer.items.add(new File([JSON.stringify(reviewProgressPatch)], "learning-companion-review-progress-patch.json", { type: "application/json" }));
+            importInput.files = duplicateReviewTransfer.files;
+            importInput.dispatchEvent(new Event("change", { bubbles: true }));
+            setTimeout(() => {
+              const duplicateReviewReceiptBeforeInbox = document.querySelector("#importReceipt").textContent;
+              const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
+              const cardMetricBeforeInbox = document.querySelector("#cardMetric").textContent;
+              const dueMetricBeforeInbox = document.querySelector("#dueMetric").textContent;
+              const captureTextBeforeInbox = document.querySelector("#captureList").textContent;
+              const reviewTextBeforeInbox = document.querySelector("#reviewList").textContent;
+              const inboxPatch = {
           schema: "learning-companion.mobile-inbox-patch.v1",
           appVersion: 1,
           patchId: "browser_patch_001",
@@ -419,6 +425,7 @@ try {
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
           reviewReceiptBeforeInbox,
+          duplicateReviewReceiptBeforeInbox,
           captureMetric: captureMetricBeforeInbox,
           cardMetric: cardMetricBeforeInbox,
           dueMetric: dueMetricBeforeInbox,
@@ -531,6 +538,7 @@ try {
           });
         }, 80);
         }, 80);
+        }, 80);
       }, 80);
     }, 80));
   })()`);
@@ -549,6 +557,9 @@ try {
   assert.match(result.reviewReceiptBeforeInbox, /Review progress imported/);
   assert.match(result.reviewReceiptBeforeInbox, /0 applied/);
   assert.match(result.reviewReceiptBeforeInbox, /1 missing/);
+  assert.match(result.duplicateReviewReceiptBeforeInbox, /Review progress imported/);
+  assert.match(result.duplicateReviewReceiptBeforeInbox, /0 applied/);
+  assert.match(result.duplicateReviewReceiptBeforeInbox, /1 duplicate/);
   assert.equal(result.inboxCaptureMetric, "4");
   assert.match(result.inboxReceiptText, /1 added, 0 skipped/);
   assert.match(result.inboxReceiptText, /1 source link stripped/);

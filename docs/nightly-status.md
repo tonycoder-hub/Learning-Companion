@@ -140,10 +140,11 @@ Deferred:
 
 ## Next Best Commits
 
-1. Add real Feishu OpenAPI transport behind explicit credential configuration and approval.
-2. Add GUI/manual QA evidence for selected-text capture and browser context on Tony's Mac.
-3. Turn the HarmonyOS reader view into a minimal DevEco screen once SDK/project setup is available.
+1. Add more patch intake negative-path evidence that does not need credentials: malformed JSON, oversized patch files, and duplicate review patch UI receipts.
+2. Add GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
+3. Add a minimal HarmonyOS project scaffold or DevEco handoff spec once SDK/project setup is available; until then keep the schema reader honest as a prototype.
 4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
+5. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
 
 ## Known Risks
 
