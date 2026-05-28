@@ -575,6 +575,10 @@ textarea:focus {
   line-height: 1.45;
 }
 
+#bookmarkletExport {
+  min-height: 92px;
+}
+
 .empty-state {
   display: grid;
   min-height: 120px;

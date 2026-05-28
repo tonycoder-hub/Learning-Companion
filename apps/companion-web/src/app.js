@@ -67,6 +67,8 @@ const dom = {
   downloadMarkdownBtn: document.querySelector("#downloadMarkdownBtn"),
   copyPayloadBtn: document.querySelector("#copyPayloadBtn"),
   downloadPayloadBtn: document.querySelector("#downloadPayloadBtn"),
+  copyBookmarkletBtn: document.querySelector("#copyBookmarkletBtn"),
+  bookmarkletExport: document.querySelector("#bookmarkletExport"),
   toast: document.querySelector("#toast")
 };
 
@@ -216,6 +218,7 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 
 dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, "Markdown copied"));
 dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, "JSON copied"));
+dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
 dom.downloadMarkdownBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
   downloadText(`${slugify(session.title)}.md`, generateMarkdown(session), "text/markdown");
@@ -620,6 +623,7 @@ function renderExport() {
   const session = getActiveSession(workspace);
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
+  dom.bookmarkletExport.value = buildBookmarklet();
 }
 
 function exportWorkspace() {
@@ -643,6 +647,12 @@ function downloadText(filename, text, type) {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
+}
+
+function buildBookmarklet() {
+  const base = `${window.location.origin}${window.location.pathname}`;
+  const source = `(()=>{const base=${JSON.stringify(base)};const getTime=()=>{const video=[...document.querySelectorAll("video")].find((item)=>!item.paused)||document.querySelector("video");if(!video||!Number.isFinite(video.currentTime))return"";const seconds=Math.floor(video.currentTime);return [Math.floor(seconds/3600),Math.floor(seconds%3600/60),seconds%60].map((part)=>String(part).padStart(2,"0")).join(":")};const params=new URLSearchParams({capture:"1",sourceTitle:document.title,sourceUrl:location.href,quote:String(getSelection()||"").trim(),t:getTime()});window.open(base+"?"+params.toString(),"learning-companion","noopener,noreferrer,width=1100,height=760");})();`;
+  return `javascript:${source}`;
 }
 
 function showToast(message) {

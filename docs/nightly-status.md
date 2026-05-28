@@ -21,6 +21,7 @@ product/mvp-learning-sidecar
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for Feishu mirror.
+- Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.

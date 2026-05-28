@@ -94,6 +94,8 @@ try {
     const synthesisDraft = document.querySelector("#synthesisDraft").value;
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector("#insertSynthesisBtn").click();
+    document.querySelector('[data-tab="export"]').click();
+    const bookmarklet = document.querySelector("#bookmarkletExport").value;
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     const synthesisOccurrences = (session.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
@@ -112,6 +114,7 @@ try {
       synthesisOccurrences,
       hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
       hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
+      bookmarklet,
       captures: session.captures.length,
       cards: session.reviewCards.length,
       latestPrompt: session.reviewCards[0].prompt,
@@ -150,6 +153,9 @@ try {
   assert.match(result.previewText, /Synthesis - Learning Companion MVP/);
   assert.equal(result.hasScriptNode, false);
   assert.equal(result.hasBoldNode, false);
+  assert.match(result.bookmarklet, /^javascript:/);
+  assert.match(result.bookmarklet, /127\.0\.0\.1/);
+  assert.match(result.bookmarklet, /currentTime/);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
   await cdp.close();

@@ -22,4 +22,4 @@ Browser capture:
 bookmarklet.js
 ```
 
-Copy the JavaScript URL into a browser bookmark while the local server is running.
+Use the app's Export tab `Copy Clip` action, or copy the JavaScript URL from `bookmarklet.js` into a browser bookmark while the local server is running. The bookmarklet captures title, URL, selected text, and active video time when available.
