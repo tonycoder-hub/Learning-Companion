@@ -434,6 +434,24 @@ textarea:focus {
   background: #fbfaf6;
 }
 
+.due-card {
+  border-color: rgba(167, 96, 23, 0.45);
+  background: #fffaf0;
+}
+
+.pulse {
+  animation: pulse-card 820ms ease-out;
+}
+
+@keyframes pulse-card {
+  0% {
+    box-shadow: 0 0 0 0 rgba(167, 96, 23, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(167, 96, 23, 0);
+  }
+}
+
 .export-panel {
   display: none;
   gap: 10px;

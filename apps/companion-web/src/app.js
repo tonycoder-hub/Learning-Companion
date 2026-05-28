@@ -121,7 +121,8 @@ dom.reviewNextBtn.addEventListener("click", () => {
   }
   const card = document.querySelector(`[data-card-id="${CSS.escape(next.id)}"]`);
   card?.scrollIntoView({ behavior: "smooth", block: "center" });
-  card?.querySelector("details")?.setAttribute("open", "");
+  card?.classList.add("pulse");
+  setTimeout(() => card?.classList.remove("pulse"), 900);
 });
 
 document.addEventListener("keydown", (event) => {
@@ -360,9 +361,15 @@ function renderReviewCards() {
     dom.reviewList.innerHTML = `<div class="empty-state">No review cards yet</div>`;
     return;
   }
-  session.reviewCards.forEach((card) => {
+  const orderedCards = [...session.reviewCards].sort((a, b) => {
+    const aDue = dueCards.some((due) => due.id === a.id) ? 0 : 1;
+    const bDue = dueCards.some((due) => due.id === b.id) ? 0 : 1;
+    if (aDue !== bDue) return aDue - bDue;
+    return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+  });
+  orderedCards.forEach((card) => {
     const item = document.createElement("article");
-    item.className = "item-card review-card";
+    item.className = `item-card review-card${isDue ? " due-card" : ""}`;
     item.dataset.cardId = card.id;
     const isDue = dueCards.some((due) => due.id === card.id);
     item.innerHTML = `

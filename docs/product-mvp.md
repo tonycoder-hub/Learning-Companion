@@ -41,6 +41,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Review cards generated from captures.
+- A simple review queue with due cards and strength buckets.
 - Feishu export preview: Markdown and JSON payload.
 - Portable import/export of the full workspace JSON.
 - Responsive layout for Mac sidecar width and mobile review.
