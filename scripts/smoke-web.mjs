@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import {
   WORKSPACE_SCHEMA,
   WORKSPACE_SCHEMA_VERSION,
@@ -26,6 +27,15 @@ import {
   sanitizeWorkspace,
   workspaceFromPortableData
 } from "../apps/companion-web/src/model.js";
+
+const manifest = JSON.parse(readFileSync("apps/companion-web/manifest.webmanifest", "utf8"));
+const serviceWorker = readFileSync("apps/companion-web/service-worker.js", "utf8");
+assert.equal(manifest.display, "standalone");
+assert.equal(manifest.start_url, "./");
+assert.equal(manifest.icons[0].src, "./assets/icon.svg");
+assert.match(serviceWorker, /CACHE_NAME/);
+assert.match(serviceWorker, /STATIC_ASSETS/);
+assert.match(serviceWorker, /src\/app\.js/);
 
 let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);

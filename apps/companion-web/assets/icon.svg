@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Learning Companion icon">
+  <rect width="512" height="512" rx="88" fill="#2f6f5e"/>
+  <path d="M128 126h166c49 0 90 40 90 90v170H218c-49 0-90-40-90-90V126z" fill="#f7f6f0"/>
+  <path d="M176 178h106c31 0 56 25 56 56v100H232c-31 0-56-25-56-56V178z" fill="#2f6f5e"/>
+  <path d="M212 222h84v34h-84v-34zm0 62h120v34H212v-34z" fill="#f7f6f0"/>
+</svg>

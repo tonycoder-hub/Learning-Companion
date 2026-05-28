@@ -90,6 +90,7 @@ const revealedReviewCards = new Set();
 
 applyUrlCapture();
 render();
+registerServiceWorker();
 
 dom.newSessionBtn.addEventListener("click", () => {
   workspace = addSession(workspace, "New learning session");
@@ -702,6 +703,13 @@ function buildBookmarklet() {
   const base = `${window.location.origin}${window.location.pathname}`;
   const source = `(()=>{const base=${JSON.stringify(base)};const getTime=()=>{const video=[...document.querySelectorAll("video")].find((item)=>!item.paused)||document.querySelector("video");if(!video||!Number.isFinite(video.currentTime))return"";const seconds=Math.floor(video.currentTime);return [Math.floor(seconds/3600),Math.floor(seconds%3600/60),seconds%60].map((part)=>String(part).padStart(2,"0")).join(":")};const params=new URLSearchParams({capture:"1",sourceTitle:document.title,sourceUrl:location.href,quote:String(getSelection()||"").trim(),t:getTime()});window.open(base+"?"+params.toString(),"learning-companion","noopener,noreferrer,width=1100,height=760");})();`;
   return `javascript:${source}`;
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+  });
 }
 
 function hasUserWorkspace(value) {

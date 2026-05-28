@@ -12,7 +12,9 @@ const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
   [".css", "text/css; charset=utf-8"],
-  [".json", "application/json; charset=utf-8"]
+  [".json", "application/json; charset=utf-8"],
+  [".svg", "image/svg+xml; charset=utf-8"],
+  [".webmanifest", "application/manifest+json; charset=utf-8"]
 ]);
 
 const server = createServer(async (request, response) => {
@@ -59,6 +61,33 @@ try {
   await cdp.send("Page.enable");
   await cdp.send("Page.navigate", { url: appUrl });
   await sleep(500);
+
+  const pwa = await cdp.evaluate(`(async () => {
+    const manifestLink = document.querySelector('link[rel="manifest"]')?.getAttribute("href") || "";
+    const manifest = await fetch(manifestLink).then((response) => response.json());
+    const workerText = await fetch("./service-worker.js").then((response) => response.text());
+    const registration = "serviceWorker" in navigator
+      ? await Promise.race([
+        navigator.serviceWorker.ready.then((item) => item.active ? "ready" : "registered"),
+        new Promise((resolve) => setTimeout(() => resolve("pending"), 2000))
+      ])
+      : "unsupported";
+    return {
+      manifestLink,
+      display: manifest.display,
+      startUrl: manifest.start_url,
+      iconSrc: manifest.icons?.[0]?.src,
+      workerCachesStaticAssets: workerText.includes("STATIC_ASSETS"),
+      registration
+    };
+  })()`);
+
+  assert.equal(pwa.manifestLink, "./manifest.webmanifest");
+  assert.equal(pwa.display, "standalone");
+  assert.equal(pwa.startUrl, "./");
+  assert.equal(pwa.iconSrc, "./assets/icon.svg");
+  assert.equal(pwa.workerCachesStaticAssets, true);
+  assert.notEqual(pwa.registration, "unsupported");
 
   const result = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {

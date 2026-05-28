@@ -3,6 +3,7 @@
 ## Phase 0: Usable Local MVP
 
 - Static sidecar app.
+- Installable/offline web shell.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.

@@ -9,6 +9,7 @@ product/mvp-learning-sidecar
 ## What Works
 
 - Local web MVP runs without installing dependencies.
+- Installable web shell metadata and static offline cache.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sessions, source context, timestamp, tags.
 - Quick capture quote/thought.
@@ -29,7 +30,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 

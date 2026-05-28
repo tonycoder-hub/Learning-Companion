@@ -2,6 +2,8 @@
 
 Dependency-free local MVP for the Learning Companion sidecar.
 
+Includes a web app manifest and service worker so the static app can be installed from supported browsers and reload offline after first load.
+
 Run:
 
 ```bash

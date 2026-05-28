@@ -19,6 +19,7 @@ docs/
   browser-capture.md
   feishu-mirror.md
   github-permissions.md
+  installable-web.md
   mirror-bundle-contract.md
   product-mvp.md
   roadmap.md

@@ -1,0 +1,34 @@
+{
+  "name": "Learning Companion",
+  "short_name": "Companion",
+  "description": "Local-first learning sidecar for capture, synthesis, review, and portable Feishu mirror export.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f7f6f0",
+  "theme_color": "#2f6f5e",
+  "icons": [
+    {
+      "src": "./assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Capture",
+      "short_name": "Capture",
+      "description": "Open the learning desk in capture mode.",
+      "url": "./?mode=capture"
+    },
+    {
+      "name": "Review",
+      "short_name": "Review",
+      "description": "Open the learning desk in review mode.",
+      "url": "./?mode=review"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ The MVP is a dependency-free local web app in `apps/companion-web`. This is inte
 ```text
 UI shell
   Vanilla HTML/CSS/JS for the MVP
+  Web app manifest + service worker for installable/offline shell
 
 State model
   Workspace JSON in localStorage
@@ -52,6 +53,8 @@ The native shell should come after the interaction model stabilizes. It should a
 - menu bar quick note
 - browser/clipboard bridge
 - local SQLite and filesystem vault
+
+The installable web shell is a bridge for Mac and Windows: it gives a standalone window and static offline reloads without creating a native credential or packaging surface tonight.
 
 ## Feishu Sync Direction
 
