@@ -5,6 +5,7 @@ import {
   buildFeishuPayload,
   filterSessions,
   generateMarkdown,
+  getDueReviewCards,
   getActiveSession,
   gradeCard,
   promoteCapture,
@@ -21,6 +22,9 @@ const dom = {
   newSessionBtn: document.querySelector("#newSessionBtn"),
   exportWorkspaceBtn: document.querySelector("#exportWorkspaceBtn"),
   importWorkspaceInput: document.querySelector("#importWorkspaceInput"),
+  storageNotice: document.querySelector("#storageNotice"),
+  storageNoticeText: document.querySelector("#storageNoticeText"),
+  storageExportNowBtn: document.querySelector("#storageExportNowBtn"),
   sessionList: document.querySelector("#sessionList"),
   sessionTitle: document.querySelector("#sessionTitle"),
   sourceTitle: document.querySelector("#sourceTitle"),
@@ -36,6 +40,8 @@ const dom = {
   notesEditor: document.querySelector("#notesEditor"),
   saveState: document.querySelector("#saveState"),
   captureList: document.querySelector("#captureList"),
+  reviewNextBtn: document.querySelector("#reviewNextBtn"),
+  dueCount: document.querySelector("#dueCount"),
   reviewList: document.querySelector("#reviewList"),
   markdownExport: document.querySelector("#markdownExport"),
   payloadExport: document.querySelector("#payloadExport"),
@@ -49,6 +55,7 @@ const dom = {
 let workspace = loadWorkspace();
 let activeTab = "captures";
 let saveTimer = null;
+let storageWarning = null;
 
 applyUrlCapture();
 render();
@@ -61,8 +68,10 @@ dom.newSessionBtn.addEventListener("click", () => {
 });
 
 dom.exportWorkspaceBtn.addEventListener("click", () => {
-  downloadText("learning-companion-workspace.json", JSON.stringify(workspace, null, 2), "application/json");
+  exportWorkspace();
 });
+
+dom.storageExportNowBtn.addEventListener("click", exportWorkspace);
 
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
   const [file] = event.target.files;
@@ -102,6 +111,18 @@ dom.openSourceBtn.addEventListener("click", () => {
 
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
+dom.reviewNextBtn.addEventListener("click", () => {
+  activeTab = "review";
+  const session = getActiveSession(workspace);
+  const [next] = getDueReviewCards(session);
+  if (!next) {
+    showToast("No due cards");
+    return;
+  }
+  const card = document.querySelector(`[data-card-id="${CSS.escape(next.id)}"]`);
+  card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  card?.querySelector("details")?.setAttribute("open", "");
+});
 
 document.addEventListener("keydown", (event) => {
   const isMod = event.metaKey || event.ctrlKey;
@@ -228,7 +249,19 @@ function persistAndRender(message) {
 
 function persist() {
   workspace = { ...workspace, updatedAt: new Date().toISOString() };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+  const serialized = JSON.stringify(workspace);
+  const bytes = new Blob([serialized]).size;
+  storageWarning = null;
+  try {
+    localStorage.setItem(STORAGE_KEY, serialized);
+    if (bytes > 3_500_000) {
+      storageWarning = `Workspace is ${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+  } catch {
+    storageWarning = "Storage full. Export now.";
+    dom.saveState.textContent = "Export needed";
+  }
+  renderStorageNotice();
 }
 
 function render() {
@@ -241,8 +274,16 @@ function render() {
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
   renderFocusMode(session.focusMode);
+  renderStorageNotice();
   renderSessions();
   renderInspector();
+}
+
+function renderStorageNotice() {
+  if (!dom.storageNotice) return;
+  const shouldShow = Boolean(storageWarning);
+  dom.storageNotice.hidden = !shouldShow;
+  dom.storageNoticeText.textContent = storageWarning || "";
 }
 
 function renderFocusMode(mode) {
@@ -312,6 +353,8 @@ function renderCaptures() {
 
 function renderReviewCards() {
   const session = getActiveSession(workspace);
+  const dueCards = getDueReviewCards(session);
+  dom.dueCount.textContent = `${dueCards.length} due`;
   dom.reviewList.innerHTML = "";
   if (!session.reviewCards.length) {
     dom.reviewList.innerHTML = `<div class="empty-state">No review cards yet</div>`;
@@ -320,8 +363,10 @@ function renderReviewCards() {
   session.reviewCards.forEach((card) => {
     const item = document.createElement("article");
     item.className = "item-card review-card";
+    item.dataset.cardId = card.id;
+    const isDue = dueCards.some((due) => due.id === card.id);
     item.innerHTML = `
-      <div class="item-meta">Due ${new Date(card.dueAt).toLocaleDateString()} · strength ${card.strength}</div>
+      <div class="item-meta">${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · strength ${card.strength}</div>
       <p class="card-prompt">${escapeHtml(card.prompt)}</p>
       <details>
         <summary>Answer</summary>
@@ -346,6 +391,10 @@ function renderExport() {
   const session = getActiveSession(workspace);
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
+}
+
+function exportWorkspace() {
+  downloadText("learning-companion-workspace.json", JSON.stringify(workspace, null, 2), "application/json");
 }
 
 async function copyText(text, message) {

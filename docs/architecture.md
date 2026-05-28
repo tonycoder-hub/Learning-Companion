@@ -18,6 +18,7 @@ UI shell
 State model
   Workspace JSON in localStorage
   Import/export as JSON
+  Canonical schema in docs/schema/workspace.v1.schema.json
 
 Learning artifacts
   Markdown notes

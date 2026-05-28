@@ -4,9 +4,12 @@ import {
   addCapture,
   addSession,
   buildFeishuPayload,
+  cleanText,
+  cleanUrl,
   createDefaultWorkspace,
   filterSessions,
   generateMarkdown,
+  getDueReviewCards,
   getActiveSession,
   gradeCard,
   promoteCapture,
@@ -16,6 +19,10 @@ import {
 let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);
 assert.equal(workspace.sessions.length, 1);
+assert.equal(cleanUrl("javascript:alert(1)"), "");
+assert.equal(cleanUrl("data:text/html,hi"), "");
+assert.equal(cleanUrl("https://example.com/a path").startsWith("https://example.com/"), true);
+assert.equal(cleanText("ok\u0000bad"), "okbad");
 
 workspace = addSession(workspace, "Rust ownership course");
 let session = getActiveSession(workspace);
@@ -32,6 +39,7 @@ session = getActiveSession(workspace);
 assert.equal(session.captures.length, 1);
 assert.equal(session.reviewCards.length, 1);
 assert.equal(session.captures[0].tags.includes("rust"), true);
+assert.equal(getDueReviewCards(session).length, 1);
 
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
@@ -49,6 +57,7 @@ assert.equal(session.reviewCards.length, 1);
 workspace = gradeCard(workspace, session.id, session.reviewCards[0].id, 1);
 session = getActiveSession(workspace);
 assert.equal(session.reviewCards[0].strength, 1);
+assert.equal(getDueReviewCards(session).length, 0);
 
 const filtered = filterSessions(workspace, "ownership");
 assert.equal(filtered.length, 1);

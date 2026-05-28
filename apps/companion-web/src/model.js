@@ -1,7 +1,12 @@
 export const WORKSPACE_SCHEMA = "learning-companion.workspace.v1";
+export const MAX_TITLE_LENGTH = 160;
+export const MAX_URL_LENGTH = 2048;
+export const MAX_NOTE_LENGTH = 120000;
+export const MAX_CAPTURE_TEXT_LENGTH = 12000;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
+const SAFE_URL_SCHEMES = new Set(["http:", "https:"]);
 
 export function nowIso() {
   return new Date().toISOString();
@@ -23,17 +28,35 @@ export function normalizeTags(value) {
     .filter((tag, index, all) => all.indexOf(tag) === index);
 }
 
+export function cleanText(value, maxLength = MAX_CAPTURE_TEXT_LENGTH) {
+  return String(value || "")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, maxLength);
+}
+
+export function cleanUrl(value) {
+  const raw = cleanText(value, MAX_URL_LENGTH);
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    return SAFE_URL_SCHEMES.has(url.protocol) ? url.href.slice(0, MAX_URL_LENGTH) : "";
+  } catch {
+    return "";
+  }
+}
+
 export function createSession(overrides = {}) {
   const timestamp = nowIso();
   return {
     id: overrides.id || makeId("session"),
-    title: overrides.title || "Untitled learning session",
-    sourceTitle: overrides.sourceTitle || "",
-    sourceUrl: overrides.sourceUrl || "",
+    title: cleanText(overrides.title || "Untitled learning session", MAX_TITLE_LENGTH),
+    sourceTitle: cleanText(overrides.sourceTitle || "", MAX_TITLE_LENGTH),
+    sourceUrl: cleanUrl(overrides.sourceUrl || ""),
     materialType: MATERIAL_TYPES.has(overrides.materialType) ? overrides.materialType : "article",
     tags: normalizeTags(overrides.tags || []),
     focusMode: FOCUS_MODES.has(overrides.focusMode) ? overrides.focusMode : "capture",
-    notesMarkdown: overrides.notesMarkdown || "",
+    notesMarkdown: cleanText(overrides.notesMarkdown || "", MAX_NOTE_LENGTH),
     captures: Array.isArray(overrides.captures) ? overrides.captures : [],
     reviewCards: Array.isArray(overrides.reviewCards) ? overrides.reviewCards : [],
     createdAt: overrides.createdAt || timestamp,
@@ -98,6 +121,10 @@ export function updateSession(workspace, sessionId, patch) {
       if (session.id !== sessionId) return session;
       const next = { ...session, ...patch, updatedAt };
       next.tags = normalizeTags(next.tags);
+      next.title = cleanText(next.title, MAX_TITLE_LENGTH) || "Untitled learning session";
+      next.sourceTitle = cleanText(next.sourceTitle, MAX_TITLE_LENGTH);
+      next.sourceUrl = cleanUrl(next.sourceUrl);
+      next.notesMarkdown = cleanText(next.notesMarkdown, MAX_NOTE_LENGTH);
       next.materialType = MATERIAL_TYPES.has(next.materialType) ? next.materialType : "other";
       next.focusMode = FOCUS_MODES.has(next.focusMode) ? next.focusMode : "capture";
       return next;
@@ -121,17 +148,18 @@ export function selectSession(workspace, sessionId) {
 }
 
 export function addCapture(workspace, sessionId, captureInput, options = {}) {
-  const quote = String(captureInput.quote || "").trim();
-  const thought = String(captureInput.thought || "").trim();
+  const quote = cleanText(captureInput.quote, MAX_CAPTURE_TEXT_LENGTH);
+  const thought = cleanText(captureInput.thought, MAX_CAPTURE_TEXT_LENGTH);
   if (!quote && !thought) return workspace;
 
   const capture = {
     id: makeId("capture"),
     quote,
     thought,
-    timestamp: String(captureInput.timestamp || "").trim(),
+    timestamp: cleanText(captureInput.timestamp, 32),
     tags: normalizeTags(captureInput.tags || []),
     createdAt: nowIso(),
+    capturedAt: nowIso(),
     promotedToReview: Boolean(options.promoteToReview)
   };
 
@@ -202,14 +230,26 @@ export function gradeCard(workspace, sessionId, cardId, delta) {
         reviewCards: session.reviewCards.map((card) => {
           if (card.id !== cardId) return card;
           const strength = Math.max(0, Math.min(5, card.strength + delta));
-          const days = Math.max(1, strength * strength);
+          const days = reviewIntervalDays(strength);
           const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-          return { ...card, strength, dueAt };
+          return { ...card, strength, dueAt, lastReviewedAt: nowIso() };
         }),
         updatedAt: nowIso()
       };
     })
   };
+}
+
+export function reviewIntervalDays(strength) {
+  const buckets = [0, 1, 3, 7, 14, 30];
+  return buckets[Math.max(0, Math.min(5, strength))] || 1;
+}
+
+export function getDueReviewCards(session, now = new Date()) {
+  const nowTime = now.getTime();
+  return [...session.reviewCards]
+    .filter((card) => new Date(card.dueAt).getTime() <= nowTime)
+    .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
 export function filterSessions(workspace, query) {

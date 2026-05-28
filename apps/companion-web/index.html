@@ -30,6 +30,10 @@
             <input id="importWorkspaceInput" type="file" accept="application/json">
           </label>
         </div>
+        <div id="storageNotice" class="storage-notice" hidden>
+          <span id="storageNoticeText">Export workspace</span>
+          <button id="storageExportNowBtn" class="mini-button" type="button">Export</button>
+        </div>
 
         <nav id="sessionList" class="session-list" aria-label="Session list"></nav>
       </aside>
@@ -117,6 +121,10 @@
         </section>
 
         <section id="reviewTab" class="tab-panel" aria-label="Review cards">
+          <div class="review-toolbar">
+            <button id="reviewNextBtn" class="command-button primary" type="button">Review Next</button>
+            <span id="dueCount" class="save-state">0 due</span>
+          </div>
           <div id="reviewList" class="item-list"></div>
         </section>
 

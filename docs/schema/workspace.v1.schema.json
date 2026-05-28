@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tonycoder-hub.github.io/Learning-Companion/schema/workspace.v1.schema.json",
+  "title": "Learning Companion Workspace v1",
+  "type": "object",
+  "required": ["schema", "version", "activeSessionId", "sessions", "createdAt", "updatedAt"],
+  "properties": {
+    "schema": {
+      "const": "learning-companion.workspace.v1"
+    },
+    "version": {
+      "const": 1
+    },
+    "activeSessionId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sessions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/session"
+      }
+    }
+  },
+  "$defs": {
+    "session": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "sourceTitle",
+        "sourceUrl",
+        "materialType",
+        "tags",
+        "focusMode",
+        "notesMarkdown",
+        "captures",
+        "reviewCards",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "maxLength": 160 },
+        "sourceTitle": { "type": "string", "maxLength": 160 },
+        "sourceUrl": { "type": "string", "maxLength": 2048 },
+        "materialType": {
+          "enum": ["article", "video", "doc", "course", "book", "other"]
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 64 },
+          "uniqueItems": true
+        },
+        "focusMode": {
+          "enum": ["capture", "synthesize", "review"]
+        },
+        "notesMarkdown": { "type": "string", "maxLength": 120000 },
+        "captures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/capture" }
+        },
+        "reviewCards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewCard" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    },
+    "capture": {
+      "type": "object",
+      "required": ["id", "quote", "thought", "timestamp", "tags", "createdAt", "promotedToReview"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "quote": { "type": "string", "maxLength": 12000 },
+        "thought": { "type": "string", "maxLength": 12000 },
+        "timestamp": { "type": "string", "maxLength": 32 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 64 },
+          "uniqueItems": true
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "capturedAt": { "type": "string", "format": "date-time" },
+        "promotedToReview": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "reviewCard": {
+      "type": "object",
+      "required": ["id", "prompt", "answer", "sourceCaptureId", "dueAt", "strength", "createdAt"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "prompt": { "type": "string", "maxLength": 12000 },
+        "answer": { "type": "string", "maxLength": 12000 },
+        "sourceCaptureId": { "type": "string" },
+        "dueAt": { "type": "string", "format": "date-time" },
+        "lastReviewedAt": { "type": "string", "format": "date-time" },
+        "strength": { "type": "integer", "minimum": 0, "maximum": 5 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
