@@ -4,6 +4,7 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const FEISHU_UPLOAD_PLAN_SCHEMA = "learning-companion.feishu-upload-plan.v1";
+export const FEISHU_UPLOAD_REPORT_SCHEMA = "learning-companion.feishu-upload-report.v1";
 
 export function validateMirrorBundleForUpload(bundle) {
   if (!bundle || typeof bundle !== "object") {
@@ -134,6 +135,119 @@ export function materializeMirrorBundle(bundle, outDir, options = {}) {
   };
 }
 
+export function buildFeishuUploadDryRunReport(plan, filesDir, options = {}) {
+  const safePlan = validateFeishuUploadPlan(plan);
+  const root = resolve(filesDir);
+  const generatedAt = normalizeIso(options.generatedAt) || new Date().toISOString();
+  const files = safePlan.files.map((file) => {
+    if (file.action !== "upsert") {
+      throw new Error(`Unsupported upload action: ${file.action}`);
+    }
+    const target = safeOutputPath(root, file.path);
+    if (!existsSync(target)) {
+      throw new Error(`Planned file is missing: ${file.path}`);
+    }
+    if (lstatSync(target).isSymbolicLink()) {
+      throw new Error(`Refusing to read symbolic link: ${file.path}`);
+    }
+    assertNoSymlinkInExistingPath(root, dirname(target));
+    const content = readFileSync(target, "utf8");
+    const bytes = byteLength(content);
+    if (bytes !== file.bytes) {
+      throw new Error(`Planned file byte count mismatch: ${file.path}`);
+    }
+    const contentFingerprint = fingerprintText(content);
+    if (file.contentFingerprint && contentFingerprint !== file.contentFingerprint) {
+      throw new Error(`Planned file fingerprint mismatch: ${file.path}`);
+    }
+    return {
+      path: file.path,
+      action: file.action,
+      status: "would-upsert",
+      role: file.role,
+      mediaType: file.mediaType,
+      bytes,
+      contentFingerprint
+    };
+  });
+  const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
+  return {
+    schema: FEISHU_UPLOAD_REPORT_SCHEMA,
+    generatedAt,
+    mode: "dry-run",
+    ok: true,
+    provider: safePlan.provider,
+    source: {
+      bundleFingerprint: safePlan.bundleFingerprint || safePlan.source.bundleFingerprint,
+      fileCount: safePlan.source.fileCount,
+      totalBytes: safePlan.source.totalBytes
+    },
+    target: safePlan.target,
+    summary: {
+      plannedFiles: safePlan.files.length,
+      verifiedFiles: files.length,
+      wouldUpsert: files.length,
+      totalBytes
+    },
+    files
+  };
+}
+
+export function validateFeishuUploadPlan(plan) {
+  if (!plan || typeof plan !== "object") {
+    throw new Error("Upload plan must be a JSON object.");
+  }
+  if (plan.schema !== FEISHU_UPLOAD_PLAN_SCHEMA) {
+    throw new Error("Unsupported upload plan schema.");
+  }
+  if (plan.planVersion !== 1) {
+    throw new Error("Unsupported upload plan version.");
+  }
+  if (plan.provider?.name !== "feishu-drive" || plan.provider?.mode !== "one-way-mirror") {
+    throw new Error("Unsupported upload provider.");
+  }
+  if (plan.provider?.auth?.status !== "not-included") {
+    throw new Error("Upload plan must not include auth.");
+  }
+  if (!Array.isArray(plan.files) || plan.files.length === 0) {
+    throw new Error("Upload plan has no files.");
+  }
+  const seenPaths = new Set();
+  const files = plan.files.map((file) => {
+    const path = safeMirrorPath(file?.path);
+    if (seenPaths.has(path)) {
+      throw new Error(`Duplicate upload path: ${path}`);
+    }
+    seenPaths.add(path);
+    return {
+      path,
+      role: String(file?.role || "unknown"),
+      mediaType: String(file?.mediaType || "text/plain"),
+      encoding: String(file?.encoding || "utf-8"),
+      bytes: Number(file?.bytes || 0),
+      contentFingerprint: String(file?.contentFingerprint || ""),
+      action: String(file?.action || "")
+    };
+  });
+  return {
+    ...plan,
+    bundleFingerprint: String(plan.bundleFingerprint || ""),
+    provider: plan.provider,
+    source: {
+      bundleFingerprint: String(plan.source?.bundleFingerprint || ""),
+      fileCount: Number(plan.source?.fileCount || files.length),
+      totalBytes: Number(plan.source?.totalBytes || 0),
+      canonical: String(plan.source?.canonical || "")
+    },
+    target: {
+      rootName: String(plan.target?.rootName || "Learning Companion Mirror"),
+      layout: String(plan.target?.layout || "folder-files"),
+      staleRemoteCleanup: String(plan.target?.staleRemoteCleanup || "requires-remote-listing")
+    },
+    files
+  };
+}
+
 function safeMirrorPath(value) {
   const path = String(value || "").replaceAll("\\", "/");
   if (!path || path.startsWith("/") || path.includes("\0")) {
@@ -186,11 +300,23 @@ function byteLength(value) {
   return new Blob([String(value)]).size;
 }
 
+function fingerprintText(value) {
+  let hash = 0x811c9dc5;
+  for (const char of String(value)) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 function parseArgs(argv) {
   const args = {
     bundle: "",
+    plan: "",
+    filesDir: "",
     out: "",
     planOut: "",
+    reportOut: "",
     rootName: "Learning Companion Mirror",
     expectFingerprint: "",
     json: false,
@@ -203,10 +329,16 @@ function parseArgs(argv) {
       args.help = true;
     } else if (arg === "--bundle") {
       args.bundle = argv[++index] || "";
+    } else if (arg === "--plan") {
+      args.plan = argv[++index] || "";
+    } else if (arg === "--files-dir") {
+      args.filesDir = argv[++index] || "";
     } else if (arg === "--out") {
       args.out = argv[++index] || "";
     } else if (arg === "--plan-out") {
       args.planOut = argv[++index] || "";
+    } else if (arg === "--report-out") {
+      args.reportOut = argv[++index] || "";
     } else if (arg === "--root-name") {
       args.rootName = argv[++index] || "";
     } else if (arg === "--expect-fingerprint") {
@@ -226,9 +358,10 @@ function usage() {
   return [
     "Usage:",
     "  node scripts/feishu-mirror-uploader.mjs --bundle mirror.json [--out out-dir] [--plan-out plan.json] [--json] [--force]",
+    "  node scripts/feishu-mirror-uploader.mjs --plan feishu-upload-plan.json --files-dir files --report-out report.json [--json]",
     "",
     "This is a credential-free Feishu Drive adapter boundary. It validates a mirror bundle, builds a one-way upload plan,",
-    "and optionally materializes the folder files locally. It does not call Feishu OpenAPI. Existing files require --force."
+    "optionally materializes the folder files locally, and can emit a dry-run report. It does not call Feishu OpenAPI. Existing files require --force."
   ].join("\n");
 }
 
@@ -236,6 +369,24 @@ function runCli() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(usage());
+    return;
+  }
+  if (args.plan || args.filesDir) {
+    if (!args.plan || !args.filesDir) {
+      throw new Error("Dry-run report requires --plan and --files-dir.");
+    }
+    const plan = JSON.parse(readFileSync(args.plan, "utf8"));
+    const report = buildFeishuUploadDryRunReport(plan, args.filesDir);
+    if (args.reportOut) {
+      if (!args.force && existsSync(args.reportOut)) {
+        throw new Error("Report output already exists.");
+      }
+      mkdirSync(dirname(resolve(args.reportOut)), { recursive: true, mode: 0o700 });
+      writeFileSync(args.reportOut, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+    }
+    if (!args.reportOut || args.json) {
+      console.log(JSON.stringify(report, null, 2));
+    }
     return;
   }
   if (!args.bundle) {

@@ -15,6 +15,7 @@ import {
 } from "../apps/companion-web/src/model.js";
 import { buildHarmonyReaderView } from "../apps/companion-harmony/src/schema-reader.mjs";
 import {
+  buildFeishuUploadDryRunReport,
   buildFeishuUploadPlan,
   materializeMirrorBundle
 } from "./feishu-mirror-uploader.mjs";
@@ -253,8 +254,13 @@ await writeJson(join(PATCH_DIR, SAMPLE_REVIEW_PROGRESS_PATCH_FILE), reviewProgre
 const feishuUploadResult = materializeMirrorBundle(mirrorBundle, FEISHU_UPLOAD_DIR, {
   plan: feishuUploadPlan
 });
+const feishuUploadReport = buildFeishuUploadDryRunReport(feishuUploadPlan, join(FEISHU_UPLOAD_DIR, "files"), {
+  generatedAt: mirrorBundle.exportedAt
+});
+await writeJson(join(FEISHU_UPLOAD_DIR, "feishu-upload-report.json"), feishuUploadReport);
 assert.equal(feishuUploadResult.fileCount, mirrorBundle.files.length);
 assert.equal(feishuUploadResult.bundleFingerprint, mirrorBundle.manifest.bundleFingerprint);
+assert.equal(feishuUploadReport.summary.verifiedFiles, mirrorBundle.files.length);
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
 assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
 
@@ -268,6 +274,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   sampleMirrorZipFile,
   feishuUploadPlan,
   feishuUploadResult,
+  feishuUploadReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
@@ -280,6 +287,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   sampleMirrorZipFile,
   feishuUploadPlan,
   feishuUploadResult,
+  feishuUploadReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
@@ -313,6 +321,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   mirrorFileCount: mirrorBundle.files.length,
   mirrorBundleFingerprint: mirrorBundle.manifest.bundleFingerprint,
   feishuUploadPlan: "feishu-upload/feishu-upload-plan.json",
+  feishuUploadReport: "feishu-upload/feishu-upload-report.json",
   feishuUploadFileCount: feishuUploadResult.fileCount,
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
@@ -324,6 +333,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     reviewProgressApplied: reviewResult.receipt.applied,
     reviewProgressSkippedConflict: reviewConflictResult.receipt.skippedConflict,
     feishuUploadFileCount: feishuUploadResult.fileCount,
+    feishuUploadDryRunVerified: feishuUploadReport.summary.verifiedFiles,
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
@@ -352,6 +362,7 @@ function buildMorningReviewMarkdown({
   sampleMirrorZipFile,
   feishuUploadPlan,
   feishuUploadResult,
+  feishuUploadReport,
   harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
@@ -382,6 +393,7 @@ function buildMorningReviewMarkdown({
     `- Sample mirror ZIP: \`${sampleMirrorZipFile}\` (${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes)`,
     "- Extracted folder: `mirror-folder/`",
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
+    `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files)`,
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
     `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
     `- Sample workspace restore: \`${SAMPLE_WORKSPACE_FILE}\``,
@@ -406,6 +418,7 @@ function buildMorningReviewMarkdown({
     `- Review progress sample: ${reviewReceipt.applied} applied, ${reviewReceipt.skippedConflict} stale conflicts.`,
     `- Review progress conflict sample: ${reviewConflictReceipt.applied} applied, ${reviewConflictReceipt.skippedConflict} stale conflict skipped.`,
     `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
+    `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions.`,
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
@@ -435,6 +448,7 @@ function buildReviewStartHereHtml({
   sampleMirrorZipFile,
   feishuUploadPlan,
   feishuUploadResult,
+  feishuUploadReport,
   harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
@@ -449,6 +463,7 @@ function buildReviewStartHereHtml({
     ["Portable review", "mirror-folder/review.html", "Offline review page that exports progress patches."],
     ["Mobile inbox", "mirror-folder/inbox.html", "Phone/Windows capture draft page."],
     ["Feishu Upload Plan (local fixture, no live API)", "feishu-upload/feishu-upload-plan.json", `${feishuUploadPlan.files.length} local one-way upserts; no live credentials or Drive writes.`],
+    ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified before any real uploader exists.`],
     ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
     ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics; not device-verified.`],
     ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
@@ -463,6 +478,7 @@ function buildReviewStartHereHtml({
     ["Review progress import", `${reviewReceipt.applied} applied`, `${reviewReceipt.skippedConflict} stale conflicts`],
     ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`],
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
+    ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions`],
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   return `<!doctype html>

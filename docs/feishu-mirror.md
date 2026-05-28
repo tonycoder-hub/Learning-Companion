@@ -24,7 +24,7 @@ node scripts/feishu-mirror-uploader.mjs \
   --json
 ```
 
-It validates a `learning-companion.mirror-bundle.staging.v1` file, emits a `learning-companion.feishu-upload-plan.v1`, and materializes the folder files under `files/`. It does not call Feishu OpenAPI, does not read credentials, and does not remove stale remote files. That keeps tonight's work useful for Feishu Drive folder QA without pretending real cloud sync is ready.
+It validates a `learning-companion.mirror-bundle.staging.v1` file, emits a `learning-companion.feishu-upload-plan.v1`, materializes the folder files under `files/`, and can produce a `learning-companion.feishu-upload-report.v1` dry-run report that verifies local bytes and fingerprints. It does not call Feishu OpenAPI, does not read credentials, and does not remove stale remote files. That keeps tonight's work useful for Feishu Drive folder QA without pretending real cloud sync is ready.
 
 Non-goals for this boundary:
 
@@ -32,6 +32,16 @@ Non-goals for this boundary:
 - No credential loading.
 - No remote stale-file deletion.
 - No overwrite of existing local materialized files unless `--force` is passed.
+
+Dry-run report example:
+
+```bash
+node scripts/feishu-mirror-uploader.mjs \
+  --plan /tmp/learning-companion-feishu-upload/feishu-upload-plan.json \
+  --files-dir /tmp/learning-companion-feishu-upload/files \
+  --report-out /tmp/learning-companion-feishu-upload/feishu-upload-report.json \
+  --json
+```
 
 ## Bundle Layout
 

@@ -17,7 +17,7 @@ product/mvp-learning-sidecar
 - Mac shell hotkey capture can attach active Safari/Chromium-family page title and URL when macOS automation access is available, then route through the same source-aware matching path as bookmarklet captures.
 - Mac shell has app-focused workspace JSON import/export menu commands (`Cmd+O`, `Shift+Cmd+E`) that reuse the web workspace bridge.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
-- Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, and materialize the Drive folder locally without reading live credentials.
+- Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
@@ -52,7 +52,7 @@ product/mvp-learning-sidecar
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch.
-- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.

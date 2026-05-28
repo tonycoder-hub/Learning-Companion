@@ -58,6 +58,8 @@ import {
 } from "../apps/companion-web/src/model.js";
 import {
   FEISHU_UPLOAD_PLAN_SCHEMA,
+  FEISHU_UPLOAD_REPORT_SCHEMA,
+  buildFeishuUploadDryRunReport,
   buildFeishuUploadPlan,
   materializeMirrorBundle
 } from "./feishu-mirror-uploader.mjs";
@@ -614,6 +616,16 @@ try {
   assert.equal(existsSync(join(uploadOutDir, "files", "TODAY.md")), true);
   assert.equal(existsSync(join(uploadOutDir, "files", "workspace.json")), true);
   assert.equal(existsSync(join(uploadOutDir, "feishu-upload-plan.json")), true);
+  const dryRunReport = buildFeishuUploadDryRunReport(uploadPlan, join(uploadOutDir, "files"), {
+    generatedAt: "2026-05-29T08:01:00.000+08:00"
+  });
+  assert.equal(dryRunReport.schema, FEISHU_UPLOAD_REPORT_SCHEMA);
+  assert.equal(dryRunReport.mode, "dry-run");
+  assert.equal(dryRunReport.ok, true);
+  assert.equal(dryRunReport.summary.plannedFiles, mirror.files.length);
+  assert.equal(dryRunReport.summary.verifiedFiles, mirror.files.length);
+  assert.equal(dryRunReport.summary.wouldUpsert, mirror.files.length);
+  assert.equal(dryRunReport.files.every((file) => file.status === "would-upsert"), true);
 } finally {
   rmSync(uploadOutDir, { recursive: true, force: true });
 }
@@ -641,6 +653,14 @@ assert.throws(() => buildFeishuUploadPlan({
   ...mirror,
   files: mirror.files.filter((file) => file.path !== "workspace.json")
 }), /exactly one workspace.json/);
+assert.throws(() => buildFeishuUploadDryRunReport({
+  ...uploadPlan,
+  provider: { ...uploadPlan.provider, auth: { status: "configured" } }
+}, "/tmp"), /must not include auth/);
+assert.throws(() => buildFeishuUploadDryRunReport({
+  ...uploadPlan,
+  files: uploadPlan.files.map((file, index) => index === 0 ? { ...file, action: "delete" } : file)
+}, "/tmp"), /Unsupported upload action/);
 const overwriteOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-overwrite-"));
 try {
   materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan });
