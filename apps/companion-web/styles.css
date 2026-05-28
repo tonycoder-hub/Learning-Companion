@@ -182,6 +182,29 @@ textarea:focus {
   display: none;
 }
 
+.import-receipt {
+  display: grid;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 10px;
+  border: 1px solid rgba(47, 111, 94, 0.24);
+  border-radius: 8px;
+  background: var(--green-soft);
+  font-size: 12px;
+}
+
+.import-receipt[hidden] {
+  display: none;
+}
+
+.import-receipt span {
+  color: var(--muted);
+}
+
+.import-receipt .mini-button {
+  justify-self: start;
+}
+
 .icon-button,
 .command-button,
 .mini-button {

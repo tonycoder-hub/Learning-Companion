@@ -16,10 +16,19 @@ const mimeTypes = new Map([
   [".svg", "image/svg+xml; charset=utf-8"],
   [".webmanifest", "application/manifest+json; charset=utf-8"]
 ]);
+const virtualRoutes = new Map();
 
 const server = createServer(async (request, response) => {
   try {
     const url = new URL(request.url || "/", "http://127.0.0.1");
+    const routePath = url.pathname === "/" ? "/index.html" : url.pathname;
+    if (virtualRoutes.has(routePath)) {
+      response.writeHead(200, {
+        "content-type": mimeTypes.get(extname(routePath)) || "text/html; charset=utf-8"
+      });
+      response.end(virtualRoutes.get(routePath));
+      return;
+    }
     const filePath = join(root, url.pathname === "/" ? "index.html" : url.pathname);
     const body = await readFile(filePath);
     response.writeHead(200, {
@@ -270,7 +279,38 @@ try {
       setTimeout(() => {
         const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
         const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
-        resolve({
+        const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
+        const cardMetricBeforeInbox = document.querySelector("#cardMetric").textContent;
+        const dueMetricBeforeInbox = document.querySelector("#dueMetric").textContent;
+        const captureTextBeforeInbox = document.querySelector("#captureList").textContent;
+        const reviewTextBeforeInbox = document.querySelector("#reviewList").textContent;
+        const inboxPatch = {
+          schema: "learning-companion.mobile-inbox-patch.v1",
+          appVersion: 1,
+          patchId: "browser_patch_001",
+          createdAt: "2026-05-29T09:00:00+08:00",
+          source: { generatedBy: "inbox.html", workspaceFingerprint: "browser", topicId: restoredSession.id, topicTitle: restoredSession.title },
+          target: { topicId: restoredSession.id, topicTitle: restoredSession.title },
+          captures: [{
+            id: "browser_inbox_capture_001",
+            quote: "Mobile inbox capture from Windows or HarmonyOS.",
+            thought: "Append-only patch should return to the Mac.",
+            timestamp: "09:00",
+            sourceTitle: "Phone note",
+            sourceUrl: "data:text/html,bad",
+            materialType: "doc",
+            tags: "mobile inbox",
+            capturedAt: "2026-05-29T09:01:00+08:00"
+          }]
+        };
+        const inboxTransfer = new DataTransfer();
+        inboxTransfer.items.add(new File([JSON.stringify(inboxPatch)], "learning-companion-inbox-patch.json", { type: "application/json" }));
+        importInput.files = inboxTransfer.files;
+        importInput.dispatchEvent(new Event("change", { bubbles: true }));
+        setTimeout(() => {
+          const afterInboxImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+          const afterInboxSession = afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId);
+          resolve({
           titleAfterNewSession,
           restoredTitle: restoredSession.title,
           restoredCaptures: restoredSession.captures.length,
@@ -281,11 +321,19 @@ try {
           latestCaptureSourceProvenance: restoredSession.captures[0].sourceProvenance,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
-          captureMetric: document.querySelector("#captureMetric").textContent,
-          cardMetric: document.querySelector("#cardMetric").textContent,
-          dueMetric: document.querySelector("#dueMetric").textContent,
-          captureText: document.querySelector("#captureList").textContent,
-          reviewText: document.querySelector("#reviewList").textContent,
+          captureMetric: captureMetricBeforeInbox,
+          cardMetric: cardMetricBeforeInbox,
+          dueMetric: dueMetricBeforeInbox,
+          captureText: captureTextBeforeInbox,
+          reviewText: reviewTextBeforeInbox,
+          inboxCaptureMetric: document.querySelector("#captureMetric").textContent,
+          inboxReceiptText: document.querySelector("#importReceipt").textContent,
+          inboxLatestSourceUrl: afterInboxSession.captures[0].sourceUrl,
+          inboxLatestProvenance: afterInboxSession.captures[0].sourceProvenance,
+          inboxSanitizedSourceUrls: afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId).captures[0].sourceUrl === "" ? 1 : 0,
+          inboxImportedPatch: afterInboxImport.importedPatches.includes("browser_patch_001"),
+          inboxNotesPreserved: afterInboxSession.notesMarkdown === restoredSession.notesMarkdown,
+          inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
           activityAfterCard,
@@ -315,10 +363,12 @@ try {
           mirrorFileCount: restoredMirror.manifest.fileCount,
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
-          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"')),
+          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("data-reveal") && file.content.includes("Content-Security-Policy")),
+          mirrorHasInboxHtml: restoredMirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && file.content.includes("Learning Companion Inbox") && file.content.includes("learning-companion.mobile-inbox-patch.v1") && !file.content.includes("<link") && !/<script[^>]+src=/i.test(file.content) && !/<iframe/i.test(file.content) && !/srcdoc=/i.test(file.content) && !/href=["']javascript:/i.test(file.content) && !/\\bfetch\\s*\\(/.test(file.content) && !/XMLHttpRequest/.test(file.content)),
+          mirrorInboxHtml: restoredMirror.files.find((file) => file.path === "inbox.html")?.content || "",
           mirrorTodayEscapesScript: (() => {
             const today = restoredMirror.files.find((file) => file.path === "TODAY.md")?.content || "";
             return today.includes("&lt;script&gt;alert") && !today.includes("<script");
@@ -347,7 +397,8 @@ try {
           deskReviewVisibleInSidecar,
           schemaVersion: restoredWorkspace.schemaVersion,
           clientId: restoredWorkspace.clientId
-        });
+          });
+        }, 80);
       }, 80);
     }, 80));
   })()`);
@@ -363,6 +414,16 @@ try {
   assert.equal(result.latestCaptureSourceProvenance, "snapshot");
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
+  assert.equal(result.inboxCaptureMetric, "4");
+  assert.match(result.inboxReceiptText, /1 added, 0 skipped/);
+  assert.match(result.inboxReceiptText, /1 source link stripped/);
+  assert.match(result.inboxReceiptText, /topic id matched/);
+  assert.equal(result.inboxLatestSourceUrl, "");
+  assert.equal(result.inboxLatestProvenance, "inbox");
+  assert.equal(result.inboxSanitizedSourceUrls, 1);
+  assert.equal(result.inboxImportedPatch, true);
+  assert.equal(result.inboxNotesPreserved, true);
+  assert.equal(result.inboxCardsPreserved, true);
   assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "3");
@@ -423,13 +484,15 @@ try {
   assert.match(result.todayExport, /Generated from workspace\.json/);
   assert.equal(result.hasMirrorZipButton, true);
   assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
-  assert.equal(result.mirrorFileCount, 7);
+  assert.equal(result.mirrorFileCount, 8);
   assert.equal(result.mirrorCanonical, "workspace.json");
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasIndex, true);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);
   assert.equal(result.mirrorHasReviewHtml, true);
+  assert.equal(result.mirrorHasInboxHtml, true);
+  assert.match(result.mirrorInboxHtml, /Learning Companion Inbox/);
   assert.equal(result.mirrorTodayEscapesScript, true);
   assert.equal(result.mirrorReviewEscapesScript, true);
   assert.equal(result.mirrorHasMarkdown, true);
@@ -437,6 +500,53 @@ try {
   assert.equal(result.mirrorFingerprintsValid, true);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
+
+  const exceptionsBeforeInboxRuntime = exceptions.length;
+  virtualRoutes.set("/mirror-inbox.html", result.mirrorInboxHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html` });
+  await sleep(300);
+  const inboxRuntime = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    setValue("#quoteInput", "Static inbox quote from phone.");
+    setValue("#thoughtInput", "This should become an append-only patch.");
+    setValue("#timestampInput", "10:15");
+    setValue("#tagsInput", "phone, mirror");
+    setValue("#sourceTitleInput", "HarmonyOS browser");
+    setValue("#sourceUrlInput", "javascript:alert(1)");
+    document.querySelector("#addCaptureBtn").click();
+    const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
+    const storageKey = Object.keys(localStorage).find((key) => key.startsWith("learning-companion.inbox."));
+    const storedDrafts = storageKey ? JSON.parse(localStorage.getItem(storageKey) || "[]") : [];
+    return {
+      heading: document.querySelector("h1").textContent,
+      topicOptions: document.querySelectorAll("#topicSelect option").length,
+      status: document.querySelector("#statusOutput").textContent,
+      draftCount: document.querySelectorAll("#draftList .capture").length,
+      previewSchema: preview.schema,
+      previewTargetTitle: preview.target.topicTitle,
+      previewCaptureCount: preview.captures.length,
+      previewQuote: preview.captures[0]?.quote || "",
+      previewThought: preview.captures[0]?.thought || "",
+      previewSourceUrl: preview.captures[0]?.sourceUrl || "",
+      storedDraftCount: storedDrafts.length
+    };
+  })()`);
+
+  assert.equal(exceptions.length, exceptionsBeforeInboxRuntime);
+  assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
+  assert.ok(inboxRuntime.topicOptions >= 1);
+  assert.equal(inboxRuntime.status, "Capture added to patch draft.");
+  assert.equal(inboxRuntime.draftCount, 1);
+  assert.equal(inboxRuntime.previewSchema, "learning-companion.mobile-inbox-patch.v1");
+  assert.equal(inboxRuntime.previewCaptureCount, 1);
+  assert.equal(inboxRuntime.previewQuote, "Static inbox quote from phone.");
+  assert.equal(inboxRuntime.previewThought, "This should become an append-only patch.");
+  assert.equal(inboxRuntime.previewSourceUrl, "");
+  assert.equal(inboxRuntime.storedDraftCount, 1);
 
   const inboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("External course page")}&sourceUrl=${encodeURIComponent("https://example.com/course")}&quote=${encodeURIComponent("Inbound bookmarklet capture")}&thought=${encodeURIComponent("Turn this into a note")}&t=01:02:03`;
   await cdp.send("Page.navigate", { url: inboundUrl });
@@ -462,7 +572,7 @@ try {
 
   assert.equal(inbound.sourceTitle, "External course page");
   assert.equal(inbound.sourceUrl, "https://example.com/course");
-  assert.equal(inbound.captureMetric, "4");
+  assert.equal(inbound.captureMetric, "5");
   assert.equal(inbound.latestQuote, "Inbound bookmarklet capture");
   assert.equal(inbound.latestThought, "Turn this into a note");
   assert.equal(inbound.latestTimestamp, "01:02:03");

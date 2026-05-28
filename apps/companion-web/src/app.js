@@ -1,8 +1,10 @@
 import {
   WORKSPACE_SCHEMA,
+  MAX_INBOX_PATCH_BYTES,
   MAX_MIRROR_BUNDLE_BYTES,
   addCapture,
   addSession,
+  applyMobileInboxPatch,
   buildFeishuPayload,
   buildFocusBrief,
   buildMirrorBundle,
@@ -22,6 +24,8 @@ import {
   getActiveSession,
   gradeCard,
   isMirrorBundle,
+  isMobileInboxPatch,
+  isMobileInboxPatchLike,
   promoteCapture,
   safeHref,
   sanitizeWorkspace,
@@ -47,6 +51,10 @@ const dom = {
   storageNotice: document.querySelector("#storageNotice"),
   storageNoticeText: document.querySelector("#storageNoticeText"),
   storageExportNowBtn: document.querySelector("#storageExportNowBtn"),
+  importReceipt: document.querySelector("#importReceipt"),
+  importReceiptTitle: document.querySelector("#importReceiptTitle"),
+  importReceiptDetail: document.querySelector("#importReceiptDetail"),
+  importReceiptDismissBtn: document.querySelector("#importReceiptDismissBtn"),
   sessionList: document.querySelector("#sessionList"),
   sessionTitle: document.querySelector("#sessionTitle"),
   sourceTitle: document.querySelector("#sourceTitle"),
@@ -127,6 +135,7 @@ let saveTimer = null;
 let storageWarning = null;
 let activeReviewKey = "";
 let lastActivity = null;
+let lastImportReceipt = null;
 const revealedReviewCards = new Set();
 
 applyUrlCapture();
@@ -145,6 +154,10 @@ dom.exportWorkspaceBtn.addEventListener("click", () => {
 });
 
 dom.storageExportNowBtn.addEventListener("click", exportWorkspace);
+dom.importReceiptDismissBtn.addEventListener("click", () => {
+  lastImportReceipt = null;
+  renderImportReceipt();
+});
 
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
   const [file] = event.target.files;
@@ -154,6 +167,25 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
       throw new Error("Import file is too large");
     }
     const imported = JSON.parse(await file.text());
+    if (isMobileInboxPatchLike(imported) && file.size > MAX_INBOX_PATCH_BYTES) {
+      throw new Error("Mobile inbox patch is too large.");
+    }
+    if (isMobileInboxPatch(imported)) {
+      const result = applyMobileInboxPatch(workspace, imported);
+      workspace = result.workspace;
+      lastImportReceipt = result.receipt;
+      setActivity(getActiveSession(workspace), {
+        title: "Mobile inbox imported",
+        detail: formatInboxReceipt(result.receipt),
+        tab: "captures",
+        targetId: ""
+      });
+      persistAndRender(`Inbox import: ${result.receipt.added} added`);
+      return;
+    }
+    if (isMobileInboxPatchLike(imported)) {
+      throw new Error("Unsupported mobile inbox patch schema.");
+    }
     if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
       showToast("Import canceled");
       return;
@@ -529,6 +561,7 @@ function render() {
   renderFocusBrief();
   renderNotesMode();
   renderStorageNotice();
+  renderImportReceipt();
   renderMetrics();
   renderSessions();
   renderInspector();
@@ -722,6 +755,29 @@ function renderStorageNotice() {
   const shouldShow = Boolean(storageWarning);
   dom.storageNotice.hidden = !shouldShow;
   dom.storageNoticeText.textContent = storageWarning || "";
+}
+
+function renderImportReceipt() {
+  if (!dom.importReceipt) return;
+  const receipt = lastImportReceipt;
+  dom.importReceipt.hidden = !receipt;
+  if (!receipt) return;
+  dom.importReceiptTitle.textContent = "Mobile inbox imported";
+  dom.importReceiptDetail.textContent = formatInboxReceipt(receipt);
+}
+
+function formatInboxReceipt(receipt) {
+  if (!receipt) return "";
+  const resolution = {
+    "id-match": "topic id matched",
+    "title-match": "title matched",
+    "active-fallback": `fell back to active topic`,
+    "duplicate-patch": "duplicate patch skipped"
+  }[receipt.targetResolution] || receipt.targetResolution;
+  const sanitized = receipt.sanitizedSourceUrls
+    ? ` · ${receipt.sanitizedSourceUrls} source ${receipt.sanitizedSourceUrls === 1 ? "link" : "links"} stripped`
+    : "";
+  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized} · ${resolution} · ${receipt.targetSessionTitle}`;
 }
 
 function renderMetrics() {

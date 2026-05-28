@@ -13,6 +13,7 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 - `workspace.json` is canonical for restore.
 - `README.md` is derived documentation.
 - `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session.
+- `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` JSON.
 - `sessions/*.md` is derived human-readable material.
 - `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync; it includes the same deterministic focus brief for that session.
 
@@ -41,3 +42,17 @@ workspace -> mirror staging bundle -> uploader -> Feishu Drive folder layout
 It should not upload the staging JSON as the only final Drive artifact unless the user explicitly wants a backup blob.
 
 Manual ZIP export is allowed before the uploader exists. A future uploader should still consume the bundle contract and write Drive files directly instead of treating ZIP generation as the sync layer.
+
+## Mobile Inbox Patch
+
+`learning-companion.mobile-inbox-patch.v1` is an append-only manual return path for captures created from `inbox.html`.
+
+- Unknown patch schemas are rejected.
+- Patches require `patchId`; each capture requires a stable `id`.
+- The importer tracks patch ids in `workspace.importedPatches` and also skips duplicate capture ids.
+- `workspace.importedPatches` is pruned to the latest 200 patch ids to avoid unbounded workspace growth.
+- Patch import resolves target by topic id, then exact title, then current active topic with a visible receipt.
+- Patch URLs are treated as untrusted and sanitized with the same http/https-only rule as normal captures.
+- The import receipt reports stripped source links when mobile patch URLs sanitize to empty.
+- Patch size is checked against raw imported file bytes and the parsed payload cap.
+- Patch import never overwrites notes, review cards, or existing captures.

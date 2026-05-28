@@ -37,6 +37,11 @@
       "items": {
         "$ref": "#/$defs/session"
       }
+    },
+    "importedPatches": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 128 },
+      "uniqueItems": true
     }
   },
   "$defs": {
@@ -114,8 +119,10 @@
           "enum": ["article", "video", "doc", "course", "book", "other"]
         },
         "sourceProvenance": {
-          "enum": ["snapshot", "inbound", "inherited", "unknown"]
+          "enum": ["snapshot", "inbound", "inbox", "inherited", "unknown"]
         },
+        "inboxPatchId": { "type": "string", "maxLength": 128 },
+        "inboxCaptureId": { "type": "string", "maxLength": 128 },
         "tags": {
           "type": "array",
           "items": { "type": "string", "maxLength": 64 },

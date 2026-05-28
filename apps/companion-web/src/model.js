@@ -1,5 +1,6 @@
 export const WORKSPACE_SCHEMA = "learning-companion.workspace.v1";
 export const WORKSPACE_SCHEMA_VERSION = 1;
+export const MOBILE_INBOX_PATCH_SCHEMA = "learning-companion.mobile-inbox-patch.v1";
 export const MAX_TITLE_LENGTH = 160;
 export const MAX_URL_LENGTH = 2048;
 export const MAX_NOTE_LENGTH = 120000;
@@ -7,6 +8,8 @@ export const MAX_CAPTURE_TEXT_LENGTH = 12000;
 export const MAX_MIRROR_FILE_BYTES = 1_000_000;
 export const MAX_MIRROR_BUNDLE_BYTES = 25_000_000;
 export const MAX_MIRROR_CANONICAL_BYTES = 5_000_000;
+export const MAX_INBOX_PATCH_BYTES = 256_000;
+export const MAX_INBOX_PATCH_CAPTURES = 50;
 export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
 
@@ -101,12 +104,15 @@ function isYouTubeHost(hostname) {
 
 function normalizeSourceProvenance(value) {
   const normalized = cleanText(value, 32);
-  return ["snapshot", "inbound", "inherited", "unknown"].includes(normalized) ? normalized : "";
+  return ["snapshot", "inbound", "inbox", "inherited", "unknown"].includes(normalized) ? normalized : "";
 }
 
 export function normalizeCapture(capture = {}, originClientId = makeId("client"), sourceFallback = {}) {
   const timestamp = nowIso();
-  const materialType = capture.materialType || sourceFallback.materialType;
+  const hasOwnSourceTitle = Object.prototype.hasOwnProperty.call(capture, "sourceTitle");
+  const hasOwnSourceUrl = Object.prototype.hasOwnProperty.call(capture, "sourceUrl");
+  const hasOwnMaterialType = Object.prototype.hasOwnProperty.call(capture, "materialType");
+  const materialType = hasOwnMaterialType ? capture.materialType : sourceFallback.materialType;
   const hasCaptureSource = Boolean(capture.sourceTitle || capture.sourceUrl || capture.materialType);
   const hasInheritedSource = Boolean(sourceFallback.sourceTitle || sourceFallback.sourceUrl || sourceFallback.materialType);
   return {
@@ -114,8 +120,8 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
     quote: cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH),
     thought: cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH),
     timestamp: cleanText(capture.timestamp, 32),
-    sourceTitle: cleanText(capture.sourceTitle || sourceFallback.sourceTitle, MAX_TITLE_LENGTH),
-    sourceUrl: cleanUrl(capture.sourceUrl || sourceFallback.sourceUrl),
+    sourceTitle: cleanText(hasOwnSourceTitle ? capture.sourceTitle : sourceFallback.sourceTitle, MAX_TITLE_LENGTH),
+    sourceUrl: cleanUrl(hasOwnSourceUrl ? capture.sourceUrl : sourceFallback.sourceUrl),
     materialType: MATERIAL_TYPES.has(materialType) ? materialType : "other",
     sourceProvenance: normalizeSourceProvenance(capture.sourceProvenance)
       || (hasCaptureSource ? "snapshot" : hasInheritedSource ? "inherited" : "unknown"),
@@ -124,6 +130,8 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
     capturedAt: capture.capturedAt || capture.createdAt || timestamp,
     updatedAt: capture.updatedAt || capture.createdAt || timestamp,
     originClientId: capture.originClientId || originClientId,
+    inboxPatchId: cleanText(capture.inboxPatchId, 128),
+    inboxCaptureId: cleanText(capture.inboxCaptureId, 128),
     promotedToReview: Boolean(capture.promotedToReview)
   };
 }
@@ -197,6 +205,7 @@ export function createDefaultWorkspace() {
     clientId,
     activeSessionId: session.id,
     sessions: [session],
+    importedPatches: [],
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -226,6 +235,7 @@ export function sanitizeWorkspace(input) {
     clientId,
     activeSessionId,
     sessions,
+    importedPatches: normalizeImportedPatches(workspace.importedPatches),
     createdAt: workspace.createdAt || nowIso(),
     updatedAt: workspace.updatedAt || nowIso()
   };
@@ -238,11 +248,25 @@ export function workspaceFromPortableData(input) {
   if (isMirrorBundle(input)) {
     return workspaceFromMirrorBundle(input);
   }
+  if (isMobileInboxPatch(input)) {
+    throw new Error("Mobile inbox patches must be imported into the current workspace.");
+  }
+  if (isMobileInboxPatchLike(input)) {
+    throw new Error("Unsupported mobile inbox patch schema.");
+  }
   return sanitizeWorkspace(input);
 }
 
 export function isMirrorBundle(input) {
   return Boolean(input && typeof input === "object" && input.schema === "learning-companion.mirror-bundle.staging.v1");
+}
+
+export function isMobileInboxPatch(input) {
+  return Boolean(input && typeof input === "object" && input.schema === MOBILE_INBOX_PATCH_SCHEMA);
+}
+
+export function isMobileInboxPatchLike(input) {
+  return Boolean(input && typeof input === "object" && String(input.schema || "").startsWith("learning-companion.mobile-inbox-patch."));
 }
 
 export function workspaceFromMirrorBundle(bundle) {
@@ -287,6 +311,121 @@ export function workspaceFromMirrorBundle(bundle) {
       ? "Mirror bundle restore payload is not valid JSON."
       : error.message || "Mirror bundle restore payload is invalid.");
   }
+}
+
+export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
+  if (!isMobileInboxPatch(patch)) {
+    throw new Error(isMobileInboxPatchLike(patch)
+      ? "Unsupported mobile inbox patch schema."
+      : "Unsupported mobile inbox patch.");
+  }
+  const safeWorkspace = sanitizeWorkspace(workspace);
+  if (byteLength(JSON.stringify(patch)) > MAX_INBOX_PATCH_BYTES) {
+    throw new Error("Mobile inbox patch is too large.");
+  }
+  const patchId = cleanText(patch.patchId, 128);
+  if (!patchId) throw new Error("Mobile inbox patch is missing patchId.");
+  const captures = Array.isArray(patch.captures) ? patch.captures : [];
+  if (captures.length > MAX_INBOX_PATCH_CAPTURES) {
+    throw new Error("Mobile inbox patch has too many captures.");
+  }
+  const importedPatches = normalizeImportedPatches(safeWorkspace.importedPatches);
+  if (importedPatches.includes(patchId)) {
+    return {
+      workspace: safeWorkspace,
+      receipt: buildInboxReceipt({
+        patch,
+        patchId,
+        workspace: safeWorkspace,
+        targetSession: getActiveSession(safeWorkspace),
+        targetResolution: "duplicate-patch",
+        added: 0,
+        skippedDuplicate: captures.length,
+        importedAt: now
+      })
+    };
+  }
+
+  const target = resolveInboxPatchTarget(safeWorkspace, patch);
+  const seenCaptureIds = new Set();
+  const existingInboxIds = new Set(target.session.captures
+    .map((capture) => capture.inboxCaptureId)
+    .filter(Boolean));
+  const importedCaptures = [];
+  let skippedDuplicate = 0;
+  let sanitizedSourceUrls = 0;
+
+  captures.forEach((capture) => {
+    const inboxCaptureId = cleanText(capture?.id, 128);
+    if (!inboxCaptureId) {
+      skippedDuplicate += 1;
+      return;
+    }
+    if (seenCaptureIds.has(inboxCaptureId) || existingInboxIds.has(inboxCaptureId)) {
+      skippedDuplicate += 1;
+      return;
+    }
+    seenCaptureIds.add(inboxCaptureId);
+    const rawSourceUrl = cleanText(capture?.sourceUrl, MAX_URL_LENGTH);
+    const normalizedCapture = normalizeCapture({
+      id: makeId("capture"),
+      quote: capture.quote,
+      thought: capture.thought,
+      timestamp: capture.timestamp,
+      sourceTitle: capture.sourceTitle,
+      sourceUrl: capture.sourceUrl,
+      materialType: capture.materialType,
+      sourceProvenance: "inbox",
+      tags: capture.tags,
+      capturedAt: normalizeInboxCapturedAt(capture.capturedAt, now),
+      createdAt: normalizeInboxCapturedAt(capture.capturedAt, now),
+      updatedAt: nowIso(),
+      inboxPatchId: patchId,
+      inboxCaptureId
+    }, safeWorkspace.clientId, {
+      sourceTitle: target.session.sourceTitle,
+      sourceUrl: target.session.sourceUrl,
+      materialType: target.session.materialType
+    });
+    if (rawSourceUrl && !normalizedCapture.sourceUrl) {
+      sanitizedSourceUrls += 1;
+    }
+    importedCaptures.push(normalizedCapture);
+  });
+
+  importedCaptures.sort((a, b) => {
+    const byTime = new Date(b.capturedAt).getTime() - new Date(a.capturedAt).getTime();
+    if (byTime !== 0) return byTime;
+    return a.inboxCaptureId.localeCompare(b.inboxCaptureId);
+  });
+
+  const nextWorkspace = {
+    ...safeWorkspace,
+    updatedAt: nowIso(),
+    importedPatches: [...importedPatches, patchId].slice(-200),
+    sessions: safeWorkspace.sessions.map((session) => session.id === target.session.id
+      ? {
+        ...session,
+        captures: [...importedCaptures, ...session.captures],
+        updatedAt: nowIso()
+      }
+      : session)
+  };
+  const finalWorkspace = sanitizeWorkspace(nextWorkspace);
+  return {
+    workspace: finalWorkspace,
+    receipt: buildInboxReceipt({
+      patch,
+      patchId,
+      workspace: finalWorkspace,
+      targetSession: finalWorkspace.sessions.find((session) => session.id === target.session.id) || getActiveSession(finalWorkspace),
+      targetResolution: target.resolution,
+      added: importedCaptures.length,
+      skippedDuplicate,
+      sanitizedSourceUrls,
+      importedAt: now
+    })
+  };
 }
 
 export function getActiveSession(workspace) {
@@ -916,6 +1055,218 @@ export function generateReviewHtml(workspace, now = new Date()) {
   ].join("\n");
 }
 
+export function generateInboxHtml(workspace, now = new Date()) {
+  const cleanWorkspace = sanitizeWorkspace(workspace);
+  const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
+  const workspaceFingerprint = fingerprintText(workspaceJson);
+  const topics = cleanWorkspace.sessions.map((session) => ({
+    id: session.id,
+    title: session.title,
+    sourceTitle: session.sourceTitle,
+    sourceUrl: session.sourceUrl,
+    materialType: session.materialType,
+    tags: session.tags
+  }));
+  const seed = JSON.stringify({
+    schema: "learning-companion.mobile-inbox-seed.v1",
+    appVersion: WORKSPACE_SCHEMA_VERSION,
+    generatedAt: formatLocalIso(now),
+    workspaceFingerprint,
+    activeSessionId: cleanWorkspace.activeSessionId,
+    topics
+  }).replace(/</g, "\\u003c");
+
+  return [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    '  <meta name="referrer" content="no-referrer">',
+    '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">',
+    `  <meta name="learning-companion-source" content="workspace.json">`,
+    `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
+    `  <meta name="learning-companion-generated-at" content="${htmlAttribute(formatLocalIso(now))}">`,
+    "  <title>Learning Companion Inbox</title>",
+    "  <style>",
+    "    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f6f0; color: #202124; }",
+    "    body { margin: 0; padding: 16px; }",
+    "    main { max-width: 760px; margin: 0 auto; display: grid; gap: 14px; }",
+    "    h1, h2, p { margin: 0; }",
+    "    h1 { font-size: 24px; } h2 { font-size: 16px; }",
+    "    .summary, label, .meta, output { color: #697077; font-size: 13px; }",
+    "    .panel { display: grid; gap: 10px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; padding: 14px; }",
+    "    label { display: grid; gap: 5px; }",
+    "    input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #dcd8cc; border-radius: 8px; padding: 10px; font: inherit; }",
+    "    textarea { min-height: 96px; resize: vertical; }",
+    "    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }",
+    "    .actions { display: flex; flex-wrap: wrap; gap: 8px; }",
+    "    button { min-height: 38px; border: 1px solid #2f6f5e; border-radius: 8px; background: #2f6f5e; color: white; font-weight: 700; padding: 0 12px; }",
+    "    button.secondary { background: white; color: #202124; border-color: #dcd8cc; }",
+    "    .capture { border: 1px solid #dcd8cc; border-radius: 8px; padding: 10px; background: #fbfaf6; }",
+    "    pre { overflow: auto; white-space: pre-wrap; word-break: break-word; border: 1px solid #dcd8cc; border-radius: 8px; padding: 10px; background: #fbfaf6; font-size: 12px; }",
+    "    @media (max-width: 560px) { body { padding: 12px; } .row { grid-template-columns: 1fr; } }",
+    "  </style>",
+    "</head>",
+    "<body>",
+    "  <main>",
+    "    <header>",
+    "      <h1>Learning Companion Inbox</h1>",
+    `      <p class="summary">Generated at ${htmlText(formatLocalIso(now))} · exports append-only capture patches for the Mac workspace.</p>`,
+    "    </header>",
+    "    <section class=\"panel\" aria-label=\"New mobile capture\">",
+    "      <label>Topic<select id=\"topicSelect\"></select></label>",
+    "      <label>Quote<textarea id=\"quoteInput\" placeholder=\"Paste a quote or transcript line\"></textarea></label>",
+    "      <label>Thought<textarea id=\"thoughtInput\" placeholder=\"Your thought, question, or takeaway\"></textarea></label>",
+    "      <div class=\"row\">",
+    "        <label>Time<input id=\"timestampInput\" placeholder=\"08:12\"></label>",
+    "        <label>Tags<input id=\"tagsInput\" placeholder=\"ml, reading\"></label>",
+    "      </div>",
+    "      <div class=\"row\">",
+    "        <label>Source<input id=\"sourceTitleInput\" placeholder=\"Page or video title\"></label>",
+    "        <label>URL<input id=\"sourceUrlInput\" placeholder=\"https://\"></label>",
+    "      </div>",
+    "      <div class=\"actions\">",
+    "        <button id=\"addCaptureBtn\" type=\"button\">Add Capture</button>",
+    "        <button id=\"clearFormBtn\" class=\"secondary\" type=\"button\">Clear Form</button>",
+    "      </div>",
+    "      <output id=\"statusOutput\">Drafts stay in this browser until cleared.</output>",
+    "    </section>",
+    "    <section class=\"panel\" aria-label=\"Draft captures\">",
+    "      <h2>Draft Captures</h2>",
+    "      <div id=\"draftList\"></div>",
+    "      <div class=\"actions\">",
+    "        <button id=\"copyPatchBtn\" type=\"button\">Copy Patch</button>",
+    "        <button id=\"downloadPatchBtn\" type=\"button\">Save Patch</button>",
+    "        <button id=\"clearDraftsBtn\" class=\"secondary\" type=\"button\">Clear Drafts</button>",
+    "      </div>",
+    "      <pre id=\"patchPreview\"></pre>",
+    "    </section>",
+    "  </main>",
+    "  <script>",
+    `    const seed = ${seed};`,
+    `    const PATCH_SCHEMA = ${JSON.stringify(MOBILE_INBOX_PATCH_SCHEMA)};`,
+    "    const storageKey = `learning-companion.inbox.${seed.workspaceFingerprint}`;",
+    "    const topicSelect = document.querySelector('#topicSelect');",
+    "    const fields = {",
+    "      quote: document.querySelector('#quoteInput'),",
+    "      thought: document.querySelector('#thoughtInput'),",
+    "      timestamp: document.querySelector('#timestampInput'),",
+    "      tags: document.querySelector('#tagsInput'),",
+    "      sourceTitle: document.querySelector('#sourceTitleInput'),",
+    "      sourceUrl: document.querySelector('#sourceUrlInput')",
+    "    };",
+    "    let drafts = loadDrafts();",
+    "    seed.topics.forEach((topic) => {",
+    "      const option = document.createElement('option');",
+    "      option.value = topic.id;",
+    "      option.textContent = topic.title;",
+    "      option.selected = topic.id === seed.activeSessionId;",
+    "      topicSelect.append(option);",
+    "    });",
+    "    topicSelect.addEventListener('change', render);",
+    "    document.querySelector('#addCaptureBtn').addEventListener('click', addCapture);",
+    "    document.querySelector('#clearFormBtn').addEventListener('click', clearForm);",
+    "    document.querySelector('#clearDraftsBtn').addEventListener('click', () => { drafts = []; saveDrafts(); render(); });",
+    "    document.querySelector('#copyPatchBtn').addEventListener('click', async () => {",
+    "      try { await navigator.clipboard.writeText(JSON.stringify(buildPatch(), null, 2)); setStatus('Patch copied.'); }",
+    "      catch { setStatus('Copy failed. Use Save Patch.'); }",
+    "    });",
+    "    document.querySelector('#downloadPatchBtn').addEventListener('click', () => {",
+    "      const body = JSON.stringify(buildPatch(), null, 2);",
+    "      const blob = new Blob([body], { type: 'application/json' });",
+    "      const url = URL.createObjectURL(blob);",
+    "      const link = document.createElement('a');",
+    "      link.href = url;",
+    "      link.download = 'learning-companion-inbox-patch.json';",
+    "      link.click();",
+    "      URL.revokeObjectURL(url);",
+    "      setStatus('Patch saved. Import it on the Mac app.');",
+    "    });",
+    "    function addCapture() {",
+    "      if (!fields.quote.value.trim() && !fields.thought.value.trim()) { setStatus('Add quote or thought first.'); return; }",
+    "      drafts.push({",
+    "        id: makeId('inbox_capture'),",
+    "        topicId: topicSelect.value,",
+    "        quote: clean(fields.quote.value, 12000),",
+    "        thought: clean(fields.thought.value, 12000),",
+    "        timestamp: clean(fields.timestamp.value, 32),",
+    "        tags: fields.tags.value,",
+    "        sourceTitle: clean(fields.sourceTitle.value, 160),",
+    "        sourceUrl: safeUrl(fields.sourceUrl.value),",
+    "        materialType: currentTopic().materialType || 'other',",
+    "        capturedAt: new Date().toISOString()",
+    "      });",
+    "      saveDrafts();",
+    "      clearForm();",
+    "      setStatus('Capture added to patch draft.');",
+    "      render();",
+    "    }",
+    "    function buildPatch() {",
+    "      const topic = currentTopic();",
+    "      const topicDrafts = drafts.filter((item) => item.topicId === topic.id);",
+    "      return {",
+    "        schema: PATCH_SCHEMA,",
+    "        appVersion: seed.appVersion,",
+    "        patchId: makeId('inbox_patch'),",
+    "        createdAt: new Date().toISOString(),",
+    "        source: { generatedBy: 'inbox.html', workspaceFingerprint: seed.workspaceFingerprint, topicId: seed.activeSessionId, topicTitle: seed.topics.find((item) => item.id === seed.activeSessionId)?.title || '' },",
+    "        target: { topicId: topic.id, topicTitle: topic.title },",
+    "        captures: topicDrafts.map((item) => ({",
+    "          id: item.id,",
+    "          quote: item.quote,",
+    "          thought: item.thought,",
+    "          timestamp: item.timestamp,",
+    "          sourceTitle: item.sourceTitle || topic.sourceTitle || '',",
+    "          sourceUrl: safeUrl(item.sourceUrl || topic.sourceUrl || ''),",
+    "          materialType: item.materialType || topic.materialType || 'other',",
+    "          tags: item.tags,",
+    "          capturedAt: item.capturedAt",
+    "        }))",
+    "      };",
+    "    }",
+    "    function render() {",
+    "      const topic = currentTopic();",
+    "      const topicDrafts = drafts.filter((item) => item.topicId === topic.id);",
+    "      document.querySelector('#draftList').replaceChildren(...(topicDrafts.length ? topicDrafts.map(renderDraft) : [emptyDraft()]));",
+    "      document.querySelector('#patchPreview').textContent = JSON.stringify(buildPatch(), null, 2);",
+    "    }",
+    "    function renderDraft(item) {",
+    "      const node = document.createElement('article');",
+    "      node.className = 'capture';",
+    "      const text = item.thought || item.quote || 'Untitled capture';",
+    "      node.textContent = `${new Date(item.capturedAt).toLocaleString()} · ${text}`;",
+    "      return node;",
+    "    }",
+    "    function emptyDraft() { const node = document.createElement('p'); node.className = 'meta'; node.textContent = 'No draft captures for this topic yet.'; return node; }",
+    "    function currentTopic() { return seed.topics.find((topic) => topic.id === topicSelect.value) || seed.topics[0]; }",
+    "    function loadDrafts() { try { return JSON.parse(localStorage.getItem(storageKey) || '[]').filter((item) => item && item.id); } catch { return []; } }",
+    "    function saveDrafts() { localStorage.setItem(storageKey, JSON.stringify(drafts.slice(-50))); }",
+    "    function clearForm() { Object.values(fields).forEach((field) => { field.value = ''; }); }",
+    "    function clean(value, max) { return String(value || '').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim().slice(0, max); }",
+    "    function safeUrl(value) { const raw = clean(value, 2048); if (!raw) return ''; try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }",
+    "    function makeId(prefix) { return `${prefix}_${randomIdPart()}`; }",
+    "    function randomIdPart() {",
+    "      const cryptoApi = globalThis.crypto;",
+    "      if (cryptoApi && typeof cryptoApi.randomUUID === 'function') return cryptoApi.randomUUID();",
+    "      if (cryptoApi && typeof cryptoApi.getRandomValues === 'function') {",
+    "        const bytes = new Uint8Array(16);",
+    "        cryptoApi.getRandomValues(bytes);",
+    "        bytes[6] = (bytes[6] & 0x0f) | 0x40;",
+    "        bytes[8] = (bytes[8] & 0x3f) | 0x80;",
+    "        return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');",
+    "      }",
+    "      return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;",
+    "    }",
+    "    function setStatus(message) { document.querySelector('#statusOutput').textContent = message; }",
+    "    render();",
+    "  </script>",
+    "</body>",
+    "</html>",
+    ""
+  ].join("\n");
+}
+
 export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
@@ -967,7 +1318,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    h1, h2, p { margin: 0; }",
     "    h1 { font-size: 26px; } h2 { font-size: 16px; }",
     "    .summary, li span, .session span { color: #697077; font-size: 13px; }",
-    "    .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }",
+    "    .actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }",
     "    .action, .panel, .session { border: 1px solid #dcd8cc; border-radius: 8px; background: white; padding: 14px; }",
     "    .action { display: grid; gap: 5px; text-decoration: none; color: #202124; }",
     "    .action strong { color: #2f6f5e; }",
@@ -989,6 +1340,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    <nav class=\"actions\" aria-label=\"Mirror entry points\">",
     "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review and recent captures</span></a>",
     "      <a class=\"action\" href=\"review.html\"><strong>Review</strong><span>Reveal-only portable cards</span></a>",
+    "      <a class=\"action\" href=\"inbox.html\"><strong>Inbox</strong><span>Capture on mobile or Windows</span></a>",
     "      <a class=\"action\" href=\"workspace.json\"><strong>Restore</strong><span>Canonical workspace JSON</span></a>",
     "    </nav>",
     "    <section class=\"panel\">",
@@ -1118,6 +1470,13 @@ export function buildMirrorBundle(workspace) {
       content: generateReviewHtml(cleanWorkspace, new Date(exportedAt))
     }),
     makeMirrorFile({
+      path: "inbox.html",
+      mediaType: "text/html",
+      role: "mobile-inbox",
+      sourceFingerprint: workspaceFingerprint,
+      content: generateInboxHtml(cleanWorkspace, new Date(exportedAt))
+    }),
+    makeMirrorFile({
       path: "workspace.json",
       mediaType: "application/json",
       role: "workspace-restore",
@@ -1151,7 +1510,7 @@ export function buildMirrorBundle(workspace) {
     contractStability: "experimental",
     exportedAt,
     canonical: "workspace.json",
-    derived: ["index.html", "README.md", "TODAY.md", "review.html", "sessions/*.md", "sessions/*.feishu.json"],
+    derived: ["index.html", "README.md", "TODAY.md", "review.html", "inbox.html", "sessions/*.md", "sessions/*.feishu.json"],
     generator: {
       name: "learning-companion-web",
       version: WORKSPACE_SCHEMA_VERSION,
@@ -1200,6 +1559,51 @@ export function buildMirrorZip(workspace) {
     bundleFingerprint: bundle.manifest.bundleFingerprint,
     data
   };
+}
+
+function normalizeImportedPatches(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => cleanText(item, 128))
+    .filter(Boolean)
+    .filter((item, index, all) => all.indexOf(item) === index)
+    .slice(-200);
+}
+
+function resolveInboxPatchTarget(workspace, patch) {
+  const targetId = cleanText(patch.target?.topicId, 128);
+  const targetTitle = cleanText(patch.target?.topicTitle, MAX_TITLE_LENGTH);
+  const byId = workspace.sessions.find((session) => session.id === targetId);
+  if (byId) return { session: byId, resolution: "id-match" };
+  const byTitle = targetTitle
+    ? workspace.sessions.find((session) => session.title === targetTitle)
+    : null;
+  if (byTitle) return { session: byTitle, resolution: "title-match" };
+  return { session: getActiveSession(workspace), resolution: "active-fallback" };
+}
+
+function buildInboxReceipt({ patch, patchId, workspace, targetSession, targetResolution, added, skippedDuplicate, sanitizedSourceUrls = 0, importedAt }) {
+  return {
+    schema: "learning-companion.mobile-inbox-receipt.v1",
+    patchId,
+    importedAt: Number.isFinite(importedAt?.getTime?.()) ? importedAt.toISOString() : nowIso(),
+    targetResolution,
+    targetSessionId: targetSession.id,
+    targetSessionTitle: targetSession.title,
+    sourceTopicTitle: cleanText(patch.source?.topicTitle || patch.target?.topicTitle || "", MAX_TITLE_LENGTH),
+    added,
+    skippedDuplicate,
+    sanitizedSourceUrls,
+    totalCaptures: Array.isArray(patch.captures) ? patch.captures.length : 0,
+    workspaceSessionCount: workspace.sessions.length
+  };
+}
+
+function normalizeInboxCapturedAt(value, now = new Date()) {
+  const raw = cleanText(value, 64);
+  if (!raw) return Number.isFinite(now?.getTime?.()) ? now.toISOString() : nowIso();
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : nowIso();
 }
 
 function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref) {
@@ -1370,6 +1774,7 @@ function generateMirrorReadme(workspace, sessionFiles) {
   lines.push("- `index.html` (mirror-home)");
   lines.push("- `TODAY.md` (study-pack)");
   lines.push("- `review.html` (portable-review)");
+  lines.push("- `inbox.html` (mobile-inbox)");
   lines.push("- `workspace.json` (workspace-restore)");
   sessionFiles.forEach((file) => {
     lines.push(`- \`${file.path}\` (${file.role}, ${file.bytes} B)`);

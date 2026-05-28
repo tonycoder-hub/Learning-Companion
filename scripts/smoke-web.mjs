@@ -4,8 +4,11 @@ import {
   WORKSPACE_SCHEMA,
   WORKSPACE_SCHEMA_VERSION,
   MAX_CAPTURE_TEXT_LENGTH,
+  MAX_INBOX_PATCH_CAPTURES,
+  MOBILE_INBOX_PATCH_SCHEMA,
   addCapture,
   addSession,
+  applyMobileInboxPatch,
   applyGrade,
   buildFeishuPayload,
   buildFocusBrief,
@@ -21,6 +24,7 @@ import {
   deleteReviewCard,
   filterSessions,
   formatLocalIso,
+  generateInboxHtml,
   generateMarkdown,
   generateMirrorIndexHtml,
   generateReviewHtml,
@@ -33,6 +37,8 @@ import {
   getDueReviewItems,
   getActiveSession,
   gradeCard,
+  isMobileInboxPatch,
+  isMobileInboxPatchLike,
   promoteCapture,
   reviewIntervalDays,
   safeHref,
@@ -156,6 +162,87 @@ assert.equal(workspaceDueBrief.stats.dueCards, 0);
 assert.equal(workspaceDueBrief.stats.workspaceDueCards, 1);
 assert.equal(workspaceDueBrief.nextAction.kind, "review");
 assert.match(workspaceDueBrief.nextAction.label, /workspace due card/);
+
+const inboxPatch = {
+  schema: MOBILE_INBOX_PATCH_SCHEMA,
+  appVersion: WORKSPACE_SCHEMA_VERSION,
+  patchId: "patch_mobile_001",
+  createdAt: "2026-05-29T08:00:00+08:00",
+  source: {
+    generatedBy: "inbox.html",
+    workspaceFingerprint: "fnv1a-test",
+    topicId: session.id,
+    topicTitle: session.title
+  },
+  target: {
+    topicId: session.id,
+    topicTitle: session.title
+  },
+  captures: [{
+    id: "inbox_capture_001",
+    quote: "Mobile reading adds a follow-up quote.",
+    thought: "Bring this back from HarmonyOS.",
+    timestamp: "03:21",
+    sourceTitle: "Mobile article",
+    sourceUrl: "javascript:alert(1)",
+    materialType: "article",
+    tags: "mobile inbox",
+    capturedAt: "2026-05-29T08:01:00+08:00"
+  }, {
+    id: "inbox_capture_001",
+    quote: "Duplicate inside patch",
+    thought: "Should be skipped",
+    capturedAt: "2026-05-29T08:02:00+08:00"
+  }]
+};
+assert.equal(isMobileInboxPatch(inboxPatch), true);
+let inboxResult = applyMobileInboxPatch(workspace, inboxPatch, new Date("2026-05-29T08:05:00+08:00"));
+let inboxSession = inboxResult.workspace.sessions.find((item) => item.id === session.id);
+const importedInboxCapture = inboxSession.captures.find((capture) => capture.inboxCaptureId === "inbox_capture_001");
+assert.equal(inboxResult.receipt.targetResolution, "id-match");
+assert.equal(inboxResult.receipt.added, 1);
+assert.equal(inboxResult.receipt.skippedDuplicate, 1);
+assert.equal(inboxResult.receipt.sanitizedSourceUrls, 1);
+assert.equal(importedInboxCapture.sourceProvenance, "inbox");
+assert.equal(importedInboxCapture.sourceUrl, "");
+assert.equal(importedInboxCapture.inboxCaptureId, "inbox_capture_001");
+assert.equal(inboxResult.workspace.importedPatches.includes("patch_mobile_001"), true);
+const duplicateInboxResult = applyMobileInboxPatch(inboxResult.workspace, inboxPatch);
+assert.equal(duplicateInboxResult.receipt.targetResolution, "duplicate-patch");
+assert.equal(duplicateInboxResult.receipt.added, 0);
+assert.equal(duplicateInboxResult.workspace.sessions.find((item) => item.id === session.id).captures.length, inboxSession.captures.length);
+
+const titlePatch = {
+  ...inboxPatch,
+  patchId: "patch_mobile_002",
+  target: { topicId: "missing", topicTitle: session.title },
+  captures: [{ ...inboxPatch.captures[0], id: "inbox_capture_002", sourceUrl: "https://example.com/mobile" }]
+};
+const titleResult = applyMobileInboxPatch(workspace, titlePatch);
+assert.equal(titleResult.receipt.targetResolution, "title-match");
+assert.equal(titleResult.workspace.sessions.find((item) => item.id === session.id).captures.find((capture) => capture.inboxCaptureId === "inbox_capture_002").sourceUrl, "https://example.com/mobile");
+
+const fallbackPatch = {
+  ...inboxPatch,
+  patchId: "patch_mobile_003",
+  target: { topicId: "missing", topicTitle: "Missing title" },
+  captures: [{ ...inboxPatch.captures[0], id: "inbox_capture_003", thought: "Fallback capture" }]
+};
+const fallbackResult = applyMobileInboxPatch(workspace, fallbackPatch);
+assert.equal(fallbackResult.receipt.targetResolution, "active-fallback");
+assert.equal(getActiveSession(fallbackResult.workspace).captures.find((capture) => capture.inboxCaptureId === "inbox_capture_003").thought, "Fallback capture");
+
+assert.equal(isMobileInboxPatchLike({ schema: "learning-companion.mobile-inbox-patch.v2" }), true);
+assert.throws(() => workspaceFromPortableData({ schema: "learning-companion.mobile-inbox-patch.v2" }), /Unsupported mobile inbox patch schema/);
+assert.throws(() => applyMobileInboxPatch(workspace, { ...inboxPatch, patchId: "" }), /patchId/);
+assert.throws(() => applyMobileInboxPatch(workspace, {
+  ...inboxPatch,
+  patchId: "patch_mobile_too_many",
+  captures: Array.from({ length: MAX_INBOX_PATCH_CAPTURES + 1 }, (_, index) => ({
+    ...inboxPatch.captures[0],
+    id: `too_many_${index}`
+  }))
+}), /too many captures/);
 
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
@@ -323,6 +410,20 @@ assert.match(maliciousReviewHtml, /&#39;/);
 assert.equal(maliciousReviewHtml.includes("<img src=x"), false);
 assert.equal(maliciousReviewHtml.includes("<script>alert"), false);
 
+const inboxHtml = generateInboxHtml(multiReviewWorkspace, frozenToday);
+assert.match(inboxHtml, /Learning Companion Inbox/);
+assert.match(inboxHtml, /learning-companion\.mobile-inbox-patch\.v1/);
+assert.match(inboxHtml, /Content-Security-Policy/);
+assert.match(inboxHtml, /getRandomValues/);
+assert.equal(inboxHtml.includes("<link"), false);
+assert.equal(/<script[^>]+src=/i.test(inboxHtml), false);
+assert.equal(/<iframe/i.test(inboxHtml), false);
+assert.equal(/srcdoc=/i.test(inboxHtml), false);
+assert.equal(/href=["']javascript:/i.test(inboxHtml), false);
+assert.equal(/\bfetch\s*\(/.test(inboxHtml), false);
+assert.equal(/XMLHttpRequest/.test(inboxHtml), false);
+assert.equal(/\bimport\s*\(/.test(inboxHtml), false);
+
 const manyCardsWorkspace = sanitizeWorkspace({
   schema: WORKSPACE_SCHEMA,
   schemaVersion: WORKSPACE_SCHEMA_VERSION,
@@ -354,6 +455,7 @@ const mirrorIndexHtml = generateMirrorIndexHtml(multiReviewWorkspace, frozenToda
 assert.match(mirrorIndexHtml, /Learning Companion Mirror/);
 assert.match(mirrorIndexHtml, /href="TODAY\.md"/);
 assert.match(mirrorIndexHtml, /href="review\.html"/);
+assert.match(mirrorIndexHtml, /href="inbox\.html"/);
 assert.match(mirrorIndexHtml, /href="workspace\.json"/);
 assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(mirrorIndexHtml, /Resume Here/);
@@ -375,11 +477,12 @@ assert.equal(mirror.contractStability, "experimental");
 assert.equal(mirror.canonical, "workspace.json");
 assert.equal(mirror.semantics.snapshot, "full");
 assert.equal(mirror.workspace.sessionCount, workspace.sessions.length);
-assert.equal(mirror.manifest.fileCount, 5 + workspace.sessions.length * 2);
+assert.equal(mirror.manifest.fileCount, 6 + workspace.sessions.length * 2);
 assert.equal(mirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
 assert.equal(mirror.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
 assert.equal(mirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
+assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && file.content.includes("Learning Companion Inbox")), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && /Due Review/.test(file.content)), true);
 assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);
 assert.equal(mirror.files.every((file) => file.encoding === "utf-8"), true);
@@ -398,6 +501,7 @@ assert.equal(mirrorZipNames.includes("index.html"), true);
 assert.equal(mirrorZipNames.includes("README.md"), true);
 assert.equal(mirrorZipNames.includes("TODAY.md"), true);
 assert.equal(mirrorZipNames.includes("review.html"), true);
+assert.equal(mirrorZipNames.includes("inbox.html"), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".md") && path.startsWith("sessions/")), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".feishu.json")), true);
 
