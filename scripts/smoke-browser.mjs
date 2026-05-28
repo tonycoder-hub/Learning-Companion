@@ -186,9 +186,24 @@ try {
     document.querySelector("#captureClozeBtn").click();
     const dueBeforeGood = document.querySelector("#dueMetric").textContent;
     const gradeVisibleBeforeReveal = Boolean(document.querySelector('[data-grade="good"]'));
+    document.querySelector('[data-tab="review"]').click();
     document.querySelector('[data-reveal-card]').click();
-    const answerVisibleAfterReveal = document.querySelector("#reviewList").textContent.includes("compiler-enforced lifetimes");
-    document.querySelector('[data-grade="good"]').click();
+    const inspectorRevealVisible = document.querySelector("#reviewList").textContent.includes("Ownership lets Rust");
+    document.querySelector('[data-focus-mode="review"]').click();
+    const deskReviewVisible = !document.querySelector("#deskReviewPane").hidden && document.querySelector("#capturePane").hidden;
+    const deskReviewPrompt = document.querySelector("#deskReviewPrompt").textContent;
+    const deskReviewGradeVisibleAfterInspectorReveal = !document.querySelector("#deskReviewGoodBtn").hidden;
+    const deskPreservedInspectorReveal = document.querySelector("#deskReviewAnswer").textContent.includes("Ownership lets Rust");
+    document.querySelector("#sidecarLayoutBtn").click();
+    const deskReviewVisibleInSidecar = getComputedStyle(document.querySelector("#deskReviewPane")).display !== "none"
+      && getComputedStyle(document.querySelector(".inspector")).display === "none";
+    document.querySelector("#sidecarLayoutBtn").click();
+    const answerVisibleAfterReveal = document.querySelector("#deskReviewAnswer").textContent.includes("Ownership lets Rust");
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "2",
+      bubbles: true,
+      cancelable: true
+    }));
     document.querySelector('[data-focus-mode="synthesize"]').click();
     const synthesisVisible = !document.querySelector("#synthesisPane").hidden && document.querySelector("#capturePane").hidden;
     document.querySelector("#synthesisDraft").value = "manual synthesis survives";
@@ -281,6 +296,12 @@ try {
           answerVisibleAfterReveal,
           dueAfterGood: document.querySelector("#dueMetric").textContent,
           gradedCount: restoredSession.reviewCards.filter((card) => card.strength === 1).length,
+          deskReviewVisible,
+          deskReviewPrompt,
+          deskReviewGradeVisibleAfterInspectorReveal,
+          inspectorRevealVisible,
+          deskPreservedInspectorReveal,
+          deskReviewVisibleInSidecar,
           schemaVersion: restoredWorkspace.schemaVersion,
           clientId: restoredWorkspace.clientId
         });
@@ -305,6 +326,12 @@ try {
   assert.equal(result.cardMetric, "2");
   assert.equal(result.dueBeforeGood, "2");
   assert.equal(result.gradeVisibleBeforeReveal, false);
+  assert.equal(result.inspectorRevealVisible, true);
+  assert.equal(result.deskReviewVisible, true);
+  assert.match(result.deskReviewPrompt, /compiler-enforced lifetimes/);
+  assert.equal(result.deskReviewGradeVisibleAfterInspectorReveal, true);
+  assert.equal(result.deskPreservedInspectorReveal, true);
+  assert.equal(result.deskReviewVisibleInSidecar, true);
   assert.equal(result.answerVisibleAfterReveal, true);
   assert.equal(result.dueMetric, "1");
   assert.equal(result.dueAfterGood, "1");

@@ -23,6 +23,7 @@ product/mvp-learning-sidecar
 - Workspace-wide due review queue with simple strength buckets.
 - Self-graded Again/Good review outcomes with isolated scheduling policy.
 - Review answers are reveal-gated before grading.
+- Desk-native review pane works in focused sidecar layout.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
@@ -35,7 +36,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, desk-native review in sidecar layout, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -75,6 +76,7 @@ Accepted from Mira:
 - Add desk-level activity feedback so hidden inspector panels do not swallow the user's sense of what changed.
 - Make the activity action explicit when it exits focus mode, use `aria-live`, and scroll/highlight the referenced capture or card where possible.
 - Keep capture source snapshot fields optional in the v1 schema, add source provenance, and harden source jump URL handling.
+- Move core review actions into the desk for sidecar focus, keep reveal state coherent across inspector/desk surfaces, and add keyboard grading shortcuts.
 
 Deferred:
 
@@ -95,5 +97,5 @@ Deferred:
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - HarmonyOS app is not started yet; schema is ready for exploration.
-- Sidecar layout still hides full inspector details; the activity strip gives a visible trail, but review-heavy sessions may still need a richer desk-native review surface.
+- Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

@@ -68,6 +68,16 @@ const dom = {
   buildSynthesisBtn: document.querySelector("#buildSynthesisBtn"),
   insertSynthesisBtn: document.querySelector("#insertSynthesisBtn"),
   synthesisStatus: document.querySelector("#synthesisStatus"),
+  deskReviewPane: document.querySelector("#deskReviewPane"),
+  deskReviewNextBtn: document.querySelector("#deskReviewNextBtn"),
+  deskReviewMeta: document.querySelector("#deskReviewMeta"),
+  deskReviewCard: document.querySelector("#deskReviewCard"),
+  deskReviewSource: document.querySelector("#deskReviewSource"),
+  deskReviewPrompt: document.querySelector("#deskReviewPrompt"),
+  deskReviewAnswer: document.querySelector("#deskReviewAnswer"),
+  deskReviewRevealBtn: document.querySelector("#deskReviewRevealBtn"),
+  deskReviewAgainBtn: document.querySelector("#deskReviewAgainBtn"),
+  deskReviewGoodBtn: document.querySelector("#deskReviewGoodBtn"),
   notesEditor: document.querySelector("#notesEditor"),
   notesPreview: document.querySelector("#notesPreview"),
   notesEditBtn: document.querySelector("#notesEditBtn"),
@@ -224,14 +234,27 @@ dom.reviewNextBtn.addEventListener("click", () => {
   activeReviewKey = reviewKey(next.sessionId, next.card.id);
   revealedReviewCards.delete(activeReviewKey);
   renderInspector();
+  renderDeskReview();
   const card = document.querySelector(`[data-review-key="${CSS.escape(activeReviewKey)}"]`);
   card?.scrollIntoView({ behavior: "smooth", block: "center" });
   card?.classList.add("pulse");
   setTimeout(() => card?.classList.remove("pulse"), 900);
 });
+dom.deskReviewNextBtn.addEventListener("click", selectNextDeskReview);
+dom.deskReviewRevealBtn.addEventListener("click", () => {
+  const item = getActiveReviewItem();
+  if (!item) return;
+  activeReviewKey = reviewKey(item.sessionId, item.card.id);
+  revealedReviewCards.add(activeReviewKey);
+  renderDeskReview();
+  renderInspector();
+});
+dom.deskReviewAgainBtn.addEventListener("click", () => gradeActiveReview("again"));
+dom.deskReviewGoodBtn.addEventListener("click", () => gradeActiveReview("good"));
 
 document.addEventListener("keydown", (event) => {
   const isMod = event.metaKey || event.ctrlKey;
+  if (handleReviewShortcut(event)) return;
   if (isMod && event.key === "Enter") {
     event.preventDefault();
     capture(event.shiftKey);
@@ -608,6 +631,113 @@ function renderMetrics() {
   dom.sizeMetric.textContent = formatBytes(bytes);
 }
 
+function handleReviewShortcut(event) {
+  if (event.metaKey || event.ctrlKey || event.altKey || isEditableTarget(event.target)) return false;
+  if (getActiveSession(workspace).focusMode !== "review") return false;
+  const item = getActiveReviewItem();
+  if (!item) return false;
+  const key = reviewKey(item.sessionId, item.card.id);
+  const isRevealed = revealedReviewCards.has(key);
+  if ((event.key === " " || event.key === "Enter") && !isRevealed) {
+    event.preventDefault();
+    activeReviewKey = key;
+    revealedReviewCards.add(key);
+    renderDeskReview();
+    renderInspector();
+    return true;
+  }
+  if (isRevealed && event.key === "1") {
+    event.preventDefault();
+    gradeActiveReview("again");
+    return true;
+  }
+  if (isRevealed && event.key === "2") {
+    event.preventDefault();
+    gradeActiveReview("good");
+    return true;
+  }
+  return false;
+}
+
+function getReviewItemsForDisplay() {
+  const session = getActiveSession(workspace);
+  const dueItems = getDueReviewItems(workspace);
+  return dueItems.length
+    ? dueItems
+    : [...session.reviewCards]
+      .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+      .map((card) => ({ sessionId: session.id, sessionTitle: session.title, card }));
+}
+
+function getActiveReviewItem() {
+  const items = getReviewItemsForDisplay();
+  if (!items.length) return null;
+  const active = items.find((item) => reviewKey(item.sessionId, item.card.id) === activeReviewKey);
+  return active || items[0];
+}
+
+function selectNextDeskReview() {
+  const items = getReviewItemsForDisplay();
+  if (!items.length) {
+    showToast("No review cards");
+    renderDeskReview();
+    return;
+  }
+  const currentIndex = Math.max(0, items.findIndex((item) => reviewKey(item.sessionId, item.card.id) === activeReviewKey));
+  const next = items[(currentIndex + 1) % items.length];
+  activeReviewKey = reviewKey(next.sessionId, next.card.id);
+  revealedReviewCards.delete(activeReviewKey);
+  renderDeskReview();
+  renderInspector();
+}
+
+function renderDeskReview() {
+  if (dom.deskReviewPane.hidden) return;
+  const due = getDueReviewItems(workspace).length;
+  const item = getActiveReviewItem();
+  dom.deskReviewMeta.textContent = `${due} due`;
+  if (!item) {
+    dom.deskReviewSource.textContent = "";
+    dom.deskReviewPrompt.textContent = "No review cards yet.";
+    dom.deskReviewAnswer.hidden = true;
+    dom.deskReviewRevealBtn.hidden = true;
+    dom.deskReviewAgainBtn.hidden = true;
+    dom.deskReviewGoodBtn.hidden = true;
+    return;
+  }
+  const key = reviewKey(item.sessionId, item.card.id);
+  activeReviewKey = key;
+  const isRevealed = revealedReviewCards.has(key);
+  dom.deskReviewCard.dataset.reviewKey = key;
+  dom.deskReviewSource.textContent = `${item.sessionTitle} · strength ${item.card.strength} · due ${new Date(item.card.dueAt).toLocaleDateString()}`;
+  dom.deskReviewPrompt.textContent = item.card.prompt;
+  dom.deskReviewAnswer.hidden = !isRevealed;
+  dom.deskReviewRevealBtn.hidden = isRevealed;
+  dom.deskReviewAgainBtn.hidden = !isRevealed;
+  dom.deskReviewGoodBtn.hidden = !isRevealed;
+  if (isRevealed) renderMarkdown(dom.deskReviewAnswer, item.card.answer);
+  else clearChildren(dom.deskReviewAnswer);
+}
+
+function gradeActiveReview(grade) {
+  const item = getActiveReviewItem();
+  if (!item) return;
+  const key = reviewKey(item.sessionId, item.card.id);
+  workspace = gradeCard(workspace, item.sessionId, item.card.id, grade);
+  revealedReviewCards.delete(key);
+  const [next] = getDueReviewItems(workspace);
+  activeReviewKey = next ? reviewKey(next.sessionId, next.card.id) : "";
+  const reviewedSession = workspace.sessions.find((session) => session.id === item.sessionId);
+  const reviewedCard = reviewedSession?.reviewCards.find((card) => card.id === item.card.id);
+  setActivity(getActiveSession(workspace), {
+    title: "Review updated",
+    detail: `${grade === "good" ? "Good" : "Again"} · ${item.sessionTitle} · next due ${new Date(reviewedCard?.dueAt || item.card.dueAt).toLocaleDateString()}`,
+    tab: "review",
+    targetId: item.card.id
+  });
+  persistAndRender("Review updated");
+}
+
 function renderNotesMode() {
   const session = getActiveSession(workspace);
   const previewing = notesMode === "preview";
@@ -624,9 +754,12 @@ function renderFocusMode(mode) {
     button.classList.toggle("active", button.dataset.focusMode === mode);
   });
   const synthesizing = mode === "synthesize";
+  const reviewing = mode === "review";
   dom.synthesisPane.hidden = !synthesizing;
-  dom.capturePane.hidden = synthesizing;
+  dom.deskReviewPane.hidden = !reviewing;
+  dom.capturePane.hidden = synthesizing || reviewing;
   if (synthesizing) fillSynthesisDraft();
+  if (reviewing) renderDeskReview();
   renderSynthesisStatus();
   if (!synthesizing && dom.synthesisDraft.dataset.sessionId !== session.id) {
     dom.synthesisDraft.value = "";
@@ -833,11 +966,7 @@ function renderReviewCards() {
   const dueItems = getDueReviewItems(workspace);
   dom.dueCount.textContent = `${dueItems.length} due`;
   clearChildren(dom.reviewList);
-  const reviewItems = dueItems.length
-    ? dueItems
-    : [...session.reviewCards]
-      .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
-      .map((card) => ({ sessionId: session.id, sessionTitle: session.title, card }));
+  const reviewItems = getReviewItemsForDisplay();
   if (!reviewItems.length) {
     dom.reviewList.append(emptyState("No review cards yet"));
     return;
@@ -887,22 +1016,12 @@ function renderReviewCards() {
       activeReviewKey = key;
       revealedReviewCards.add(key);
       renderInspector();
+      renderDeskReview();
     });
     footer.querySelectorAll("[data-grade]").forEach((button) => {
       button.addEventListener("click", () => {
-        workspace = gradeCard(workspace, sessionId, card.id, button.dataset.grade);
-        revealedReviewCards.delete(key);
-        const [next] = getDueReviewItems(workspace);
-        activeReviewKey = next ? reviewKey(next.sessionId, next.card.id) : "";
-        const reviewedSession = workspace.sessions.find((item) => item.id === sessionId);
-        const reviewedCard = reviewedSession?.reviewCards.find((item) => item.id === card.id);
-        setActivity(getActiveSession(workspace), {
-          title: "Review updated",
-          detail: `${button.dataset.grade === "good" ? "Good" : "Again"} · ${sessionTitle} · next due ${new Date(reviewedCard?.dueAt || card.dueAt).toLocaleDateString()}`,
-          tab: "review",
-          targetId: card.id
-        });
-        persistAndRender("Review updated");
+        activeReviewKey = key;
+        gradeActiveReview(button.dataset.grade);
       });
     });
     dom.reviewList.append(item);

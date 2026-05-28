@@ -405,6 +405,7 @@ textarea:focus {
 
 .capture-pane,
 .synthesis-pane,
+.desk-review-pane,
 .editor-pane {
   display: grid;
   grid-template-rows: auto minmax(110px, 0.45fr) minmax(130px, 0.55fr);
@@ -419,7 +420,8 @@ textarea:focus {
 }
 
 .capture-pane[hidden],
-.synthesis-pane[hidden] {
+.synthesis-pane[hidden],
+.desk-review-pane[hidden] {
   display: none;
 }
 
@@ -429,6 +431,28 @@ textarea:focus {
 
 .synthesis-pane {
   grid-template-rows: auto 1fr;
+}
+
+.desk-review-pane {
+  grid-template-rows: auto minmax(170px, 1fr) auto;
+}
+
+.desk-review-card {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .panel-heading,

@@ -146,6 +146,26 @@
             <textarea id="synthesisDraft" class="synthesis-draft" placeholder="Build a draft from captures, then insert it into Notes"></textarea>
           </div>
 
+          <div id="deskReviewPane" class="desk-review-pane" aria-label="Focused review" hidden>
+            <div class="panel-heading">
+              <h2>Focused Review</h2>
+              <div class="capture-actions">
+                <button id="deskReviewNextBtn" class="command-button" type="button">Next</button>
+                <span id="deskReviewMeta" class="save-state">0 due</span>
+              </div>
+            </div>
+            <div id="deskReviewCard" class="desk-review-card">
+              <div id="deskReviewSource" class="item-meta"></div>
+              <p id="deskReviewPrompt" class="card-prompt"></p>
+              <div id="deskReviewAnswer" class="review-answer markdown-lite" hidden></div>
+            </div>
+            <div class="review-actions">
+              <button id="deskReviewRevealBtn" class="command-button primary" type="button">Reveal</button>
+              <button id="deskReviewAgainBtn" class="command-button" type="button" hidden>Again</button>
+              <button id="deskReviewGoodBtn" class="command-button primary" type="button" hidden>Good</button>
+            </div>
+          </div>
+
           <div class="editor-pane" aria-label="Session notes">
             <div class="panel-heading">
               <h2>Notes</h2>
