@@ -9,6 +9,7 @@ import {
   applyGrade,
   buildFeishuPayload,
   buildMirrorBundle,
+  buildMirrorZip,
   buildSourceJumpUrl,
   cleanText,
   cleanUrl,
@@ -135,6 +136,18 @@ assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust owne
 assert.equal(mirror.files.every((file) => file.encoding === "utf-8"), true);
 assert.equal(mirror.files.every((file) => /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)), true);
 assert.equal(/^fnv1a-[a-f0-9]{8}$/.test(mirror.manifest.bundleFingerprint), true);
+
+const mirrorZip = buildMirrorZip(workspace);
+const mirrorZipNames = listZipFileNames(mirrorZip.data);
+assert.equal(mirrorZip.filename, "learning-companion-feishu-mirror.zip");
+assert.equal(mirrorZip.mediaType, "application/zip");
+assert.equal(mirrorZip.fileCount, mirror.manifest.fileCount);
+assert.equal(mirrorZip.bytes, mirrorZip.data.length);
+assert.equal(mirrorZipNames.length, mirror.files.length);
+assert.equal(mirrorZipNames.includes("workspace.json"), true);
+assert.equal(mirrorZipNames.includes("README.md"), true);
+assert.equal(mirrorZipNames.some((path) => path.endsWith(".md") && path.startsWith("sessions/")), true);
+assert.equal(mirrorZipNames.some((path) => path.endsWith(".feishu.json")), true);
 
 const restoredWorkspaceFile = mirror.files.find((file) => file.path === "workspace.json");
 const restoredWorkspace = sanitizeWorkspace(JSON.parse(restoredWorkspaceFile.content));
@@ -264,3 +277,30 @@ assert.throws(() => sanitizeWorkspace({
 }), /Unsupported workspace version/);
 
 console.log("smoke_web_ok");
+
+function listZipFileNames(data) {
+  const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const decoder = new TextDecoder();
+  let endOffset = -1;
+  for (let offset = data.length - 22; offset >= 0; offset -= 1) {
+    if (view.getUint32(offset, true) === 0x06054b50) {
+      endOffset = offset;
+      break;
+    }
+  }
+  assert.notEqual(endOffset, -1);
+  const entryCount = view.getUint16(endOffset + 10, true);
+  let offset = view.getUint32(endOffset + 16, true);
+  const names = [];
+  for (let index = 0; index < entryCount; index += 1) {
+    assert.equal(view.getUint32(offset, true), 0x02014b50);
+    assert.equal((view.getUint16(offset + 8, true) & 0x0800) > 0, true);
+    assert.equal(view.getUint16(offset + 10, true), 0);
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    names.push(decoder.decode(data.slice(offset + 46, offset + 46 + nameLength)));
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return names;
+}

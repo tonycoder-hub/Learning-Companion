@@ -5,6 +5,7 @@ import {
   addSession,
   buildFeishuPayload,
   buildMirrorBundle,
+  buildMirrorZip,
   buildSourceJumpUrl,
   filterSessions,
   generateMarkdown,
@@ -84,6 +85,7 @@ const dom = {
   downloadPayloadBtn: document.querySelector("#downloadPayloadBtn"),
   copyMirrorBtn: document.querySelector("#copyMirrorBtn"),
   downloadMirrorBtn: document.querySelector("#downloadMirrorBtn"),
+  downloadMirrorZipBtn: document.querySelector("#downloadMirrorZipBtn"),
   mirrorExport: document.querySelector("#mirrorExport"),
   copyBookmarkletBtn: document.querySelector("#copyBookmarkletBtn"),
   bookmarkletExport: document.querySelector("#bookmarkletExport"),
@@ -277,6 +279,11 @@ dom.downloadPayloadBtn.addEventListener("click", () => {
 });
 dom.downloadMirrorBtn.addEventListener("click", () => {
   downloadText("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json");
+});
+dom.downloadMirrorZipBtn.addEventListener("click", () => {
+  const zip = buildMirrorZip(workspace);
+  downloadBytes(zip.filename, zip.data, zip.mediaType);
+  showToast("Mirror ZIP saved");
 });
 
 function loadWorkspace() {
@@ -929,6 +936,14 @@ async function copyText(text, message) {
 
 function downloadText(filename, text, type) {
   const blob = new Blob([text], { type });
+  downloadBlob(filename, blob);
+}
+
+function downloadBytes(filename, bytes, type) {
+  downloadBlob(filename, new Blob([bytes], { type }));
+}
+
+function downloadBlob(filename, blob) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;

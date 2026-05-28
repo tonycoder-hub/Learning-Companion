@@ -4,6 +4,10 @@
 
 `learning-companion.mirror-bundle.staging.v1` is an experimental export and restore boundary. It is not the final Feishu Drive folder layout.
 
+The app can also emit `learning-companion-feishu-mirror.zip`, a no-compression ZIP containing the same virtual files. The ZIP is a manual transport/package format; the JSON bundle and its `workspace.json` payload remain the contract authority.
+
+ZIP is not a valid direct import source today. To restore from ZIP, extract `workspace.json` or use the JSON mirror bundle instead.
+
 ## Authority
 
 - `workspace.json` is canonical for restore.
@@ -34,3 +38,5 @@ workspace -> mirror staging bundle -> uploader -> Feishu Drive folder layout
 ```
 
 It should not upload the staging JSON as the only final Drive artifact unless the user explicitly wants a backup blob.
+
+Manual ZIP export is allowed before the uploader exists. A future uploader should still consume the bundle contract and write Drive files directly instead of treating ZIP generation as the sync layer.

@@ -211,6 +211,7 @@ try {
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
     const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const mirrorText = JSON.stringify(mirror);
+    const hasMirrorZipButton = document.querySelector("#downloadMirrorZipBtn").textContent === "Save ZIP Copy";
     document.querySelector("#newSessionBtn").click();
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
     const importInput = document.querySelector("#importWorkspaceInput");
@@ -262,6 +263,7 @@ try {
           hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
           hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
           bookmarklet: document.querySelector("#bookmarkletExport").value,
+          hasMirrorZipButton,
           mirrorSchema: restoredMirror.schema,
           mirrorFileCount: restoredMirror.manifest.fileCount,
           mirrorCanonical: restoredMirror.canonical,
@@ -336,6 +338,7 @@ try {
   assert.match(result.bookmarklet, /^javascript:/);
   assert.match(result.bookmarklet, /127\.0\.0\.1/);
   assert.match(result.bookmarklet, /currentTime/);
+  assert.equal(result.hasMirrorZipButton, true);
   assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
   assert.equal(result.mirrorFileCount, 4);
   assert.equal(result.mirrorCanonical, "workspace.json");

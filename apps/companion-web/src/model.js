@@ -696,6 +696,23 @@ export function buildMirrorBundle(workspace) {
   };
 }
 
+export function buildMirrorZip(workspace) {
+  const bundle = buildMirrorBundle(workspace);
+  const files = bundle.files.map((file) => ({
+    path: file.path,
+    content: file.content
+  }));
+  const data = buildStoredZip(files, new Date(bundle.exportedAt));
+  return {
+    filename: "learning-companion-feishu-mirror.zip",
+    mediaType: "application/zip",
+    bytes: data.length,
+    fileCount: files.length,
+    bundleFingerprint: bundle.manifest.bundleFingerprint,
+    data
+  };
+}
+
 function formatCount(count, singular) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
@@ -753,6 +770,102 @@ function makeMirrorFile({ path, mediaType, role, sessionId = "", content }) {
 
 function byteLength(value) {
   return new TextEncoder().encode(String(value || "")).length;
+}
+
+function buildStoredZip(files, timestamp = new Date()) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const centralChunks = [];
+  const entries = files.map((file) => {
+    const nameBytes = encoder.encode(normalizeMirrorPath(file.path));
+    const body = encoder.encode(String(file.content || ""));
+    return {
+      nameBytes,
+      body,
+      crc: crc32(body),
+      size: body.length
+    };
+  });
+  const dos = toDosDateTime(timestamp);
+  let offset = 0;
+
+  entries.forEach((entry) => {
+    const localHeader = new Uint8Array(30 + entry.nameBytes.length);
+    const view = new DataView(localHeader.buffer);
+    view.setUint32(0, 0x04034b50, true);
+    view.setUint16(4, 20, true);
+    view.setUint16(6, 0x0800, true);
+    view.setUint16(8, 0, true);
+    view.setUint16(10, dos.time, true);
+    view.setUint16(12, dos.date, true);
+    view.setUint32(14, entry.crc, true);
+    view.setUint32(18, entry.size, true);
+    view.setUint32(22, entry.size, true);
+    view.setUint16(26, entry.nameBytes.length, true);
+    localHeader.set(entry.nameBytes, 30);
+    chunks.push(localHeader, entry.body);
+
+    const centralHeader = new Uint8Array(46 + entry.nameBytes.length);
+    const central = new DataView(centralHeader.buffer);
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true);
+    central.setUint16(6, 20, true);
+    central.setUint16(8, 0x0800, true);
+    central.setUint16(10, 0, true);
+    central.setUint16(12, dos.time, true);
+    central.setUint16(14, dos.date, true);
+    central.setUint32(16, entry.crc, true);
+    central.setUint32(20, entry.size, true);
+    central.setUint32(24, entry.size, true);
+    central.setUint16(28, entry.nameBytes.length, true);
+    central.setUint32(42, offset, true);
+    centralHeader.set(entry.nameBytes, 46);
+    centralChunks.push(centralHeader);
+    offset += localHeader.length + entry.body.length;
+  });
+
+  const centralOffset = offset;
+  const centralSize = centralChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const end = new Uint8Array(22);
+  const endView = new DataView(end.buffer);
+  endView.setUint32(0, 0x06054b50, true);
+  endView.setUint16(8, entries.length, true);
+  endView.setUint16(10, entries.length, true);
+  endView.setUint32(12, centralSize, true);
+  endView.setUint32(16, centralOffset, true);
+
+  return concatBytes([...chunks, ...centralChunks, end]);
+}
+
+function toDosDateTime(value) {
+  const date = Number.isFinite(value?.getTime?.()) ? value : new Date();
+  const year = Math.max(1980, date.getFullYear());
+  return {
+    time: (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2),
+    date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()
+  };
+}
+
+function concatBytes(parts) {
+  const total = parts.reduce((sum, part) => sum + part.length, 0);
+  const output = new Uint8Array(total);
+  let offset = 0;
+  parts.forEach((part) => {
+    output.set(part, offset);
+    offset += part.length;
+  });
+  return output;
+}
+
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (let index = 0; index < bytes.length; index += 1) {
+    crc ^= bytes[index];
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function fingerprintText(value) {

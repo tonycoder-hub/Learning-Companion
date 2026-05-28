@@ -2,15 +2,16 @@
 
 ## Goal
 
-Use Feishu Drive as a readable cross-device mirror before any authenticated OpenAPI sync exists. The mirror bundle is credential-free: the app generates a single JSON staging file containing the files that a future uploader can translate into a Feishu Drive folder.
+Use Feishu Drive as a readable cross-device mirror before any authenticated OpenAPI sync exists. The mirror bundle is credential-free: the app generates a JSON staging file for restore and a ZIP artifact containing the same virtual files for manual Drive upload or extraction.
 
 ## Current Manual Flow
 
 1. Open the app.
 2. Go to `Export`.
-3. Use `Save Mirror`.
-4. Upload `learning-companion-feishu-mirror.json` to Feishu Drive, or keep it in any shared folder.
-5. On another device, download the bundle and use the app's import button. The importer reads `workspace.json` from the bundle and restores the workspace.
+3. Use `Save Mirror` when you want the single JSON restore bundle.
+4. Use `Save ZIP` when you want real files (`README.md`, `workspace.json`, `sessions/*.md`, `sessions/*.feishu.json`) that can be uploaded or extracted as a readable Drive folder.
+5. Upload either artifact to Feishu Drive, or keep it in any shared folder.
+6. On another device, download the JSON bundle and use the app's import button. If you only have the ZIP, extract `workspace.json` first.
 
 ## Bundle Layout
 
@@ -37,6 +38,8 @@ Each bundled file has:
 `workspace.json` is the canonical restore payload and can be imported by the app directly from the mirror bundle. Markdown files are for human reading in Feishu Drive or Docs. Per-session JSON sidecars preserve enough structure for future round-trip sync.
 
 The bundle is always a full snapshot rebuilt from current app state. It is not an incremental delta. Generated paths use normalized POSIX-style paths with title slugs plus short ids to avoid collisions.
+
+The ZIP export uses the same file list as the JSON bundle and stores files without compression. It is a convenience packaging format, not a new source of truth.
 
 ## Why This Comes Before OpenAPI Sync
 

@@ -8,6 +8,7 @@
 - Desk activity feedback for hidden-inspector mode.
 - Capture-level source snapshots and time jump links.
 - Idempotent capture-to-notes insertion.
+- Manual Feishu mirror ZIP export.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.
