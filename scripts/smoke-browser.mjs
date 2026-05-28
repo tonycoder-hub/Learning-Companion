@@ -158,6 +158,31 @@ try {
   assert.match(result.bookmarklet, /currentTime/);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
+
+  const inboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("External course page")}&sourceUrl=${encodeURIComponent("https://example.com/course")}&quote=${encodeURIComponent("Inbound bookmarklet capture")}&thought=${encodeURIComponent("Turn this into a note")}&t=01:02:03`;
+  await cdp.send("Page.navigate", { url: inboundUrl });
+  await sleep(300);
+  const inbound = await cdp.evaluate(`(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    return {
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      captureMetric: document.querySelector("#captureMetric").textContent,
+      latestQuote: session.captures[0].quote,
+      latestThought: session.captures[0].thought,
+      latestTimestamp: session.captures[0].timestamp,
+      locationSearch: window.location.search
+    };
+  })()`);
+
+  assert.equal(inbound.sourceTitle, "External course page");
+  assert.equal(inbound.sourceUrl, "https://example.com/course");
+  assert.equal(inbound.captureMetric, "4");
+  assert.equal(inbound.latestQuote, "Inbound bookmarklet capture");
+  assert.equal(inbound.latestThought, "Turn this into a note");
+  assert.equal(inbound.latestTimestamp, "01:02:03");
+  assert.equal(inbound.locationSearch, "");
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {
