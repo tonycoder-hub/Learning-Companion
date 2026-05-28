@@ -18,6 +18,10 @@ echo "== Browser UX smoke =="
 npm run smoke:browser
 echo
 
+echo "== Capture resume receipt =="
+npm run demo:capture-resume
+echo
+
 echo "== Mac shell build =="
 npm run mac:build
 echo

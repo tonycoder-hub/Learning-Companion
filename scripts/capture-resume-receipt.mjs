@@ -1,0 +1,200 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import {
+  addCapture,
+  buildSourceJumpUrl,
+  buildTodayPack,
+  generateTodayMarkdown,
+  sanitizeWorkspace
+} from "../apps/companion-web/src/model.js";
+
+export const CAPTURE_RESUME_RECEIPT_SCHEMA = "learning-companion.capture-resume-receipt.v1";
+
+export function buildCaptureResumeReceipt(options = {}) {
+  const baseTime = parseDate(options.generatedAt) || new Date(Date.now() + 60_000);
+  const workspace = sanitizeWorkspace(buildSeedWorkspace(baseTime));
+  const beforeToday = generateTodayMarkdown(workspace, baseTime);
+  const beforePack = buildTodayPack(workspace, baseTime, { recentLimit: 5 });
+  const captureEvents = buildCaptureEvents(baseTime);
+  let capturedWorkspace = workspace;
+
+  captureEvents.forEach((event) => {
+    capturedWorkspace = addCapture(capturedWorkspace, "session_capture_resume", event, {
+      promoteToReview: false,
+      now: event.capturedAt
+    });
+  });
+
+  const afterToday = generateTodayMarkdown(capturedWorkspace, baseTime);
+  const afterPack = buildTodayPack(capturedWorkspace, baseTime, { recentLimit: 5 });
+  const beforeSession = workspace.sessions.find((session) => session.id === "session_capture_resume");
+  const afterSession = capturedWorkspace.sessions.find((session) => session.id === "session_capture_resume");
+  const addedCaptures = afterSession.captures.slice(0, captureEvents.length);
+  const eventThoughts = new Set(captureEvents.map((event) => event.thought));
+  const recentThoughts = new Set(afterPack.recentCaptures.map((item) => item.capture.thought));
+
+  assert.equal(afterSession.captures.length - beforeSession.captures.length, captureEvents.length);
+  assert.equal(afterPack.stats.captures - beforePack.stats.captures, captureEvents.length);
+  captureEvents.forEach((event) => {
+    assert.equal(afterToday.includes(event.thought), true);
+    assert.equal(recentThoughts.has(event.thought), true);
+  });
+
+  return {
+    schema: CAPTURE_RESUME_RECEIPT_SCHEMA,
+    evidence: {
+      tier: "EXECUTED",
+      label: "EVIDENCE: EXECUTED",
+      reason: "Pure model round-trip uses addCapture, buildTodayPack, and generateTodayMarkdown without GUI approvals."
+    },
+    generatedAt: baseTime.toISOString(),
+    store: {
+      path: "workspace.sessions[].captures",
+      writeFunction: "addCapture",
+      resumeFunctions: ["buildTodayPack", "generateTodayMarkdown"]
+    },
+    input: {
+      eventCount: captureEvents.length,
+      eventsSha256: sha256Json(captureEvents),
+      events: captureEvents.map((event) => ({
+        quoteSha256: sha256Text(event.quote),
+        thought: event.thought,
+        timestamp: event.timestamp,
+        capturedAt: event.capturedAt,
+        sourceTitle: event.sourceTitle,
+        sourceUrl: event.sourceUrl,
+        sourceJumpUrl: buildSourceJumpUrl(event.sourceUrl, event.timestamp),
+        tags: event.tags
+      }))
+    },
+    before: {
+      captureCount: beforePack.stats.captures,
+      recentCaptureCount: beforePack.recentCaptures.length,
+      todaySha256: sha256Text(beforeToday),
+      workspaceSha256: sha256Json(workspace)
+    },
+    after: {
+      captureCount: afterPack.stats.captures,
+      recentCaptureCount: afterPack.recentCaptures.length,
+      todaySha256: sha256Text(afterToday),
+      workspaceSha256: sha256Json(capturedWorkspace),
+      latestCapture: afterPack.focusBrief.latestCapture,
+      recentCaptures: afterPack.recentCaptures.map(({ sessionId, sessionTitle, capture }) => ({
+        sessionId,
+        sessionTitle,
+        captureId: capture.id,
+        thought: capture.thought,
+        timestamp: capture.timestamp,
+        sourceJumpUrl: buildSourceJumpUrl(capture.sourceUrl, capture.timestamp)
+      }))
+    },
+    roundTrip: {
+      ok: true,
+      addedCaptureCount: addedCaptures.length,
+      todayHashChanged: sha256Text(beforeToday) !== sha256Text(afterToday),
+      workspaceHashChanged: sha256Json(workspace) !== sha256Json(capturedWorkspace),
+      allInputsVisibleInToday: captureEvents.every((event) => afterToday.includes(event.thought)),
+      allInputsVisibleInRecentCaptures: captureEvents.every((event) => recentThoughts.has(event.thought)),
+      sourceUrlsPreserved: addedCaptures.every((capture) => Boolean(buildSourceJumpUrl(capture.sourceUrl, capture.timestamp)))
+    },
+    todayDiff: summarizeLineDiff(beforeToday, afterToday)
+  };
+}
+
+function buildSeedWorkspace(baseTime) {
+  const createdAt = new Date(baseTime.getTime() - 20 * 60_000).toISOString();
+  return {
+    schema: "learning-companion.workspace.v1",
+    schemaVersion: 1,
+    version: 1,
+    clientId: "client_capture_resume_receipt",
+    activeSessionId: "session_capture_resume",
+    importedPatches: [],
+    importedReviewPatches: [],
+    createdAt,
+    updatedAt: createdAt,
+    sessions: [
+      {
+        id: "session_capture_resume",
+        originClientId: "client_capture_resume_receipt",
+        title: "Browser focus capture receipt",
+        sourceTitle: "Advanced indexing lecture",
+        sourceUrl: "https://example.com/learning/indexes",
+        materialType: "video",
+        tags: ["database", "indexing"],
+        focusMode: "capture",
+        notesMarkdown: "# Browser focus capture receipt\n\nCapture while watching, then resume from Today.",
+        captures: [],
+        reviewCards: [],
+        createdAt,
+        updatedAt: createdAt
+      }
+    ]
+  };
+}
+
+function buildCaptureEvents(baseTime) {
+  const capturedAt = (minutesBefore) => new Date(baseTime.getTime() - minutesBefore * 60_000).toISOString();
+  return [
+    {
+      quote: "A covering index can answer the query without touching the base table.",
+      thought: "Covering indexes trade write overhead for read locality.",
+      timestamp: "03:12",
+      capturedAt: capturedAt(3),
+      sourceTitle: "Advanced indexing lecture",
+      sourceUrl: "https://example.com/learning/indexes",
+      materialType: "video",
+      sourceProvenance: "snapshot",
+      tags: ["index", "read-path"]
+    },
+    {
+      quote: "The planner estimates selectivity before choosing the access path.",
+      thought: "Selectivity is the bridge between statistics and query shape.",
+      timestamp: "09:44",
+      capturedAt: capturedAt(2),
+      sourceTitle: "Advanced indexing lecture",
+      sourceUrl: "https://example.com/learning/indexes",
+      materialType: "video",
+      sourceProvenance: "snapshot",
+      tags: ["planner", "statistics"]
+    },
+    {
+      quote: "Partial indexes are powerful when the predicate matches the workload.",
+      thought: "Partial index usefulness depends on stable query predicates.",
+      timestamp: "16:05",
+      capturedAt: capturedAt(1),
+      sourceTitle: "Advanced indexing lecture",
+      sourceUrl: "https://example.com/learning/indexes",
+      materialType: "video",
+      sourceProvenance: "snapshot",
+      tags: ["partial-index", "workload"]
+    }
+  ];
+}
+
+function summarizeLineDiff(before, after) {
+  const beforeLines = before.split("\n");
+  const afterLines = after.split("\n");
+  const beforeSet = new Set(beforeLines);
+  const afterSet = new Set(afterLines);
+  return {
+    addedLineCount: afterLines.filter((line) => !beforeSet.has(line)).length,
+    removedLineCount: beforeLines.filter((line) => !afterSet.has(line)).length,
+    addedLines: afterLines.filter((line) => line && !beforeSet.has(line)).slice(0, 20),
+    removedLines: beforeLines.filter((line) => line && !afterSet.has(line)).slice(0, 20)
+  };
+}
+
+function sha256Text(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
+}
+
+function sha256Json(value) {
+  return sha256Text(JSON.stringify(value));
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}

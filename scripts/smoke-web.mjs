@@ -125,6 +125,14 @@ assert.equal(getDueReviewCards(session).length, 1);
 assert.equal(getDueReviewItems(workspace).length, 1);
 assert.equal(timestampToSeconds("08:12"), 492);
 assert.equal(buildSourceJumpUrl(session.captures[0].sourceUrl, session.captures[0].timestamp), "https://www.youtube.com/watch?v=rust123&t=492s");
+const timedWorkspace = addCapture(workspace, session.id, {
+  quote: "Timed capture for deterministic receipts.",
+  thought: "The script can inject capture time without changing app defaults."
+}, { now: "2026-05-29T01:02:03.000Z" });
+const timedCapture = getActiveSession(timedWorkspace).captures[0];
+assert.equal(timedCapture.createdAt, "2026-05-29T01:02:03.000Z");
+assert.equal(timedCapture.capturedAt, "2026-05-29T01:02:03.000Z");
+assert.equal(timedCapture.updatedAt, "2026-05-29T01:02:03.000Z");
 
 let multiReviewWorkspace = addSession(workspace, "Algorithms course");
 const algorithmsSession = getActiveSession(multiReviewWorkspace);

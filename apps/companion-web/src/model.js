@@ -25,6 +25,12 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+function optionIso(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : "";
+}
+
 export function formatLocalIso(value = new Date()) {
   const date = Number.isFinite(value?.getTime?.()) ? value : new Date(value);
   const pad = (number, width = 2) => String(Math.trunc(Math.abs(number))).padStart(width, "0");
@@ -589,7 +595,7 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   const thought = cleanText(captureInput.thought, MAX_CAPTURE_TEXT_LENGTH);
   if (!quote && !thought) return workspace;
 
-  const timestamp = nowIso();
+  const timestamp = optionIso(options.now) || nowIso();
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const materialType = captureInput.materialType || sourceSession?.materialType;
   const capture = {
@@ -619,14 +625,14 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
 
   return {
     ...workspace,
-    updatedAt: nowIso(),
+    updatedAt: timestamp,
     sessions: workspace.sessions.map((session) => {
       if (session.id !== sessionId) return session;
       return {
         ...session,
         captures: [capture, ...session.captures],
         reviewCards: createdCard ? [createdCard, ...session.reviewCards] : session.reviewCards,
-        updatedAt: nowIso()
+        updatedAt: timestamp
       };
     })
   };

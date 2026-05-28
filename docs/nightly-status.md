@@ -25,6 +25,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
 - Feishu dry-run report records a no-network `wouldSend` envelope with virtual upsert paths, byte counts, and payload SHA-256 hashes.
 - Morning review pack now emits `EVIDENCE_TIERS.json` and visible `EVIDENCE:` badges so dry-run, handoff-only, and user-gated artifacts are not mistaken for live readiness.
+- Capture-to-resume receipt proves three synthetic browser captures written through `addCapture` appear in the generated Today resume pack without requiring GUI permissions.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
 - HarmonyOS handoff now includes a DevEco/ArkTS scaffold contract plus a pure import/patch boundary module covered by `smoke:harmony`.
 - Three-pane learning sidecar for Mac/browser workflow.

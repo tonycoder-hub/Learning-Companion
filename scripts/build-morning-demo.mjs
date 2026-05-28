@@ -19,6 +19,7 @@ import {
   buildFeishuUploadPlan,
   materializeMirrorBundle
 } from "./feishu-mirror-uploader.mjs";
+import { buildCaptureResumeReceipt } from "./capture-resume-receipt.mjs";
 
 const OUT_DIR = "dist/morning-demo";
 const MIRROR_DIR = join(OUT_DIR, "mirror-folder");
@@ -34,6 +35,7 @@ const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
+const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
 
 const EVIDENCE_TIER_DEFINITIONS = Object.freeze({
   EXECUTED: {
@@ -287,12 +289,19 @@ const feishuUploadReport = buildFeishuUploadDryRunReport(feishuUploadPlan, join(
   generatedAt: mirrorBundle.exportedAt
 });
 await writeJson(join(FEISHU_UPLOAD_DIR, "feishu-upload-report.json"), feishuUploadReport);
+const captureResumeReceipt = buildCaptureResumeReceipt({
+  generatedAt: "2026-05-29T07:25:00.000+08:00"
+});
+await writeJson(join(OUT_DIR, CAPTURE_RESUME_RECEIPT_FILE), captureResumeReceipt);
 assert.equal(feishuUploadResult.fileCount, mirrorBundle.files.length);
 assert.equal(feishuUploadResult.bundleFingerprint, mirrorBundle.manifest.bundleFingerprint);
 assert.equal(feishuUploadReport.summary.verifiedFiles, mirrorBundle.files.length);
 assert.equal(feishuUploadReport.wouldSend.status, "not-sent");
 assert.equal(feishuUploadReport.wouldSend.requestCount, mirrorBundle.files.length);
 assert.equal(feishuUploadReport.wouldSend.requests.every((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)), true);
+assert.equal(captureResumeReceipt.roundTrip.ok, true);
+assert.equal(captureResumeReceipt.roundTrip.addedCaptureCount, 3);
+assert.equal(captureResumeReceipt.roundTrip.allInputsVisibleInToday, true);
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
 assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
 
@@ -313,6 +322,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   feishuUploadPlan,
   feishuUploadResult,
   feishuUploadReport,
+  captureResumeReceipt,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
@@ -323,6 +333,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
 await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
+  captureResumeReceipt,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
   macManualQaStatus
@@ -339,6 +350,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   feishuUploadPlan,
   feishuUploadResult,
   feishuUploadReport,
+  captureResumeReceipt,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
@@ -408,6 +420,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     requestCount: feishuUploadReport.wouldSend.requestCount,
     operation: feishuUploadReport.wouldSend.operation
   },
+  captureResumeReceipt: CAPTURE_RESUME_RECEIPT_FILE,
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   macManualQaStatus,
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
@@ -425,6 +438,9 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     feishuUploadWouldSendNoNetwork: feishuUploadReport.wouldSend.status === "not-sent",
     feishuUploadWouldSendRequests: feishuUploadReport.wouldSend.requestCount,
     feishuUploadWouldSendPayloadHashes: feishuUploadReport.wouldSend.requests.filter((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)).length,
+    captureResumeAdded: captureResumeReceipt.roundTrip.addedCaptureCount,
+    captureResumeVisibleInToday: captureResumeReceipt.roundTrip.allInputsVisibleInToday,
+    captureResumeTodayHashChanged: captureResumeReceipt.roundTrip.todayHashChanged,
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
@@ -450,6 +466,7 @@ async function writeText(path, value) {
 function buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
+  captureResumeReceipt,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
   macManualQaStatus
@@ -468,6 +485,7 @@ function buildStageMarkdown({
     "| --- | --- | --- | --- |",
     `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
+    `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}. | Native selected-text GUI permissions, real browser selection. |`,
     `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
@@ -562,6 +580,7 @@ function buildMorningReviewMarkdown({
   feishuUploadPlan,
   feishuUploadResult,
   feishuUploadReport,
+  captureResumeReceipt,
   harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
@@ -603,6 +622,7 @@ function buildMorningReviewMarkdown({
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, not sent)`,
+    `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today)`,
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
     `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
     `- Sample workspace restore: \`${SAMPLE_WORKSPACE_FILE}\``,
@@ -628,6 +648,7 @@ function buildMorningReviewMarkdown({
     `- Review progress conflict sample: ${reviewConflictReceipt.applied} applied, ${reviewConflictReceipt.skippedConflict} stale conflict skipped.`,
     `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
     `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes; ${feishuUploadReport.boundary.statement}`,
+    `- Capture to resume sample: ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added, Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}, all inputs visible in Today: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}.`,
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
@@ -659,6 +680,7 @@ function buildReviewStartHereHtml({
   feishuUploadPlan,
   feishuUploadResult,
   feishuUploadReport,
+  captureResumeReceipt,
   harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
@@ -679,6 +701,7 @@ function buildReviewStartHereHtml({
     ["Mobile inbox", "mirror-folder/inbox.html", "Phone/Windows capture draft page."],
     ["Feishu Upload Plan (local fixture, no live API)", "feishu-upload/feishu-upload-plan.json", `${feishuUploadPlan.files.length} local one-way upserts; no live credentials or Drive writes.`],
     ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests remain not-sent.`],
+    ["Capture Resume Receipt", CAPTURE_RESUME_RECEIPT_FILE, `${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through model path and surfaced in Today.`],
     ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
     ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics; not device-verified.`],
     ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
@@ -695,10 +718,12 @@ function buildReviewStartHereHtml({
     ["Unsupported patch rejection", unsupportedInboxPatchRejected ? "covered" : "missing", "invalid mobile inbox patch rejected before import"],
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
     ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.boundary.statement}`],
+    ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; all inputs visible: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}`],
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   const stageRows = [
     ["Mac shell", "internal-build", "SwiftPM build and native bridge smoke", "signed/notarized app"],
+    ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today`, "native GUI selection"],
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
     ["HarmonyOS", "schema-prototype", `${harmonyReaderView.topics.length} topic reader view`, "real device roundtrip"],
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
@@ -859,6 +884,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === EVIDENCE_TIERS_FILE) {
     return evidenceTier("EXECUTED", "Generated from the pack's output manifest to label each artifact's evidence tier.");
+  }
+  if (normalized === CAPTURE_RESUME_RECEIPT_FILE) {
+    return evidenceTier("EXECUTED", "Pure model round-trip proves addCapture writes are visible in the generated Today resume pack.");
   }
   if (normalized === "SUMMARY.json") {
     return evidenceTier("EXECUTED", "Generated after local checks and credential sweep; records hashes, gates, and evidence-tier counts.");
