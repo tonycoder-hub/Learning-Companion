@@ -75,6 +75,8 @@ try {
     const start = quote.value.indexOf("durable");
     quote.setSelectionRange(start, start + "durable".length);
     document.querySelector("#captureClozeBtn").click();
+    const dueBeforeGood = document.querySelector("#dueMetric").textContent;
+    document.querySelector('[data-grade="good"]').click();
     document.querySelector("#notesPreviewBtn").click();
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
@@ -89,6 +91,9 @@ try {
       cards: session.reviewCards.length,
       latestPrompt: session.reviewCards[0].prompt,
       latestAnswer: session.reviewCards[0].answer,
+      dueBeforeGood,
+      dueAfterGood: document.querySelector("#dueMetric").textContent,
+      gradedCount: session.reviewCards.filter((card) => card.strength === 1).length,
       schemaVersion: workspace.schemaVersion,
       clientId: workspace.clientId
     };
@@ -99,7 +104,10 @@ try {
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "2");
   assert.equal(result.cardMetric, "2");
-  assert.equal(result.dueMetric, "2");
+  assert.equal(result.dueBeforeGood, "2");
+  assert.equal(result.dueMetric, "1");
+  assert.equal(result.dueAfterGood, "1");
+  assert.equal(result.gradedCount, 1);
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /compiler-enforced lifetimes/);
   assert.match(result.latestPrompt, /____/);

@@ -5,6 +5,7 @@ import {
   MAX_CAPTURE_TEXT_LENGTH,
   addCapture,
   addSession,
+  applyGrade,
   buildFeishuPayload,
   cleanText,
   cleanUrl,
@@ -65,13 +66,20 @@ workspace = promoteCapture(workspace, session.id, session.captures[0].id);
 session = getActiveSession(workspace);
 assert.equal(session.reviewCards.length, 1);
 
-workspace = gradeCard(workspace, session.id, session.reviewCards[0].id, 1);
+workspace = gradeCard(workspace, session.id, session.reviewCards[0].id, "good");
 session = getActiveSession(workspace);
 assert.equal(session.reviewCards[0].strength, 1);
 assert.equal(getDueReviewCards(session).length, 0);
 assert.equal(reviewIntervalDays(0), 0);
 assert.equal(reviewIntervalDays(2), 3);
 assert.equal(reviewIntervalDays(5), 30);
+
+const now = new Date("2026-05-29T00:00:00.000Z");
+const failed = applyGrade({ ...session.reviewCards[0], strength: 1 }, "again", now);
+const passed = applyGrade({ ...session.reviewCards[0], strength: 1 }, "good", now);
+assert.equal(failed.strength, 0);
+assert.equal(passed.strength, 2);
+assert.ok(new Date(failed.dueAt).getTime() < new Date(passed.dueAt).getTime());
 
 const filtered = filterSessions(workspace, "ownership");
 assert.equal(filtered.length, 1);

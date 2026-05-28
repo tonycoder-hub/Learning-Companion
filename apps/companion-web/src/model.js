@@ -287,6 +287,9 @@ export function promoteCapture(workspace, sessionId, captureId) {
 }
 
 export function gradeCard(workspace, sessionId, cardId, delta) {
+  const grade = delta === "again" || delta === "good"
+    ? delta
+    : Number(delta) > 0 ? "good" : "again";
   return {
     ...workspace,
     updatedAt: nowIso(),
@@ -296,14 +299,26 @@ export function gradeCard(workspace, sessionId, cardId, delta) {
         ...session,
         reviewCards: session.reviewCards.map((card) => {
           if (card.id !== cardId) return card;
-          const strength = Math.max(0, Math.min(5, card.strength + delta));
-          const days = reviewIntervalDays(strength);
-          const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-          return { ...card, strength, dueAt, lastReviewedAt: nowIso(), updatedAt: nowIso() };
+          return applyGrade(card, grade);
         }),
         updatedAt: nowIso()
       };
     })
+  };
+}
+
+export function applyGrade(card, grade, now = new Date()) {
+  const delta = grade === "good" ? 1 : -1;
+  const strength = Math.max(0, Math.min(5, Number(card.strength || 0) + delta));
+  const days = reviewIntervalDays(strength);
+  const dueAt = new Date(now.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
+  const reviewedAt = now.toISOString();
+  return {
+    ...card,
+    strength,
+    dueAt,
+    lastReviewedAt: reviewedAt,
+    updatedAt: reviewedAt
   };
 }
 

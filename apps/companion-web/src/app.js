@@ -474,16 +474,16 @@ function renderReviewCards() {
     footer.className = "item-footer";
     const again = textEl("button", "mini-button", "Again");
     again.type = "button";
-    again.dataset.grade = "-1";
+    again.dataset.grade = "again";
     const good = textEl("button", "mini-button", "Good");
     good.type = "button";
-    good.dataset.grade = "1";
+    good.dataset.grade = "good";
     footer.append(again, good);
     item.append(footer);
 
     footer.querySelectorAll("[data-grade]").forEach((button) => {
       button.addEventListener("click", () => {
-        workspace = gradeCard(workspace, session.id, card.id, Number(button.dataset.grade));
+        workspace = gradeCard(workspace, session.id, card.id, button.dataset.grade);
         persistAndRender("Review updated");
       });
     });
