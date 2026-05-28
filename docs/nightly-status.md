@@ -40,6 +40,7 @@ product/mvp-learning-sidecar
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for the active session.
+- Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs.
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
@@ -51,7 +52,7 @@ product/mvp-learning-sidecar
 - Browser inbound capture now routes by normalized source URL before falling back to conservative title-only matching or the active topic, and switches the desk back to capture focus.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Workspace Find jump-to-capture behavior, Today tab/direct Today export/mirror home/study pack/static review pack/static review-progress patch/static inbox page, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mobile inbox patch import, review progress patch import receipt, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Workspace Find jump-to-capture behavior, Today tab/direct Today export/full workspace export/mirror home/study pack/static review pack/static review-progress patch/static inbox page, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mobile inbox patch import, review progress patch import receipt, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 - Browser smoke includes decoy-session inbound capture cases to prove bookmarklet clips do not get saved into the wrong active session when an existing source URL matches elsewhere, source fields are preserved on matched sessions, tracking/query-order noise still matches, title collisions with unrelated URLs do not misroute, and staged clips survive a routing-driven session switch.
 
 ## Run

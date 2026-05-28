@@ -269,10 +269,14 @@ try {
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
+    const workspaceExport = JSON.parse(document.querySelector("#workspaceExport").value);
     const todayExport = document.querySelector("#todayExport").value;
     const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const mirrorText = JSON.stringify(mirror);
     const hasMirrorZipButton = document.querySelector("#downloadMirrorZipBtn").textContent === "Save ZIP Copy";
+    const exportSections = [...document.querySelectorAll(".export-section-title")].map((item) => item.textContent);
+    const hasWorkspaceExportButtons = document.querySelector("#copyWorkspaceBtn").textContent === "Copy Workspace"
+      && document.querySelector("#downloadWorkspaceBtn").textContent === "Save Workspace";
     const hasTodayExportButtons = document.querySelector("#copyTodayBtn").textContent === "Copy Today"
       && document.querySelector("#downloadTodayBtn").textContent === "Save Today";
     document.querySelector("#newSessionBtn").click();
@@ -397,7 +401,14 @@ try {
           hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
           hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
           bookmarklet: document.querySelector("#bookmarkletExport").value,
+          workspaceExportSchema: workspaceExport.schema,
+          workspaceExportSessions: workspaceExport.sessions.length,
+          workspaceExportActiveSession: workspaceExport.sessions.find((item) => item.id === workspaceExport.activeSessionId)?.title || "",
+          workspaceDetailsCollapsed: document.querySelector(".export-details").open === false,
+          workspaceExportNote: document.querySelector(".export-note").textContent,
+          exportSections,
           todayExport,
+          hasWorkspaceExportButtons,
           hasTodayExportButtons,
           hasMirrorZipButton,
           mirrorSchema: restoredMirror.schema,
@@ -531,6 +542,18 @@ try {
   assert.match(result.bookmarklet, /^javascript:/);
   assert.match(result.bookmarklet, /127\.0\.0\.1/);
   assert.match(result.bookmarklet, /currentTime/);
+  assert.equal(result.workspaceExportSchema, "learning-companion.workspace.v1");
+  assert.equal(result.workspaceExportSessions, 1);
+  assert.equal(result.workspaceExportActiveSession, "Learning Companion MVP");
+  assert.equal(result.workspaceDetailsCollapsed, true);
+  assert.match(result.workspaceExportNote, /not cloud sync or Feishu upload/);
+  assert.deepEqual(result.exportSections, [
+    "Full Workspace (all sessions)",
+    "Current Session",
+    "Mirror Folder",
+    "Browser Capture"
+  ]);
+  assert.equal(result.hasWorkspaceExportButtons, true);
   assert.equal(result.hasTodayExportButtons, true);
   assert.match(result.todayExport, /Today Study Pack/);
   assert.match(result.todayExport, /Generated from workspace\.json/);

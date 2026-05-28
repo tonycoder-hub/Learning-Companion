@@ -117,10 +117,13 @@ const dom = {
   reviewNextBtn: document.querySelector("#reviewNextBtn"),
   dueCount: document.querySelector("#dueCount"),
   reviewList: document.querySelector("#reviewList"),
+  workspaceExport: document.querySelector("#workspaceExport"),
   markdownExport: document.querySelector("#markdownExport"),
   payloadExport: document.querySelector("#payloadExport"),
   todayExport: document.querySelector("#todayExport"),
+  copyWorkspaceBtn: document.querySelector("#copyWorkspaceBtn"),
   copyMarkdownBtn: document.querySelector("#copyMarkdownBtn"),
+  downloadWorkspaceBtn: document.querySelector("#downloadWorkspaceBtn"),
   downloadMarkdownBtn: document.querySelector("#downloadMarkdownBtn"),
   copyPayloadBtn: document.querySelector("#copyPayloadBtn"),
   downloadPayloadBtn: document.querySelector("#downloadPayloadBtn"),
@@ -383,11 +386,13 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
   });
 });
 
+dom.copyWorkspaceBtn.addEventListener("click", () => copyText(dom.workspaceExport.value, "Workspace copied"));
 dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, "Markdown copied"));
 dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, "JSON copied"));
 dom.copyTodayBtn.addEventListener("click", () => copyText(dom.todayExport.value, "Today study pack copied"));
 dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, "Mirror bundle copied"));
 dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
+dom.downloadWorkspaceBtn.addEventListener("click", exportWorkspace);
 dom.downloadMarkdownBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
   downloadText(`${slugify(session.title)}.md`, generateMarkdown(session), "text/markdown");
@@ -1607,6 +1612,7 @@ function reviewKey(sessionId, cardId) {
 
 function renderExport() {
   const session = getActiveSession(workspace);
+  dom.workspaceExport.value = workspaceJson();
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
   dom.todayExport.value = generateTodayMarkdown(workspace);
@@ -1615,7 +1621,11 @@ function renderExport() {
 }
 
 function exportWorkspace() {
-  downloadText("learning-companion-workspace.json", JSON.stringify(workspace, null, 2), "application/json");
+  downloadText("learning-companion-workspace.json", workspaceJson(), "application/json");
+}
+
+function workspaceJson() {
+  return JSON.stringify(workspace, null, 2);
 }
 
 async function copyText(text, message) {

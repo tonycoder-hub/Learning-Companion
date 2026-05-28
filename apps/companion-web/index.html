@@ -224,6 +224,17 @@
         </section>
 
         <section id="exportTab" class="tab-panel export-panel" aria-label="Export">
+          <div class="export-section-title">Full Workspace (all sessions)</div>
+          <div class="export-actions">
+            <button id="copyWorkspaceBtn" class="command-button primary" type="button">Copy Workspace</button>
+            <button id="downloadWorkspaceBtn" class="command-button" type="button">Save Workspace</button>
+          </div>
+          <p class="export-note">Local backup only. This is not cloud sync or Feishu upload.</p>
+          <details class="export-details">
+            <summary>Show workspace JSON</summary>
+            <textarea id="workspaceExport" readonly></textarea>
+          </details>
+          <div class="export-section-title">Current Session</div>
           <div class="export-actions">
             <button id="copyMarkdownBtn" class="command-button" type="button">Copy MD</button>
             <button id="downloadMarkdownBtn" class="command-button" type="button">Save MD</button>
@@ -239,12 +250,14 @@
             <button id="downloadTodayBtn" class="command-button" type="button">Save Today</button>
           </div>
           <textarea id="todayExport" readonly></textarea>
+          <div class="export-section-title">Mirror Folder</div>
           <div class="export-actions">
             <button id="copyMirrorBtn" class="command-button" type="button">Copy Mirror</button>
             <button id="downloadMirrorBtn" class="command-button" type="button">Save Mirror</button>
             <button id="downloadMirrorZipBtn" class="command-button" type="button">Save ZIP Copy</button>
           </div>
           <textarea id="mirrorExport" readonly></textarea>
+          <div class="export-section-title">Browser Capture</div>
           <div class="export-actions">
             <button id="copyBookmarkletBtn" class="command-button" type="button">Copy Clip</button>
           </div>
