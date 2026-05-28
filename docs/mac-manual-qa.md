@@ -16,17 +16,17 @@ Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
 
 | Area | Steps | Expected | Result | Notes |
 | --- | --- | --- | --- | --- |
-| Launch | Open the Mac shell. | App loads the local workspace UI without localhost fallback. |  |  |
-| Morning pack shortcut | Use `File > Open Morning Review Pack`. | Browser opens the generated review dashboard, or missing pack shows an alert. |  |  |
-| Sidecar | Use `Window > Enter Sidecar Window`, then `Window > Restore Desk Window`. | Native window and web layout narrow/restore together. |  |  |
-| Floating | Toggle `Window > Keep Window Above Others`. | Window level changes only when manually toggled. |  |  |
-| Clipboard capture | Copy text elsewhere, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with clipboard source. |  |  |
-| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | Selected text is captured when Accessibility exposes it. |  |  |
-| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | No stale clipboard capture is imported. |  |  |
-| Browser context | Capture while Safari or Chrome is frontmost on an HTTP(S) page. | Title/URL attach when Automation is available, otherwise text-only capture succeeds. |  |  |
-| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. |  |  |
-| Native import failure | Import malformed JSON. | Alert and in-app issue receipt explain the failure. |  |  |
-| Export backup | Use `File > Export Workspace...`. | JSON backup saves locally. |  |  |
-| Relaunch persistence | Quit and relaunch. | Workspace persists through WebKit localStorage. |  |  |
+| Launch | Open the Mac shell. | App loads the local workspace UI without localhost fallback. | NT |  |
+| Morning pack shortcut | Use `File > Open Morning Review Pack`. | Browser opens the generated review dashboard, or missing pack shows an alert. | NT |  |
+| Sidecar | Use `Window > Enter Sidecar Window`, then `Window > Restore Desk Window`. | Native window and web layout narrow/restore together. | NT |  |
+| Floating | Toggle `Window > Keep Window Above Others`. | Window level changes only when manually toggled. | NT |  |
+| Clipboard capture | Copy text elsewhere, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with clipboard source. | NT |  |
+| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | Selected text is captured when Accessibility exposes it. | NT |  |
+| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | No stale clipboard capture is imported. | NT |  |
+| Browser context | Capture while Safari or Chrome is frontmost on an HTTP(S) page. | Title/URL attach when Automation is available, otherwise text-only capture succeeds. | NT |  |
+| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |
+| Native import failure | Import malformed JSON. | Alert and in-app issue receipt explain the failure. | NT |  |
+| Export backup | Use `File > Export Workspace...`. | JSON backup saves locally. | NT |  |
+| Relaunch persistence | Quit and relaunch. | Workspace persists through WebKit localStorage. | NT |  |
 
 Permission prompts are expected for Accessibility or browser Automation; record them instead of treating them as automatic failures.

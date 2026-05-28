@@ -372,6 +372,9 @@ try {
             importInput.dispatchEvent(new Event("change", { bubbles: true }));
             setTimeout(() => {
               const oversizedImportReceipt = document.querySelector("#importReceipt").textContent;
+              const oversizedImportReceiptVisible = !document.querySelector("#importReceipt").hidden
+                && getComputedStyle(document.querySelector("#importReceipt")).display !== "none"
+                && document.querySelector("#importReceipt").classList.contains("import-receipt-error");
           const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
           const reviewProgressPatch = {
@@ -448,6 +451,7 @@ try {
           badMirrorReceipt,
           malformedImportReceipt,
           oversizedImportReceipt,
+          oversizedImportReceiptVisible,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
           reviewReceiptBeforeInbox,
@@ -588,6 +592,7 @@ try {
   assert.match(result.oversizedImportReceipt, /Import issue/);
   assert.match(result.oversizedImportReceipt, /oversized-inbox-patch\.json/);
   assert.match(result.oversizedImportReceipt, /Mobile inbox patch is too large/);
+  assert.equal(result.oversizedImportReceiptVisible, true);
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
   assert.match(result.reviewReceiptBeforeInbox, /Review progress imported/);

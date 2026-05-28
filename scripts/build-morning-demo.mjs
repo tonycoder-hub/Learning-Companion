@@ -277,6 +277,12 @@ for (const file of mirrorBundle.files) {
   await writeText(join(MIRROR_DIR, file.path), file.content);
 }
 
+const macManualQaMarkdown = buildMacManualQaMarkdown({
+  sampleMirrorZipFile,
+  feishuUploadReport
+});
+const macManualQaStatus = summarizeMacManualQa(macManualQaMarkdown);
+
 await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
@@ -295,12 +301,10 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
   harmonyReaderView,
-  unsupportedInboxPatchRejected
+  unsupportedInboxPatchRejected,
+  macManualQaStatus
 }));
-await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), buildMacManualQaMarkdown({
-  sampleMirrorZipFile,
-  feishuUploadReport
-}));
+await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), macManualQaMarkdown);
 await writeText(join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE), await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8"));
 const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
@@ -364,6 +368,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   feishuUploadReport: "feishu-upload/feishu-upload-report.json",
   feishuUploadFileCount: feishuUploadResult.fileCount,
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
+  macManualQaStatus,
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
   reviewProgressPatch: `patches/${SAMPLE_REVIEW_PROGRESS_PATCH_FILE}`,
   assertions: {
@@ -402,8 +407,12 @@ function buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
   harmonyReaderView,
-  unsupportedInboxPatchRejected
+  unsupportedInboxPatchRejected,
+  macManualQaStatus
 }) {
+  const macQaGate = macManualQaStatus.nt === macManualQaStatus.total
+    ? `NOT_RUN(0/${macManualQaStatus.total})`
+    : `PARTIAL(${macManualQaStatus.filled}/${macManualQaStatus.total})`;
   return [
     "# Learning Companion Stage Matrix",
     "",
@@ -411,15 +420,43 @@ function buildStageMarkdown({
     "",
     "| Area | Stage | Evidence in this pack | Not proven |",
     "| --- | --- | --- | --- |",
-    `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
+    `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
     "",
+    "## Named Gates",
+    "",
+    "| Gate | Status | Evidence / next action |",
+    "| --- | --- | --- |",
+    `| mac_manual_qa | ${macQaGate} | Fill \`${MAC_MANUAL_QA_FILE}\` during real dogfood. |`,
+    "| feishu_live_write | BLOCKED(creds) | Needs explicit credential configuration and approval. |",
+    "| harmony_device | BLOCKED(no_device) | Needs DevEco/device run using the handoff contract. |",
+    "| windows_manual | NOT_RUN | Needs manual mirror folder and patch file roundtrip on Windows. |",
+    "| mac_signed | NOT_RUN | Needs packaging/signing/notarization flow. |",
+    `| patch_intake_fixture | ${unsupportedInboxPatchRejected ? "PASS" : "NEEDS_FIX"} | Browser smoke and generator cover duplicate/conflict/unsupported fixture paths. |`,
+    "",
     "Use wording: fixture, dry-run, schema-prototype, internal-build. Do not call this pack live sync, device-ready, or production Mac packaging.",
     ""
   ].join("\n");
+}
+
+function summarizeMacManualQa(markdown) {
+  const results = markdown
+    .split("\n")
+    .filter((line) => line.startsWith("| ") && !line.includes("| ---") && !line.includes("| Area |"))
+    .map((line) => line.split("|").map((part) => part.trim())[4] || "");
+  const count = (value) => results.filter((result) => result === value).length;
+  const nt = count("NT");
+  return {
+    total: results.length,
+    filled: results.length - nt,
+    pass: count("PASS"),
+    fail: count("FAIL"),
+    blocked: count("BLOCKED"),
+    nt
+  };
 }
 
 function buildMacManualQaMarkdown({
@@ -445,20 +482,20 @@ function buildMacManualQaMarkdown({
     "",
     "| Area | Steps | Expected | Result | Notes |",
     "| --- | --- | --- | --- | --- |",
-    "| Launch | Open the Mac shell from the command above. | App loads the local workspace UI without falling back to `127.0.0.1`. |  |  |",
-    "| Morning pack shortcut | Use `File > Open Morning Review Pack`. | Default browser opens `dist/morning-demo/review-start-here.html`; missing pack shows an alert. |  |  |",
-    "| Sidecar | Use `Window > Enter Sidecar Window`, then `Window > Restore Desk Window`. | Native window narrows/restores and web layout follows. |  |  |",
-    "| Floating | Toggle `Window > Keep Window Above Others` while a browser is frontmost. | Window level changes only when manually toggled. |  |  |",
-    "| Clipboard capture | Copy text in any app, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with `clipboard` source. |  |  |",
-    "| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | If Accessibility exposes `AXSelectedText`, selected text is captured without overwriting pasteboard. |  |  |",
-    "| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | App does not import stale clipboard; status explains no selection/new clipboard. |  |  |",
-    "| Browser context | Capture selected/clipboard text while Safari or Chrome is frontmost on an HTTP(S) page. | Capture can attach page title and URL, or degrades to text-only if Automation is denied. |  |  |",
-    "| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json` via `File > Import Workspace...`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. |  |  |",
-    "| Native import failure | Import a malformed JSON file via `File > Import Workspace...`. | Alert and in-app issue receipt explain the import failure. |  |  |",
-    "| Export backup | Use `File > Export Workspace...`. | A JSON workspace backup can be saved locally. |  |  |",
-    "| Relaunch persistence | Quit and relaunch the shell. | Workspace persists through WebKit localStorage. |  |  |",
-    `| Mirror inspection | Open \`dist/morning-demo/mirror-folder/index.html\` and \`${sampleMirrorZipFile}\`. | Static mirror is readable; ZIP extracts to the same conceptual folder. |  |  |`,
-    `| Feishu dry-run artifact | Inspect \`dist/morning-demo/feishu-upload/feishu-upload-report.json\`. | Boundary says: ${feishuUploadReport.boundary.statement} |  |  |`,
+    "| Launch | Open the Mac shell from the command above. | App loads the local workspace UI without falling back to `127.0.0.1`. | NT |  |",
+    "| Morning pack shortcut | Use `File > Open Morning Review Pack`. | Default browser opens `dist/morning-demo/review-start-here.html`; missing pack shows an alert. | NT |  |",
+    "| Sidecar | Use `Window > Enter Sidecar Window`, then `Window > Restore Desk Window`. | Native window narrows/restores and web layout follows. | NT |  |",
+    "| Floating | Toggle `Window > Keep Window Above Others` while a browser is frontmost. | Window level changes only when manually toggled. | NT |  |",
+    "| Clipboard capture | Copy text in any app, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with `clipboard` source. | NT |  |",
+    "| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | If Accessibility exposes `AXSelectedText`, selected text is captured without overwriting pasteboard. | NT |  |",
+    "| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | App does not import stale clipboard; status explains no selection/new clipboard. | NT |  |",
+    "| Browser context | Capture selected/clipboard text while Safari or Chrome is frontmost on an HTTP(S) page. | Capture can attach page title and URL, or degrades to text-only if Automation is denied. | NT |  |",
+    "| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json` via `File > Import Workspace...`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |",
+    "| Native import failure | Import a malformed JSON file via `File > Import Workspace...`. | Alert and in-app issue receipt explain the import failure. | NT |  |",
+    "| Export backup | Use `File > Export Workspace...`. | A JSON workspace backup can be saved locally. | NT |  |",
+    "| Relaunch persistence | Quit and relaunch the shell. | Workspace persists through WebKit localStorage. | NT |  |",
+    `| Mirror inspection | Open \`dist/morning-demo/mirror-folder/index.html\` and \`${sampleMirrorZipFile}\`. | Static mirror is readable; ZIP extracts to the same conceptual folder. | NT |  |`,
+    `| Feishu dry-run artifact | Inspect \`dist/morning-demo/feishu-upload/feishu-upload-report.json\`. | Boundary says: ${feishuUploadReport.boundary.statement} | NT |  |`,
     "",
     "## Notes",
     "",
