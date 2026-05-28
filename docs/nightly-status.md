@@ -15,11 +15,13 @@ product/mvp-learning-sidecar
 - Capture-to-review-card promotion.
 - Due review queue with simple strength buckets.
 - Markdown notes editor with autosave.
+- Safe read-mode preview for notes.
 - Markdown + JSON export for Feishu mirror.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
+- Browser smoke also verifies notes preview rendering.
 
 ## Run
 
@@ -57,12 +59,12 @@ Deferred:
 
 - Native Mac shell. The local learning loop needs a little more product truth first.
 - Real Feishu OpenAPI sync. One-way export should come before sync.
-- Full Markdown renderer/cloze. These are the next UX bets, not prerequisites for the local MVP.
+- Cloze card authoring. This is the next review-loop bet, not a prerequisite for the local MVP.
 
 ## Next Best Commits
 
-1. Add a read-mode preview for notes and captures with safe minimal Markdown rendering.
-2. Add cloze-style card authoring from captured quotes.
+1. Add cloze-style card authoring from captured quotes.
+2. Add safe capture preview formatting alongside notes preview.
 3. Add a real Feishu one-way export adapter after credentials are explicitly configured.
 4. Start Mac shell exploration once the local loop feels sticky.
 
