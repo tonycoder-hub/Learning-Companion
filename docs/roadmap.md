@@ -9,6 +9,7 @@
 - Capture-level source snapshots and time jump links.
 - Idempotent capture-to-notes insertion.
 - Manual Feishu mirror ZIP export.
+- Today study pack in the app and Feishu mirror.
 - Desk-native review pane for focused sidecar mode.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.

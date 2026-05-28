@@ -168,6 +168,11 @@ try {
         .map((button) => button.textContent)
         .find((text) => text.startsWith("Open @")) || ""
     };
+    document.querySelector('[data-tab="today"]').click();
+    const todayText = document.querySelector("#todayTab").textContent;
+    const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
+    const todayHasDueReview = todayText.includes("Due Review") && todayText.includes("Ownership lets Rust");
+    const todayHasRecentCapture = todayText.includes("Recent Captures") && todayText.includes("compiler-enforced lifetimes");
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
     const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
@@ -265,6 +270,9 @@ try {
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
           activityAfterCard,
+          todayActive,
+          todayHasDueReview,
+          todayHasRecentCapture,
           noteInsertions,
           noteHasSource,
           activityOpenedReviewTab,
@@ -284,6 +292,11 @@ try {
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
+          mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack")),
+          mirrorTodayEscapesScript: (() => {
+            const today = restoredMirror.files.find((file) => file.path === "TODAY.md")?.content || "";
+            return today.includes("&lt;script&gt;alert") && !today.includes("<script");
+          })(),
           mirrorHasMarkdown: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("Learning Companion MVP")),
           mirrorHasTimeJump: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("t=492s")),
           mirrorFingerprintsValid: restoredMirror.files.every((file) => file.encoding === "utf-8" && /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)),
@@ -340,6 +353,9 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.equal(result.todayActive, true);
+  assert.equal(result.todayHasDueReview, true);
+  assert.equal(result.todayHasRecentCapture, true);
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.equal(result.activityOpenedReviewTab, "review");
@@ -367,10 +383,12 @@ try {
   assert.match(result.bookmarklet, /currentTime/);
   assert.equal(result.hasMirrorZipButton, true);
   assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
-  assert.equal(result.mirrorFileCount, 4);
+  assert.equal(result.mirrorFileCount, 5);
   assert.equal(result.mirrorCanonical, "workspace.json");
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasWorkspace, true);
+  assert.equal(result.mirrorHasToday, true);
+  assert.equal(result.mirrorTodayEscapesScript, true);
   assert.equal(result.mirrorHasMarkdown, true);
   assert.equal(result.mirrorHasTimeJump, true);
   assert.equal(result.mirrorFingerprintsValid, true);

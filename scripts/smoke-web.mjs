@@ -11,13 +11,17 @@ import {
   buildMirrorBundle,
   buildMirrorZip,
   buildSourceJumpUrl,
+  buildTodayPack,
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
   createSession,
   filterSessions,
+  formatLocalIso,
   generateMarkdown,
   generateSynthesisDraft,
+  generateTodayMarkdown,
+  getRecentCaptureItems,
   getSynthesisStats,
   getDueReviewCards,
   getDueReviewItems,
@@ -102,6 +106,7 @@ const dueItems = getDueReviewItems(multiReviewWorkspace);
 assert.equal(dueItems.length, 2);
 assert.equal(dueItems.some((item) => item.sessionTitle === "Rust ownership course"), true);
 assert.equal(dueItems.some((item) => item.sessionTitle === "Algorithms course"), true);
+assert.equal(getRecentCaptureItems(multiReviewWorkspace, 1)[0].sessionTitle, "Algorithms course");
 
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
@@ -120,6 +125,24 @@ const emptySynthesis = generateSynthesisDraft(createSession({ title: "Empty topi
 assert.match(emptySynthesis, /No captures yet/);
 assert.deepEqual(getSynthesisStats(session), { captures: 1, questions: 0, cards: 1 });
 
+const frozenToday = new Date("2099-01-02T00:00:00.000Z");
+const todayPack = buildTodayPack(multiReviewWorkspace, frozenToday, { dueLimit: 1, recentLimit: 1 });
+assert.equal(todayPack.stats.due, 2);
+assert.equal(todayPack.dueItems.length, 1);
+assert.equal(todayPack.dueOverflow, 1);
+assert.equal(todayPack.recentCaptures.length, 1);
+assert.match(todayPack.localDayWindow.start, /T00:00:00[+-]\d{2}:\d{2}$/);
+assert.match(formatLocalIso(frozenToday), /2099-01-02T\d{2}:00:00[+-]\d{2}:\d{2}$/);
+const todayMarkdown = generateTodayMarkdown(multiReviewWorkspace, frozenToday);
+assert.equal(todayMarkdown, generateTodayMarkdown(multiReviewWorkspace, frozenToday));
+assert.match(todayMarkdown, /Generated from workspace\.json/);
+assert.match(todayMarkdown, /Today Study Pack/);
+assert.match(todayMarkdown, /Local day window: \[/);
+assert.match(todayMarkdown, /Due rule: review cards with dueAt <= generatedAt/);
+assert.match(todayMarkdown, /Due Review/);
+assert.match(todayMarkdown, /Recent Captures/);
+assert.match(todayMarkdown, /Recall why greedy selection works/);
+
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");
 assert.equal(payload.session.id, session.id);
@@ -130,8 +153,10 @@ assert.equal(mirror.contractStability, "experimental");
 assert.equal(mirror.canonical, "workspace.json");
 assert.equal(mirror.semantics.snapshot, "full");
 assert.equal(mirror.workspace.sessionCount, workspace.sessions.length);
-assert.equal(mirror.manifest.fileCount, 2 + workspace.sessions.length * 2);
+assert.equal(mirror.manifest.fileCount, 3 + workspace.sessions.length * 2);
 assert.equal(mirror.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
+assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
+assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && /Due Review/.test(file.content)), true);
 assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);
 assert.equal(mirror.files.every((file) => file.encoding === "utf-8"), true);
 assert.equal(mirror.files.every((file) => /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)), true);
@@ -146,6 +171,7 @@ assert.equal(mirrorZip.bytes, mirrorZip.data.length);
 assert.equal(mirrorZipNames.length, mirror.files.length);
 assert.equal(mirrorZipNames.includes("workspace.json"), true);
 assert.equal(mirrorZipNames.includes("README.md"), true);
+assert.equal(mirrorZipNames.includes("TODAY.md"), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".md") && path.startsWith("sessions/")), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".feishu.json")), true);
 

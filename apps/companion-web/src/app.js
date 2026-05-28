@@ -7,6 +7,7 @@ import {
   buildMirrorBundle,
   buildMirrorZip,
   buildSourceJumpUrl,
+  buildTodayPack,
   filterSessions,
   generateMarkdown,
   generateSynthesisDraft,
@@ -83,6 +84,8 @@ const dom = {
   notesEditBtn: document.querySelector("#notesEditBtn"),
   notesPreviewBtn: document.querySelector("#notesPreviewBtn"),
   saveState: document.querySelector("#saveState"),
+  todaySummary: document.querySelector("#todaySummary"),
+  todayList: document.querySelector("#todayList"),
   captureList: document.querySelector("#captureList"),
   reviewNextBtn: document.querySelector("#reviewNextBtn"),
   dueCount: document.querySelector("#dueCount"),
@@ -104,7 +107,7 @@ const dom = {
 
 let workspace = loadWorkspace();
 let uiPrefs = loadUiPrefs();
-let activeTab = "captures";
+let activeTab = "today";
 let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
@@ -876,10 +879,117 @@ function renderInspector() {
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === `${activeTab}Tab`);
   });
+  renderToday();
   renderCaptures();
   renderReviewCards();
   renderExport();
   renderMetrics();
+}
+
+function renderToday() {
+  const pack = buildTodayPack(workspace, new Date(), { dueLimit: 5, recentLimit: 5 });
+  const { stats } = pack;
+  clearChildren(dom.todaySummary);
+  clearChildren(dom.todayList);
+  dom.todaySummary.append(
+    todayStat(String(stats.due), "due"),
+    todayStat(String(stats.captures), "captures"),
+    todayStat(String(stats.cards), "cards")
+  );
+
+  dom.todayList.append(textEl("div", "today-section-title", "Due Review"));
+  if (!pack.dueItems.length) {
+    dom.todayList.append(emptyState("No cards due right now"));
+  } else {
+    pack.dueItems.forEach((item) => {
+      const card = document.createElement("article");
+      card.className = "item-card due-card";
+      card.append(
+        textEl("div", "item-meta", `${item.sessionTitle} · strength ${item.card.strength}`),
+        textEl("p", "card-prompt", item.card.prompt)
+      );
+      const footer = document.createElement("div");
+      footer.className = "item-footer";
+      const review = textEl("button", "mini-button primary", "Review");
+      review.type = "button";
+      review.addEventListener("click", () => startReviewAtItem(item));
+      footer.append(review);
+      card.append(footer);
+      dom.todayList.append(card);
+    });
+    if (pack.dueOverflow) dom.todayList.append(emptyState(`+${pack.dueOverflow} more due cards in workspace.json`));
+  }
+
+  dom.todayList.append(textEl("div", "today-section-title", "Recent Captures"));
+  if (!pack.recentCaptures.length) {
+    dom.todayList.append(emptyState("No captures yet"));
+    return;
+  }
+  pack.recentCaptures.forEach(({ sessionId, sessionTitle, capture }) => {
+    const item = document.createElement("article");
+    item.className = "item-card";
+    item.append(textEl("div", "item-meta", [
+      sessionTitle,
+      capture.timestamp || "",
+      new Date(capture.createdAt).toLocaleString()
+    ].filter(Boolean).join(" · ")));
+    if (capture.quote) item.append(textEl("blockquote", "", capture.quote));
+    if (capture.thought) {
+      const thought = document.createElement("div");
+      thought.className = "capture-thought markdown-lite";
+      renderMarkdown(thought, capture.thought);
+      item.append(thought);
+    }
+    const footer = document.createElement("div");
+    footer.className = "item-footer";
+    footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+    const view = textEl("button", "mini-button", "View");
+    view.type = "button";
+    view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
+    footer.append(view);
+    item.append(footer);
+    dom.todayList.append(item);
+  });
+  if (pack.recentOverflow) dom.todayList.append(emptyState(`+${pack.recentOverflow} more captures in workspace.json`));
+}
+
+function todayStat(value, label) {
+  const node = document.createElement("div");
+  node.className = "today-stat";
+  node.append(textEl("strong", "", value), textEl("small", "", label));
+  return node;
+}
+
+function startReviewAtItem(item) {
+  workspace = selectSession(workspace, item.sessionId);
+  const session = getActiveSession(workspace);
+  workspace = updateSession(workspace, session.id, { focusMode: "review" });
+  activeTab = "review";
+  activeReviewKey = reviewKey(item.sessionId, item.card.id);
+  revealedReviewCards.delete(activeReviewKey);
+  setActivity(getActiveSession(workspace), {
+    title: "Review queue ready",
+    detail: `${item.sessionTitle} · ${item.card.prompt.slice(0, 120)}`,
+    tab: "review",
+    targetId: item.card.id
+  });
+  persistAndRender();
+  scrollActivityTarget({ tab: "review", targetId: item.card.id });
+}
+
+function openCaptureFromToday(sessionId, capture) {
+  workspace = selectSession(workspace, sessionId);
+  const session = getActiveSession(workspace);
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setActivity(getActiveSession(workspace), {
+    title: "Capture selected",
+    detail: summarizeCapture(capture),
+    tab: "captures",
+    targetId: capture.id
+  });
+  persistAndRender();
+  scrollActivityTarget({ tab: "captures", targetId: capture.id });
 }
 
 function renderCaptures() {

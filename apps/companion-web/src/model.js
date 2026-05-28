@@ -16,6 +16,18 @@ export function nowIso() {
   return new Date().toISOString();
 }
 
+export function formatLocalIso(value = new Date()) {
+  const date = Number.isFinite(value?.getTime?.()) ? value : new Date(value);
+  const pad = (number, width = 2) => String(Math.trunc(Math.abs(number))).padStart(width, "0");
+  const offset = -date.getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  return [
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`,
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`,
+    `${sign}${pad(offset / 60)}:${pad(offset % 60)}`
+  ].join("");
+}
+
 export function makeId(prefix = "id") {
   const random = Math.random().toString(36).slice(2, 9);
   return `${prefix}_${Date.now().toString(36)}_${random}`;
@@ -466,6 +478,67 @@ export function getDueReviewItems(workspace, now = new Date()) {
     });
 }
 
+export function getRecentCaptureItems(workspace, limit = 6) {
+  return workspace.sessions
+    .flatMap((session) => session.captures.map((capture) => ({
+      sessionId: session.id,
+      sessionTitle: session.title,
+      capture
+    })))
+    .sort((a, b) => {
+      const byTime = new Date(b.capture.capturedAt || b.capture.createdAt).getTime()
+        - new Date(a.capture.capturedAt || a.capture.createdAt).getTime();
+      if (byTime !== 0) return byTime;
+      const bySession = a.sessionTitle.localeCompare(b.sessionTitle);
+      if (bySession !== 0) return bySession;
+      return a.capture.id.localeCompare(b.capture.id);
+    })
+    .slice(0, Math.max(0, limit));
+}
+
+export function getStudyPackStats(workspace, now = new Date()) {
+  return {
+    sessions: workspace.sessions.length,
+    captures: workspace.sessions.reduce((sum, session) => sum + session.captures.length, 0),
+    cards: workspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0),
+    due: getDueReviewItems(workspace, now).length
+  };
+}
+
+export function buildTodayPack(workspace, now = new Date(), limits = {}) {
+  const cleanWorkspace = sanitizeWorkspace(workspace);
+  const dueLimit = Math.max(1, Number(limits.dueLimit) || 20);
+  const recentLimit = Math.max(1, Number(limits.recentLimit) || 8);
+  const dueAll = getDueReviewItems(cleanWorkspace, now).sort((a, b) => {
+    const nowTime = now.getTime();
+    const byOverdue = (nowTime - new Date(b.card.dueAt).getTime()) - (nowTime - new Date(a.card.dueAt).getTime());
+    if (byOverdue !== 0) return byOverdue;
+    const byCreated = new Date(a.card.createdAt).getTime() - new Date(b.card.createdAt).getTime();
+    if (byCreated !== 0) return byCreated;
+    const bySession = a.sessionTitle.localeCompare(b.sessionTitle);
+    if (bySession !== 0) return bySession;
+    return a.card.id.localeCompare(b.card.id);
+  });
+  const recentAll = getRecentCaptureItems(cleanWorkspace, Number.MAX_SAFE_INTEGER);
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return {
+    generatedAt: formatLocalIso(now),
+    reviewCutoff: formatLocalIso(now),
+    localDayWindow: {
+      start: formatLocalIso(dayStart),
+      end: formatLocalIso(dayEnd)
+    },
+    recentDefinition: `latest ${recentLimit} captures by capturedAt`,
+    dueDefinition: "review cards with dueAt <= generatedAt",
+    stats: getStudyPackStats(cleanWorkspace, now),
+    dueItems: dueAll.slice(0, dueLimit),
+    dueOverflow: Math.max(0, dueAll.length - dueLimit),
+    recentCaptures: recentAll.slice(0, recentLimit),
+    recentOverflow: Math.max(0, recentAll.length - recentLimit)
+  };
+}
+
 export function filterSessions(workspace, query) {
   const needle = String(query || "").trim().toLowerCase();
   if (!needle) return workspace.sessions;
@@ -573,6 +646,65 @@ export function generateSynthesisDraft(session) {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
+export function generateTodayMarkdown(workspace, now = new Date()) {
+  const pack = buildTodayPack(workspace, now);
+  const { stats } = pack;
+  const lines = [
+    "<!-- Generated from workspace.json. Edits will be overwritten. Source of truth: workspace.json -->",
+    "",
+    "# Today Study Pack",
+    "",
+    `Generated at: ${pack.generatedAt}`,
+    `Local day window: [${pack.localDayWindow.start}, ${pack.localDayWindow.end})`,
+    `Due rule: ${pack.dueDefinition}`,
+    `Recent rule: ${pack.recentDefinition}`,
+    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
+    "",
+    "## Due Review",
+    ""
+  ];
+
+  if (!pack.dueItems.length) {
+    lines.push("_No cards are due right now._");
+  } else {
+    pack.dueItems.forEach(({ sessionTitle, card }) => {
+      lines.push(`- ${markdownInline(card.prompt)} - ${markdownInline(sessionTitle)}`);
+      lines.push(`  - Due: ${formatDate(card.dueAt)} · strength ${card.strength}`);
+    });
+    if (pack.dueOverflow) lines.push(`- +${pack.dueOverflow} more due cards in workspace.json`);
+  }
+
+  lines.push("", "## Recent Captures", "");
+  if (!pack.recentCaptures.length) {
+    lines.push("_No captures yet._");
+  } else {
+    pack.recentCaptures.forEach(({ sessionTitle, capture }) => {
+      const summary = markdownInline(capture.thought || capture.quote || "Untitled capture");
+      lines.push(`- ${summary} - ${markdownInline(sessionTitle)}`);
+      const source = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
+      if (source) {
+        lines.push(`  - Source: [${markdownInline(capture.sourceTitle || "Open source")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
+      } else if (capture.sourceTitle) {
+        lines.push(`  - Source: ${markdownInline(capture.sourceTitle)}`);
+      }
+      if (capture.tags.length) {
+        lines.push(`  - Tags: ${capture.tags.map((tag) => `#${markdownInline(tag)}`).join(" ")}`);
+      }
+    });
+    if (pack.recentOverflow) lines.push(`- +${pack.recentOverflow} more captures in workspace.json`);
+  }
+
+  lines.push(
+    "",
+    "## Notes",
+    "",
+    "- `workspace.json` remains the canonical restore payload.",
+    "- This file is a readable derived study index for Feishu Drive, Windows, and mobile review."
+  );
+
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
+}
+
 export function getSynthesisStats(session) {
   const captures = Array.isArray(session.captures) ? session.captures : [];
   const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
@@ -630,6 +762,12 @@ export function buildMirrorBundle(workspace) {
       content: generateMirrorReadme(cleanWorkspace, sessionFiles)
     }),
     makeMirrorFile({
+      path: "TODAY.md",
+      mediaType: "text/markdown",
+      role: "study-pack",
+      content: generateTodayMarkdown(cleanWorkspace, new Date(exportedAt))
+    }),
+    makeMirrorFile({
       path: "workspace.json",
       mediaType: "application/json",
       role: "workspace-restore",
@@ -662,7 +800,7 @@ export function buildMirrorBundle(workspace) {
     contractStability: "experimental",
     exportedAt,
     canonical: "workspace.json",
-    derived: ["README.md", "sessions/*.md", "sessions/*.feishu.json"],
+    derived: ["README.md", "TODAY.md", "sessions/*.md", "sessions/*.feishu.json"],
     generator: {
       name: "learning-companion-web",
       version: WORKSPACE_SCHEMA_VERSION,
@@ -717,6 +855,16 @@ function formatCount(count, singular) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function markdownInline(value) {
+  return cleanText(value, MAX_CAPTURE_TEXT_LENGTH)
+    .replace(/\s+/g, " ")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/[[\]()`*_{}|]/g, "\\$&")
+    .slice(0, 240);
+}
+
 function formatCaptureSource(capture, session) {
   const sourceTitle = cleanText(capture.sourceTitle || session.sourceTitle, MAX_TITLE_LENGTH);
   const sourceUrl = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
@@ -737,6 +885,7 @@ function generateMirrorReadme(workspace, sessionFiles) {
     "## Restore",
     "",
     "- Keep `workspace.json` as the canonical restore payload.",
+    "- Open `TODAY.md` first for a portable due-review and recent-capture study pack.",
     "- Use `sessions/*.md` as readable Feishu Drive/Docs material.",
     "- Keep `sessions/*.feishu.json` beside Markdown files for future round-trip sync.",
     "- A future uploader should translate this bundle into Drive files instead of uploading this JSON as the final layout.",
@@ -744,6 +893,9 @@ function generateMirrorReadme(workspace, sessionFiles) {
     "## Files",
     ""
   ];
+  lines.push("- `README.md` (mirror-index)");
+  lines.push("- `TODAY.md` (study-pack)");
+  lines.push("- `workspace.json` (workspace-restore)");
   sessionFiles.forEach((file) => {
     lines.push(`- \`${file.path}\` (${file.role}, ${file.bytes} B)`);
   });

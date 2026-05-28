@@ -24,19 +24,20 @@ product/mvp-learning-sidecar
 - Self-graded Again/Good review outcomes with isolated scheduling policy.
 - Review answers are reveal-gated before grading.
 - Desk-native review pane works in focused sidecar layout.
+- Today tab summarizes workspace due review and recent captures.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for the active session.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
-- Credential-free Feishu mirror ZIP containing the same readable folder files.
+- Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `TODAY.md`.
 - Import can restore either a raw workspace JSON or a Feishu mirror bundle.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, desk-native review in sidecar layout, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Today tab/mirror study pack, desk-native review in sidecar layout, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -77,12 +78,14 @@ Accepted from Mira:
 - Make the activity action explicit when it exits focus mode, use `aria-live`, and scroll/highlight the referenced capture or card where possible.
 - Keep capture source snapshot fields optional in the v1 schema, add source provenance, and harden source jump URL handling.
 - Move core review actions into the desk for sidecar focus, keep reveal state coherent across inspector/desk surfaces, and add keyboard grading shortcuts.
+- Add a derived Today study pack from one pure builder, with explicit generated/window metadata and `workspace.json` as source of truth.
 
 Deferred:
 
 - Real Feishu OpenAPI sync. One-way export should come before sync.
 - Native Mac shell. The local learning loop is now stronger, but shell work should still add OS capture rather than just wrap the UI.
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
+- Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 
 ## Next Best Commits
 
@@ -96,6 +99,7 @@ Deferred:
 - `localStorage` is still a temporary store; export often.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
+- Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet.
 - HarmonyOS app is not started yet; schema is ready for exploration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

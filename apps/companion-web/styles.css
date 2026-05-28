@@ -548,7 +548,7 @@ textarea:focus {
 
 .tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   margin-bottom: 14px;
 }
@@ -577,6 +577,34 @@ textarea:focus {
 .item-list {
   display: grid;
   gap: 10px;
+}
+
+.today-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.today-stat {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfaf6;
+}
+
+.today-stat strong {
+  display: block;
+  font-size: 20px;
+}
+
+.today-section-title {
+  margin: 4px 0 2px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .review-toolbar {
