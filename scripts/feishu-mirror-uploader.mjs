@@ -176,6 +176,12 @@ export function buildFeishuUploadDryRunReport(plan, filesDir, options = {}) {
     generatedAt,
     mode: "dry-run",
     ok: true,
+    boundary: {
+      credentials: "not-read",
+      network: "not-called",
+      writes: "none",
+      statement: "No network call was made; this report only verifies local files."
+    },
     provider: safePlan.provider,
     source: {
       bundleFingerprint: safePlan.bundleFingerprint || safePlan.source.bundleFingerprint,

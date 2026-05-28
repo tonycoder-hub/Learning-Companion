@@ -57,7 +57,8 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch from both the browser file input and Mac native import menu.
-- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, `STAGE.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning review dashboard self-labels as cross-end fixture-ready, includes a stage matrix, and enumerates what is not proven: live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, and signed Mac packaging.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
@@ -122,6 +123,8 @@ Accepted from Mira:
 - Keep review progress patches conflict-aware: apply only against unchanged card versions, and skip stale events with a receipt instead of overwriting Mac-side review state.
 - Add Workspace Find as a local-only jump surface, with result text rendered via `textContent`, capped queries, and read-only navigation into captures/review/notes.
 - Keep the morning demo pack clearly fixture-only, with sample file names, provenance, per-file hashes, credential sweep results, and explicit "does not prove live sync/device behavior" boundaries.
+- Make stage labels visible on the morning dashboard itself, not only in docs or commit history; every generated pack now includes `STAGE.md`.
+- Put dry-run boundaries inside artifacts, including a Feishu upload report field stating that no network call was made.
 - Route browser inbound captures by normalized source before using the active topic, preserving matched-session source fields so focus mistakes in the sidecar do not silently attach or rewrite the wrong learning material.
 
 Deferred:
@@ -132,7 +135,7 @@ Deferred:
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
 - Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
-- Add broader negative-path demo assertions, such as malformed patch payloads and oversized patch files; the current demo generator only covers duplicate inbox patches, stale review conflicts, and unsafe URL stripping.
+- Add broader negative-path demo assertions, such as malformed JSON and oversized patch files; the current demo generator covers duplicate inbox patches, stale review conflicts, unsafe URL stripping, and unsupported inbox patch schema rejection.
 
 ## Next Best Commits
 

@@ -30,6 +30,7 @@ const SAMPLE_HARMONY_READER_FILE = "sample-harmony-reader-view.json";
 const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
 const REVIEW_REPORT_FILE = "review-start-here.html";
+const STAGE_FILE = "STAGE.md";
 
 const demoWorkspace = sanitizeWorkspace({
   schema: "learning-companion.workspace.v1",
@@ -216,7 +217,13 @@ assert.equal(inboxResult.receipt.sanitizedSourceUrls, 1);
 const duplicateInboxResult = applyMobileInboxPatch(inboxResult.workspace, mobileInboxPatch, new Date("2026-05-29T07:09:00.000+08:00"));
 assert.equal(duplicateInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateInboxResult.receipt.added, 0);
-assert.throws(() => applyMobileInboxPatch(demoWorkspace, { schema: "invalid" }), /Unsupported mobile inbox patch/);
+let unsupportedInboxPatchRejected = false;
+try {
+  applyMobileInboxPatch(demoWorkspace, { schema: "invalid" });
+} catch (error) {
+  unsupportedInboxPatchRejected = /Unsupported mobile inbox patch/.test(error.message);
+}
+assert.equal(unsupportedInboxPatchRejected, true);
 const reviewResult = applyReviewProgressPatch(demoWorkspace, reviewProgressPatch, new Date("2026-05-29T07:12:00.000+08:00"));
 assert.equal(reviewResult.receipt.applied, 1);
 const reviewConflictResult = applyReviewProgressPatch(demoWorkspace, {
@@ -279,7 +286,14 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
-  reviewConflictReceipt: reviewConflictResult.receipt
+  reviewConflictReceipt: reviewConflictResult.receipt,
+  unsupportedInboxPatchRejected
+}));
+await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
+  mirrorBundle,
+  feishuUploadReport,
+  harmonyReaderView,
+  unsupportedInboxPatchRejected
 }));
 const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
@@ -292,9 +306,11 @@ const reviewReportHtml = buildReviewStartHereHtml({
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
-  reviewConflictReceipt: reviewConflictResult.receipt
+  reviewConflictReceipt: reviewConflictResult.receipt,
+  unsupportedInboxPatchRejected
 });
 assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
+assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
@@ -306,7 +322,20 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   ok: true,
   kind: "fixture",
   scope: "local-fixture",
-  liveIntegrations: [],
+  stageStatement: "cross-end fixture-ready, not live cross-end ready",
+  integrationStages: [
+    { area: "Mac", stage: "internal-build", proof: "SwiftPM build plus browser/native bridge smoke" },
+    { area: "Feishu", stage: "dry-run", proof: "local upload plan/report; no network call was made" },
+    { area: "HarmonyOS", stage: "schema-prototype", proof: "local reader view smoke only" },
+    { area: "Windows", stage: "portable-fixture", proof: "static mirror files only" }
+  ],
+  notProven: [
+    "live Feishu Drive write",
+    "real HarmonyOS device roundtrip",
+    "Windows manual import/export run",
+    "signed or notarized Mac packaging",
+    "off-Mac generated patch imported on Mac"
+  ],
   disclaimer: "Fixture-only generated sample data. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
   generatedAt: new Date().toISOString(),
   provenance: {
@@ -332,8 +361,10 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     duplicateInboxTargetResolution: duplicateInboxResult.receipt.targetResolution,
     reviewProgressApplied: reviewResult.receipt.applied,
     reviewProgressSkippedConflict: reviewConflictResult.receipt.skippedConflict,
+    unsupportedInboxPatchRejected,
     feishuUploadFileCount: feishuUploadResult.fileCount,
     feishuUploadDryRunVerified: feishuUploadReport.summary.verifiedFiles,
+    feishuUploadNoNetworkCall: feishuUploadReport.boundary.network === "not-called",
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
@@ -356,6 +387,30 @@ async function writeText(path, value) {
   await writeFile(path, value);
 }
 
+function buildStageMarkdown({
+  mirrorBundle,
+  feishuUploadReport,
+  harmonyReaderView,
+  unsupportedInboxPatchRejected
+}) {
+  return [
+    "# Learning Companion Stage Matrix",
+    "",
+    "This file is the morning pack's stage label. Any single artifact in this folder should be read through this matrix.",
+    "",
+    "| Area | Stage | Evidence in this pack | Not proven |",
+    "| --- | --- | --- | --- |",
+    `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
+    `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
+    `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards. | Real device import, storage, export, or UX. |`,
+    "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
+    `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
+    "",
+    "Use wording: fixture, dry-run, schema-prototype, internal-build. Do not call this pack live sync, device-ready, or production Mac packaging.",
+    ""
+  ].join("\n");
+}
+
 function buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
@@ -367,7 +422,8 @@ function buildMorningReviewMarkdown({
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
-  reviewConflictReceipt
+  reviewConflictReceipt,
+  unsupportedInboxPatchRejected
 }) {
   return [
     "# Learning Companion Morning Review",
@@ -379,6 +435,7 @@ function buildMorningReviewMarkdown({
     "## Start Here",
     "",
     "0. Open `dist/morning-demo/review-start-here.html` for a clickable review dashboard.",
+    "0a. Read `dist/morning-demo/STAGE.md` before interpreting any artifact as a capability claim.",
     "1. Run `npm run check:morning` from the repo root.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
@@ -392,6 +449,7 @@ function buildMorningReviewMarkdown({
     `- Sample mirror JSON: \`${SAMPLE_MIRROR_JSON_FILE}\` (${mirrorBundle.manifest.fileCount} files)`,
     `- Sample mirror ZIP: \`${sampleMirrorZipFile}\` (${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes)`,
     "- Extracted folder: `mirror-folder/`",
+    `- Stage matrix: \`${STAGE_FILE}\` (fixture/dry-run/prototype/internal labels)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files)`,
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
@@ -418,10 +476,11 @@ function buildMorningReviewMarkdown({
     `- Review progress sample: ${reviewReceipt.applied} applied, ${reviewReceipt.skippedConflict} stale conflicts.`,
     `- Review progress conflict sample: ${reviewConflictReceipt.applied} applied, ${reviewConflictReceipt.skippedConflict} stale conflict skipped.`,
     `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
-    `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions.`,
+    `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.boundary.statement}`,
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
+    `- Unsupported mobile inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}.`,
     "",
     "## What This Does Not Prove",
     "",
@@ -453,10 +512,12 @@ function buildReviewStartHereHtml({
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
-  reviewConflictReceipt
+  reviewConflictReceipt,
+  unsupportedInboxPatchRejected
 }) {
   const artifactRows = [
-    ["Morning review", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
+    ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
+    ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
     ["Mirror home", "mirror-folder/index.html", "Static folder intended for Feishu Drive or Windows reading."],
     ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],
@@ -477,9 +538,17 @@ function buildReviewStartHereHtml({
     ["Duplicate inbox import", `${duplicateInboxReceipt.added} added`, duplicateInboxReceipt.targetResolution],
     ["Review progress import", `${reviewReceipt.applied} applied`, `${reviewReceipt.skippedConflict} stale conflicts`],
     ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`],
+    ["Unsupported patch rejection", unsupportedInboxPatchRejected ? "covered" : "missing", "invalid mobile inbox patch rejected before import"],
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
-    ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions`],
+    ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.boundary.statement}`],
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
+  ];
+  const stageRows = [
+    ["Mac shell", "internal-build", "SwiftPM build and native bridge smoke", "signed/notarized app"],
+    ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
+    ["HarmonyOS", "schema-prototype", `${harmonyReaderView.topics.length} topic reader view`, "real device roundtrip"],
+    ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
+    ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
   return `<!doctype html>
 <html lang="en">
@@ -524,8 +593,8 @@ function buildReviewStartHereHtml({
   <main>
     <header>
       <h1>Learning Companion Morning Review</h1>
-      <p class="banner"><strong>Fixture-only review pack.</strong> This dashboard proves generated local artifacts and safety receipts, not live Feishu sync, real HarmonyOS behavior, or signed Mac packaging.</p>
-      <p class="meta">Scope: local MVP fixture pack · no live Feishu sync · no device run · no signed packaging</p>
+      <p class="banner"><strong>Fixture-only review pack.</strong> This dashboard proves generated local artifacts and safety receipts, not live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, or signed Mac packaging.</p>
+      <p class="meta">Scope: cross-end fixture-ready · no live Feishu sync · no device run · no signed packaging · see <a href="${escapeHtml(STAGE_FILE)}">STAGE.md</a></p>
       <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
     </header>
     <section>
@@ -535,6 +604,15 @@ function buildReviewStartHereHtml({
         <div class="card"><strong>2. Import</strong><p>Open the app and import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>.</p></div>
         <div class="card"><strong>3. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
+    </section>
+    <section>
+      <h2>Stage Matrix</h2>
+      <table>
+        <thead><tr><th>Area</th><th>Stage</th><th>Evidence</th><th>Not proven</th></tr></thead>
+        <tbody>
+          ${stageRows.map(([area, stage, evidence, gap]) => `<tr><td>${escapeHtml(area)}</td><td>${escapeHtml(stage)}</td><td>${escapeHtml(evidence)}</td><td>${escapeHtml(gap)}</td></tr>`).join("\n          ")}
+        </tbody>
+      </table>
     </section>
     <section>
       <h2>Generated Artifacts</h2>

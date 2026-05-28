@@ -622,6 +622,8 @@ try {
   assert.equal(dryRunReport.schema, FEISHU_UPLOAD_REPORT_SCHEMA);
   assert.equal(dryRunReport.mode, "dry-run");
   assert.equal(dryRunReport.ok, true);
+  assert.equal(dryRunReport.boundary.network, "not-called");
+  assert.match(dryRunReport.boundary.statement, /No network call was made/);
   assert.equal(dryRunReport.summary.plannedFiles, mirror.files.length);
   assert.equal(dryRunReport.summary.verifiedFiles, mirror.files.length);
   assert.equal(dryRunReport.summary.wouldUpsert, mirror.files.length);

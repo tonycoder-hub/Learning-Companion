@@ -802,7 +802,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         return
       }
       if payload["ok"] as? Bool != true {
-        self?.showError("Could not import the selected workspace file.")
+        let message = payload["error"] as? String ?? "Could not import the selected workspace file."
+        self?.showError(message)
       }
     }
   }

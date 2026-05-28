@@ -1820,8 +1820,15 @@ function installNativeBridge() {
       return workspaceJson();
     },
     importWorkspaceJson(text) {
-      const imported = JSON.parse(String(text || ""));
-      return importPortableData(imported, { focusTodayOnWorkspace: true });
+      try {
+        const imported = JSON.parse(String(text || ""));
+        return importPortableData(imported, { focusTodayOnWorkspace: true });
+      } catch (error) {
+        return {
+          ok: false,
+          error: error.message || "Import failed"
+        };
+      }
     },
     captureClipboardText(text, options = {}) {
       return captureTextFromNative(text, options);

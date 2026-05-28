@@ -321,6 +321,11 @@ try {
       }]
     }));
     const nativeBridgeInboxReceiptText = document.querySelector("#importReceipt").textContent;
+    const nativeBridgeBadPatchResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      schema: "learning-companion.mobile-inbox-patch.v2",
+      patchId: "native_bridge_bad_patch",
+      captures: []
+    }));
     const nativeBridgeRestoreAfterPatch = window.learningCompanionNative.importWorkspaceJson(JSON.stringify(nativeBridgeExport));
     const nativeBridgeRoundTrip = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
     const nativeSidecarOn = window.learningCompanionNative.setSidecarLayout(true);
@@ -465,6 +470,8 @@ try {
           nativeBridgeInboxPatchKind: nativeBridgeInboxPatchResult.kind,
           nativeBridgeInboxPatchAdded: nativeBridgeInboxPatchResult.receipt?.added || 0,
           nativeBridgeInboxReceiptText,
+          nativeBridgeBadPatchOk: nativeBridgeBadPatchResult.ok === true,
+          nativeBridgeBadPatchError: nativeBridgeBadPatchResult.error || "",
           nativeBridgeRestoreAfterPatchOk: nativeBridgeRestoreAfterPatch.ok === true,
           nativeBridgeRoundTripSchema: nativeBridgeRoundTrip.schema,
           nativeBridgeRoundTripSessions: nativeBridgeRoundTrip.sessions.length,
@@ -638,6 +645,8 @@ try {
   assert.equal(result.nativeBridgeInboxPatchAdded, 1);
   assert.match(result.nativeBridgeInboxReceiptText, /Mobile inbox imported/);
   assert.match(result.nativeBridgeInboxReceiptText, /1 added/);
+  assert.equal(result.nativeBridgeBadPatchOk, false);
+  assert.match(result.nativeBridgeBadPatchError, /Unsupported mobile inbox patch schema/);
   assert.equal(result.nativeBridgeRestoreAfterPatchOk, true);
   assert.equal(result.nativeBridgeRoundTripSchema, "learning-companion.workspace.v1");
   assert.equal(result.nativeBridgeRoundTripSessions, 1);
