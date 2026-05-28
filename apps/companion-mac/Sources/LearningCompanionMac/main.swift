@@ -31,6 +31,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     self.window = window
     self.webView = view
     self.webRoot = webRoot.standardizedFileURL
+    installMainMenu()
 
     if FileManager.default.fileExists(atPath: indexFile.path) {
       view.loadFileURL(indexFile, allowingReadAccessTo: webRoot)
@@ -39,6 +40,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     NSApp.activate()
+  }
+
+  @objc private func fillCaptureFromClipboard(_ sender: Any?) {
+    guard let text = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !text.isEmpty,
+          let encoded = jsonStringLiteral(text) else {
+      NSSound.beep()
+      return
+    }
+
+    window?.makeKeyAndOrderFront(nil)
+    NSApp.activate()
+    let script = """
+    (() => {
+      document.querySelector('[data-focus-mode="capture"]')?.click();
+      const quote = document.querySelector("#quoteInput");
+      const thought = document.querySelector("#thoughtInput");
+      if (!quote) return false;
+      quote.value = \(encoded);
+      quote.dispatchEvent(new Event("input", { bubbles: true }));
+      if (thought) thought.focus();
+      else quote.focus();
+      return true;
+    })()
+    """
+    webView?.evaluateJavaScript(script) { result, error in
+      if error != nil || (result as? Bool) == false {
+        NSSound.beep()
+      }
+    }
   }
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -89,6 +120,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     return candidates.first { candidate in
       fileManager.fileExists(atPath: candidate.appendingPathComponent("index.html").path)
     } ?? candidates.first ?? cwd
+  }
+
+  private func installMainMenu() {
+    let mainMenu = NSMenu(title: "Learning Companion")
+    let appItem = NSMenuItem()
+    let appMenu = NSMenu(title: "Learning Companion")
+    appMenu.addItem(NSMenuItem(title: "Quit Learning Companion", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    appItem.submenu = appMenu
+    mainMenu.addItem(appItem)
+
+    let captureItem = NSMenuItem()
+    let captureMenu = NSMenu(title: "Capture")
+    let fillFromClipboard = NSMenuItem(
+      title: "Fill Capture From Clipboard",
+      action: #selector(fillCaptureFromClipboard(_:)),
+      keyEquivalent: "v"
+    )
+    fillFromClipboard.keyEquivalentModifierMask = [.command, .shift]
+    fillFromClipboard.target = self
+    captureMenu.addItem(fillFromClipboard)
+    captureItem.submenu = captureMenu
+    mainMenu.addItem(captureItem)
+
+    NSApp.mainMenu = mainMenu
+  }
+
+  private func jsonStringLiteral(_ value: String) -> String? {
+    guard JSONSerialization.isValidJSONObject([value]),
+          let data = try? JSONSerialization.data(withJSONObject: [value], options: []),
+          let encoded = String(data: data, encoding: .utf8) else {
+      return nil
+    }
+    return String(encoded.dropFirst().dropLast())
   }
 
   private func isAllowedShellURL(_ url: URL) -> Bool {

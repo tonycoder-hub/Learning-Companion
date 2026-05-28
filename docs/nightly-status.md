@@ -11,6 +11,7 @@ product/mvp-learning-sidecar
 - Local web MVP runs without installing dependencies.
 - Installable web shell metadata and static offline cache.
 - Minimal macOS WKWebView shell scaffold builds with SwiftPM.
+- Mac shell has an app-focused clipboard-to-capture menu command.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -84,11 +85,12 @@ Accepted from Mira:
 - Move core review actions into the desk for sidecar focus, keep reveal state coherent across inspector/desk surfaces, and add keyboard grading shortcuts.
 - Add a derived Today study pack from one pure builder, with explicit generated/window metadata, relative session links, and `workspace.json` as source of truth.
 - Keep the Mac shell honest as a thin WKWebView wrapper: deterministic file origin, external-link handoff, and no silent localhost fallback.
+- Add a Mac shell clipboard-to-capture command as a local, permission-free step toward native capture.
 
 Deferred:
 
 - Real Feishu OpenAPI sync. One-way export should come before sync.
-- Native Mac shell beyond the thin wrapper: production packaging, global hotkey, menu commands, OS capture, and browser URL bridge.
+- Native Mac shell beyond the thin wrapper: production packaging, global hotkey, richer menu commands, OS capture, and browser URL bridge.
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 

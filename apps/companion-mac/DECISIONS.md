@@ -17,7 +17,7 @@ Why this instead of Tauri/Electron tonight:
 Boundaries:
 
 - This is not yet the full Mac app.
-- No global capture hotkey.
+- It has an app-focused clipboard-to-capture menu command, but no global capture hotkey.
 - No active browser URL bridge.
 - No packaged `.app`, signing, notarization, auto-update, or menu bar workflow.
 

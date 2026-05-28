@@ -60,6 +60,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 - Minimal macOS WKWebView shell scaffold that loads the web MVP.
+- App-focused Mac clipboard-to-capture menu command.
 
 ## Explicit Non-Goals For Tonight
 
