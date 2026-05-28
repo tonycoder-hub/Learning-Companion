@@ -51,6 +51,7 @@ Smoke test:
 
 ```bash
 npm run smoke
+npm run smoke:harmony
 npm run smoke:browser
 ```
 
@@ -66,7 +67,7 @@ Generate a fixture-only local review pack for morning inspection:
 npm run demo:morning
 ```
 
-Open `dist/morning-demo/MORNING_REVIEW.md` after generation.
+Open `dist/morning-demo/review-start-here.html` after generation.
 
 Build the minimal Mac shell:
 

@@ -52,7 +52,7 @@ product/mvp-learning-sidecar
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch.
-- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.

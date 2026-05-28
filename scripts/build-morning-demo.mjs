@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   MOBILE_INBOX_PATCH_SCHEMA,
@@ -13,12 +13,19 @@ import {
   getDueReviewItems,
   sanitizeWorkspace
 } from "../apps/companion-web/src/model.js";
+import { buildHarmonyReaderView } from "../apps/companion-harmony/src/schema-reader.mjs";
+import {
+  buildFeishuUploadPlan,
+  materializeMirrorBundle
+} from "./feishu-mirror-uploader.mjs";
 
 const OUT_DIR = "dist/morning-demo";
 const MIRROR_DIR = join(OUT_DIR, "mirror-folder");
+const FEISHU_UPLOAD_DIR = join(OUT_DIR, "feishu-upload");
 const PATCH_DIR = join(OUT_DIR, "patches");
 const SAMPLE_WORKSPACE_FILE = "sample-workspace.json";
 const SAMPLE_MIRROR_JSON_FILE = "sample-feishu-mirror.json";
+const SAMPLE_HARMONY_READER_FILE = "sample-harmony-reader-view.json";
 const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
 const REVIEW_REPORT_FILE = "review-start-here.html";
@@ -229,12 +236,27 @@ await mkdir(PATCH_DIR, { recursive: true });
 
 const mirrorBundle = buildMirrorBundle(demoWorkspace);
 const mirrorZip = buildMirrorZip(demoWorkspace);
+const feishuUploadPlan = buildFeishuUploadPlan(mirrorBundle, {
+  rootName: "Learning Companion Morning Demo",
+  generatedAt: mirrorBundle.exportedAt
+});
+const harmonyReaderView = buildHarmonyReaderView(mirrorBundle, {
+  now: "2026-05-29T07:20:00.000+08:00"
+});
 const sampleMirrorZipFile = `sample-${mirrorZip.filename}`;
 await writeJson(join(OUT_DIR, SAMPLE_WORKSPACE_FILE), demoWorkspace);
 await writeJson(join(OUT_DIR, SAMPLE_MIRROR_JSON_FILE), mirrorBundle);
+await writeJson(join(OUT_DIR, SAMPLE_HARMONY_READER_FILE), harmonyReaderView);
 await writeFile(join(OUT_DIR, sampleMirrorZipFile), Buffer.from(mirrorZip.data));
 await writeJson(join(PATCH_DIR, SAMPLE_MOBILE_INBOX_PATCH_FILE), mobileInboxPatch);
 await writeJson(join(PATCH_DIR, SAMPLE_REVIEW_PROGRESS_PATCH_FILE), reviewProgressPatch);
+const feishuUploadResult = materializeMirrorBundle(mirrorBundle, FEISHU_UPLOAD_DIR, {
+  plan: feishuUploadPlan
+});
+assert.equal(feishuUploadResult.fileCount, mirrorBundle.files.length);
+assert.equal(feishuUploadResult.bundleFingerprint, mirrorBundle.manifest.bundleFingerprint);
+assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
+assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
 
 for (const file of mirrorBundle.files) {
   await writeText(join(MIRROR_DIR, file.path), file.content);
@@ -244,6 +266,9 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
   sampleMirrorZipFile,
+  feishuUploadPlan,
+  feishuUploadResult,
+  harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
@@ -253,6 +278,9 @@ const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
   mirrorZip,
   sampleMirrorZipFile,
+  feishuUploadPlan,
+  feishuUploadResult,
+  harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
@@ -269,6 +297,8 @@ assert.equal(credentialSweep.ok, true, `credential-like text found in ${credenti
 await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   ok: true,
   kind: "fixture",
+  scope: "local-fixture",
+  liveIntegrations: [],
   disclaimer: "Fixture-only generated sample data. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
   generatedAt: new Date().toISOString(),
   provenance: {
@@ -282,6 +312,9 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   mirrorZip: sampleMirrorZipFile,
   mirrorFileCount: mirrorBundle.files.length,
   mirrorBundleFingerprint: mirrorBundle.manifest.bundleFingerprint,
+  feishuUploadPlan: "feishu-upload/feishu-upload-plan.json",
+  feishuUploadFileCount: feishuUploadResult.fileCount,
+  harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
   reviewProgressPatch: `patches/${SAMPLE_REVIEW_PROGRESS_PATCH_FILE}`,
   assertions: {
@@ -290,11 +323,16 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     duplicateInboxTargetResolution: duplicateInboxResult.receipt.targetResolution,
     reviewProgressApplied: reviewResult.receipt.applied,
     reviewProgressSkippedConflict: reviewConflictResult.receipt.skippedConflict,
+    feishuUploadFileCount: feishuUploadResult.fileCount,
+    harmonyReaderTopics: harmonyReaderView.topics.length,
+    dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
   },
   outputManifest,
+  credentialSweepScope: credentialSweep.scope,
   credentialSweep
 });
+await assertLocalDashboardLinksExist(reviewReportHtml, OUT_DIR);
 
 console.log("morning_demo_ok");
 console.log(`${OUT_DIR}/${REVIEW_REPORT_FILE}`);
@@ -312,6 +350,9 @@ function buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
   sampleMirrorZipFile,
+  feishuUploadPlan,
+  feishuUploadResult,
+  harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
@@ -340,6 +381,9 @@ function buildMorningReviewMarkdown({
     `- Sample mirror JSON: \`${SAMPLE_MIRROR_JSON_FILE}\` (${mirrorBundle.manifest.fileCount} files)`,
     `- Sample mirror ZIP: \`${sampleMirrorZipFile}\` (${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes)`,
     "- Extracted folder: `mirror-folder/`",
+    `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
+    `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
+    `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
     `- Sample workspace restore: \`${SAMPLE_WORKSPACE_FILE}\``,
     `- Sample phone capture patch: \`patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}\``,
     `- Sample review progress patch: \`patches/${SAMPLE_REVIEW_PROGRESS_PATCH_FILE}\``,
@@ -350,6 +394,8 @@ function buildMorningReviewMarkdown({
     "- Workspace Find: can you find a prior capture or card quickly?",
     "- Today pack: does it tell you what to resume?",
     "- Mirror folder: would this be readable in Feishu Drive or Windows?",
+    "- Feishu upload plan: is the one-way folder writer boundary clear enough before real credentials?",
+    "- Harmony reader view: does the phone-facing view model contain the right active topic, review, and capture slices?",
     "- Mobile inbox: can phone-side captures return to Mac without overwriting notes/cards?",
     "- Review progress: can phone-side review grades return without overwriting newer Mac state?",
     "",
@@ -359,11 +405,15 @@ function buildMorningReviewMarkdown({
     `- Duplicate inbox sample: ${duplicateInboxReceipt.added} added after duplicate-patch detection.`,
     `- Review progress sample: ${reviewReceipt.applied} applied, ${reviewReceipt.skippedConflict} stale conflicts.`,
     `- Review progress conflict sample: ${reviewConflictReceipt.applied} applied, ${reviewConflictReceipt.skippedConflict} stale conflict skipped.`,
+    `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
+    `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
+    "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
     "",
     "## What This Does Not Prove",
     "",
     "- This is still manual transport, not real Feishu OpenAPI sync.",
+    "- The Feishu upload plan is local-folder materialization only; it does not authenticate or write to Drive.",
     "- HarmonyOS browser behavior needs a real device roundtrip.",
     "- localStorage is temporary; export often.",
     "- Mac shell is still a thin WKWebView wrapper, not a signed production app.",
@@ -372,8 +422,9 @@ function buildMorningReviewMarkdown({
     "## Current Evidence",
     "",
     "- `npm run smoke` covers model contracts and generated static artifacts.",
+    "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract.",
     "- `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, and patch import receipts.",
-    "- `npm run check:morning` runs web smoke, browser smoke, Mac shell build, and this demo pack generator.",
+    "- `npm run check:morning` runs web smoke, Harmony reader smoke, browser smoke, Mac shell build, and this demo pack generator.",
     ""
   ].join("\n");
 }
@@ -382,6 +433,9 @@ function buildReviewStartHereHtml({
   mirrorBundle,
   mirrorZip,
   sampleMirrorZipFile,
+  feishuUploadPlan,
+  feishuUploadResult,
+  harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
@@ -394,6 +448,9 @@ function buildReviewStartHereHtml({
     ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],
     ["Portable review", "mirror-folder/review.html", "Offline review page that exports progress patches."],
     ["Mobile inbox", "mirror-folder/inbox.html", "Phone/Windows capture draft page."],
+    ["Feishu Upload Plan (local fixture, no live API)", "feishu-upload/feishu-upload-plan.json", `${feishuUploadPlan.files.length} local one-way upserts; no live credentials or Drive writes.`],
+    ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
+    ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics; not device-verified.`],
     ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
     ["Mirror ZIP", sampleMirrorZipFile, `${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes.`],
     ["Inbox patch", `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`, "Sample append-only phone capture patch."],
@@ -404,7 +461,9 @@ function buildReviewStartHereHtml({
     ["Mobile inbox import", `${inboxReceipt.added} added`, `${inboxReceipt.sanitizedSourceUrls} unsafe source link stripped`],
     ["Duplicate inbox import", `${duplicateInboxReceipt.added} added`, duplicateInboxReceipt.targetResolution],
     ["Review progress import", `${reviewReceipt.applied} applied`, `${reviewReceipt.skippedConflict} stale conflicts`],
-    ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`]
+    ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`],
+    ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
+    ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   return `<!doctype html>
 <html lang="en">
@@ -450,12 +509,13 @@ function buildReviewStartHereHtml({
     <header>
       <h1>Learning Companion Morning Review</h1>
       <p class="banner"><strong>Fixture-only review pack.</strong> This dashboard proves generated local artifacts and safety receipts, not live Feishu sync, real HarmonyOS behavior, or signed Mac packaging.</p>
+      <p class="meta">Scope: local MVP fixture pack · no live Feishu sync · no device run · no signed packaging</p>
       <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
     </header>
     <section>
       <h2>Fast Path</h2>
       <div class="grid">
-        <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code>. It runs web smoke, browser smoke, Mac build, and this generator.</p></div>
+        <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code>. It runs web smoke, Harmony reader smoke, browser smoke, Mac build, and this generator.</p></div>
         <div class="card"><strong>2. Import</strong><p>Open the app and import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>.</p></div>
         <div class="card"><strong>3. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
@@ -478,10 +538,10 @@ function buildReviewStartHereHtml({
     <section>
       <h2>Current Gaps</h2>
       <ul>
-        <li>Live Feishu OpenAPI sync is not implemented.</li>
+        <li>Live Feishu OpenAPI sync is not implemented; upload plan is local only.</li>
         <li>HarmonyOS and Windows behavior still need real-device verification.</li>
         <li>The Mac shell is an internal WKWebView shell, not a signed production app.</li>
-        <li>Native selected-text capture without copy-first remains a follow-up.</li>
+        <li>Native selected-text capture has no live GUI matrix in this generator.</li>
       </ul>
     </section>
   </main>
@@ -495,6 +555,14 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+async function assertLocalDashboardLinksExist(html, root) {
+  const hrefs = [...html.matchAll(/\bhref="([^"]+)"/g)].map((match) => match[1]);
+  for (const href of hrefs) {
+    if (/^(?:https?:|mailto:|#)/i.test(href)) continue;
+    await access(join(root, href));
+  }
 }
 
 function getGitSha() {
@@ -543,6 +611,11 @@ async function scanForCredentialLikeText(root) {
   }
   return {
     ok: matches.length === 0,
+    scope: {
+      root,
+      ruleset: "credential-like-text.v1",
+      skippedBinaryExtensions: [".zip"]
+    },
     scannedFiles: (await listFiles(root)).filter((path) => !path.endsWith(".zip") && !path.endsWith("/SUMMARY.json")).length,
     matches
   };
