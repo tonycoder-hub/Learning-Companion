@@ -14,6 +14,7 @@ import {
   buildMirrorZip,
   buildSourceJumpUrl,
   buildTodayPack,
+  cleanUrl,
   deleteCapture,
   deleteReviewCard,
   filterSessions,
@@ -459,17 +460,30 @@ function applyUrlCapture() {
   const autoCapture = params.get("capture") === "1" || params.get("autoCapture") === "1";
   if (!quote && !thought && !sourceUrl && !sourceTitle) return;
 
-  const session = getActiveSession(workspace);
-  workspace = updateSession(workspace, session.id, {
-    sourceUrl: sourceUrl || session.sourceUrl,
-    sourceTitle: sourceTitle || session.sourceTitle
+  const target = resolveInboundCaptureTarget(workspace, { sourceUrl, sourceTitle });
+  const preserveSessionSource = target.resolution !== "active-fallback";
+  const activeFallbackSourceUpdated = target.resolution === "active-fallback" && (
+    (sourceUrl && cleanUrl(sourceUrl) !== cleanUrl(target.session.sourceUrl)) ||
+    (sourceTitle && normalizeInboundSourceTitle(sourceTitle) !== normalizeInboundSourceTitle(target.session.sourceTitle))
+  );
+  workspace = selectSession(workspace, target.session.id);
+  workspace = updateSession(workspace, target.session.id, {
+    sourceUrl: preserveSessionSource
+      ? target.session.sourceUrl || sourceUrl
+      : sourceUrl || target.session.sourceUrl,
+    sourceTitle: preserveSessionSource
+      ? target.session.sourceTitle || sourceTitle
+      : sourceTitle || target.session.sourceTitle,
+    materialType: inferInboundMaterialType(sourceUrl, timestamp, target.session.materialType),
+    focusMode: "capture"
   });
+  activeTab = "captures";
   if (autoCapture && (quote || thought)) {
-    workspace = addCapture(workspace, session.id, {
+    workspace = addCapture(workspace, target.session.id, {
       quote: quote || "",
       thought: thought || "",
       timestamp: timestamp || "",
-      tags: dom.sessionTags?.value || session.tags,
+      tags: target.session.tags,
       sourceTitle: sourceTitle || "",
       sourceUrl: sourceUrl || "",
       sourceProvenance: "inbound"
@@ -477,7 +491,7 @@ function applyUrlCapture() {
     const updated = getActiveSession(workspace);
     setActivity(updated, {
       title: "Browser capture saved",
-      detail: summarizeCapture(updated.captures[0]),
+      detail: `${summarizeCapture(updated.captures[0])} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`,
       tab: "captures",
       targetId: updated.captures[0]?.id
     });
@@ -486,9 +500,120 @@ function applyUrlCapture() {
     dom.quoteInput.value = quote || "";
     dom.thoughtInput.value = thought || "";
     dom.timestampInput.value = timestamp || "";
+    const updated = getActiveSession(workspace);
+    setActivity(updated, {
+      title: quote || thought ? "Browser clip staged" : "Browser source updated",
+      detail: `${sourceTitle || updated.sourceTitle || "Source"}${timestamp ? ` @ ${timestamp}` : ""} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`,
+      tab: "captures",
+      targetId: ""
+    });
+    showToast(quote || thought ? "Browser clip staged" : "Browser source updated");
   }
   history.replaceState({}, "", window.location.pathname);
   persist();
+}
+
+function resolveInboundCaptureTarget(currentWorkspace, inbound) {
+  const active = getActiveSession(currentWorkspace);
+  const normalizedSourceUrl = normalizeInboundMatchUrl(inbound.sourceUrl);
+  if (normalizedSourceUrl) {
+    const match = findInboundUrlMatch(currentWorkspace, active, normalizedSourceUrl);
+    if (match) {
+      return {
+        session: match,
+        resolution: match.id === active.id ? "active-source" : "matched-source-url"
+      };
+    }
+  }
+
+  const normalizedTitle = normalizeInboundSourceTitle(inbound.sourceTitle);
+  if (!normalizedSourceUrl && normalizedTitle) {
+    const match = findInboundTitleMatch(currentWorkspace, active, normalizedTitle);
+    if (match) {
+      return {
+        session: match,
+        resolution: match.id === active.id ? "active-source" : "matched-source-title"
+      };
+    }
+  }
+
+  return {
+    session: active,
+    resolution: "active-fallback"
+  };
+}
+
+function findInboundUrlMatch(currentWorkspace, active, normalizedSourceUrl) {
+  if (normalizeInboundMatchUrl(active.sourceUrl) === normalizedSourceUrl) return active;
+  return [...currentWorkspace.sessions]
+    .filter((session) => session.id !== active.id)
+    .sort((a, b) => (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()) || a.id.localeCompare(b.id))
+    .find((session) => normalizeInboundMatchUrl(session.sourceUrl) === normalizedSourceUrl);
+}
+
+function findInboundTitleMatch(currentWorkspace, active, normalizedTitle) {
+  if (!normalizeInboundMatchUrl(active.sourceUrl) && normalizeInboundSourceTitle(active.sourceTitle) === normalizedTitle) {
+    return active;
+  }
+  return [...currentWorkspace.sessions]
+    .filter((session) => session.id !== active.id && !normalizeInboundMatchUrl(session.sourceUrl))
+    .sort((a, b) => (new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime()) || a.id.localeCompare(b.id))
+    .find((session) => normalizeInboundSourceTitle(session.sourceTitle) === normalizedTitle);
+}
+
+function normalizeInboundSourceTitle(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeInboundMatchUrl(value) {
+  const href = cleanUrl(value || "");
+  if (!href) return "";
+  try {
+    const url = new URL(href);
+    url.hash = "";
+    if (url.pathname.length > 1) {
+      url.pathname = url.pathname.replace(/\/+$/, "");
+    }
+    [...url.searchParams.keys()].forEach((key) => {
+      if (/^utm_/i.test(key) || ["fbclid", "gclid", "igshid", "mc_cid", "mc_eid"].includes(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    });
+    if (isKnownVideoHost(url.hostname)) {
+      ["t", "start", "time_continue"].forEach((key) => url.searchParams.delete(key));
+    }
+    url.searchParams.sort();
+    return url.href;
+  } catch {
+    return href;
+  }
+}
+
+function inferInboundMaterialType(sourceUrl, timestamp, fallback) {
+  const href = cleanUrl(sourceUrl || "");
+  if (!href) return fallback;
+  try {
+    const host = new URL(href).hostname.toLowerCase();
+    if (isKnownVideoHost(host) && ["article", "other"].includes(fallback)) {
+      return "video";
+    }
+  } catch {
+    return fallback;
+  }
+  return fallback;
+}
+
+function isKnownVideoHost(hostname) {
+  return /(^|\.)youtube\.com$|^youtu\.be$|(^|\.)bilibili\.com$|(^|\.)vimeo\.com$/.test(String(hostname || "").toLowerCase());
+}
+
+function formatInboundResolution(resolution, sourceUpdated = false) {
+  return {
+    "active-source": "active source",
+    "matched-source-url": "matched existing source URL",
+    "matched-source-title": "matched existing source title",
+    "active-fallback": sourceUpdated ? "current topic source updated" : "current topic"
+  }[resolution] || "current topic";
 }
 
 function updateSessionFromFields() {

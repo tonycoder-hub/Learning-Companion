@@ -44,6 +44,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Source panel for URL, title, material type, and video timestamp.
 - Quick capture for quote + note + tags.
 - Capture-level source snapshots and source/time jump links.
+- Browser inbound capture routes clips to an existing normalized source match before falling back to the active topic.
 - One-click capture insertion into Notes, without duplicate blocks.
 - Confirmed cleanup for mistaken captures and review cards.
 - Synthesis draft generation from captures, questions, and review cards.

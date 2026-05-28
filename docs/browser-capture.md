@@ -32,10 +32,22 @@ When activated, it opens Learning Companion with:
 - current page URL
 - selected text as a capture
 - active video time when a `<video>` element is present
+- source-aware routing: if the page URL already belongs to another session, the capture is saved there instead of the currently visible scratch session
 - a visible activity-strip confirmation in the main desk, even if the inspector is hidden
 - a capture-level snapshot of source title, URL, material type, and timestamp
 
 If no text is selected, it still updates the current session source context.
+If incoming text is staged instead of auto-saved, the app switches to capture focus and shows whether it matched an existing source or fell back to the current topic.
+
+Routing is deterministic and conservative:
+
+- URL matching normalizes safe `http`/`https` URLs by dropping fragments, trailing path slashes, common tracking params, and YouTube/Bilibili/Vimeo time params before matching.
+- Host matching is case-insensitive through URL parsing; tracking param names are compared case-insensitively.
+- Known video hosts are `youtube.com`, `youtu.be`, `bilibili.com`, and `vimeo.com`.
+- If more than one session matches a URL, the active session wins first, then the most recently updated matching session, then lexical session id as a final deterministic tie-breaker.
+- Exact source-title fallback only runs when the inbound URL is absent and the candidate session has no existing source URL.
+- Matched-session source title/URL fields are preserved; the incoming page title/URL are snapshotted on the capture itself.
+- Auto-saved captures inherit the matched session tags.
 
 For supported video URLs, capture cards can open the source at the captured timestamp. The first implementation supports YouTube-style `t=<seconds>s` links and leaves other URLs unchanged.
 

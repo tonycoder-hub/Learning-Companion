@@ -633,6 +633,53 @@ try {
   assert.equal(inboxRuntime.previewSourceUrl, "");
   assert.equal(inboxRuntime.storedDraftCount, 1);
 
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(300);
+  await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Scratch decoy");
+    setValue("#sourceTitle", "External course page");
+    setValue("#sourceUrl", "https://example.com/scratch");
+  })()`);
+  const matchedInboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("Changed browser title")}&sourceUrl=${encodeURIComponent("https://www.youtube.com/watch?v=rust123&t=42s&utm_source=clip")}&quote=${encodeURIComponent("Matched source bookmarklet capture")}&thought=${encodeURIComponent("Should route away from the decoy session")}&t=00:42`;
+  await cdp.send("Page.navigate", { url: matchedInboundUrl });
+  await sleep(300);
+  const matchedInbound = await cdp.evaluate(`(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const decoy = workspace.sessions.find((item) => item.title === "Scratch decoy");
+    return {
+      activeTitle: session.title,
+      activeMaterialType: session.materialType,
+      sessionSourceTitle: session.sourceTitle,
+      sessionSourceUrl: session.sourceUrl,
+      latestQuote: session.captures[0].quote,
+      latestSourceTitle: session.captures[0].sourceTitle,
+      latestSourceUrl: session.captures[0].sourceUrl,
+      decoyCaptures: decoy?.captures.length || 0,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
+    };
+  })()`);
+
+  assert.equal(matchedInbound.activeTitle, "Learning Companion MVP");
+  assert.equal(matchedInbound.activeMaterialType, "video");
+  assert.equal(matchedInbound.sessionSourceTitle, "RustConf ownership talk");
+  assert.equal(matchedInbound.sessionSourceUrl, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(matchedInbound.latestQuote, "Matched source bookmarklet capture");
+  assert.equal(matchedInbound.latestSourceTitle, "Changed browser title");
+  assert.equal(matchedInbound.latestSourceUrl, "https://www.youtube.com/watch?v=rust123&t=42s&utm_source=clip");
+  assert.equal(matchedInbound.decoyCaptures, 0);
+  assert.equal(matchedInbound.activityTitle, "Browser capture saved");
+  assert.match(matchedInbound.activityDetail, /matched existing source URL/);
+  assert.equal(matchedInbound.activeTab, "captures");
+
   const inboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("External course page")}&sourceUrl=${encodeURIComponent("https://example.com/course")}&quote=${encodeURIComponent("Inbound bookmarklet capture")}&thought=${encodeURIComponent("Turn this into a note")}&t=01:02:03`;
   await cdp.send("Page.navigate", { url: inboundUrl });
   await sleep(300);
@@ -649,6 +696,7 @@ try {
       latestSourceTitle: session.captures[0].sourceTitle,
       latestSourceUrl: session.captures[0].sourceUrl,
       latestSourceProvenance: session.captures[0].sourceProvenance,
+      decoyCaptures: workspace.sessions.find((item) => item.title === "Scratch decoy")?.captures.length || 0,
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent,
       locationSearch: window.location.search
@@ -657,16 +705,120 @@ try {
 
   assert.equal(inbound.sourceTitle, "External course page");
   assert.equal(inbound.sourceUrl, "https://example.com/course");
-  assert.equal(inbound.captureMetric, "5");
+  assert.equal(inbound.captureMetric, "6");
   assert.equal(inbound.latestQuote, "Inbound bookmarklet capture");
   assert.equal(inbound.latestThought, "Turn this into a note");
   assert.equal(inbound.latestTimestamp, "01:02:03");
   assert.equal(inbound.latestSourceTitle, "External course page");
   assert.equal(inbound.latestSourceUrl, "https://example.com/course");
   assert.equal(inbound.latestSourceProvenance, "inbound");
+  assert.equal(inbound.decoyCaptures, 0);
   assert.equal(inbound.activityTitle, "Browser capture saved");
   assert.match(inbound.activityDetail, /01:02:03/);
   assert.equal(inbound.locationSearch, "");
+
+  const stagedCollisionUrl = `${appUrl}?sourceTitle=${encodeURIComponent("External course page")}&quote=${encodeURIComponent("Staged title collision clip")}&thought=${encodeURIComponent("Should stay on the active topic")}&t=00:07`;
+  await cdp.send("Page.navigate", { url: stagedCollisionUrl });
+  await sleep(300);
+  const stagedCollision = await cdp.evaluate(`(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const decoy = workspace.sessions.find((item) => item.title === "Scratch decoy");
+    return {
+      activeTitle: session.title,
+      quoteValue: document.querySelector("#quoteInput").value,
+      thoughtValue: document.querySelector("#thoughtInput").value,
+      timestampValue: document.querySelector("#timestampInput").value,
+      decoyCaptures: decoy?.captures.length || 0,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`);
+
+  assert.equal(stagedCollision.activeTitle, "Learning Companion MVP");
+  assert.equal(stagedCollision.quoteValue, "Staged title collision clip");
+  assert.equal(stagedCollision.thoughtValue, "Should stay on the active topic");
+  assert.equal(stagedCollision.timestampValue, "00:07");
+  assert.equal(stagedCollision.decoyCaptures, 0);
+  assert.equal(stagedCollision.activityTitle, "Browser clip staged");
+  assert.match(stagedCollision.activityDetail, /current topic/);
+
+  await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Title-only target");
+    setValue("#sourceTitle", "Loose paper");
+    setValue("#sourceUrl", "");
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Active staging decoy");
+    setValue("#sourceTitle", "Active source");
+    setValue("#sourceUrl", "https://example.com/active");
+  })()`);
+  const stagedMatchedUrl = `${appUrl}?sourceTitle=${encodeURIComponent("Loose paper")}&quote=${encodeURIComponent("Staged title-only clip")}&thought=${encodeURIComponent("Do not auto-save this")}&t=00:11`;
+  await cdp.send("Page.navigate", { url: stagedMatchedUrl });
+  await sleep(300);
+  const stagedMatched = await cdp.evaluate(`(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    return {
+      activeTitle: session.title,
+      captureCount: session.captures.length,
+      quoteValue: document.querySelector("#quoteInput").value,
+      thoughtValue: document.querySelector("#thoughtInput").value,
+      timestampValue: document.querySelector("#timestampInput").value,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`);
+
+  assert.equal(stagedMatched.activeTitle, "Title-only target");
+  assert.equal(stagedMatched.captureCount, 0);
+  assert.equal(stagedMatched.quoteValue, "Staged title-only clip");
+  assert.equal(stagedMatched.thoughtValue, "Do not auto-save this");
+  assert.equal(stagedMatched.timestampValue, "00:11");
+  assert.equal(stagedMatched.activityTitle, "Browser clip staged");
+  assert.match(stagedMatched.activityDetail, /matched existing source title/);
+
+  await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Query order target");
+    setValue("#sourceTitle", "Deep link article");
+    setValue("#sourceUrl", "https://example.com/deep?a=1&b=2");
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Query order decoy");
+    setValue("#sourceTitle", "Query decoy");
+    setValue("#sourceUrl", "https://example.com/query-decoy");
+  })()`);
+  const queryOrderInboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("Deep link article")}&sourceUrl=${encodeURIComponent("https://example.com/deep?b=2&a=1&UTM_Source=clip")}&quote=${encodeURIComponent("Query order matched capture")}&thought=${encodeURIComponent("Query order should not break source matching")}`;
+  await cdp.send("Page.navigate", { url: queryOrderInboundUrl });
+  await sleep(300);
+  const queryOrderInbound = await cdp.evaluate(`(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const decoy = workspace.sessions.find((item) => item.title === "Query order decoy");
+    return {
+      activeTitle: session.title,
+      sessionSourceUrl: session.sourceUrl,
+      latestQuote: session.captures[0]?.quote || "",
+      decoyCaptures: decoy?.captures.length || 0,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`);
+
+  assert.equal(queryOrderInbound.activeTitle, "Query order target");
+  assert.equal(queryOrderInbound.sessionSourceUrl, "https://example.com/deep?a=1&b=2");
+  assert.equal(queryOrderInbound.latestQuote, "Query order matched capture");
+  assert.equal(queryOrderInbound.decoyCaptures, 0);
+  assert.match(queryOrderInbound.activityDetail, /matched existing source URL/);
 
   const globalReview = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
