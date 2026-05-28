@@ -190,7 +190,9 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
     }
     importPortableData(imported);
   } catch (error) {
-    showToast(error.message || "Import failed");
+    const message = error.message || "Import failed";
+    recordImportFailure(message, file.name);
+    showToast(message);
   } finally {
     event.target.value = "";
   }
@@ -1068,18 +1070,44 @@ function renderImportReceipt() {
   if (!dom.importReceipt) return;
   const receipt = lastImportReceipt;
   dom.importReceipt.hidden = !receipt;
+  dom.importReceipt.classList.toggle("import-receipt-error", receipt?.schema === "learning-companion.import-error-receipt.v1");
   if (!receipt) return;
-  dom.importReceiptTitle.textContent = receipt.schema === "learning-companion.review-progress-receipt.v1"
-    ? "Review progress imported"
-    : "Mobile inbox imported";
+  dom.importReceiptTitle.textContent = importReceiptTitle(receipt);
   dom.importReceiptDetail.textContent = formatImportReceipt(receipt);
 }
 
+function importReceiptTitle(receipt) {
+  if (receipt?.schema === "learning-companion.review-progress-receipt.v1") return "Review progress imported";
+  if (receipt?.schema === "learning-companion.import-error-receipt.v1") return "Import issue";
+  return "Mobile inbox imported";
+}
+
 function formatImportReceipt(receipt) {
+  if (receipt?.schema === "learning-companion.import-error-receipt.v1") {
+    return formatImportErrorReceipt(receipt);
+  }
   if (receipt?.schema === "learning-companion.review-progress-receipt.v1") {
     return formatReviewProgressReceipt(receipt);
   }
   return formatInboxReceipt(receipt);
+}
+
+function recordImportFailure(message, fileName = "") {
+  lastImportReceipt = {
+    schema: "learning-companion.import-error-receipt.v1",
+    status: "failed",
+    message: String(message || "Import failed").slice(0, 180),
+    fileName: String(fileName || "").slice(0, 120),
+    importedAt: new Date().toISOString()
+  };
+  renderImportReceipt();
+  if (activeTab === "today") renderToday();
+}
+
+function formatImportErrorReceipt(receipt) {
+  if (!receipt) return "";
+  const source = receipt.fileName ? `${receipt.fileName}: ` : "";
+  return `${source}${receipt.message}`;
 }
 
 function formatInboxReceipt(receipt) {
@@ -1858,6 +1886,7 @@ function installNativeBridge() {
         const imported = JSON.parse(String(text || ""));
         return importPortableData(imported, { focusTodayOnWorkspace: true });
       } catch (error) {
+        recordImportFailure(error.message || "Import failed");
         return {
           ok: false,
           error: error.message || "Import failed"

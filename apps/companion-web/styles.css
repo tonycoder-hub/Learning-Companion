@@ -283,6 +283,11 @@ textarea:focus {
   color: var(--muted);
 }
 
+.import-receipt.import-receipt-error {
+  border-color: rgba(162, 61, 52, 0.25);
+  background: #fff0ed;
+}
+
 .import-receipt .mini-button {
   justify-self: start;
 }

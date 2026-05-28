@@ -349,6 +349,29 @@ try {
         importInput.files = badTransfer.files;
         importInput.dispatchEvent(new Event("change", { bubbles: true }));
         setTimeout(() => {
+          const badMirrorReceipt = document.querySelector("#importReceipt").textContent;
+          const malformedTransfer = new DataTransfer();
+          malformedTransfer.items.add(new File(["{ broken json"], "broken-patch.json", { type: "application/json" }));
+          importInput.files = malformedTransfer.files;
+          importInput.dispatchEvent(new Event("change", { bubbles: true }));
+          setTimeout(() => {
+            const malformedImportReceipt = document.querySelector("#importReceipt").textContent;
+            const oversizedInboxPatch = {
+              schema: "learning-companion.mobile-inbox-patch.v1",
+              appVersion: 1,
+              patchId: "browser_patch_too_large",
+              captures: [{
+                id: "browser_inbox_capture_too_large",
+                quote: "Oversized inbox patch fixture",
+                thought: "x".repeat(270000)
+              }]
+            };
+            const oversizedTransfer = new DataTransfer();
+            oversizedTransfer.items.add(new File([JSON.stringify(oversizedInboxPatch)], "oversized-inbox-patch.json", { type: "application/json" }));
+            importInput.files = oversizedTransfer.files;
+            importInput.dispatchEvent(new Event("change", { bubbles: true }));
+            setTimeout(() => {
+              const oversizedImportReceipt = document.querySelector("#importReceipt").textContent;
           const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
           const reviewProgressPatch = {
@@ -422,6 +445,9 @@ try {
           latestCaptureSourceUrl: restoredSession.captures[0].sourceUrl,
           latestCaptureMaterialType: restoredSession.captures[0].materialType,
           latestCaptureSourceProvenance: restoredSession.captures[0].sourceProvenance,
+          badMirrorReceipt,
+          malformedImportReceipt,
+          oversizedImportReceipt,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
           reviewReceiptBeforeInbox,
@@ -539,6 +565,8 @@ try {
         }, 80);
         }, 80);
         }, 80);
+        }, 80);
+        }, 80);
       }, 80);
     }, 80));
   })()`);
@@ -552,6 +580,14 @@ try {
   assert.equal(result.latestCaptureSourceUrl, "https://www.youtube.com/watch?v=rust123");
   assert.equal(result.latestCaptureMaterialType, "video");
   assert.equal(result.latestCaptureSourceProvenance, "snapshot");
+  assert.match(result.badMirrorReceipt, /Import issue/);
+  assert.match(result.badMirrorReceipt, /bad-mirror\.json/);
+  assert.match(result.badMirrorReceipt, /canonical payload/);
+  assert.match(result.malformedImportReceipt, /Import issue/);
+  assert.match(result.malformedImportReceipt, /broken-patch\.json/);
+  assert.match(result.oversizedImportReceipt, /Import issue/);
+  assert.match(result.oversizedImportReceipt, /oversized-inbox-patch\.json/);
+  assert.match(result.oversizedImportReceipt, /Mobile inbox patch is too large/);
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
   assert.match(result.reviewReceiptBeforeInbox, /Review progress imported/);

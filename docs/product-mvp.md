@@ -68,6 +68,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and append-only patch export.
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
+- Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
 - Today tab surfaces Patch Intake counts and latest receipt so append-only return files are visible in the primary daily workflow.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.

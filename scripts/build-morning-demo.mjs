@@ -495,7 +495,7 @@ function buildMorningReviewMarkdown({
     "",
     "- `npm run smoke` covers model contracts and generated static artifacts.",
     "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract.",
-    "- `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, and patch import receipts.",
+    "- `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, patch import receipts, duplicate review patch receipts, and visible issue receipts for bad mirror, malformed JSON, and oversized patch imports.",
     "- `npm run check:morning` runs web smoke, Harmony reader smoke, browser smoke, Mac shell build, and this demo pack generator.",
     ""
   ].join("\n");

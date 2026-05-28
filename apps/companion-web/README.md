@@ -16,7 +16,7 @@ Open:
 http://127.0.0.1:5173
 ```
 
-The app stores data in `localStorage` and can export/import a portable workspace JSON payload. The Export tab can also save a credential-free Feishu mirror bundle containing Markdown, workspace JSON, and per-session sidecars; the import button can restore from that bundle directly. The same import path accepts append-only mobile inbox and review progress patches produced by the static mirror pages.
+The app stores data in `localStorage` and can export/import a portable workspace JSON payload. The Export tab can also save a credential-free Feishu mirror bundle containing Markdown, workspace JSON, and per-session sidecars; the import button can restore from that bundle directly. The same import path accepts append-only mobile inbox and review progress patches produced by the static mirror pages, and failed imports leave a visible issue receipt instead of only a transient toast.
 
 Browser capture:
 
