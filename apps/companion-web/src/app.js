@@ -14,6 +14,7 @@ import {
   selectSession,
   updateSession
 } from "./model.js";
+import { renderMarkdown } from "./markdown.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 
@@ -43,6 +44,9 @@ const dom = {
   captureBtn: document.querySelector("#captureBtn"),
   captureCardBtn: document.querySelector("#captureCardBtn"),
   notesEditor: document.querySelector("#notesEditor"),
+  notesPreview: document.querySelector("#notesPreview"),
+  notesEditBtn: document.querySelector("#notesEditBtn"),
+  notesPreviewBtn: document.querySelector("#notesPreviewBtn"),
   saveState: document.querySelector("#saveState"),
   captureList: document.querySelector("#captureList"),
   reviewNextBtn: document.querySelector("#reviewNextBtn"),
@@ -59,6 +63,7 @@ const dom = {
 
 let workspace = loadWorkspace();
 let activeTab = "captures";
+let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
 
@@ -107,6 +112,17 @@ dom.notesEditor.addEventListener("input", () => {
   workspace = updateSession(workspace, session.id, { notesMarkdown: dom.notesEditor.value });
   scheduleSave();
   renderInspector();
+  renderNotesMode();
+});
+
+dom.notesEditBtn.addEventListener("click", () => {
+  notesMode = "edit";
+  renderNotesMode();
+});
+
+dom.notesPreviewBtn.addEventListener("click", () => {
+  notesMode = "preview";
+  renderNotesMode();
 });
 
 dom.openSourceBtn.addEventListener("click", () => {
@@ -286,6 +302,7 @@ function render() {
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
   renderFocusMode(session.focusMode);
+  renderNotesMode();
   renderStorageNotice();
   renderMetrics();
   renderSessions();
@@ -307,6 +324,16 @@ function renderMetrics() {
   dom.cardMetric.textContent = String(session.reviewCards.length);
   dom.dueMetric.textContent = String(due);
   dom.sizeMetric.textContent = formatBytes(bytes);
+}
+
+function renderNotesMode() {
+  const session = getActiveSession(workspace);
+  const previewing = notesMode === "preview";
+  dom.notesEditor.hidden = previewing;
+  dom.notesPreview.hidden = !previewing;
+  dom.notesEditBtn.classList.toggle("active", !previewing);
+  dom.notesPreviewBtn.classList.toggle("active", previewing);
+  if (previewing) renderMarkdown(dom.notesPreview, session.notesMarkdown);
 }
 
 function renderFocusMode(mode) {

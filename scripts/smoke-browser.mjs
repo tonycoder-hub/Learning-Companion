@@ -70,6 +70,7 @@ try {
     setValue("#thoughtInput", "Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
+    document.querySelector("#notesPreviewBtn").click();
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     return {
@@ -78,6 +79,7 @@ try {
       dueMetric: document.querySelector("#dueMetric").textContent,
       captureText: document.querySelector("#captureList").textContent,
       reviewText: document.querySelector("#reviewList").textContent,
+      previewText: document.querySelector("#notesPreview").textContent,
       captures: session.captures.length,
       cards: session.reviewCards.length,
       schemaVersion: workspace.schemaVersion,
@@ -93,6 +95,7 @@ try {
   assert.equal(result.dueMetric, "1");
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /compiler-enforced lifetimes/);
+  assert.match(result.previewText, /Learning Companion MVP/);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
   await cdp.close();

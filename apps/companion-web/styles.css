@@ -349,6 +349,7 @@ textarea:focus {
 }
 
 .panel-heading,
+.notes-actions,
 .capture-actions,
 .export-actions,
 .item-footer {
@@ -378,6 +379,46 @@ textarea:focus {
 .notes-editor {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 14px;
+}
+
+.notes-preview {
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  line-height: 1.55;
+}
+
+.notes-preview h3,
+.notes-preview h4,
+.notes-preview h5 {
+  margin: 0 0 10px;
+}
+
+.notes-preview p,
+.notes-preview ul,
+.notes-preview blockquote,
+.notes-preview pre {
+  margin: 0 0 12px;
+}
+
+.notes-preview blockquote {
+  padding-left: 10px;
+  border-left: 3px solid var(--green);
+  color: #34383c;
+}
+
+.notes-preview pre {
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f0eee5;
+}
+
+.notes-preview a {
+  color: var(--blue);
 }
 
 .tabs {
@@ -451,6 +492,11 @@ textarea:focus {
 .mini-button:disabled {
   cursor: default;
   opacity: 0.55;
+}
+
+.mini-button.active {
+  border-color: var(--green);
+  color: var(--green);
 }
 
 .review-card details {

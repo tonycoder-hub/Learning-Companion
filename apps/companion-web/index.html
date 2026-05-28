@@ -121,9 +121,14 @@
           <div class="editor-pane" aria-label="Session notes">
             <div class="panel-heading">
               <h2>Notes</h2>
-              <span id="saveState" class="save-state">Saved</span>
+              <div class="notes-actions">
+                <button id="notesEditBtn" class="mini-button active" type="button">Edit</button>
+                <button id="notesPreviewBtn" class="mini-button" type="button">Preview</button>
+                <span id="saveState" class="save-state">Saved</span>
+              </div>
             </div>
             <textarea id="notesEditor" class="notes-editor" spellcheck="true"></textarea>
+            <div id="notesPreview" class="notes-preview" hidden></div>
           </div>
         </section>
       </main>
