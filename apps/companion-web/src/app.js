@@ -5,6 +5,7 @@ import {
   addSession,
   buildFeishuPayload,
   buildMirrorBundle,
+  buildSourceJumpUrl,
   filterSessions,
   generateMarkdown,
   generateSynthesisDraft,
@@ -340,7 +341,10 @@ function applyUrlCapture() {
       quote: quote || "",
       thought: thought || "",
       timestamp: timestamp || "",
-      tags: dom.sessionTags?.value || session.tags
+      tags: dom.sessionTags?.value || session.tags,
+      sourceTitle: sourceTitle || "",
+      sourceUrl: sourceUrl || "",
+      sourceProvenance: "inbound"
     });
     const updated = getActiveSession(workspace);
     setActivity(updated, {
@@ -749,7 +753,11 @@ function renderCaptures() {
     const item = document.createElement("article");
     item.className = "item-card";
     item.dataset.captureId = capture.id;
-    item.append(textEl("div", "item-meta", `${capture.timestamp || "No time"} · ${new Date(capture.createdAt).toLocaleString()}`));
+    item.append(textEl("div", "item-meta", [
+      capture.timestamp || "No time",
+      capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
+      new Date(capture.createdAt).toLocaleString()
+    ].filter(Boolean).join(" · ")));
     if (capture.quote) item.append(textEl("blockquote", "", capture.quote));
     if (capture.thought) {
       const thought = document.createElement("div");
@@ -761,6 +769,19 @@ function renderCaptures() {
     const footer = document.createElement("div");
     footer.className = "item-footer";
     footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+    const actions = document.createElement("div");
+    actions.className = "item-actions";
+    const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
+    if (sourceHref) {
+      const openButton = document.createElement("button");
+      openButton.className = "mini-button";
+      openButton.type = "button";
+      openButton.textContent = capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source";
+      openButton.addEventListener("click", () => {
+        window.open(sourceHref, "_blank", "noopener,noreferrer");
+      });
+      actions.append(openButton);
+    }
     const promoteButton = document.createElement("button");
     promoteButton.className = "mini-button";
     promoteButton.type = "button";
@@ -776,7 +797,8 @@ function renderCaptures() {
       });
       persistAndRender("Review card created");
     });
-    footer.append(promoteButton);
+    actions.append(promoteButton);
+    footer.append(actions);
     item.append(footer);
     dom.captureList.append(item);
   });

@@ -28,6 +28,7 @@ The product borrows selectively from strong existing tools:
 - Capture without breaking focus: selected text, URL, timestamp, and a short thought should become a note in one motion.
 - Feedback stays in the desk: when navigation or inspector chrome is hidden, the current learning surface should still show what was just saved and how to open details.
 - Context is part of the note: every note should know its source title, URL, material type, optional video timestamp, and session.
+- Source context is snapshotted at capture time so later session edits do not detach an excerpt from its original material.
 - Synthesis stays editable: generated study briefs should be drafts made from captured evidence, not opaque final answers.
 - Local-first by default: the first store is browser/local app state; the durable model is JSON plus Markdown export, then SQLite in the native shell.
 - Review loop is built in: highlights should be promotable into review cards without opening another app.
@@ -41,6 +42,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Session list for learning topics.
 - Source panel for URL, title, material type, and video timestamp.
 - Quick capture for quote + note + tags.
+- Capture-level source snapshots and source/time jump links.
 - Synthesis draft generation from captures, questions, and review cards.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
@@ -81,6 +83,10 @@ Workspace
       quote
       thought
       timestamp
+      sourceTitle
+      sourceUrl
+      materialType
+      sourceProvenance: snapshot | inbound | inherited | unknown
       tags[]
       createdAt
       promotedToReview

@@ -443,6 +443,13 @@ textarea:focus {
   min-width: 0;
 }
 
+.item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .command-button {
   min-height: 34px;
   padding: 0 12px;

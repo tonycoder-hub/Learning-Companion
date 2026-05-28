@@ -14,6 +14,7 @@ product/mvp-learning-sidecar
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
 - Sessions, source context, timestamp, tags.
+- Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
 - Capture-to-review-card promotion.
@@ -32,7 +33,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, capture source snapshots/time links, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -71,6 +72,7 @@ Accepted from Mira:
 - Keep the sidecar layout local-only, guard its keyboard shortcut inside editable fields, and keep a visible way back when panels are hidden.
 - Add desk-level activity feedback so hidden inspector panels do not swallow the user's sense of what changed.
 - Make the activity action explicit when it exits focus mode, use `aria-live`, and scroll/highlight the referenced capture or card where possible.
+- Keep capture source snapshot fields optional in the v1 schema, add source provenance, and harden source jump URL handling.
 
 Deferred:
 

@@ -152,6 +152,10 @@ try {
       node.value = value;
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
+    setValue("#sourceTitle", "RustConf ownership talk");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
+    document.querySelector("#materialType").value = "video";
+    document.querySelector("#materialType").dispatchEvent(new Event("change", { bubbles: true }));
     setValue("#quoteInput", "Ownership lets Rust make memory safety guarantees.");
     setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
@@ -159,7 +163,10 @@ try {
     const activityAfterCard = {
       title: document.querySelector("#activityTitle").textContent,
       detail: document.querySelector("#activityDetail").textContent,
-      action: document.querySelector("#activityDetailsBtn").textContent
+      action: document.querySelector("#activityDetailsBtn").textContent,
+      openLinkText: [...document.querySelectorAll("#captureList .mini-button")]
+        .map((button) => button.textContent)
+        .find((text) => text.startsWith("Open @")) || ""
     };
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
@@ -221,6 +228,9 @@ try {
           restoredCaptures: restoredSession.captures.length,
           restoredCards: restoredSession.reviewCards.length,
           restoredSourceUrl: restoredSession.sourceUrl,
+          latestCaptureSourceUrl: restoredSession.captures[0].sourceUrl,
+          latestCaptureMaterialType: restoredSession.captures[0].materialType,
+          latestCaptureSourceProvenance: restoredSession.captures[0].sourceProvenance,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
           captureMetric: document.querySelector("#captureMetric").textContent,
@@ -248,6 +258,7 @@ try {
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasMarkdown: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("Learning Companion MVP")),
+          mirrorHasTimeJump: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("t=492s")),
           mirrorFingerprintsValid: restoredMirror.files.every((file) => file.encoding === "utf-8" && /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)),
           captures: restoredSession.captures.length,
           cards: restoredSession.reviewCards.length,
@@ -270,7 +281,10 @@ try {
   assert.equal(result.restoredTitle, "Learning Companion MVP");
   assert.equal(result.restoredCaptures, 3);
   assert.equal(result.restoredCards, 2);
-  assert.equal(result.restoredSourceUrl, "https://github.com/tonycoder-hub/Learning-Companion");
+  assert.equal(result.restoredSourceUrl, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(result.latestCaptureSourceUrl, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(result.latestCaptureMaterialType, "video");
+  assert.equal(result.latestCaptureSourceProvenance, "snapshot");
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
   assert.equal(result.captures, 3);
@@ -286,6 +300,7 @@ try {
   assert.equal(result.activityAfterCard.title, "Capture and card saved");
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
+  assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
@@ -315,6 +330,7 @@ try {
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasMarkdown, true);
+  assert.equal(result.mirrorHasTimeJump, true);
   assert.equal(result.mirrorFingerprintsValid, true);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
@@ -332,6 +348,9 @@ try {
       latestQuote: session.captures[0].quote,
       latestThought: session.captures[0].thought,
       latestTimestamp: session.captures[0].timestamp,
+      latestSourceTitle: session.captures[0].sourceTitle,
+      latestSourceUrl: session.captures[0].sourceUrl,
+      latestSourceProvenance: session.captures[0].sourceProvenance,
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent,
       locationSearch: window.location.search
@@ -344,6 +363,9 @@ try {
   assert.equal(inbound.latestQuote, "Inbound bookmarklet capture");
   assert.equal(inbound.latestThought, "Turn this into a note");
   assert.equal(inbound.latestTimestamp, "01:02:03");
+  assert.equal(inbound.latestSourceTitle, "External course page");
+  assert.equal(inbound.latestSourceUrl, "https://example.com/course");
+  assert.equal(inbound.latestSourceProvenance, "inbound");
   assert.equal(inbound.activityTitle, "Browser capture saved");
   assert.match(inbound.activityDetail, /01:02:03/);
   assert.equal(inbound.locationSearch, "");

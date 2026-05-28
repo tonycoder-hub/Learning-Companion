@@ -108,6 +108,14 @@
         "quote": { "type": "string", "maxLength": 12000 },
         "thought": { "type": "string", "maxLength": 12000 },
         "timestamp": { "type": "string", "maxLength": 32 },
+        "sourceTitle": { "type": "string", "maxLength": 160 },
+        "sourceUrl": { "type": "string", "maxLength": 2048 },
+        "materialType": {
+          "enum": ["article", "video", "doc", "course", "book", "other"]
+        },
+        "sourceProvenance": {
+          "enum": ["snapshot", "inbound", "inherited", "unknown"]
+        },
         "tags": {
           "type": "array",
           "items": { "type": "string", "maxLength": 64 },

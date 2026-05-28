@@ -9,6 +9,7 @@ import {
   applyGrade,
   buildFeishuPayload,
   buildMirrorBundle,
+  buildSourceJumpUrl,
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
@@ -25,6 +26,8 @@ import {
   reviewIntervalDays,
   safeHref,
   sanitizeWorkspace,
+  timestampToSeconds,
+  updateSession,
   workspaceFromPortableData
 } from "../apps/companion-web/src/model.js";
 
@@ -49,10 +52,21 @@ assert.equal(safeHref("javascript:alert(1)"), "#");
 assert.equal(cleanUrl("https://example.com/a path").startsWith("https://example.com/"), true);
 assert.equal(cleanText("ok\u0000bad"), "okbad");
 assert.equal(cleanText("x".repeat(MAX_CAPTURE_TEXT_LENGTH + 10)).length, MAX_CAPTURE_TEXT_LENGTH);
+assert.equal(buildSourceJumpUrl("javascript:alert(1)", "01:00"), "");
+assert.equal(buildSourceJumpUrl("https://example.com/video", "01:00"), "https://example.com/video");
+assert.equal(buildSourceJumpUrl("https://youtu.be/rust123?start=12", "01:00"), "https://youtu.be/rust123?t=60s");
+assert.equal(timestampToSeconds("abc"), null);
+assert.equal(timestampToSeconds("1:2:3:4"), null);
 
 workspace = addSession(workspace, "Rust ownership course");
 let session = getActiveSession(workspace);
 assert.equal(session.title, "Rust ownership course");
+workspace = updateSession(workspace, session.id, {
+  sourceTitle: "RustConf ownership talk",
+  sourceUrl: "https://www.youtube.com/watch?v=rust123",
+  materialType: "video"
+});
+session = getActiveSession(workspace);
 
 workspace = addCapture(workspace, session.id, {
   quote: "Ownership lets Rust make memory safety guarantees without a garbage collector.",
@@ -67,8 +81,14 @@ assert.equal(session.reviewCards.length, 1);
 assert.equal(session.captures[0].tags.includes("rust"), true);
 assert.equal(session.captures[0].originClientId, workspace.clientId);
 assert.equal(session.captures[0].updatedAt.length > 0, true);
+assert.equal(session.captures[0].sourceTitle, "RustConf ownership talk");
+assert.equal(session.captures[0].sourceUrl, "https://www.youtube.com/watch?v=rust123");
+assert.equal(session.captures[0].materialType, "video");
+assert.equal(session.captures[0].sourceProvenance, "snapshot");
 assert.equal(getDueReviewCards(session).length, 1);
 assert.equal(getDueReviewItems(workspace).length, 1);
+assert.equal(timestampToSeconds("08:12"), 492);
+assert.equal(buildSourceJumpUrl(session.captures[0].sourceUrl, session.captures[0].timestamp), "https://www.youtube.com/watch?v=rust123&t=492s");
 
 let multiReviewWorkspace = addSession(workspace, "Algorithms course");
 const algorithmsSession = getActiveSession(multiReviewWorkspace);
@@ -85,6 +105,8 @@ assert.equal(dueItems.some((item) => item.sessionTitle === "Algorithms course"),
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
 assert.match(markdown, /08:12/);
+assert.match(markdown, /RustConf ownership talk/);
+assert.match(markdown, /t=492s/);
 assert.match(markdown, /Review Cards/);
 
 const synthesis = generateSynthesisDraft(session);
@@ -188,6 +210,47 @@ assert.equal(filtered.length, 1);
 const sanitized = sanitizeWorkspace(JSON.parse(JSON.stringify(workspace)));
 assert.equal(sanitized.activeSessionId, workspace.activeSessionId);
 assert.equal(sanitized.schemaVersion, WORKSPACE_SCHEMA_VERSION);
+
+const legacyWorkspace = sanitizeWorkspace({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  version: WORKSPACE_SCHEMA_VERSION,
+  clientId: "client_legacy",
+  activeSessionId: "legacy_session",
+  sessions: [{
+    id: "legacy_session",
+    originClientId: "client_legacy",
+    title: "Legacy source",
+    sourceTitle: "Legacy doc",
+    sourceUrl: "https://example.com/legacy",
+    materialType: "doc",
+    tags: [],
+    focusMode: "capture",
+    notesMarkdown: "",
+    captures: [{
+      id: "legacy_capture",
+      originClientId: "client_legacy",
+      quote: "Old capture",
+      thought: "",
+      timestamp: "",
+      tags: [],
+      createdAt: "2026-05-29T00:00:00.000Z",
+      capturedAt: "2026-05-29T00:00:00.000Z",
+      updatedAt: "2026-05-29T00:00:00.000Z",
+      promotedToReview: false
+    }],
+    reviewCards: [],
+    createdAt: "2026-05-29T00:00:00.000Z",
+    updatedAt: "2026-05-29T00:00:00.000Z"
+  }],
+  createdAt: "2026-05-29T00:00:00.000Z",
+  updatedAt: "2026-05-29T00:00:00.000Z"
+});
+const legacyCapture = getActiveSession(legacyWorkspace).captures[0];
+assert.equal(legacyCapture.sourceTitle, "Legacy doc");
+assert.equal(legacyCapture.sourceUrl, "https://example.com/legacy");
+assert.equal(legacyCapture.materialType, "doc");
+assert.equal(legacyCapture.sourceProvenance, "inherited");
 
 const roundTrip = sanitizeWorkspace(JSON.parse(JSON.stringify(sanitized)));
 assert.equal(roundTrip.clientId, workspace.clientId);

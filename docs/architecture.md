@@ -22,6 +22,7 @@ State model
   Workspace JSON in localStorage
   Import/export as JSON
   Canonical schema in docs/schema/workspace.v1.schema.json
+  Capture-level source snapshots for durable context
 
 Learning artifacts
   Markdown notes
@@ -61,6 +62,8 @@ The installable web shell is a bridge for Mac and Windows: it gives a standalone
 The sidecar layout preference is intentionally a local UI setting rather than part of the workspace schema. It helps the web MVP act like a compact Mac companion window without polluting portable learning data.
 
 The activity strip is derived UI state, not sync state. It mirrors the latest capture/review/synthesis action in the main desk so sidecar mode can hide the inspector without making save actions feel invisible. Its in-memory activity message is scoped to the active session; after a reload or session switch, it falls back to a derived latest-capture or review-queue summary. In sidecar layout, the strip action is labeled as an exit from focus mode and opens the relevant inspector tab/item.
+
+Capture-level source snapshots are part of the portable workspace. They preserve the exact material context that produced an excerpt, while the parent session source can continue to describe the current working material.
 
 ## Feishu Sync Direction
 

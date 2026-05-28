@@ -6,6 +6,7 @@
 - Installable/offline web shell.
 - Sidecar layout for focused browser-adjacent study.
 - Desk activity feedback for hidden-inspector mode.
+- Capture-level source snapshots and time jump links.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.

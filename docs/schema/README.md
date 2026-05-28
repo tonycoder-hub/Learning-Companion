@@ -11,3 +11,6 @@ Compatibility rules:
 - Future clients should refuse unknown major versions instead of trying to coerce them.
 - `clientId` identifies the local installation that created new entities.
 - Every session, capture, and review card carries `originClientId` and `updatedAt` to support future merge/conflict logic.
+- Normalized captures carry their own source title, source URL, material type, optional timestamp, and `sourceProvenance` so future clients can preserve source context even if the parent session later changes source.
+- These capture source fields are optional in the v1 JSON Schema for compatibility with early local exports. Importers should backfill missing values from the parent session and mark `sourceProvenance` as `inherited`; new captures should use `snapshot`, while browser URL captures may use `inbound`.
+- Time jump links currently support YouTube by writing `t=<seconds>s`. Other providers should be added deliberately behind `buildSourceJumpUrl` rather than by changing stored capture data.

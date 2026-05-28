@@ -54,13 +54,57 @@ export function safeHref(value) {
   return cleanUrl(value) || "#";
 }
 
-export function normalizeCapture(capture = {}, originClientId = makeId("client")) {
+export function timestampToSeconds(value) {
+  const raw = cleanText(value, 32);
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) return Number(raw);
+  const parts = raw.split(":").map((part) => part.trim());
+  if (!parts.length || parts.length > 3 || parts.some((part) => !/^\d+$/.test(part))) return null;
+  return parts.reduce((sum, part) => (sum * 60) + Number(part), 0);
+}
+
+export function buildSourceJumpUrl(sourceUrl, timestamp = "") {
+  const href = cleanUrl(sourceUrl);
+  if (!href) return "";
+  const seconds = timestampToSeconds(timestamp);
+  if (seconds === null) return href;
+  try {
+    const url = new URL(href);
+    if (isYouTubeHost(url.hostname)) {
+      url.searchParams.delete("start");
+      url.searchParams.set("t", `${seconds}s`);
+      return url.href;
+    }
+    return href;
+  } catch {
+    return href;
+  }
+}
+
+function isYouTubeHost(hostname) {
+  return /(^|\.)youtube\.com$/i.test(hostname) || /^youtu\.be$/i.test(hostname);
+}
+
+function normalizeSourceProvenance(value) {
+  const normalized = cleanText(value, 32);
+  return ["snapshot", "inbound", "inherited", "unknown"].includes(normalized) ? normalized : "";
+}
+
+export function normalizeCapture(capture = {}, originClientId = makeId("client"), sourceFallback = {}) {
   const timestamp = nowIso();
+  const materialType = capture.materialType || sourceFallback.materialType;
+  const hasCaptureSource = Boolean(capture.sourceTitle || capture.sourceUrl || capture.materialType);
+  const hasInheritedSource = Boolean(sourceFallback.sourceTitle || sourceFallback.sourceUrl || sourceFallback.materialType);
   return {
     id: capture.id || makeId("capture"),
     quote: cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH),
     thought: cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH),
     timestamp: cleanText(capture.timestamp, 32),
+    sourceTitle: cleanText(capture.sourceTitle || sourceFallback.sourceTitle, MAX_TITLE_LENGTH),
+    sourceUrl: cleanUrl(capture.sourceUrl || sourceFallback.sourceUrl),
+    materialType: MATERIAL_TYPES.has(materialType) ? materialType : "other",
+    sourceProvenance: normalizeSourceProvenance(capture.sourceProvenance)
+      || (hasCaptureSource ? "snapshot" : hasInheritedSource ? "inherited" : "unknown"),
     tags: normalizeTags(capture.tags || []),
     createdAt: capture.createdAt || timestamp,
     capturedAt: capture.capturedAt || capture.createdAt || timestamp,
@@ -88,18 +132,25 @@ export function normalizeReviewCard(card = {}, originClientId = makeId("client")
 
 export function createSession(overrides = {}, originClientId = overrides.originClientId || makeId("client")) {
   const timestamp = nowIso();
+  const sourceTitle = cleanText(overrides.sourceTitle || "", MAX_TITLE_LENGTH);
+  const sourceUrl = cleanUrl(overrides.sourceUrl || "");
+  const materialType = MATERIAL_TYPES.has(overrides.materialType) ? overrides.materialType : "article";
   return {
     id: overrides.id || makeId("session"),
     originClientId,
     title: cleanText(overrides.title || "Untitled learning session", MAX_TITLE_LENGTH),
-    sourceTitle: cleanText(overrides.sourceTitle || "", MAX_TITLE_LENGTH),
-    sourceUrl: cleanUrl(overrides.sourceUrl || ""),
-    materialType: MATERIAL_TYPES.has(overrides.materialType) ? overrides.materialType : "article",
+    sourceTitle,
+    sourceUrl,
+    materialType,
     tags: normalizeTags(overrides.tags || []),
     focusMode: FOCUS_MODES.has(overrides.focusMode) ? overrides.focusMode : "capture",
     notesMarkdown: cleanText(overrides.notesMarkdown || "", MAX_NOTE_LENGTH),
     captures: Array.isArray(overrides.captures)
-      ? overrides.captures.map((capture) => normalizeCapture(capture, originClientId))
+      ? overrides.captures.map((capture) => normalizeCapture(capture, originClientId, {
+        sourceTitle,
+        sourceUrl,
+        materialType
+      }))
       : [],
     reviewCards: Array.isArray(overrides.reviewCards)
       ? overrides.reviewCards.map((card) => normalizeReviewCard(card, originClientId))
@@ -270,11 +321,17 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   if (!quote && !thought) return workspace;
 
   const timestamp = nowIso();
+  const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+  const materialType = captureInput.materialType || sourceSession?.materialType;
   const capture = {
     id: makeId("capture"),
     quote,
     thought,
     timestamp: cleanText(captureInput.timestamp, 32),
+    sourceTitle: cleanText(captureInput.sourceTitle || sourceSession?.sourceTitle, MAX_TITLE_LENGTH),
+    sourceUrl: cleanUrl(captureInput.sourceUrl || sourceSession?.sourceUrl),
+    materialType: MATERIAL_TYPES.has(materialType) ? materialType : "other",
+    sourceProvenance: normalizeSourceProvenance(captureInput.sourceProvenance) || "snapshot",
     tags: normalizeTags(captureInput.tags || []),
     createdAt: timestamp,
     capturedAt: timestamp,
@@ -447,6 +504,8 @@ export function generateMarkdown(session) {
   } else {
     session.captures.forEach((capture) => {
       lines.push(`### ${formatDate(capture.createdAt)}${capture.timestamp ? ` @ ${capture.timestamp}` : ""}`);
+      const captureSource = formatCaptureSource(capture, session);
+      if (captureSource) lines.push("", captureSource);
       if (capture.quote) lines.push("", `> ${capture.quote.replace(/\n/g, "\n> ")}`);
       if (capture.thought) lines.push("", capture.thought);
       if (capture.tags.length) lines.push("", capture.tags.map((tag) => `#${tag}`).join(" "));
@@ -639,6 +698,14 @@ export function buildMirrorBundle(workspace) {
 
 function formatCount(count, singular) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+function formatCaptureSource(capture, session) {
+  const sourceTitle = cleanText(capture.sourceTitle || session.sourceTitle, MAX_TITLE_LENGTH);
+  const sourceUrl = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
+  if (!sourceTitle && !sourceUrl) return "";
+  if (sourceUrl) return `Source: [${sourceTitle || "Open source"}](${sourceUrl})`;
+  return `Source: ${sourceTitle}`;
 }
 
 function generateMirrorReadme(workspace, sessionFiles) {

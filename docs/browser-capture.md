@@ -33,8 +33,11 @@ When activated, it opens Learning Companion with:
 - selected text as a capture
 - active video time when a `<video>` element is present
 - a visible activity-strip confirmation in the main desk, even if the inspector is hidden
+- a capture-level snapshot of source title, URL, material type, and timestamp
 
 If no text is selected, it still updates the current session source context.
+
+For supported video URLs, capture cards can open the source at the captured timestamp. The first implementation supports YouTube-style `t=<seconds>s` links and leaves other URLs unchanged.
 
 ## Inbound URL Contract
 
