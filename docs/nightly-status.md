@@ -6,6 +6,10 @@
 product/mvp-learning-sidecar
 ```
 
+## Stage Wording
+
+Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-runs, schema prototypes, internal builds, and live integrations. Current Feishu work is local plan/dry-run, HarmonyOS work is a schema reader prototype, and the Mac shell is an internal build.
+
 ## What Works
 
 - Local web MVP runs without installing dependencies.

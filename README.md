@@ -23,6 +23,7 @@ docs/
   installable-web.md
   mirror-bundle-contract.md
   product-mvp.md
+  promotion-gates.md
   roadmap.md
   synthesis-loop.md
 scripts/
