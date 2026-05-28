@@ -76,6 +76,9 @@ try {
     quote.setSelectionRange(start, start + "durable".length);
     document.querySelector("#captureClozeBtn").click();
     const dueBeforeGood = document.querySelector("#dueMetric").textContent;
+    const gradeVisibleBeforeReveal = Boolean(document.querySelector('[data-grade="good"]'));
+    document.querySelector('[data-reveal-card]').click();
+    const answerVisibleAfterReveal = document.querySelector("#reviewList").textContent.includes("compiler-enforced lifetimes");
     document.querySelector('[data-grade="good"]').click();
     document.querySelector('[data-focus-mode="synthesize"]').click();
     const synthesisVisible = !document.querySelector("#synthesisPane").hidden && document.querySelector("#capturePane").hidden;
@@ -152,6 +155,8 @@ try {
           latestPrompt: restoredSession.reviewCards[0].prompt,
           latestAnswer: restoredSession.reviewCards[0].answer,
           dueBeforeGood,
+          gradeVisibleBeforeReveal,
+          answerVisibleAfterReveal,
           dueAfterGood: document.querySelector("#dueMetric").textContent,
           gradedCount: restoredSession.reviewCards.filter((card) => card.strength === 1).length,
           schemaVersion: restoredWorkspace.schemaVersion,
@@ -174,6 +179,8 @@ try {
   assert.equal(result.captureMetric, "3");
   assert.equal(result.cardMetric, "2");
   assert.equal(result.dueBeforeGood, "2");
+  assert.equal(result.gradeVisibleBeforeReveal, false);
+  assert.equal(result.answerVisibleAfterReveal, true);
   assert.equal(result.dueMetric, "1");
   assert.equal(result.dueAfterGood, "1");
   assert.equal(result.gradedCount, 1);

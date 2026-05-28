@@ -533,16 +533,20 @@ textarea:focus {
   color: var(--green);
 }
 
-.review-card details {
+.due-card {
+  border-color: rgba(167, 96, 23, 0.45);
+  background: #fffaf0;
+}
+
+.active-review-card {
+  outline: 3px solid rgba(49, 95, 130, 0.18);
+}
+
+.review-answer {
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: #fbfaf6;
-}
-
-.due-card {
-  border-color: rgba(167, 96, 23, 0.45);
-  background: #fffaf0;
 }
 
 .pulse {

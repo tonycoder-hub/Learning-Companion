@@ -84,6 +84,8 @@ let activeTab = "captures";
 let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
+let activeReviewCardId = "";
+const revealedReviewCards = new Set();
 
 applyUrlCapture();
 render();
@@ -192,8 +194,12 @@ dom.reviewNextBtn.addEventListener("click", () => {
   const [next] = getDueReviewCards(session);
   if (!next) {
     showToast("No due cards");
+    renderInspector();
     return;
   }
+  activeReviewCardId = next.id;
+  revealedReviewCards.delete(next.id);
+  renderInspector();
   const card = document.querySelector(`[data-card-id="${CSS.escape(next.id)}"]`);
   card?.scrollIntoView({ behavior: "smooth", block: "center" });
   card?.classList.add("pulse");
@@ -599,37 +605,55 @@ function renderReviewCards() {
     if (aDue !== bDue) return aDue - bDue;
     return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
   });
+  if (!orderedCards.some((card) => card.id === activeReviewCardId)) {
+    activeReviewCardId = dueCards[0]?.id || orderedCards[0]?.id || "";
+  }
   orderedCards.forEach((card) => {
     const isDue = dueCards.some((due) => due.id === card.id);
+    const isActive = card.id === activeReviewCardId;
+    const isRevealed = revealedReviewCards.has(card.id);
     const item = document.createElement("article");
-    item.className = `item-card review-card${isDue ? " due-card" : ""}`;
+    item.className = `item-card review-card${isDue ? " due-card" : ""}${isActive ? " active-review-card" : ""}`;
     item.dataset.cardId = card.id;
     item.append(
       textEl("div", "item-meta", `${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · strength ${card.strength}`),
       textEl("p", "card-prompt", card.prompt)
     );
 
-    const details = document.createElement("details");
-    const answer = document.createElement("div");
-    answer.className = "review-answer markdown-lite";
-    renderMarkdown(answer, card.answer);
-    details.append(textEl("summary", "", "Answer"), answer);
-    item.append(details);
-
     const footer = document.createElement("div");
     footer.className = "item-footer";
-    const again = textEl("button", "mini-button", "Again");
-    again.type = "button";
-    again.dataset.grade = "again";
-    const good = textEl("button", "mini-button", "Good");
-    good.type = "button";
-    good.dataset.grade = "good";
-    footer.append(again, good);
+    if (isRevealed) {
+      const answer = document.createElement("div");
+      answer.className = "review-answer markdown-lite";
+      renderMarkdown(answer, card.answer);
+      item.append(answer);
+
+      const again = textEl("button", "mini-button", "Again");
+      again.type = "button";
+      again.dataset.grade = "again";
+      const good = textEl("button", "mini-button", "Good");
+      good.type = "button";
+      good.dataset.grade = "good";
+      footer.append(again, good);
+    } else {
+      const reveal = textEl("button", "mini-button primary", "Reveal");
+      reveal.type = "button";
+      reveal.dataset.revealCard = card.id;
+      footer.append(reveal);
+    }
     item.append(footer);
 
+    footer.querySelector("[data-reveal-card]")?.addEventListener("click", () => {
+      activeReviewCardId = card.id;
+      revealedReviewCards.add(card.id);
+      renderInspector();
+    });
     footer.querySelectorAll("[data-grade]").forEach((button) => {
       button.addEventListener("click", () => {
         workspace = gradeCard(workspace, session.id, card.id, button.dataset.grade);
+        revealedReviewCards.delete(card.id);
+        const [next] = getDueReviewCards(getActiveSession(workspace));
+        activeReviewCardId = next?.id || "";
         persistAndRender("Review updated");
       });
     });
