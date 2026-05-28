@@ -284,6 +284,44 @@ try {
       && document.querySelector("#downloadTodayBtn").textContent === "Save Today";
     const nativeBridgeExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
     const nativeBridgeImportResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify(nativeBridgeExport));
+    const nativeBridgeReviewPatchResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      schema: "learning-companion.review-progress-patch.v1",
+      appVersion: 1,
+      patchId: "native_bridge_review_patch_missing",
+      createdAt: "2026-05-29T09:02:00+08:00",
+      source: { generatedBy: "review.html", workspaceFingerprint: "native-bridge" },
+      events: [{
+        id: "native_bridge_review_event_missing",
+        sessionId: nativeBridgeExport.activeSessionId,
+        cardId: "missing_native_bridge_card",
+        grade: "good",
+        reviewedAt: "2026-05-29T09:03:00+08:00",
+        baseUpdatedAt: "2026-05-29T09:00:00.000Z",
+        baseDueAt: "2026-05-29T09:00:00.000Z",
+        baseStrength: 0
+      }]
+    }));
+    const nativeBridgeInboxPatchResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      schema: "learning-companion.mobile-inbox-patch.v1",
+      appVersion: 1,
+      patchId: "native_bridge_inbox_patch_001",
+      createdAt: "2026-05-29T09:04:00+08:00",
+      source: { generatedBy: "inbox.html", workspaceFingerprint: "native-bridge", topicId: nativeBridgeExport.activeSessionId },
+      target: { topicId: nativeBridgeExport.activeSessionId },
+      captures: [{
+        id: "native_bridge_inbox_capture_001",
+        quote: "Native menu imported this phone patch.",
+        thought: "Mac bridge should share the same patch path as the browser file input.",
+        timestamp: "09:04",
+        sourceTitle: "Native bridge smoke",
+        sourceUrl: "https://example.com/native-bridge",
+        materialType: "doc",
+        tags: "native bridge",
+        capturedAt: "2026-05-29T09:04:30+08:00"
+      }]
+    }));
+    const nativeBridgeInboxReceiptText = document.querySelector("#importReceipt").textContent;
+    const nativeBridgeRestoreAfterPatch = window.learningCompanionNative.importWorkspaceJson(JSON.stringify(nativeBridgeExport));
     const nativeBridgeRoundTrip = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
     const nativeSidecarOn = window.learningCompanionNative.setSidecarLayout(true);
     const nativeSidecarClassOn = document.querySelector(".app-shell").classList.contains("sidecar-layout");
@@ -420,6 +458,14 @@ try {
           exportSections,
           nativeBridgeExportSchema: nativeBridgeExport.schema,
           nativeBridgeImportOk: nativeBridgeImportResult.ok === true,
+          nativeBridgeReviewPatchOk: nativeBridgeReviewPatchResult.ok === true,
+          nativeBridgeReviewPatchKind: nativeBridgeReviewPatchResult.kind,
+          nativeBridgeReviewPatchMissing: nativeBridgeReviewPatchResult.receipt?.skippedMissing || 0,
+          nativeBridgeInboxPatchOk: nativeBridgeInboxPatchResult.ok === true,
+          nativeBridgeInboxPatchKind: nativeBridgeInboxPatchResult.kind,
+          nativeBridgeInboxPatchAdded: nativeBridgeInboxPatchResult.receipt?.added || 0,
+          nativeBridgeInboxReceiptText,
+          nativeBridgeRestoreAfterPatchOk: nativeBridgeRestoreAfterPatch.ok === true,
           nativeBridgeRoundTripSchema: nativeBridgeRoundTrip.schema,
           nativeBridgeRoundTripSessions: nativeBridgeRoundTrip.sessions.length,
           nativeBridgeRoundTripActiveId: nativeBridgeRoundTrip.activeSessionId,
@@ -584,6 +630,15 @@ try {
   assert.equal(result.hasReviewPackButtons, true);
   assert.equal(result.nativeBridgeExportSchema, "learning-companion.workspace.v1");
   assert.equal(result.nativeBridgeImportOk, true);
+  assert.equal(result.nativeBridgeReviewPatchOk, true);
+  assert.equal(result.nativeBridgeReviewPatchKind, "review-progress-patch");
+  assert.equal(result.nativeBridgeReviewPatchMissing, 1);
+  assert.equal(result.nativeBridgeInboxPatchOk, true);
+  assert.equal(result.nativeBridgeInboxPatchKind, "mobile-inbox-patch");
+  assert.equal(result.nativeBridgeInboxPatchAdded, 1);
+  assert.match(result.nativeBridgeInboxReceiptText, /Mobile inbox imported/);
+  assert.match(result.nativeBridgeInboxReceiptText, /1 added/);
+  assert.equal(result.nativeBridgeRestoreAfterPatchOk, true);
   assert.equal(result.nativeBridgeRoundTripSchema, "learning-companion.workspace.v1");
   assert.equal(result.nativeBridgeRoundTripSessions, 1);
   assert.equal(typeof result.nativeBridgeRoundTripActiveId, "string");

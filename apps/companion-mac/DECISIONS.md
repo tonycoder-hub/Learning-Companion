@@ -26,7 +26,7 @@ Guardrails:
 - The shell uses a deterministic `file://` origin by default. It does not silently fall back to `http://127.0.0.1:5173/`, because that would split localStorage and look like data loss.
 - External `http`/`https` navigation is handed to the system browser.
 - Only files under the resolved web root are allowed to load inside the shell.
-- Native import/export talks to an explicit web bridge and the same workspace JSON schema as the browser app. It does not add a second Mac-only persistence format.
+- Native import/export talks to an explicit web bridge and the same workspace/patch import path as the browser app. It does not add a second Mac-only persistence format.
 - `Export Workspace...` uses `Shift+Cmd+E` rather than `Cmd+S` because this is a user-chosen JSON export, not a document save-to-current-file action.
 - `Open Morning Review Pack` opens the generated local fixture dashboard from `dist/morning-demo/review-start-here.html` when it exists. It is a developer review shortcut, not a cloud or production packaging feature.
 - The web bridge is intentionally unprivileged: it only exposes workspace JSON import/export already available in the browser UI, while all native file access remains behind user-initiated AppKit panels.

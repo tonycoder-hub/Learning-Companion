@@ -188,50 +188,80 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
     if (isReviewProgressPatchLike(imported) && file.size > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
       throw new Error("Review progress patch is too large.");
     }
-    if (isMobileInboxPatch(imported)) {
-      const result = applyMobileInboxPatch(workspace, imported);
-      workspace = result.workspace;
-      lastImportReceipt = result.receipt;
-      setActivity(getActiveSession(workspace), {
-        title: "Mobile inbox imported",
-        detail: formatInboxReceipt(result.receipt),
-        tab: "captures",
-        targetId: ""
-      });
-      persistAndRender(`Inbox import: ${result.receipt.added} added`);
-      return;
-    }
-    if (isReviewProgressPatch(imported)) {
-      const result = applyReviewProgressPatch(workspace, imported);
-      workspace = result.workspace;
-      lastImportReceipt = result.receipt;
-      setActivity(getActiveSession(workspace), {
-        title: "Review progress imported",
-        detail: formatImportReceipt(result.receipt),
-        tab: "review",
-        targetId: ""
-      });
-      persistAndRender(`Review import: ${result.receipt.applied} applied`);
-      return;
-    }
-    if (isMobileInboxPatchLike(imported)) {
-      throw new Error("Unsupported mobile inbox patch schema.");
-    }
-    if (isReviewProgressPatchLike(imported)) {
-      throw new Error("Unsupported review progress patch schema.");
-    }
-    if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
-      showToast("Import canceled");
-      return;
-    }
-    workspace = workspaceFromPortableData(imported);
-    persistAndRender("Workspace imported");
+    importPortableData(imported);
   } catch (error) {
     showToast(error.message || "Import failed");
   } finally {
     event.target.value = "";
   }
 });
+
+function importPortableData(imported, options = {}) {
+  const focusTodayOnWorkspace = Boolean(options.focusTodayOnWorkspace);
+  if (isMobileInboxPatch(imported)) {
+    const result = applyMobileInboxPatch(workspace, imported);
+    workspace = result.workspace;
+    lastImportReceipt = result.receipt;
+    setActivity(getActiveSession(workspace), {
+      title: "Mobile inbox imported",
+      detail: formatInboxReceipt(result.receipt),
+      tab: "captures",
+      targetId: ""
+    });
+    persistAndRender(`Inbox import: ${result.receipt.added} added`);
+    return {
+      ok: true,
+      kind: "mobile-inbox-patch",
+      receipt: result.receipt,
+      activeSessionId: workspace.activeSessionId,
+      sessions: workspace.sessions.length
+    };
+  }
+  if (isReviewProgressPatch(imported)) {
+    const result = applyReviewProgressPatch(workspace, imported);
+    workspace = result.workspace;
+    lastImportReceipt = result.receipt;
+    setActivity(getActiveSession(workspace), {
+      title: "Review progress imported",
+      detail: formatImportReceipt(result.receipt),
+      tab: "review",
+      targetId: ""
+    });
+    persistAndRender(`Review import: ${result.receipt.applied} applied`);
+    return {
+      ok: true,
+      kind: "review-progress-patch",
+      receipt: result.receipt,
+      activeSessionId: workspace.activeSessionId,
+      sessions: workspace.sessions.length
+    };
+  }
+  if (isMobileInboxPatchLike(imported)) {
+    throw new Error("Unsupported mobile inbox patch schema.");
+  }
+  if (isReviewProgressPatchLike(imported)) {
+    throw new Error("Unsupported review progress patch schema.");
+  }
+  if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
+    showToast("Import canceled");
+    return {
+      ok: false,
+      canceled: true
+    };
+  }
+  workspace = workspaceFromPortableData(imported);
+  if (focusTodayOnWorkspace) activeTab = "today";
+  activeReviewKey = "";
+  lastImportReceipt = null;
+  revealedReviewCards.clear();
+  persistAndRender("Workspace imported");
+  return {
+    ok: true,
+    kind: isMirrorBundle(imported) ? "mirror-bundle" : "workspace",
+    sessions: workspace.sessions.length,
+    activeSessionId: workspace.activeSessionId
+  };
+}
 
 dom.searchInput.addEventListener("input", () => {
   if (dom.searchInput.value.length > MAX_SEARCH_QUERY_LENGTH) {
@@ -1791,23 +1821,7 @@ function installNativeBridge() {
     },
     importWorkspaceJson(text) {
       const imported = JSON.parse(String(text || ""));
-      if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
-        return {
-          ok: false,
-          canceled: true
-        };
-      }
-      workspace = workspaceFromPortableData(imported);
-      activeTab = "today";
-      activeReviewKey = "";
-      lastImportReceipt = null;
-      revealedReviewCards.clear();
-      persistAndRender("Workspace imported");
-      return {
-        ok: true,
-        sessions: workspace.sessions.length,
-        activeSessionId: workspace.activeSessionId
-      };
+      return importPortableData(imported, { focusTodayOnWorkspace: true });
     },
     captureClipboardText(text, options = {}) {
       return captureTextFromNative(text, options);

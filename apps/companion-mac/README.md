@@ -27,7 +27,7 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 - If selected-text capture cannot read a selection because the frontmost app does not expose one, it prompts for Accessibility access when needed and only falls back to clipboard capture when the clipboard has changed since the last native capture. That fallback uses an explicit `Clipboard fallback` activity label. The Capture menu shows whether Accessibility access is currently available.
 - Adds a local `Capture > Fill Capture From Clipboard` command (`Cmd+Shift+V`) that places clipboard text into Quick Capture without requiring global hotkey permissions.
 - Shows the global hotkey registration status in the Capture menu so shortcut collisions are visible during development.
-- Adds app-focused `File > Export Workspace...` (`Shift+Cmd+E`) and `File > Import Workspace...` (`Cmd+O`) commands for local JSON backup/restore without browser downloads.
+- Adds app-focused `File > Export Workspace...` (`Shift+Cmd+E`) and `File > Import Workspace...` (`Cmd+O`) commands for local JSON backup/restore and append-only phone/Windows patch intake without browser downloads.
 - Adds `File > Open Morning Review Pack` for the generated `dist/morning-demo/review-start-here.html` dashboard when the fixture pack exists.
 - Adds `Window > Enter Sidecar Window` (`Option+Cmd+]`) and `Window > Restore Desk Window` (`Option+Cmd+[`) so the shell can snap into a narrow right-side study panel next to a browser or document.
 - Adds `Window > Keep Window Above Others` as a manual floating-window toggle for focused study sessions.
