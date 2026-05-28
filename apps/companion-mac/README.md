@@ -2,7 +2,7 @@
 
 This is a minimal native macOS shell for the local web MVP. It deliberately has no package dependencies and loads `apps/companion-web/index.html` in a `WKWebView`.
 
-It is a WKWebView shell, not the finished Mac app: no browser-context capture, no notarization, and not redistributable yet.
+It is a WKWebView shell, not the finished Mac app: no selected-text capture without copy-first, no notarization, and not redistributable yet.
 
 ## Run
 
@@ -22,6 +22,7 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 
 - Opens the existing local-first web app in a resizable Mac window.
 - Adds `Capture > Save Clipboard as Capture` (`Ctrl+Option+Cmd+C`) plus a matching best-effort global hotkey. Copy text in another app, press the shortcut, and the shell brings Learning Companion forward and saves the clipboard text into the active topic.
+- When the hotkey is pressed while Safari or a Chromium-family browser is frontmost, the shell tries to attach the active page title and URL to the capture. macOS may ask whether Learning Companion can control that browser; if permission is denied or unavailable, the text capture still works without page context.
 - Adds a local `Capture > Fill Capture From Clipboard` command (`Cmd+Shift+V`) that places clipboard text into Quick Capture without requiring global hotkey permissions.
 - Shows the global hotkey registration status in the Capture menu so shortcut collisions are visible during development.
 - Adds app-focused `File > Export Workspace...` (`Shift+Cmd+E`) and `File > Import Workspace...` (`Cmd+O`) commands for local JSON backup/restore without browser downloads.
@@ -33,8 +34,8 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 
 ## Not Yet
 
-- No active browser URL bridge.
-- No selected-text capture without copying first; the global hotkey reads the clipboard only after you press it.
+- No deep browser bridge beyond best-effort active page title/URL.
+- No selected-text capture without copying first; the global hotkey reads the clipboard only after you press it and page context is best-effort.
 - No packaged `.app` menu polish beyond the current capture, sidecar, and workspace file commands.
 - No packaged `.app` signing/notarization flow.
 

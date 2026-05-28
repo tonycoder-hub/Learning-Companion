@@ -18,7 +18,7 @@ Boundaries:
 
 - This is not yet the full Mac app.
 - It has clipboard-to-capture menu commands, a best-effort global clipboard capture hotkey, and native window commands for a narrow sidecar layout.
-- No active browser URL bridge.
+- It has best-effort active browser title/URL capture, but no deeper browser bridge or selected-text capture without copy-first.
 - No packaged `.app`, signing, notarization, auto-update, or menu bar workflow.
 
 Guardrails:
@@ -32,6 +32,9 @@ Guardrails:
 - Import rejects files larger than 5 MB or non-UTF-8 content before handing text to WebKit, and surfaces those failures through an `NSAlert`.
 - `Save Clipboard as Capture` reads the pasteboard only after an explicit menu command or `Ctrl+Option+Cmd+C` hotkey, then calls the same web-model capture path as the browser UI. It does not inspect browser state, browser cookies, or the current selection directly.
 - Global hotkey registration is intentionally visible in the Capture menu. If another app owns the shortcut, the shell marks the hotkey unavailable and writes a short local diagnostic without any clipboard content.
+- Browser page context is best-effort and copy-first: the global hotkey tries to ask the frontmost Safari/Chromium-family browser for active page title and URL before the shell activates, then sends those fields through the same source-aware routing path as bookmarklet captures. If macOS automation access is unavailable, the capture still saves without source context.
+- Browser context is limited to `http` and `https` pages. Browser internal pages, local files, unsupported reading apps, no-tab states, and denied macOS Automation prompts degrade to text-only capture. Private/incognito windows are not detectable through this simple bridge; if a user captures there, the active page title/URL may be saved like any other page.
+- If the browser URL does not match any existing topic, the capture intentionally lands in the active topic and updates that topic's source. The activity strip names this as "no matching topic" so a focus mistake is visible instead of silent.
 - `Enter Sidecar Window` changes both layers together: the native window narrows to the right side of the current screen, and the web UI enters its existing sidecar layout through the unprivileged bridge. Normal and sidecar frame autosave names are split so a narrow panel does not overwrite the normal desk frame.
 - `Keep Window Above Others` is manual rather than automatic, so the user decides when the sidecar should float over video or document windows. Default sidecar shortcuts use `Option+Cmd+]` to enter and `Option+Cmd+[` to restore, avoiding the common zoom-reset meaning of `Cmd+0`.
 
@@ -46,4 +49,4 @@ Manual QA checklist before treating the sidecar window as release-ready:
 Next decisions:
 
 - Decide whether to grow this shell with native AppKit affordances or pivot to Tauri/Electron before adding user-visible Mac-only features.
-- If this path continues, add global capture, menu commands, packaged `.app` creation, and a real browser-context bridge deliberately.
+- If this path continues, add selected-text capture without copy-first, packaged `.app` creation, and a richer browser-context bridge deliberately.

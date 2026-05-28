@@ -792,6 +792,28 @@ try {
   assert.equal(stagedCollision.activityTitle, "Browser clip staged");
   assert.match(stagedCollision.activityDetail, /current topic/);
 
+  const urlWithTitleCollision = `${appUrl}?sourceTitle=${encodeURIComponent("External course page")}&sourceUrl=${encodeURIComponent("https://example.com/not-the-scratch-source")}&quote=${encodeURIComponent("URL should block title fallback")}&capture=1`;
+  await cdp.send("Page.navigate", { url: urlWithTitleCollision });
+  await sleep(300);
+  const urlTitleCollision = await cdp.evaluate(`(() => {
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const decoy = workspace.sessions.find((item) => item.title === "Scratch decoy");
+    return {
+      activeTitle: session.title,
+      activeSourceUrl: session.sourceUrl,
+      latestQuote: session.captures[0]?.quote || "",
+      decoyCaptures: decoy?.captures.length || 0,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`);
+
+  assert.equal(urlTitleCollision.activeTitle, "Learning Companion MVP");
+  assert.equal(urlTitleCollision.activeSourceUrl, "https://example.com/not-the-scratch-source");
+  assert.equal(urlTitleCollision.latestQuote, "URL should block title fallback");
+  assert.equal(urlTitleCollision.decoyCaptures, 0);
+  assert.match(urlTitleCollision.activityDetail, /no matching topic/);
+
   await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
@@ -941,7 +963,7 @@ try {
   assert.equal(runtimeVideoCapture.latestSourceUrl, `${appUrl}external-video.html`);
   assert.equal(runtimeVideoCapture.latestSourceProvenance, "inbound");
   assert.equal(runtimeVideoCapture.activityTitle, "Browser capture saved");
-  assert.match(runtimeVideoCapture.activityDetail, /current topic source updated/);
+  assert.match(runtimeVideoCapture.activityDetail, /no matching topic/);
 
   virtualRoutes.set("/external-doc.html", `<!doctype html>
 <html>
@@ -1008,7 +1030,7 @@ try {
   assert.equal(runtimeDocCapture.latestSourceUrl, `${appUrl}external-doc.html`);
   assert.equal(runtimeDocCapture.latestSourceProvenance, "inbound");
   assert.equal(runtimeDocCapture.activityTitle, "Browser capture saved");
-  assert.match(runtimeDocCapture.activityDetail, /current topic source updated/);
+  assert.match(runtimeDocCapture.activityDetail, /no matching topic/);
 
   virtualRoutes.set("/external-empty.html", `<!doctype html>
 <html>
@@ -1063,7 +1085,7 @@ try {
   assert.equal(runtimeEmptySelection.captureCount, runtimeDocCapture.captureCount);
   assert.equal(runtimeEmptySelection.latestQuote, "Virtual document selected excerpt.");
   assert.equal(runtimeEmptySelection.activityTitle, "Browser source updated");
-  assert.match(runtimeEmptySelection.activityDetail, /current topic source updated/);
+  assert.match(runtimeEmptySelection.activityDetail, /no matching topic/);
 
   const globalReview = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
@@ -1168,16 +1190,48 @@ try {
   assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
     const result = window.learningCompanionNative.captureClipboardText("Native clipboard bridge direct capture.");
+    const browserResult = window.learningCompanionNative.captureClipboardText("Native browser context bridge capture.", {
+      sourceTitle: "Native browser docs",
+      sourceUrl: "https://developer.mozilla.org/en-US/docs/Web/API/Selection"
+    });
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Native source target");
+    setValue("#sourceTitle", "Native original page");
+    setValue("#sourceUrl", "https://example.com/native?a=1&b=2");
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Native source decoy");
+    setValue("#sourceTitle", "Native decoy page");
+    setValue("#sourceUrl", "https://example.com/native-decoy");
+    const matchedResult = window.learningCompanionNative.captureClipboardText("Native matched source bridge capture.", {
+      sourceTitle: "Native changed page",
+      sourceUrl: "https://example.com/native?b=2&a=1&utm_source=clip"
+    });
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const decoy = workspace.sessions.find((item) => item.title === "Native source decoy");
     return {
       ok: result.ok,
+      browserOk: browserResult.ok,
+      browserSourceAttached: browserResult.sourceAttached,
+      browserResolution: browserResult.resolution,
+      matchedOk: matchedResult.ok,
+      matchedResolution: matchedResult.resolution,
       activeTab: result.activeTab,
       captureId: result.captureId,
       latestQuote: session.captures[0]?.quote || "",
       latestSourceTitle: session.captures[0]?.sourceTitle || "",
+      latestSourceUrl: session.captures[0]?.sourceUrl || "",
       latestSourceProvenance: session.captures[0]?.sourceProvenance || "",
+      sessionTitle: session.title,
+      sessionSourceTitle: session.sourceTitle,
+      sessionSourceUrl: session.sourceUrl,
+      decoyCaptures: decoy?.captures.length || 0,
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent,
       activeTabUi: document.querySelector(".tab.active")?.dataset.tab || ""
@@ -1185,13 +1239,24 @@ try {
   })()`);
 
   assert.equal(nativeClipboardCapture.ok, true);
+  assert.equal(nativeClipboardCapture.browserOk, true);
+  assert.equal(nativeClipboardCapture.browserSourceAttached, true);
+  assert.equal(nativeClipboardCapture.browserResolution, "active-fallback");
+  assert.equal(nativeClipboardCapture.matchedOk, true);
+  assert.equal(nativeClipboardCapture.matchedResolution, "matched-source-url");
   assert.equal(nativeClipboardCapture.activeTab, "captures");
   assert.match(nativeClipboardCapture.captureId, /^capture_/);
-  assert.equal(nativeClipboardCapture.latestQuote, "Native clipboard bridge direct capture.");
-  assert.equal(nativeClipboardCapture.latestSourceTitle, "");
-  assert.equal(nativeClipboardCapture.latestSourceProvenance, "snapshot");
+  assert.equal(nativeClipboardCapture.latestQuote, "Native matched source bridge capture.");
+  assert.equal(nativeClipboardCapture.latestSourceTitle, "Native changed page");
+  assert.equal(nativeClipboardCapture.latestSourceUrl, "https://example.com/native?b=2&a=1&utm_source=clip");
+  assert.equal(nativeClipboardCapture.latestSourceProvenance, "inbound");
+  assert.equal(nativeClipboardCapture.sessionTitle, "Native source target");
+  assert.equal(nativeClipboardCapture.sessionSourceTitle, "Native original page");
+  assert.equal(nativeClipboardCapture.sessionSourceUrl, "https://example.com/native?a=1&b=2");
+  assert.equal(nativeClipboardCapture.decoyCaptures, 0);
   assert.equal(nativeClipboardCapture.activityTitle, "Clipboard capture saved");
-  assert.match(nativeClipboardCapture.activityDetail, /Native clipboard bridge/);
+  assert.match(nativeClipboardCapture.activityDetail, /Native matched source/);
+  assert.match(nativeClipboardCapture.activityDetail, /matched existing source URL/);
   assert.equal(nativeClipboardCapture.activeTabUi, "captures");
 
   await cdp.send("Emulation.setDeviceMetricsOverride", {

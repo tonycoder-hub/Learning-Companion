@@ -12,7 +12,8 @@ product/mvp-learning-sidecar
 - Installable web shell metadata and static offline cache.
 - Minimal macOS WKWebView shell scaffold builds with SwiftPM.
 - Mac shell has an app-focused clipboard-to-capture menu command.
-- Mac shell can save clipboard text directly as a capture with `Ctrl+Option+Cmd+C` via a best-effort global hotkey that does not read browser state, with registration status visible in the Capture menu.
+- Mac shell can save clipboard text directly as a capture with `Ctrl+Option+Cmd+C` via a best-effort global hotkey, with registration status visible in the Capture menu.
+- Mac shell hotkey capture can attach active Safari/Chromium-family page title and URL when macOS automation access is available, then route through the same source-aware matching path as bookmarklet captures.
 - Mac shell has app-focused workspace JSON import/export menu commands (`Cmd+O`, `Shift+Cmd+E`) that reuse the web workspace bridge.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
 - Three-pane learning sidecar for Mac/browser workflow.
@@ -118,7 +119,7 @@ Accepted from Mira:
 Deferred:
 
 - Real Feishu OpenAPI sync. One-way export should come before sync.
-- Native Mac shell beyond the thin wrapper: production packaging, selected-text capture without copy-first, richer browser URL bridge, multi-display sidecar polish, and packaged menu polish.
+- Native Mac shell beyond the thin wrapper: production packaging, selected-text capture without copy-first, richer browser URL bridge beyond title/URL, multi-display sidecar polish, and packaged menu polish.
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
@@ -128,7 +129,7 @@ Deferred:
 ## Next Best Commits
 
 1. Add a real Feishu one-way uploader that consumes the mirror bundle after credentials are explicitly configured.
-2. Start selected-text/browser-context capture as the next native affordance.
+2. Start selected-text capture without copy-first as the next native affordance.
 3. Start HarmonyOS schema reader prototype after one-way export is stable.
 4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
 
@@ -143,7 +144,7 @@ Deferred:
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.
-- Mac shell is currently a thin WKWebView wrapper with clipboard capture, a best-effort global clipboard hotkey, sidecar window commands, and workspace file commands; it does not yet add selected-text capture or browser context.
+- Mac shell is currently a thin WKWebView wrapper with clipboard capture, a best-effort global clipboard hotkey, best-effort browser title/URL context, sidecar window commands, and workspace file commands; it does not yet add selected-text capture without copy-first.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
 - Mac shell AppKit import/export panels build successfully, but panel cancel/oversize/invalid-file paths are not GUI-automated tonight.
 - HarmonyOS app is not started yet; schema is ready for exploration.

@@ -618,7 +618,7 @@ function formatInboundResolution(resolution, sourceUpdated = false) {
     "active-source": "active source",
     "matched-source-url": "matched existing source URL",
     "matched-source-title": "matched existing source title",
-    "active-fallback": sourceUpdated ? "current topic source updated" : "current topic"
+    "active-fallback": sourceUpdated ? "no matching topic; saved to current topic and updated source" : "current topic"
   }[resolution] || "current topic";
 }
 
@@ -682,15 +682,35 @@ function captureTextFromNative(text, options = {}) {
       error: "empty_capture"
     };
   }
-  const targetSession = getActiveSession(workspace);
+  const sourceTitle = String(options.sourceTitle || "");
+  const sourceUrl = String(options.sourceUrl || "");
+  const timestamp = String(options.timestamp || "");
+  const target = resolveInboundCaptureTarget(workspace, { sourceUrl, sourceTitle });
+  const preserveSessionSource = target.resolution !== "active-fallback";
+  const activeFallbackSourceUpdated = target.resolution === "active-fallback" && (
+    (sourceUrl && cleanUrl(sourceUrl) !== cleanUrl(target.session.sourceUrl)) ||
+    (sourceTitle && normalizeInboundSourceTitle(sourceTitle) !== normalizeInboundSourceTitle(target.session.sourceTitle))
+  );
   const promoteToReview = Boolean(options.promoteToReview);
-  workspace = updateSession(workspace, targetSession.id, { focusMode: "capture" });
-  workspace = addCapture(workspace, targetSession.id, {
+  workspace = selectSession(workspace, target.session.id);
+  workspace = updateSession(workspace, target.session.id, {
+    sourceUrl: preserveSessionSource
+      ? target.session.sourceUrl || sourceUrl
+      : sourceUrl || target.session.sourceUrl,
+    sourceTitle: preserveSessionSource
+      ? target.session.sourceTitle || sourceTitle
+      : sourceTitle || target.session.sourceTitle,
+    materialType: inferInboundMaterialType(sourceUrl, timestamp, target.session.materialType),
+    focusMode: "capture"
+  });
+  workspace = addCapture(workspace, target.session.id, {
     quote,
     thought: "",
-    timestamp: "",
-    tags: targetSession.tags,
-    sourceProvenance: "snapshot"
+    timestamp,
+    tags: target.session.tags,
+    sourceTitle,
+    sourceUrl,
+    sourceProvenance: sourceTitle || sourceUrl ? "inbound" : "snapshot"
   }, {
     promoteToReview
   });
@@ -699,7 +719,9 @@ function captureTextFromNative(text, options = {}) {
   const capture = updated.captures[0];
   setActivity(updated, {
     title: promoteToReview ? "Clipboard capture and card saved" : "Clipboard capture saved",
-    detail: summarizeCapture(capture),
+    detail: sourceTitle || sourceUrl
+      ? `${summarizeCapture(capture)} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`
+      : summarizeCapture(capture),
     tab: activeTab,
     targetId: promoteToReview ? updated.reviewCards[0]?.id : capture?.id
   });
@@ -710,7 +732,9 @@ function captureTextFromNative(text, options = {}) {
     captureId: capture?.id || "",
     reviewCardId: promoteToReview ? updated.reviewCards[0]?.id || "" : "",
     captures: updated.captures.length,
-    activeTab
+    activeTab,
+    sourceAttached: Boolean(sourceTitle || sourceUrl),
+    resolution: target.resolution
   };
 }
 

@@ -3,6 +3,11 @@ import Carbon.HIToolbox
 import UniformTypeIdentifiers
 import WebKit
 
+private struct BrowserContext {
+  let title: String
+  let url: String
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
   private let maxWorkspaceImportBytes = 5_000_000
   private let clipboardCaptureHotKeyId: UInt32 = 1
@@ -92,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       NSSound.beep()
       return
     }
-    captureClipboardText(text, promoteToReview: false)
+    captureClipboardText(text, promoteToReview: false, browserContext: frontmostBrowserContext())
   }
 
   @objc private func exportWorkspace(_ sender: Any?) {
@@ -410,20 +415,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     clipboardCaptureHotKeyStatusItem?.title = title
   }
 
-  private func captureClipboardText(_ text: String, promoteToReview: Bool) {
+  private func captureClipboardText(_ text: String, promoteToReview: Bool, browserContext: BrowserContext? = nil) {
     guard let webView,
           let encoded = jsonStringLiteral(text) else {
       NSSound.beep()
       return
     }
+    var options: [String: Any] = [
+      "promoteToReview": promoteToReview
+    ]
+    if let browserContext {
+      options["sourceTitle"] = browserContext.title
+      options["sourceUrl"] = browserContext.url
+    }
+    guard let optionsLiteral = jsonObjectLiteral(options) else {
+      NSSound.beep()
+      return
+    }
     window?.makeKeyAndOrderFront(nil)
     NSApp.activate()
-    let promote = promoteToReview ? "true" : "false"
     let script = """
     (() => {
       const bridge = window.learningCompanionNative;
       if (!bridge || typeof bridge.captureClipboardText !== "function") return JSON.stringify({ ok: false, error: "bridge_unavailable" });
-      const result = bridge.captureClipboardText(\(encoded), { promoteToReview: \(promote) });
+      const result = bridge.captureClipboardText(\(encoded), \(optionsLiteral));
       return JSON.stringify(result || { ok: false, error: "empty_result" });
     })()
     """
@@ -437,6 +452,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         return
       }
     }
+  }
+
+  private func frontmostBrowserContext() -> BrowserContext? {
+    guard let appName = NSWorkspace.shared.frontmostApplication?.localizedName else {
+      return nil
+    }
+    return browserContext(appName: appName)
+  }
+
+  private func browserContext(appName: String) -> BrowserContext? {
+    if ["Google Chrome", "Brave Browser", "Microsoft Edge", "Arc", "Vivaldi", "Opera"].contains(appName) {
+      return browserContextFromScript(appName: appName, scriptBody: """
+      if not (exists front window) then return ""
+      set tabTitle to title of active tab of front window
+      set tabUrl to URL of active tab of front window
+      return tabTitle & linefeed & tabUrl
+      """)
+    }
+    if appName == "Safari" {
+      return browserContextFromScript(appName: appName, scriptBody: """
+      if not (exists front document) then return ""
+      set tabTitle to name of front document
+      set tabUrl to URL of front document
+      return tabTitle & linefeed & tabUrl
+      """)
+    }
+    return nil
+  }
+
+  private func browserContextFromScript(appName: String, scriptBody: String) -> BrowserContext? {
+    let source = """
+    tell application "\(appleScriptString(appName))"
+    \(scriptBody)
+    end tell
+    """
+    var error: NSDictionary?
+    guard let output = NSAppleScript(source: source)?.executeAndReturnError(&error).stringValue else {
+      return nil
+    }
+    let parts = output
+      .split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+      .map(String.init)
+    guard parts.count == 2 else {
+      return nil
+    }
+    let title = parts[0].trimmingCharacters(in: .whitespacesAndNewlines)
+    let url = parts[1].trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !title.isEmpty || !url.isEmpty,
+          url.hasPrefix("http://") || url.hasPrefix("https://") else {
+      return nil
+    }
+    return BrowserContext(title: title, url: url)
   }
 
   private func requestWebSidecarLayout(_ enabled: Bool) {
@@ -558,6 +625,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       return nil
     }
     return String(encoded.dropFirst().dropLast())
+  }
+
+  private func jsonObjectLiteral(_ value: [String: Any]) -> String? {
+    guard JSONSerialization.isValidJSONObject(value),
+          let data = try? JSONSerialization.data(withJSONObject: value, options: []),
+          let encoded = String(data: data, encoding: .utf8) else {
+      return nil
+    }
+    return encoded
+  }
+
+  private func appleScriptString(_ value: String) -> String {
+    value
+      .replacingOccurrences(of: "\\", with: "\\\\")
+      .replacingOccurrences(of: "\"", with: "\\\"")
   }
 
   private func isAllowedShellURL(_ url: URL) -> Bool {
