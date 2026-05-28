@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -167,7 +168,8 @@ export function buildFeishuUploadDryRunReport(plan, filesDir, options = {}) {
       role: file.role,
       mediaType: file.mediaType,
       bytes,
-      contentFingerprint
+      contentFingerprint,
+      payloadSha256: sha256Text(content)
     };
   });
   const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
@@ -194,6 +196,21 @@ export function buildFeishuUploadDryRunReport(plan, filesDir, options = {}) {
       verifiedFiles: files.length,
       wouldUpsert: files.length,
       totalBytes
+    },
+    wouldSend: {
+      status: "not-sent",
+      reason: "dry-run-no-network",
+      provider: safePlan.provider.name,
+      operation: "one-way-folder-upsert",
+      rootName: safePlan.target.rootName,
+      requestCount: files.length,
+      requests: files.map((file) => ({
+        adapterAction: file.action,
+        virtualPath: file.path,
+        mediaType: file.mediaType,
+        payloadBytes: file.bytes,
+        payloadSha256: file.payloadSha256
+      }))
     },
     files
   };
@@ -313,6 +330,10 @@ function fingerprintText(value) {
     hash = Math.imul(hash, 0x01000193);
   }
   return `fnv1a-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+function sha256Text(value) {
+  return createHash("sha256").update(String(value)).digest("hex");
 }
 
 function parseArgs(argv) {

@@ -23,6 +23,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Mac shell can open the generated morning review dashboard (`dist/morning-demo/review-start-here.html`) from `File > Open Morning Review Pack`.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
+- Feishu dry-run report records a no-network `wouldSend` envelope with virtual upsert paths, byte counts, and payload SHA-256 hashes.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
 - HarmonyOS handoff now includes a DevEco/ArkTS scaffold contract plus a pure import/patch boundary module covered by `smoke:harmony`.
 - Three-pane learning sidecar for Mac/browser workflow.

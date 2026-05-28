@@ -627,10 +627,15 @@ try {
   assert.equal(dryRunReport.ok, true);
   assert.equal(dryRunReport.boundary.network, "not-called");
   assert.match(dryRunReport.boundary.statement, /No network call was made/);
+  assert.equal(dryRunReport.wouldSend.status, "not-sent");
+  assert.equal(dryRunReport.wouldSend.requestCount, mirror.files.length);
+  assert.equal(dryRunReport.wouldSend.requests.every((request) => request.adapterAction === "upsert"), true);
+  assert.equal(dryRunReport.wouldSend.requests.every((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)), true);
   assert.equal(dryRunReport.summary.plannedFiles, mirror.files.length);
   assert.equal(dryRunReport.summary.verifiedFiles, mirror.files.length);
   assert.equal(dryRunReport.summary.wouldUpsert, mirror.files.length);
   assert.equal(dryRunReport.files.every((file) => file.status === "would-upsert"), true);
+  assert.equal(dryRunReport.files.every((file) => /^[a-f0-9]{64}$/.test(file.payloadSha256)), true);
 } finally {
   rmSync(uploadOutDir, { recursive: true, force: true });
 }

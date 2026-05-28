@@ -270,6 +270,9 @@ await writeJson(join(FEISHU_UPLOAD_DIR, "feishu-upload-report.json"), feishuUplo
 assert.equal(feishuUploadResult.fileCount, mirrorBundle.files.length);
 assert.equal(feishuUploadResult.bundleFingerprint, mirrorBundle.manifest.bundleFingerprint);
 assert.equal(feishuUploadReport.summary.verifiedFiles, mirrorBundle.files.length);
+assert.equal(feishuUploadReport.wouldSend.status, "not-sent");
+assert.equal(feishuUploadReport.wouldSend.requestCount, mirrorBundle.files.length);
+assert.equal(feishuUploadReport.wouldSend.requests.every((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)), true);
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
 assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
 
@@ -367,6 +370,11 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   feishuUploadPlan: "feishu-upload/feishu-upload-plan.json",
   feishuUploadReport: "feishu-upload/feishu-upload-report.json",
   feishuUploadFileCount: feishuUploadResult.fileCount,
+  feishuUploadWouldSend: {
+    status: feishuUploadReport.wouldSend.status,
+    requestCount: feishuUploadReport.wouldSend.requestCount,
+    operation: feishuUploadReport.wouldSend.operation
+  },
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   macManualQaStatus,
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
@@ -381,6 +389,9 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     feishuUploadFileCount: feishuUploadResult.fileCount,
     feishuUploadDryRunVerified: feishuUploadReport.summary.verifiedFiles,
     feishuUploadNoNetworkCall: feishuUploadReport.boundary.network === "not-called",
+    feishuUploadWouldSendNoNetwork: feishuUploadReport.wouldSend.status === "not-sent",
+    feishuUploadWouldSendRequests: feishuUploadReport.wouldSend.requestCount,
+    feishuUploadWouldSendPayloadHashes: feishuUploadReport.wouldSend.requests.filter((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)).length,
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
@@ -421,7 +432,7 @@ function buildStageMarkdown({
     "| Area | Stage | Evidence in this pack | Not proven |",
     "| --- | --- | --- | --- |",
     `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
-    `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
+    `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
@@ -495,7 +506,7 @@ function buildMacManualQaMarkdown({
     "| Export backup | Use `File > Export Workspace...`. | A JSON workspace backup can be saved locally. | NT |  |",
     "| Relaunch persistence | Quit and relaunch the shell. | Workspace persists through WebKit localStorage. | NT |  |",
     `| Mirror inspection | Open \`dist/morning-demo/mirror-folder/index.html\` and \`${sampleMirrorZipFile}\`. | Static mirror is readable; ZIP extracts to the same conceptual folder. | NT |  |`,
-    `| Feishu dry-run artifact | Inspect \`dist/morning-demo/feishu-upload/feishu-upload-report.json\`. | Boundary says: ${feishuUploadReport.boundary.statement} | NT |  |`,
+    `| Feishu dry-run artifact | Inspect \`dist/morning-demo/feishu-upload/feishu-upload-report.json\`. | Boundary says: ${feishuUploadReport.boundary.statement}; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests. | NT |  |`,
     "",
     "## Notes",
     "",
@@ -550,7 +561,7 @@ function buildMorningReviewMarkdown({
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
-    `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files)`,
+    `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, not sent)`,
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
     `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
     `- Sample workspace restore: \`${SAMPLE_WORKSPACE_FILE}\``,
@@ -575,7 +586,7 @@ function buildMorningReviewMarkdown({
     `- Review progress sample: ${reviewReceipt.applied} applied, ${reviewReceipt.skippedConflict} stale conflicts.`,
     `- Review progress conflict sample: ${reviewConflictReceipt.applied} applied, ${reviewConflictReceipt.skippedConflict} stale conflict skipped.`,
     `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
-    `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.boundary.statement}`,
+    `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes; ${feishuUploadReport.boundary.statement}`,
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
@@ -625,7 +636,7 @@ function buildReviewStartHereHtml({
     ["Portable review", "mirror-folder/review.html", "Offline review page that exports progress patches."],
     ["Mobile inbox", "mirror-folder/inbox.html", "Phone/Windows capture draft page."],
     ["Feishu Upload Plan (local fixture, no live API)", "feishu-upload/feishu-upload-plan.json", `${feishuUploadPlan.files.length} local one-way upserts; no live credentials or Drive writes.`],
-    ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified before any real uploader exists.`],
+    ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests remain not-sent.`],
     ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
     ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics; not device-verified.`],
     ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
@@ -641,7 +652,7 @@ function buildReviewStartHereHtml({
     ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`],
     ["Unsupported patch rejection", unsupportedInboxPatchRejected ? "covered" : "missing", "invalid mobile inbox patch rejected before import"],
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
-    ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.boundary.statement}`],
+    ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.boundary.statement}`],
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   const stageRows = [
