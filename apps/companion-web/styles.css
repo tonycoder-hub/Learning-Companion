@@ -255,7 +255,7 @@ textarea:focus {
 
 .desk {
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto auto auto 1fr;
   gap: 14px;
   min-width: 0;
   padding: 18px;
@@ -297,6 +297,41 @@ textarea:focus {
 }
 
 .metric-cell small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-strip {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  min-height: 58px;
+  padding: 10px 12px;
+  border: 1px solid rgba(49, 95, 130, 0.22);
+  border-radius: 8px;
+  background: #f5f8fa;
+}
+
+.activity-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.activity-copy strong,
+.activity-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-copy strong {
+  font-size: 13px;
+}
+
+.activity-copy span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -692,6 +727,7 @@ textarea:focus {
   .source-strip,
   .focus-row,
   .metrics-row,
+  .activity-strip,
   .work-grid,
   .capture-pane,
   .synthesis-pane,

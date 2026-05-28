@@ -32,6 +32,7 @@ When activated, it opens Learning Companion with:
 - current page URL
 - selected text as a capture
 - active video time when a `<video>` element is present
+- a visible activity-strip confirmation in the main desk, even if the inspector is hidden
 
 If no text is selected, it still updates the current session source context.
 

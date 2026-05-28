@@ -16,6 +16,7 @@ UI shell
   Vanilla HTML/CSS/JS for the MVP
   Web app manifest + service worker for installable/offline shell
   Sidecar layout preference for focused browser-adjacent study
+  Desk activity strip for visible feedback when side panels are hidden
 
 State model
   Workspace JSON in localStorage
@@ -58,6 +59,8 @@ The native shell should come after the interaction model stabilizes. It should a
 The installable web shell is a bridge for Mac and Windows: it gives a standalone window and static offline reloads without creating a native credential or packaging surface tonight.
 
 The sidecar layout preference is intentionally a local UI setting rather than part of the workspace schema. It helps the web MVP act like a compact Mac companion window without polluting portable learning data.
+
+The activity strip is derived UI state, not sync state. It mirrors the latest capture/review/synthesis action in the main desk so sidecar mode can hide the inspector without making save actions feel invisible. Its in-memory activity message is scoped to the active session; after a reload or session switch, it falls back to a derived latest-capture or review-queue summary. In sidecar layout, the strip action is labeled as an exit from focus mode and opens the relevant inspector tab/item.
 
 ## Feishu Sync Direction
 

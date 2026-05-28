@@ -52,6 +52,9 @@ const dom = {
   cardMetric: document.querySelector("#cardMetric"),
   dueMetric: document.querySelector("#dueMetric"),
   sizeMetric: document.querySelector("#sizeMetric"),
+  activityTitle: document.querySelector("#activityTitle"),
+  activityDetail: document.querySelector("#activityDetail"),
+  activityDetailsBtn: document.querySelector("#activityDetailsBtn"),
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
   capturePane: document.querySelector("#capturePane"),
@@ -93,6 +96,7 @@ let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
 let activeReviewKey = "";
+let lastActivity = null;
 const revealedReviewCards = new Set();
 
 applyUrlCapture();
@@ -168,6 +172,7 @@ dom.openSourceBtn.addEventListener("click", () => {
 });
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
+dom.activityDetailsBtn.addEventListener("click", showActivityDetails);
 
 window.addEventListener("pagehide", persist);
 document.addEventListener("visibilitychange", () => {
@@ -196,6 +201,12 @@ dom.insertSynthesisBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
   const nextNotes = upsertSynthesisBlock(session.notesMarkdown, draft);
   workspace = updateSession(workspace, session.id, { notesMarkdown: nextNotes });
+  setActivity(getActiveSession(workspace), {
+    title: "Synthesis inserted",
+    detail: "Notes preview now includes the current synthesis block.",
+    tab: "captures",
+    targetId: ""
+  });
   notesMode = "preview";
   persistAndRender("Synthesis inserted");
 });
@@ -331,6 +342,13 @@ function applyUrlCapture() {
       timestamp: timestamp || "",
       tags: dom.sessionTags?.value || session.tags
     });
+    const updated = getActiveSession(workspace);
+    setActivity(updated, {
+      title: "Browser capture saved",
+      detail: summarizeCapture(updated.captures[0]),
+      tab: "captures",
+      targetId: updated.captures[0]?.id
+    });
     showToast("Browser capture saved");
   } else {
     dom.quoteInput.value = quote || "";
@@ -357,6 +375,11 @@ function updateSessionFromFields() {
 
 function capture(promoteToReview) {
   const session = getActiveSession(workspace);
+  if (!dom.quoteInput.value.trim() && !dom.thoughtInput.value.trim()) {
+    showToast("Add quote or thought");
+    dom.quoteInput.focus();
+    return;
+  }
   const cloze = promoteToReview === "cloze" ? buildCloze() : null;
   if (promoteToReview === "cloze" && !cloze) {
     showToast("Select text in the quote");
@@ -372,6 +395,14 @@ function capture(promoteToReview) {
     promoteToReview: Boolean(promoteToReview),
     reviewPrompt: cloze?.prompt,
     reviewAnswer: cloze?.answer
+  });
+  const updated = getActiveSession(workspace);
+  const isCloze = promoteToReview === "cloze";
+  setActivity(updated, {
+    title: isCloze ? "Cloze card saved" : promoteToReview ? "Capture and card saved" : "Capture saved",
+    detail: summarizeCapture(updated.captures[0]),
+    tab: promoteToReview ? "review" : "captures",
+    targetId: promoteToReview ? updated.reviewCards[0]?.id : updated.captures[0]?.id
   });
   dom.quoteInput.value = "";
   dom.thoughtInput.value = "";
@@ -436,6 +467,7 @@ function render() {
   dom.notesEditor.value = session.notesMarkdown;
   renderFocusMode(session.focusMode);
   renderShellMode();
+  renderActivity(session);
   renderNotesMode();
   renderStorageNotice();
   renderMetrics();
@@ -449,6 +481,7 @@ function toggleSidecarLayout() {
   uiPrefs = { ...uiPrefs, sidecarLayout: !uiPrefs.sidecarLayout };
   saveUiPrefs();
   renderShellMode();
+  renderActivity(getActiveSession(workspace));
   if (willHidePanels && isInSidePanel(active)) {
     dom.sidecarLayoutBtn.focus();
   }
@@ -457,6 +490,84 @@ function toggleSidecarLayout() {
 function renderShellMode() {
   dom.appShell.classList.toggle("sidecar-layout", uiPrefs.sidecarLayout);
   dom.sidecarLayoutBtn.setAttribute("aria-pressed", String(uiPrefs.sidecarLayout));
+}
+
+function setActivity(session, activity) {
+  lastActivity = {
+    sessionId: session.id,
+    title: String(activity.title || "Ready"),
+    detail: String(activity.detail || ""),
+    tab: activity.tab || "captures",
+    targetId: activity.targetId || ""
+  };
+}
+
+function renderActivity(session) {
+  const activity = getActivity(session);
+  const baseAction = activity.tab === "review"
+    ? "Review"
+    : activity.tab === "export" ? "Export" : "Details";
+  const actionText = uiPrefs.sidecarLayout ? `Exit + ${baseAction}` : baseAction;
+  const actionLabel = uiPrefs.sidecarLayout
+    ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
+    : `Open ${baseAction.toLowerCase()}`;
+  dom.activityTitle.textContent = activity.title;
+  dom.activityDetail.textContent = activity.detail;
+  dom.activityDetailsBtn.textContent = actionText;
+  dom.activityDetailsBtn.title = actionLabel;
+  dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
+}
+
+function getActivity(session) {
+  if (lastActivity?.sessionId === session.id) return lastActivity;
+  const due = getDueReviewItems(workspace).length;
+  if (session.focusMode === "review" && due) {
+    return {
+      title: "Review queue ready",
+      detail: `${due} due ${due === 1 ? "card" : "cards"} across the workspace.`,
+      tab: "review",
+      targetId: ""
+    };
+  }
+  const [latest] = session.captures;
+  if (latest) {
+    return {
+      title: "Latest capture",
+      detail: summarizeCapture(latest),
+      tab: "captures",
+      targetId: latest.id
+    };
+  }
+  return {
+    title: "Ready to capture",
+    detail: "Paste a quote or use the browser clipper.",
+    tab: "captures",
+    targetId: ""
+  };
+}
+
+function showActivityDetails() {
+  const activity = getActivity(getActiveSession(workspace));
+  activeTab = activity.tab;
+  if (uiPrefs.sidecarLayout) {
+    uiPrefs = { ...uiPrefs, sidecarLayout: false };
+    saveUiPrefs();
+    renderShellMode();
+  }
+  renderInspector();
+  scrollActivityTarget(activity);
+  renderActivity(getActiveSession(workspace));
+}
+
+function scrollActivityTarget(activity) {
+  if (!activity.targetId) return;
+  const selector = activity.tab === "review"
+    ? `[data-card-id="${CSS.escape(activity.targetId)}"]`
+    : `[data-capture-id="${CSS.escape(activity.targetId)}"]`;
+  const target = document.querySelector(selector);
+  target?.scrollIntoView({ behavior: "smooth", block: "center" });
+  target?.classList.add("pulse");
+  setTimeout(() => target?.classList.remove("pulse"), 900);
 }
 
 function isInSidePanel(node) {
@@ -637,6 +748,7 @@ function renderCaptures() {
   session.captures.forEach((capture) => {
     const item = document.createElement("article");
     item.className = "item-card";
+    item.dataset.captureId = capture.id;
     item.append(textEl("div", "item-meta", `${capture.timestamp || "No time"} · ${new Date(capture.createdAt).toLocaleString()}`));
     if (capture.quote) item.append(textEl("blockquote", "", capture.quote));
     if (capture.thought) {
@@ -656,6 +768,12 @@ function renderCaptures() {
     promoteButton.textContent = capture.promotedToReview ? "Card" : "Make card";
     promoteButton.addEventListener("click", () => {
       workspace = promoteCapture(workspace, session.id, capture.id);
+      setActivity(getActiveSession(workspace), {
+        title: "Review card created",
+        detail: summarizeCapture(capture),
+        tab: "review",
+        targetId: getActiveSession(workspace).reviewCards[0]?.id
+      });
       persistAndRender("Review card created");
     });
     footer.append(promoteButton);
@@ -730,6 +848,14 @@ function renderReviewCards() {
         revealedReviewCards.delete(key);
         const [next] = getDueReviewItems(workspace);
         activeReviewKey = next ? reviewKey(next.sessionId, next.card.id) : "";
+        const reviewedSession = workspace.sessions.find((item) => item.id === sessionId);
+        const reviewedCard = reviewedSession?.reviewCards.find((item) => item.id === card.id);
+        setActivity(getActiveSession(workspace), {
+          title: "Review updated",
+          detail: `${button.dataset.grade === "good" ? "Good" : "Again"} · ${sessionTitle} · next due ${new Date(reviewedCard?.dueAt || card.dueAt).toLocaleDateString()}`,
+          tab: "review",
+          targetId: card.id
+        });
         persistAndRender("Review updated");
       });
     });
@@ -818,6 +944,15 @@ function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function summarizeCapture(capture) {
+  if (!capture) return "No capture details yet.";
+  const text = String(capture.thought || capture.quote || "Untitled capture")
+    .replace(/\s+/g, " ")
+    .trim();
+  const prefix = capture.timestamp ? `${capture.timestamp} · ` : "";
+  return `${prefix}${text}`.slice(0, 150);
 }
 
 function clearChildren(node) {

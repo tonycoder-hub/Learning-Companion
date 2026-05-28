@@ -12,6 +12,7 @@ product/mvp-learning-sidecar
 - Installable web shell metadata and static offline cache.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
+- Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
 - Sessions, source context, timestamp, tags.
 - Quick capture quote/thought.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
@@ -31,7 +32,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -68,6 +69,8 @@ Accepted from Mira:
 - Harden Synthesize with stale-source warning, edit overwrite confirmation, generated counts, and idempotent insertion.
 - Treat Feishu mirror export as a staging bundle, with explicit canonical/derived authority and snapshot semantics.
 - Keep the sidecar layout local-only, guard its keyboard shortcut inside editable fields, and keep a visible way back when panels are hidden.
+- Add desk-level activity feedback so hidden inspector panels do not swallow the user's sense of what changed.
+- Make the activity action explicit when it exits focus mode, use `aria-live`, and scroll/highlight the referenced capture or card where possible.
 
 Deferred:
 
@@ -88,4 +91,5 @@ Deferred:
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - HarmonyOS app is not started yet; schema is ready for exploration.
-- Sidecar layout currently hides inspector details; saved-action toasts remain visible, but richer desk-level feedback should be added before relying on it for review-heavy sessions.
+- Sidecar layout still hides full inspector details; the activity strip gives a visible trail, but review-heavy sessions may still need a richer desk-native review surface.
+- Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

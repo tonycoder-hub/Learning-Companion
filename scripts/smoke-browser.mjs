@@ -99,7 +99,10 @@ try {
       sidebarDisplay: getComputedStyle(sidebar).display,
       inspectorDisplay: getComputedStyle(inspector).display,
       toggleDisplay: getComputedStyle(toggle).display,
+      activityDisplay: getComputedStyle(document.querySelector(".activity-strip")).display,
+      activityAction: document.querySelector("#activityDetailsBtn").textContent,
       activeId: document.activeElement?.id || "",
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       pressed: toggle.getAttribute("aria-pressed"),
       stored: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").sidecarLayout === true,
       storedVersion: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").schemaVersion
@@ -122,9 +125,9 @@ try {
       cancelable: true
     }));
     const afterPanelShortcut = readState();
-    toggle.click();
-    const restored = readState();
-    return { before, afterEditableShortcut, afterPanelShortcut, restored };
+    document.querySelector("#activityDetailsBtn").click();
+    const afterActivityDetails = readState();
+    return { before, afterEditableShortcut, afterPanelShortcut, afterActivityDetails };
   })()`);
 
   assert.equal(sidecarLayout.before.shellCompact, false);
@@ -133,11 +136,15 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.sidebarDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.inspectorDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
+  assert.equal(sidecarLayout.afterPanelShortcut.activityDisplay, "grid");
+  assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Exit + Details");
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
   assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 1);
-  assert.equal(sidecarLayout.restored.shellCompact, false);
+  assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
+  assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
+  assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");
 
   const result = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
@@ -149,6 +156,14 @@ try {
     setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
+    const activityAfterCard = {
+      title: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      action: document.querySelector("#activityDetailsBtn").textContent
+    };
+    document.querySelector("#activityDetailsBtn").click();
+    const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
+    const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
     setValue("#quoteInput", "Spaced repetition improves durable recall. <script>alert(1)</script> <b>bold</b>");
     const quote = document.querySelector("#quoteInput");
     const start = quote.value.indexOf("durable");
@@ -175,6 +190,7 @@ try {
     document.querySelector("#buildSynthesisBtn").click();
     const synthesisDraft = document.querySelector("#synthesisDraft").value;
     document.querySelector("#insertSynthesisBtn").click();
+    const activityAfterSynthesis = document.querySelector("#activityTitle").textContent;
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
@@ -214,6 +230,10 @@ try {
           reviewText: document.querySelector("#reviewList").textContent,
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
+          activityAfterCard,
+          activityOpenedReviewTab,
+          activityTargetPulsed,
+          activityAfterSynthesis,
           synthesisVisible,
           synthesisDraft,
           manualDraftAfterCancel,
@@ -263,6 +283,12 @@ try {
   assert.equal(result.dueMetric, "1");
   assert.equal(result.dueAfterGood, "1");
   assert.equal(result.gradedCount, 1);
+  assert.equal(result.activityAfterCard.title, "Capture and card saved");
+  assert.match(result.activityAfterCard.detail, /08:12/);
+  assert.equal(result.activityAfterCard.action, "Review");
+  assert.equal(result.activityOpenedReviewTab, "review");
+  assert.equal(result.activityTargetPulsed, true);
+  assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /Spaced repetition improves/);
   assert.equal(result.synthesisVisible, true);
@@ -306,6 +332,8 @@ try {
       latestQuote: session.captures[0].quote,
       latestThought: session.captures[0].thought,
       latestTimestamp: session.captures[0].timestamp,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
       locationSearch: window.location.search
     };
   })()`);
@@ -316,6 +344,8 @@ try {
   assert.equal(inbound.latestQuote, "Inbound bookmarklet capture");
   assert.equal(inbound.latestThought, "Turn this into a note");
   assert.equal(inbound.latestTimestamp, "01:02:03");
+  assert.equal(inbound.activityTitle, "Browser capture saved");
+  assert.match(inbound.activityDetail, /01:02:03/);
   assert.equal(inbound.locationSearch, "");
 
   const globalReview = await cdp.evaluate(`(() => {
