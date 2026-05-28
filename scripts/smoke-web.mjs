@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   WORKSPACE_SCHEMA,
   WORKSPACE_SCHEMA_VERSION,
@@ -54,6 +56,11 @@ import {
   updateSession,
   workspaceFromPortableData
 } from "../apps/companion-web/src/model.js";
+import {
+  FEISHU_UPLOAD_PLAN_SCHEMA,
+  buildFeishuUploadPlan,
+  materializeMirrorBundle
+} from "./feishu-mirror-uploader.mjs";
 
 const manifest = JSON.parse(readFileSync("apps/companion-web/manifest.webmanifest", "utf8"));
 const serviceWorker = readFileSync("apps/companion-web/service-worker.js", "utf8");
@@ -580,6 +587,75 @@ assert.equal(mirrorZipNames.includes("review.html"), true);
 assert.equal(mirrorZipNames.includes("inbox.html"), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".md") && path.startsWith("sessions/")), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".feishu.json")), true);
+
+const uploadPlan = buildFeishuUploadPlan(mirror, {
+  rootName: "Tony Learning Mirror",
+  generatedAt: "2026-05-29T08:00:00.000+08:00"
+});
+assert.equal(uploadPlan.schema, FEISHU_UPLOAD_PLAN_SCHEMA);
+assert.equal(uploadPlan.planVersion, 1);
+assert.equal(uploadPlan.bundleFingerprint, mirror.manifest.bundleFingerprint);
+assert.equal(uploadPlan.provider.name, "feishu-drive");
+assert.equal(uploadPlan.provider.auth.status, "not-included");
+assert.equal(uploadPlan.provider.auth.reason, "credential-free-planner");
+assert.equal(uploadPlan.source.bundleFingerprint, mirror.manifest.bundleFingerprint);
+assert.equal(uploadPlan.source.fileCount, mirror.manifest.fileCount);
+assert.equal(uploadPlan.target.layout, "folder-files");
+assert.equal(uploadPlan.files.length, mirror.files.length);
+assert.equal(uploadPlan.files.every((file) => file.action === "upsert"), true);
+assert.equal(uploadPlan.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
+assert.equal(uploadPlan.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
+const uploadOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-upload-"));
+try {
+  const uploadResult = materializeMirrorBundle(mirror, uploadOutDir, { plan: uploadPlan });
+  assert.equal(uploadResult.ok, true);
+  assert.equal(uploadResult.fileCount, mirror.files.length);
+  assert.equal(uploadResult.bundleFingerprint, mirror.manifest.bundleFingerprint);
+  assert.equal(existsSync(join(uploadOutDir, "files", "TODAY.md")), true);
+  assert.equal(existsSync(join(uploadOutDir, "files", "workspace.json")), true);
+  assert.equal(existsSync(join(uploadOutDir, "feishu-upload-plan.json")), true);
+} finally {
+  rmSync(uploadOutDir, { recursive: true, force: true });
+}
+assert.throws(() => buildFeishuUploadPlan({
+  ...mirror,
+  schema: "learning-companion.mirror-bundle.staging.v2"
+}), /Unsupported mirror bundle schema/);
+assert.throws(() => buildFeishuUploadPlan({
+  ...mirror,
+  files: mirror.files.map((file, index) => index === 0 ? { ...file, path: "../escape.md" } : file)
+}), /Unsafe mirror path/);
+assert.throws(() => buildFeishuUploadPlan({
+  ...mirror,
+  files: mirror.files.map((file, index) => index === 0 ? { ...file, path: "C:/escape.md" } : file)
+}), /Unsafe mirror path/);
+assert.throws(() => buildFeishuUploadPlan({
+  ...mirror,
+  files: [...mirror.files, { ...mirror.files[0] }]
+}), /Duplicate mirror path/);
+assert.throws(() => buildFeishuUploadPlan({
+  ...mirror,
+  files: mirror.files.map((file) => file.path === "workspace.json" ? { ...file, bytes: file.bytes + 1 } : file)
+}), /byte count mismatch/);
+assert.throws(() => buildFeishuUploadPlan({
+  ...mirror,
+  files: mirror.files.filter((file) => file.path !== "workspace.json")
+}), /exactly one workspace.json/);
+const overwriteOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-overwrite-"));
+try {
+  materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan });
+  assert.throws(() => materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan }), /already exists/);
+} finally {
+  rmSync(overwriteOutDir, { recursive: true, force: true });
+}
+const symlinkOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-symlink-"));
+try {
+  mkdirSync(join(symlinkOutDir, "files"), { recursive: true });
+  symlinkSync(tmpdir(), join(symlinkOutDir, "files", "sessions"), "dir");
+  assert.throws(() => materializeMirrorBundle(mirror, symlinkOutDir, { plan: uploadPlan, force: true }), /symbolic link/);
+} finally {
+  rmSync(symlinkOutDir, { recursive: true, force: true });
+}
 
 const restoredWorkspaceFile = mirror.files.find((file) => file.path === "workspace.json");
 const restoredWorkspace = sanitizeWorkspace(JSON.parse(restoredWorkspaceFile.content));

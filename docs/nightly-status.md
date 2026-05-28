@@ -17,6 +17,7 @@ product/mvp-learning-sidecar
 - Mac shell hotkey capture can attach active Safari/Chromium-family page title and URL when macOS automation access is available, then route through the same source-aware matching path as bookmarklet captures.
 - Mac shell has app-focused workspace JSON import/export menu commands (`Cmd+O`, `Shift+Cmd+E`) that reuse the web workspace bridge.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
+- Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, and materialize the Drive folder locally without reading live credentials.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -129,9 +130,9 @@ Deferred:
 
 ## Next Best Commits
 
-1. Add a real Feishu one-way uploader that consumes the mirror bundle after credentials are explicitly configured.
+1. Add real Feishu OpenAPI transport behind explicit credential configuration and approval.
 2. Add GUI/manual QA evidence for selected-text capture and browser context on Tony's Mac.
-3. Start HarmonyOS schema reader prototype after one-way export is stable.
+3. Start HarmonyOS schema reader prototype after the local upload plan feels stable.
 4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
 
 ## Known Risks
@@ -140,6 +141,7 @@ Deferred:
 - Focus Brief workspace-review tie-break currently inherits the due queue ordering; document or expose that policy before making it adaptive.
 - Static `inbox.html` is designed for HarmonyOS/Windows manual capture, but real-device storage and download behavior are still unverified.
 - Mobile inbox patch is still manual transport; it is not real sync and depends on the user importing the patch on Mac.
+- Feishu uploader boundary is local-folder/plan only; it does not authenticate or write to Feishu Drive yet.
 - Review progress patch is conflict-safe but still manual transport; real device review behavior is not HarmonyOS-verified.
 - Workspace Find is simple substring search; larger workspaces will need debounce/indexing and more per-result navigation assertions.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.

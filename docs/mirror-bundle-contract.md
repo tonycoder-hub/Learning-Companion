@@ -44,6 +44,8 @@ It should not upload the staging JSON as the only final Drive artifact unless th
 
 Manual ZIP export is allowed before the uploader exists. A future uploader should still consume the bundle contract and write Drive files directly instead of treating ZIP generation as the sync layer.
 
+`scripts/feishu-mirror-uploader.mjs` is the current credential-free adapter boundary. It validates the staging bundle, builds a `learning-companion.feishu-upload-plan.v1` plan with `planVersion`, `bundleFingerprint`, and structured auth status, and can materialize the Drive folder locally under `files/`. It is not an authenticated uploader and intentionally does not call Feishu OpenAPI or delete stale remote files. Local materialization rejects unsafe paths and does not overwrite existing files unless `--force` is passed.
+
 ## Mobile Inbox Patch
 
 `learning-companion.mobile-inbox-patch.v1` is an append-only manual return path for captures created from `inbox.html`.
