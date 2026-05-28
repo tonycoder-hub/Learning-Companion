@@ -227,7 +227,7 @@ textarea:focus {
 
 .desk {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   gap: 14px;
   min-width: 0;
   padding: 18px;

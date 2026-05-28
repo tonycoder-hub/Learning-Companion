@@ -3,13 +3,21 @@
   "$id": "https://tonycoder-hub.github.io/Learning-Companion/schema/workspace.v1.schema.json",
   "title": "Learning Companion Workspace v1",
   "type": "object",
-  "required": ["schema", "version", "activeSessionId", "sessions", "createdAt", "updatedAt"],
+  "required": ["schema", "schemaVersion", "version", "clientId", "activeSessionId", "sessions", "createdAt", "updatedAt"],
   "properties": {
     "schema": {
       "const": "learning-companion.workspace.v1"
     },
     "version": {
       "const": 1
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "clientId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     },
     "activeSessionId": {
       "type": "string",
@@ -36,6 +44,7 @@
       "type": "object",
       "required": [
         "id",
+        "originClientId",
         "title",
         "sourceTitle",
         "sourceUrl",
@@ -50,6 +59,7 @@
       ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
+        "originClientId": { "type": "string", "minLength": 1, "maxLength": 128 },
         "title": { "type": "string", "maxLength": 160 },
         "sourceTitle": { "type": "string", "maxLength": 160 },
         "sourceUrl": { "type": "string", "maxLength": 2048 },
@@ -80,9 +90,21 @@
     },
     "capture": {
       "type": "object",
-      "required": ["id", "quote", "thought", "timestamp", "tags", "createdAt", "promotedToReview"],
+      "required": [
+        "id",
+        "originClientId",
+        "quote",
+        "thought",
+        "timestamp",
+        "tags",
+        "createdAt",
+        "capturedAt",
+        "updatedAt",
+        "promotedToReview"
+      ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
+        "originClientId": { "type": "string", "minLength": 1, "maxLength": 128 },
         "quote": { "type": "string", "maxLength": 12000 },
         "thought": { "type": "string", "maxLength": 12000 },
         "timestamp": { "type": "string", "maxLength": 32 },
@@ -93,22 +115,35 @@
         },
         "createdAt": { "type": "string", "format": "date-time" },
         "capturedAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
         "promotedToReview": { "type": "boolean" }
       },
       "additionalProperties": true
     },
     "reviewCard": {
       "type": "object",
-      "required": ["id", "prompt", "answer", "sourceCaptureId", "dueAt", "strength", "createdAt"],
+      "required": [
+        "id",
+        "originClientId",
+        "prompt",
+        "answer",
+        "sourceCaptureId",
+        "dueAt",
+        "strength",
+        "createdAt",
+        "updatedAt"
+      ],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
+        "originClientId": { "type": "string", "minLength": 1, "maxLength": 128 },
         "prompt": { "type": "string", "maxLength": 12000 },
         "answer": { "type": "string", "maxLength": 12000 },
         "sourceCaptureId": { "type": "string" },
         "dueAt": { "type": "string", "format": "date-time" },
         "lastReviewedAt": { "type": "string", "format": "date-time" },
         "strength": { "type": "integer", "minimum": 0, "maximum": 5 },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "additionalProperties": true
     }

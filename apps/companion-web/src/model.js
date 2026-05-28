@@ -1,4 +1,5 @@
 export const WORKSPACE_SCHEMA = "learning-companion.workspace.v1";
+export const WORKSPACE_SCHEMA_VERSION = 1;
 export const MAX_TITLE_LENGTH = 160;
 export const MAX_URL_LENGTH = 2048;
 export const MAX_NOTE_LENGTH = 120000;
@@ -46,10 +47,47 @@ export function cleanUrl(value) {
   }
 }
 
-export function createSession(overrides = {}) {
+export function safeHref(value) {
+  return cleanUrl(value) || "#";
+}
+
+export function normalizeCapture(capture = {}, originClientId = makeId("client")) {
+  const timestamp = nowIso();
+  return {
+    id: capture.id || makeId("capture"),
+    quote: cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH),
+    thought: cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH),
+    timestamp: cleanText(capture.timestamp, 32),
+    tags: normalizeTags(capture.tags || []),
+    createdAt: capture.createdAt || timestamp,
+    capturedAt: capture.capturedAt || capture.createdAt || timestamp,
+    updatedAt: capture.updatedAt || capture.createdAt || timestamp,
+    originClientId: capture.originClientId || originClientId,
+    promotedToReview: Boolean(capture.promotedToReview)
+  };
+}
+
+export function normalizeReviewCard(card = {}, originClientId = makeId("client")) {
+  const timestamp = nowIso();
+  return {
+    id: card.id || makeId("card"),
+    prompt: cleanText(card.prompt, MAX_CAPTURE_TEXT_LENGTH),
+    answer: cleanText(card.answer, MAX_CAPTURE_TEXT_LENGTH),
+    sourceCaptureId: cleanText(card.sourceCaptureId, 128),
+    dueAt: card.dueAt || timestamp,
+    strength: Math.max(0, Math.min(5, Number(card.strength) || 0)),
+    createdAt: card.createdAt || timestamp,
+    updatedAt: card.updatedAt || card.createdAt || timestamp,
+    lastReviewedAt: card.lastReviewedAt || null,
+    originClientId: card.originClientId || originClientId
+  };
+}
+
+export function createSession(overrides = {}, originClientId = overrides.originClientId || makeId("client")) {
   const timestamp = nowIso();
   return {
     id: overrides.id || makeId("session"),
+    originClientId,
     title: cleanText(overrides.title || "Untitled learning session", MAX_TITLE_LENGTH),
     sourceTitle: cleanText(overrides.sourceTitle || "", MAX_TITLE_LENGTH),
     sourceUrl: cleanUrl(overrides.sourceUrl || ""),
@@ -57,14 +95,19 @@ export function createSession(overrides = {}) {
     tags: normalizeTags(overrides.tags || []),
     focusMode: FOCUS_MODES.has(overrides.focusMode) ? overrides.focusMode : "capture",
     notesMarkdown: cleanText(overrides.notesMarkdown || "", MAX_NOTE_LENGTH),
-    captures: Array.isArray(overrides.captures) ? overrides.captures : [],
-    reviewCards: Array.isArray(overrides.reviewCards) ? overrides.reviewCards : [],
+    captures: Array.isArray(overrides.captures)
+      ? overrides.captures.map((capture) => normalizeCapture(capture, originClientId))
+      : [],
+    reviewCards: Array.isArray(overrides.reviewCards)
+      ? overrides.reviewCards.map((card) => normalizeReviewCard(card, originClientId))
+      : [],
     createdAt: overrides.createdAt || timestamp,
     updatedAt: overrides.updatedAt || timestamp
   };
 }
 
 export function createDefaultWorkspace() {
+  const clientId = makeId("client");
   const session = createSession({
     title: "Learning Companion MVP",
     sourceTitle: "Product design desk",
@@ -78,10 +121,12 @@ export function createDefaultWorkspace() {
       "- Keep excerpts, notes, and review cards connected.",
       "- Export readable Markdown plus a structured JSON payload."
     ].join("\n")
-  });
+  }, clientId);
   return {
     schema: WORKSPACE_SCHEMA,
-    version: 1,
+    schemaVersion: WORKSPACE_SCHEMA_VERSION,
+    version: WORKSPACE_SCHEMA_VERSION,
+    clientId,
     activeSessionId: session.id,
     sessions: [session],
     createdAt: nowIso(),
@@ -91,16 +136,26 @@ export function createDefaultWorkspace() {
 
 export function sanitizeWorkspace(input) {
   const workspace = input && typeof input === "object" ? input : createDefaultWorkspace();
+  if (workspace.schema && workspace.schema !== WORKSPACE_SCHEMA) {
+    throw new Error("Unsupported workspace schema.");
+  }
+  const major = Number(workspace.schemaVersion || workspace.version || WORKSPACE_SCHEMA_VERSION);
+  if (major > WORKSPACE_SCHEMA_VERSION) {
+    throw new Error("Unsupported workspace version.");
+  }
+  const clientId = cleanText(workspace.clientId, 128) || makeId("client");
   const sessions = Array.isArray(workspace.sessions) && workspace.sessions.length
-    ? workspace.sessions.map((session) => createSession(session))
-    : createDefaultWorkspace().sessions;
+    ? workspace.sessions.map((session) => createSession(session, session.originClientId || clientId))
+    : [createSession({}, clientId)];
   const activeSessionId = sessions.some((session) => session.id === workspace.activeSessionId)
     ? workspace.activeSessionId
     : sessions[0].id;
 
   return {
     schema: WORKSPACE_SCHEMA,
-    version: Number(workspace.version) || 1,
+    schemaVersion: WORKSPACE_SCHEMA_VERSION,
+    version: WORKSPACE_SCHEMA_VERSION,
+    clientId,
     activeSessionId,
     sessions,
     createdAt: workspace.createdAt || nowIso(),
@@ -116,6 +171,7 @@ export function updateSession(workspace, sessionId, patch) {
   const updatedAt = nowIso();
   return {
     ...workspace,
+    schemaVersion: WORKSPACE_SCHEMA_VERSION,
     updatedAt,
     sessions: workspace.sessions.map((session) => {
       if (session.id !== sessionId) return session;
@@ -133,7 +189,7 @@ export function updateSession(workspace, sessionId, patch) {
 }
 
 export function addSession(workspace, title = "New learning session") {
-  const session = createSession({ title });
+  const session = createSession({ title }, workspace.clientId);
   return {
     ...workspace,
     activeSessionId: session.id,
@@ -152,20 +208,23 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   const thought = cleanText(captureInput.thought, MAX_CAPTURE_TEXT_LENGTH);
   if (!quote && !thought) return workspace;
 
+  const timestamp = nowIso();
   const capture = {
     id: makeId("capture"),
     quote,
     thought,
     timestamp: cleanText(captureInput.timestamp, 32),
     tags: normalizeTags(captureInput.tags || []),
-    createdAt: nowIso(),
-    capturedAt: nowIso(),
+    createdAt: timestamp,
+    capturedAt: timestamp,
+    updatedAt: timestamp,
+    originClientId: workspace.clientId,
     promotedToReview: Boolean(options.promoteToReview)
   };
 
   let createdCard = null;
   if (options.promoteToReview) {
-    createdCard = createReviewCardFromCapture(capture);
+    createdCard = createReviewCardFromCapture(capture, workspace.clientId);
   }
 
   return {
@@ -183,21 +242,24 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   };
 }
 
-export function createReviewCardFromCapture(capture) {
+export function createReviewCardFromCapture(capture, originClientId = capture.originClientId) {
   const prompt = capture.thought
     ? `Recall the point behind: ${capture.thought}`
     : `Explain this excerpt: ${capture.quote.slice(0, 160)}`;
   const answer = [capture.quote, capture.timestamp ? `Time: ${capture.timestamp}` : ""]
     .filter(Boolean)
     .join("\n\n");
+  const timestamp = nowIso();
   return {
     id: makeId("card"),
     prompt,
     answer,
     sourceCaptureId: capture.id,
-    dueAt: nowIso(),
+    dueAt: timestamp,
     strength: 0,
-    createdAt: nowIso()
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    originClientId: originClientId || makeId("client")
   };
 }
 
@@ -211,8 +273,10 @@ export function promoteCapture(workspace, sessionId, captureId) {
       if (!capture || capture.promotedToReview) return session;
       return {
         ...session,
-        captures: session.captures.map((item) => item.id === captureId ? { ...item, promotedToReview: true } : item),
-        reviewCards: [createReviewCardFromCapture(capture), ...session.reviewCards],
+        captures: session.captures.map((item) => item.id === captureId
+          ? { ...item, promotedToReview: true, updatedAt: nowIso() }
+          : item),
+        reviewCards: [createReviewCardFromCapture(capture, workspace.clientId), ...session.reviewCards],
         updatedAt: nowIso()
       };
     })
@@ -232,7 +296,7 @@ export function gradeCard(workspace, sessionId, cardId, delta) {
           const strength = Math.max(0, Math.min(5, card.strength + delta));
           const days = reviewIntervalDays(strength);
           const dueAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-          return { ...card, strength, dueAt, lastReviewedAt: nowIso() };
+          return { ...card, strength, dueAt, lastReviewedAt: nowIso(), updatedAt: nowIso() };
         }),
         updatedAt: nowIso()
       };
@@ -242,7 +306,7 @@ export function gradeCard(workspace, sessionId, cardId, delta) {
 
 export function reviewIntervalDays(strength) {
   const buckets = [0, 1, 3, 7, 14, 30];
-  return buckets[Math.max(0, Math.min(5, strength))] || 1;
+  return buckets[Math.max(0, Math.min(5, strength))] ?? 1;
 }
 
 export function getDueReviewCards(session, now = new Date()) {

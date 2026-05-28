@@ -9,6 +9,7 @@ import {
   getActiveSession,
   gradeCard,
   promoteCapture,
+  safeHref,
   sanitizeWorkspace,
   selectSession,
   updateSession
@@ -110,7 +111,13 @@ dom.notesEditor.addEventListener("input", () => {
 
 dom.openSourceBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
-  if (session.sourceUrl) window.open(session.sourceUrl, "_blank", "noopener,noreferrer");
+  const href = safeHref(session.sourceUrl);
+  if (href !== "#") window.open(href, "_blank", "noopener,noreferrer");
+});
+
+window.addEventListener("pagehide", persist);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") persist();
 });
 
 dom.captureBtn.addEventListener("click", () => capture(false));
