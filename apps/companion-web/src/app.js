@@ -8,6 +8,8 @@ import {
   buildMirrorZip,
   buildSourceJumpUrl,
   buildTodayPack,
+  deleteCapture,
+  deleteReviewCard,
   filterSessions,
   generateMarkdown,
   generateSynthesisDraft,
@@ -1073,6 +1075,30 @@ function renderCaptures() {
       persistAndRender("Review card created");
     });
     actions.append(promoteButton);
+    const linkedReviewCount = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id).length;
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "mini-button danger";
+    deleteButton.type = "button";
+    deleteButton.textContent = linkedReviewCount
+      ? `Delete + ${linkedReviewCount} card${linkedReviewCount === 1 ? "" : "s"}`
+      : "Delete";
+    deleteButton.addEventListener("click", () => {
+      const linkedCopy = linkedReviewCount
+        ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
+        : "";
+      if (!window.confirm(`Delete this capture${linkedCopy}? Notes already inserted will be kept.`)) return;
+      workspace = deleteCapture(workspace, session.id, capture.id);
+      activeReviewKey = "";
+      revealedReviewCards.clear();
+      setActivity(getActiveSession(workspace), {
+        title: "Capture deleted",
+        detail: summarizeCapture(capture),
+        tab: "captures",
+        targetId: ""
+      });
+      persistAndRender("Capture deleted");
+    });
+    actions.append(deleteButton);
     footer.append(actions);
     item.append(footer);
     dom.captureList.append(item);
@@ -1142,6 +1168,22 @@ function renderReviewCards() {
         gradeActiveReview(button.dataset.grade);
       });
     });
+    const deleteButton = textEl("button", "mini-button danger", "Delete");
+    deleteButton.type = "button";
+    deleteButton.addEventListener("click", () => {
+      if (!window.confirm("Delete this review card? The original capture will remain and can be promoted again.")) return;
+      workspace = deleteReviewCard(workspace, sessionId, card.id);
+      revealedReviewCards.delete(key);
+      if (activeReviewKey === key) activeReviewKey = "";
+      setActivity(getActiveSession(workspace), {
+        title: "Review card deleted",
+        detail: `${sessionTitle} · ${card.prompt.slice(0, 120)}`,
+        tab: "review",
+        targetId: ""
+      });
+      persistAndRender("Review card deleted");
+    });
+    footer.append(deleteButton);
     dom.reviewList.append(item);
   });
 }

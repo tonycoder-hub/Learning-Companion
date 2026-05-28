@@ -471,6 +471,84 @@ try {
   assert.match(globalReview.reviewText, /Algorithms course/);
   assert.match(globalReview.reviewText, /Spaced repetition improves/);
 
+  const deleteFlow = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Cleanup course");
+    setValue("#quoteInput", "Temporary capture for deletion.");
+    setValue("#thoughtInput", "Temporary card should be removable.");
+    document.querySelector("#captureCardBtn").click();
+    const before = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent
+    };
+    document.querySelector('[data-tab="captures"]').click();
+    const initialCaptureCard = [...document.querySelectorAll("#captureList .item-card")]
+      .find((item) => item.textContent.includes("Temporary capture for deletion."));
+    [...initialCaptureCard.querySelectorAll("button")].find((button) => button.textContent === "Note").click();
+    const notedCaptureCard = [...document.querySelectorAll("#captureList .item-card")]
+      .find((item) => item.textContent.includes("Temporary capture for deletion."));
+    const cascadeDeleteLabel = [...notedCaptureCard.querySelectorAll("button")]
+      .map((button) => button.textContent)
+      .find((text) => text.startsWith("Delete")) || "";
+    window.confirm = () => false;
+    [...notedCaptureCard.querySelectorAll("button")].find((button) => button.textContent.startsWith("Delete")).click();
+    const afterCancelDelete = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      notesHasCapture: document.querySelector("#notesEditor").value.includes("Temporary capture for deletion.")
+    };
+    window.confirm = () => true;
+    document.querySelector('[data-tab="review"]').click();
+    const reviewCard = [...document.querySelectorAll("#reviewList .review-card")]
+      .find((item) => item.textContent.includes("Temporary card should be removable."));
+    [...reviewCard.querySelectorAll("button")].find((button) => button.textContent === "Delete").click();
+    const afterCardDelete = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      reviewText: document.querySelector("#reviewList").textContent
+    };
+    document.querySelector('[data-tab="captures"]').click();
+    const captureCard = [...document.querySelectorAll("#captureList .item-card")]
+      .find((item) => item.textContent.includes("Temporary capture for deletion."));
+    const makeCardEnabled = [...captureCard.querySelectorAll("button")]
+      .find((button) => button.textContent === "Make card" && !button.disabled);
+    [...captureCard.querySelectorAll("button")].find((button) => button.textContent === "Delete").click();
+    return {
+      before,
+      afterCardDelete,
+      makeCardEnabled: Boolean(makeCardEnabled),
+      afterCaptureDelete: {
+        captures: document.querySelector("#captureMetric").textContent,
+        cards: document.querySelector("#cardMetric").textContent,
+        captureText: document.querySelector("#captureList").textContent,
+        notesHasCapture: document.querySelector("#notesEditor").value.includes("Temporary capture for deletion."),
+        activity: document.querySelector("#activityTitle").textContent
+      },
+      afterCancelDelete,
+      cascadeDeleteLabel
+    };
+  })()`);
+
+  assert.equal(deleteFlow.before.captures, "1");
+  assert.equal(deleteFlow.before.cards, "1");
+  assert.equal(deleteFlow.cascadeDeleteLabel, "Delete + 1 card");
+  assert.equal(deleteFlow.afterCancelDelete.captures, "1");
+  assert.equal(deleteFlow.afterCancelDelete.cards, "1");
+  assert.equal(deleteFlow.afterCancelDelete.notesHasCapture, true);
+  assert.equal(deleteFlow.afterCardDelete.captures, "1");
+  assert.equal(deleteFlow.afterCardDelete.cards, "0");
+  assert.equal(deleteFlow.makeCardEnabled, true);
+  assert.equal(deleteFlow.afterCaptureDelete.captures, "0");
+  assert.equal(deleteFlow.afterCaptureDelete.cards, "0");
+  assert.doesNotMatch(deleteFlow.afterCaptureDelete.captureText, /Temporary capture for deletion/);
+  assert.equal(deleteFlow.afterCaptureDelete.notesHasCapture, true);
+  assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
+
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,

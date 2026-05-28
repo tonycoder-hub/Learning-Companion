@@ -652,6 +652,11 @@ textarea:focus {
   color: var(--green);
 }
 
+.mini-button.danger {
+  border-color: rgba(162, 61, 52, 0.35);
+  color: var(--red);
+}
+
 .due-card {
   border-color: rgba(167, 96, 23, 0.45);
   background: #fffaf0;

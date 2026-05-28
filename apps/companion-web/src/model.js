@@ -416,6 +416,42 @@ export function promoteCapture(workspace, sessionId, captureId) {
   };
 }
 
+export function deleteCapture(workspace, sessionId, captureId) {
+  return {
+    ...workspace,
+    updatedAt: nowIso(),
+    sessions: workspace.sessions.map((session) => {
+      if (session.id !== sessionId) return session;
+      return {
+        ...session,
+        captures: session.captures.filter((capture) => capture.id !== captureId),
+        reviewCards: session.reviewCards.filter((card) => card.sourceCaptureId !== captureId),
+        updatedAt: nowIso()
+      };
+    })
+  };
+}
+
+export function deleteReviewCard(workspace, sessionId, cardId) {
+  return {
+    ...workspace,
+    updatedAt: nowIso(),
+    sessions: workspace.sessions.map((session) => {
+      if (session.id !== sessionId) return session;
+      return {
+        ...session,
+        reviewCards: session.reviewCards.filter((card) => card.id !== cardId),
+        captures: session.captures.map((capture) => (
+          session.reviewCards.some((card) => card.id === cardId && card.sourceCaptureId === capture.id)
+            ? { ...capture, promotedToReview: false, updatedAt: nowIso() }
+            : capture
+        )),
+        updatedAt: nowIso()
+      };
+    })
+  };
+}
+
 export function gradeCard(workspace, sessionId, cardId, delta) {
   const grade = delta === "again" || delta === "good"
     ? delta

@@ -16,6 +16,8 @@ import {
   cleanUrl,
   createDefaultWorkspace,
   createSession,
+  deleteCapture,
+  deleteReviewCard,
   filterSessions,
   formatLocalIso,
   generateMarkdown,
@@ -314,6 +316,25 @@ assert.equal(markdownPaths.some((path) => /topic-con/.test(path)), true);
 workspace = promoteCapture(workspace, session.id, session.captures[0].id);
 session = getActiveSession(workspace);
 assert.equal(session.reviewCards.length, 1);
+
+let cleanupWorkspace = addCapture(workspace, session.id, {
+  quote: "Temporary capture for cleanup.",
+  thought: "This should be removable."
+}, { promoteToReview: true });
+let cleanupSession = getActiveSession(cleanupWorkspace);
+const cleanupCaptureId = cleanupSession.captures[0].id;
+const cleanupCardId = cleanupSession.reviewCards[0].id;
+cleanupWorkspace = deleteReviewCard(cleanupWorkspace, cleanupSession.id, cleanupCardId);
+cleanupSession = getActiveSession(cleanupWorkspace);
+assert.equal(cleanupSession.reviewCards.some((card) => card.id === cleanupCardId), false);
+assert.equal(cleanupSession.captures.find((capture) => capture.id === cleanupCaptureId).promotedToReview, false);
+cleanupWorkspace = promoteCapture(cleanupWorkspace, cleanupSession.id, cleanupCaptureId);
+cleanupSession = getActiveSession(cleanupWorkspace);
+assert.equal(cleanupSession.reviewCards.some((card) => card.sourceCaptureId === cleanupCaptureId), true);
+cleanupWorkspace = deleteCapture(cleanupWorkspace, cleanupSession.id, cleanupCaptureId);
+cleanupSession = getActiveSession(cleanupWorkspace);
+assert.equal(cleanupSession.captures.some((capture) => capture.id === cleanupCaptureId), false);
+assert.equal(cleanupSession.reviewCards.some((card) => card.sourceCaptureId === cleanupCaptureId), false);
 
 workspace = gradeCard(workspace, session.id, session.reviewCards[0].id, "good");
 session = getActiveSession(workspace);
