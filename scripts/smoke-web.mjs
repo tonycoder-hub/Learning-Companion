@@ -7,6 +7,7 @@ import {
   addSession,
   applyGrade,
   buildFeishuPayload,
+  buildMirrorBundle,
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
@@ -74,6 +75,41 @@ assert.deepEqual(getSynthesisStats(session), { captures: 1, questions: 0, cards:
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");
 assert.equal(payload.session.id, session.id);
+
+const mirror = buildMirrorBundle(workspace);
+assert.equal(mirror.schema, "learning-companion.mirror-bundle.staging.v1");
+assert.equal(mirror.contractStability, "experimental");
+assert.equal(mirror.canonical, "workspace.json");
+assert.equal(mirror.semantics.snapshot, "full");
+assert.equal(mirror.workspace.sessionCount, workspace.sessions.length);
+assert.equal(mirror.manifest.fileCount, 2 + workspace.sessions.length * 2);
+assert.equal(mirror.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
+assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);
+assert.equal(mirror.files.every((file) => file.encoding === "utf-8"), true);
+assert.equal(mirror.files.every((file) => /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)), true);
+assert.equal(/^fnv1a-[a-f0-9]{8}$/.test(mirror.manifest.bundleFingerprint), true);
+
+const restoredWorkspaceFile = mirror.files.find((file) => file.path === "workspace.json");
+const restoredWorkspace = sanitizeWorkspace(JSON.parse(restoredWorkspaceFile.content));
+const restoredMirror = buildMirrorBundle(restoredWorkspace);
+assert.deepEqual(
+  restoredMirror.files.map((file) => file.path).sort(),
+  mirror.files.map((file) => file.path).sort()
+);
+
+const collisionWorkspace = sanitizeWorkspace({
+  ...workspace,
+  activeSessionId: "same_a",
+  sessions: [
+    createSession({ id: "same_a", title: "Algebra" }, workspace.clientId),
+    createSession({ id: "same_b", title: "algebra" }, workspace.clientId),
+    createSession({ id: "reserved_con", title: "CON" }, workspace.clientId)
+  ]
+});
+const collisionBundle = buildMirrorBundle(collisionWorkspace);
+const markdownPaths = collisionBundle.files.filter((file) => file.path.endsWith(".md")).map((file) => file.path);
+assert.equal(new Set(markdownPaths).size, markdownPaths.length);
+assert.equal(markdownPaths.some((path) => /topic-con/.test(path)), true);
 
 workspace = promoteCapture(workspace, session.id, session.captures[0].id);
 session = getActiveSession(workspace);

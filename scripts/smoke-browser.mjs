@@ -96,6 +96,7 @@ try {
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
+    const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     const synthesisOccurrences = (session.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
@@ -115,6 +116,13 @@ try {
       hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
       hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
       bookmarklet,
+      mirrorSchema: mirror.schema,
+      mirrorFileCount: mirror.manifest.fileCount,
+      mirrorCanonical: mirror.canonical,
+      mirrorBundleFingerprint: mirror.manifest.bundleFingerprint,
+      mirrorHasWorkspace: mirror.files.some((file) => file.path === "workspace.json"),
+      mirrorHasMarkdown: mirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("Learning Companion MVP")),
+      mirrorFingerprintsValid: mirror.files.every((file) => file.encoding === "utf-8" && /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)),
       captures: session.captures.length,
       cards: session.reviewCards.length,
       latestPrompt: session.reviewCards[0].prompt,
@@ -156,6 +164,13 @@ try {
   assert.match(result.bookmarklet, /^javascript:/);
   assert.match(result.bookmarklet, /127\.0\.0\.1/);
   assert.match(result.bookmarklet, /currentTime/);
+  assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
+  assert.equal(result.mirrorFileCount, 4);
+  assert.equal(result.mirrorCanonical, "workspace.json");
+  assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
+  assert.equal(result.mirrorHasWorkspace, true);
+  assert.equal(result.mirrorHasMarkdown, true);
+  assert.equal(result.mirrorFingerprintsValid, true);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
 

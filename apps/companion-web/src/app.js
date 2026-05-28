@@ -3,6 +3,7 @@ import {
   addCapture,
   addSession,
   buildFeishuPayload,
+  buildMirrorBundle,
   filterSessions,
   generateMarkdown,
   generateSynthesisDraft,
@@ -67,6 +68,9 @@ const dom = {
   downloadMarkdownBtn: document.querySelector("#downloadMarkdownBtn"),
   copyPayloadBtn: document.querySelector("#copyPayloadBtn"),
   downloadPayloadBtn: document.querySelector("#downloadPayloadBtn"),
+  copyMirrorBtn: document.querySelector("#copyMirrorBtn"),
+  downloadMirrorBtn: document.querySelector("#downloadMirrorBtn"),
+  mirrorExport: document.querySelector("#mirrorExport"),
   copyBookmarkletBtn: document.querySelector("#copyBookmarkletBtn"),
   bookmarkletExport: document.querySelector("#bookmarkletExport"),
   toast: document.querySelector("#toast")
@@ -218,6 +222,7 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
 
 dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, "Markdown copied"));
 dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, "JSON copied"));
+dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, "Mirror bundle copied"));
 dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
 dom.downloadMarkdownBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
@@ -226,6 +231,9 @@ dom.downloadMarkdownBtn.addEventListener("click", () => {
 dom.downloadPayloadBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
   downloadText(`${slugify(session.title)}.feishu.json`, JSON.stringify(buildFeishuPayload(session), null, 2), "application/json");
+});
+dom.downloadMirrorBtn.addEventListener("click", () => {
+  downloadText("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json");
 });
 
 function loadWorkspace() {
@@ -623,6 +631,7 @@ function renderExport() {
   const session = getActiveSession(workspace);
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
+  dom.mirrorExport.value = JSON.stringify(buildMirrorBundle(workspace), null, 2);
   dom.bookmarkletExport.value = buildBookmarklet();
 }
 

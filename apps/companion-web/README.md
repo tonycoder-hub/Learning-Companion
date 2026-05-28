@@ -14,7 +14,7 @@ Open:
 http://127.0.0.1:5173
 ```
 
-The app stores data in `localStorage` and can export/import a portable workspace JSON payload.
+The app stores data in `localStorage` and can export/import a portable workspace JSON payload. The Export tab can also save a credential-free Feishu mirror bundle containing Markdown, workspace JSON, and per-session sidecars.
 
 Browser capture:
 

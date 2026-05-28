@@ -20,13 +20,14 @@ product/mvp-learning-sidecar
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
-- Markdown + JSON export for Feishu mirror.
+- Markdown + JSON export for the active session.
+- Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies Cloze cards, synthesis insertion, stale-draft handling, capture formatting, and notes preview rendering.
+- Browser smoke also verifies Cloze cards, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -61,6 +62,7 @@ Accepted from Mira:
 - Add browser-level smoke coverage.
 - Add self-grading before pretending the review loop is real.
 - Harden Synthesize with stale-source warning, edit overwrite confirmation, generated counts, and idempotent insertion.
+- Treat Feishu mirror export as a staging bundle, with explicit canonical/derived authority and snapshot semantics.
 
 Deferred:
 
@@ -70,7 +72,7 @@ Deferred:
 
 ## Next Best Commits
 
-1. Add a real Feishu one-way export adapter after credentials are explicitly configured.
+1. Add a real Feishu one-way uploader that consumes the mirror bundle after credentials are explicitly configured.
 2. Start Mac shell exploration with global capture and sidecar window as the first native affordances.
 3. Start HarmonyOS schema reader prototype after one-way export is stable.
 4. Test bookmarklet capture on YouTube, Feishu Docs, and developer docs.

@@ -17,7 +17,9 @@ apps/
 docs/
   architecture.md
   browser-capture.md
+  feishu-mirror.md
   github-permissions.md
+  mirror-bundle-contract.md
   product-mvp.md
   roadmap.md
   synthesis-loop.md

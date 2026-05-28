@@ -4,7 +4,8 @@
 
 - Static sidecar app.
 - Local workspace persistence.
-- Capture, notes, review, export.
+- Capture, notes, synthesis, review, export.
+- Credential-free Feishu mirror bundle.
 - Smoke tests and visual checks.
 
 ## Phase 1: Mac Shell
@@ -17,7 +18,7 @@
 
 ## Phase 2: Feishu Sync
 
-- Add credential-free export flow first.
+- Use the credential-free mirror bundle as the adapter input.
 - Add Feishu Drive upload after explicit app credential setup.
 - Store Markdown mirror and JSON sidecar.
 - Add conflict detection based on session/capture IDs and updated timestamps.

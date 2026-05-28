@@ -35,6 +35,7 @@ Future native shell
   File-system vault
 
 Future sync
+  Credential-free mirror bundle
   Feishu Drive upload for Markdown mirror
   Feishu Docs block conversion for readable docs
   Structured JSON sidecar for round-trip restore
@@ -60,6 +61,8 @@ Feishu should receive two outputs:
 - Machine-readable workspace JSON, suitable for restoration and cross-device sync.
 
 The Feishu OpenAPI upload path requires authenticated app credentials and should stay behind an explicit integration boundary. Tonight's MVP only creates the export payload and documents the intended contract.
+
+Before OpenAPI upload, the app produces a `learning-companion.mirror-bundle.staging.v1` file. It contains `README.md`, `workspace.json`, and per-session Markdown/JSON sidecars. This makes Feishu Drive useful as a manual mirror while preserving a clean boundary for the later uploader.
 
 ## HarmonyOS Direction
 

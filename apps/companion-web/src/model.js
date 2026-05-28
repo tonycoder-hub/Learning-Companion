@@ -4,6 +4,8 @@ export const MAX_TITLE_LENGTH = 160;
 export const MAX_URL_LENGTH = 2048;
 export const MAX_NOTE_LENGTH = 120000;
 export const MAX_CAPTURE_TEXT_LENGTH = 12000;
+export const MAX_MIRROR_FILE_BYTES = 1_000_000;
+export const MAX_MIRROR_BUNDLE_BYTES = 25_000_000;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
@@ -464,8 +466,200 @@ export function buildFeishuPayload(session) {
   };
 }
 
+export function buildMirrorBundle(workspace) {
+  const exportedAt = nowIso();
+  const cleanWorkspace = sanitizeWorkspace(workspace);
+  const files = [];
+  const sessionFiles = cleanWorkspace.sessions.flatMap((session) => {
+    const baseName = `${slugifyPath(session.title)}-${shortId(session.id)}`;
+    return [
+      makeMirrorFile({
+        path: `sessions/${baseName}.md`,
+        mediaType: "text/markdown",
+        role: "readable-session",
+        sessionId: session.id,
+        content: generateMarkdown(session)
+      }),
+      makeMirrorFile({
+        path: `sessions/${baseName}.feishu.json`,
+        mediaType: "application/json",
+        role: "session-sidecar",
+        sessionId: session.id,
+        content: JSON.stringify(buildFeishuPayload(session), null, 2)
+      })
+    ];
+  });
+
+  files.push(
+    makeMirrorFile({
+      path: "README.md",
+      mediaType: "text/markdown",
+      role: "mirror-index",
+      content: generateMirrorReadme(cleanWorkspace, sessionFiles)
+    }),
+    makeMirrorFile({
+      path: "workspace.json",
+      mediaType: "application/json",
+      role: "workspace-restore",
+      content: JSON.stringify(cleanWorkspace, null, 2)
+    }),
+    ...sessionFiles
+  );
+  const totalBytes = files.reduce((sum, file) => sum + file.bytes, 0);
+  if (totalBytes > MAX_MIRROR_BUNDLE_BYTES) {
+    throw new Error("Mirror bundle is too large to export safely.");
+  }
+  const topicIndex = Object.fromEntries(cleanWorkspace.sessions.map((session) => {
+    const baseName = `${slugifyPath(session.title)}-${shortId(session.id)}`;
+    return [session.id, {
+      title: session.title,
+      markdownPath: `sessions/${baseName}.md`,
+      sidecarPath: `sessions/${baseName}.feishu.json`
+    }];
+  }));
+  const manifestFiles = files.map((file) => ({
+    path: file.path,
+    role: file.role,
+    sessionId: file.sessionId,
+    bytes: file.bytes,
+    contentFingerprint: file.contentFingerprint
+  }));
+
+  return {
+    schema: "learning-companion.mirror-bundle.staging.v1",
+    contractStability: "experimental",
+    exportedAt,
+    canonical: "workspace.json",
+    derived: ["README.md", "sessions/*.md", "sessions/*.feishu.json"],
+    generator: {
+      name: "learning-companion-web",
+      version: WORKSPACE_SCHEMA_VERSION,
+      generatedAt: exportedAt
+    },
+    semantics: {
+      snapshot: "full",
+      uploaderInputOnly: true
+    },
+    target: {
+      drive: "feishu-drive-manual-upload",
+      layout: "folder-files-in-json-bundle"
+    },
+    workspace: {
+      schema: cleanWorkspace.schema,
+      schemaVersion: cleanWorkspace.schemaVersion,
+      clientId: cleanWorkspace.clientId,
+      activeSessionId: cleanWorkspace.activeSessionId,
+      sessionCount: cleanWorkspace.sessions.length
+    },
+    manifest: {
+      fileCount: files.length,
+      totalBytes,
+      maxFileBytes: MAX_MIRROR_FILE_BYTES,
+      maxBundleBytes: MAX_MIRROR_BUNDLE_BYTES,
+      fingerprintAlgorithm: "fnv1a-32-non-cryptographic",
+      bundleFingerprint: fingerprintText(JSON.stringify(manifestFiles)),
+      topicIndex
+    },
+    files
+  };
+}
+
 function formatCount(count, singular) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
+}
+
+function generateMirrorReadme(workspace, sessionFiles) {
+  const lines = [
+    "# Learning Companion Mirror",
+    "",
+    "This bundle is an experimental full snapshot for export/restore. It is not the final Feishu Drive folder layout.",
+    "",
+    `Exported sessions: ${workspace.sessions.length}`,
+    `Workspace schema: ${workspace.schema} v${workspace.schemaVersion}`,
+    "",
+    "## Restore",
+    "",
+    "- Keep `workspace.json` as the canonical restore payload.",
+    "- Use `sessions/*.md` as readable Feishu Drive/Docs material.",
+    "- Keep `sessions/*.feishu.json` beside Markdown files for future round-trip sync.",
+    "- A future uploader should translate this bundle into Drive files instead of uploading this JSON as the final layout.",
+    "",
+    "## Files",
+    ""
+  ];
+  sessionFiles.forEach((file) => {
+    lines.push(`- \`${file.path}\` (${file.role}, ${file.bytes} B)`);
+  });
+  return lines.join("\n").trim() + "\n";
+}
+
+function makeMirrorFile({ path, mediaType, role, sessionId = "", content }) {
+  const safePath = normalizeMirrorPath(path);
+  const bytes = byteLength(content);
+  if (bytes > MAX_MIRROR_FILE_BYTES) {
+    throw new Error(`Mirror file is too large: ${safePath}`);
+  }
+  return {
+    path: safePath,
+    mediaType,
+    encoding: "utf-8",
+    role,
+    sessionId,
+    bytes,
+    contentFingerprint: fingerprintText(content),
+    content
+  };
+}
+
+function byteLength(value) {
+  return new TextEncoder().encode(String(value || "")).length;
+}
+
+function fingerprintText(value) {
+  let hash = 2166136261;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `fnv1a-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+function slugifyPath(value) {
+  const slug = cleanText(value, MAX_TITLE_LENGTH)
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 80) || "learning-session";
+  return isReservedPathSegment(slug) ? `topic-${slug}` : slug;
+}
+
+function shortId(value) {
+  return cleanText(value, 128).replace(/[^a-zA-Z0-9_-]/g, "").slice(-8) || makeId("s").slice(-8);
+}
+
+function normalizeMirrorPath(path) {
+  const normalized = cleanText(path, 240).replace(/\\/g, "/");
+  if (
+    !normalized ||
+    normalized.startsWith("/") ||
+    normalized.includes("..") ||
+    /[\u0000-\u001F\u007F]/.test(normalized)
+  ) {
+    throw new Error("Unsafe mirror path.");
+  }
+  const segments = normalized.split("/");
+  if (segments.some((segment) => !segment || isReservedPathSegment(segment.replace(/\.[^.]+$/, "")))) {
+    throw new Error("Unsafe mirror path.");
+  }
+  if (normalized.length > 240) {
+    throw new Error("Mirror path is too long.");
+  }
+  return normalized;
+}
+
+function isReservedPathSegment(value) {
+  return /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(value);
 }
 
 export function formatDate(value) {
