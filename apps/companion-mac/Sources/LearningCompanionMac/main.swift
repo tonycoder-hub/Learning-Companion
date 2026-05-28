@@ -1,12 +1,17 @@
 import AppKit
+import Carbon.HIToolbox
 import UniformTypeIdentifiers
 import WebKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
   private let maxWorkspaceImportBytes = 5_000_000
+  private let clipboardCaptureHotKeyId: UInt32 = 1
   private var window: NSWindow?
   private var webView: WKWebView?
   private var webRoot: URL?
+  private var clipboardCaptureHotKeyRef: EventHotKeyRef?
+  private var clipboardCaptureEventHandler: EventHandlerRef?
+  private var clipboardCaptureHotKeyStatusItem: NSMenuItem?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     let webRoot = resolveWebRoot()
@@ -34,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     self.webView = view
     self.webRoot = webRoot.standardizedFileURL
     installMainMenu()
+    registerClipboardCaptureHotKey()
 
     if FileManager.default.fileExists(atPath: indexFile.path) {
       view.loadFileURL(indexFile, allowingReadAccessTo: webRoot)
@@ -45,8 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
   }
 
   @objc private func fillCaptureFromClipboard(_ sender: Any?) {
-    guard let text = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
-          !text.isEmpty,
+    guard let text = clipboardText(),
           let encoded = jsonStringLiteral(text) else {
       NSSound.beep()
       return
@@ -72,6 +77,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         NSSound.beep()
       }
     }
+  }
+
+  @objc private func saveClipboardAsCapture(_ sender: Any?) {
+    guard let text = clipboardText() else {
+      NSSound.beep()
+      return
+    }
+    captureClipboardText(text, promoteToReview: false)
   }
 
   @objc private func exportWorkspace(_ sender: Any?) {
@@ -123,6 +136,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     true
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    if let clipboardCaptureHotKeyRef {
+      UnregisterEventHotKey(clipboardCaptureHotKeyRef)
+    }
+    if let clipboardCaptureEventHandler {
+      RemoveEventHandler(clipboardCaptureEventHandler)
+    }
   }
 
   func webView(
@@ -201,6 +223,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     let captureItem = NSMenuItem()
     let captureMenu = NSMenu(title: "Capture")
+    let saveClipboardCapture = NSMenuItem(
+      title: "Save Clipboard as Capture",
+      action: #selector(saveClipboardAsCapture(_:)),
+      keyEquivalent: "c"
+    )
+    saveClipboardCapture.keyEquivalentModifierMask = [.command, .option, .control]
+    saveClipboardCapture.target = self
+    captureMenu.addItem(saveClipboardCapture)
     let fillFromClipboard = NSMenuItem(
       title: "Fill Capture From Clipboard",
       action: #selector(fillCaptureFromClipboard(_:)),
@@ -208,11 +238,125 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     )
     fillFromClipboard.keyEquivalentModifierMask = [.command, .shift]
     fillFromClipboard.target = self
+    captureMenu.addItem(NSMenuItem.separator())
     captureMenu.addItem(fillFromClipboard)
+    captureMenu.addItem(NSMenuItem.separator())
+    let hotKeyStatus = NSMenuItem(title: "Global Hotkey: registering...", action: nil, keyEquivalent: "")
+    hotKeyStatus.isEnabled = false
+    clipboardCaptureHotKeyStatusItem = hotKeyStatus
+    captureMenu.addItem(hotKeyStatus)
     captureItem.submenu = captureMenu
     mainMenu.addItem(captureItem)
 
     NSApp.mainMenu = mainMenu
+  }
+
+  private func clipboardText() -> String? {
+    guard let text = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !text.isEmpty else {
+      return nil
+    }
+    return text
+  }
+
+  private func registerClipboardCaptureHotKey() {
+    var eventType = EventTypeSpec(
+      eventClass: OSType(kEventClassKeyboard),
+      eventKind: UInt32(kEventHotKeyPressed)
+    )
+    let handlerStatus = InstallEventHandler(
+      GetApplicationEventTarget(),
+      { _, eventRef, userData in
+        guard let eventRef,
+              let userData else {
+          return noErr
+        }
+        var hotKeyId = EventHotKeyID()
+        let status = GetEventParameter(
+          eventRef,
+          EventParamName(kEventParamDirectObject),
+          EventParamType(typeEventHotKeyID),
+          nil,
+          MemoryLayout<EventHotKeyID>.size,
+          nil,
+          &hotKeyId
+        )
+        guard status == noErr,
+              hotKeyId.signature == fourCharCode("LCAP"),
+              hotKeyId.id == 1 else {
+          return noErr
+        }
+        let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
+        DispatchQueue.main.async {
+          delegate.saveClipboardAsCapture(nil)
+        }
+        return noErr
+      },
+      1,
+      &eventType,
+      Unmanaged.passUnretained(self).toOpaque(),
+      &clipboardCaptureEventHandler
+    )
+    guard handlerStatus == noErr else {
+      updateClipboardCaptureHotKeyStatus("Global Hotkey: unavailable")
+      fputs("Learning Companion: global clipboard hotkey handler registration failed (\(handlerStatus))\n", stderr)
+      return
+    }
+
+    let hotKeyId = EventHotKeyID(signature: fourCharCode("LCAP"), id: clipboardCaptureHotKeyId)
+    let modifiers = UInt32(cmdKey | optionKey | controlKey)
+    let registerStatus = RegisterEventHotKey(
+      UInt32(kVK_ANSI_C),
+      modifiers,
+      hotKeyId,
+      GetApplicationEventTarget(),
+      0,
+      &clipboardCaptureHotKeyRef
+    )
+    if registerStatus == noErr {
+      updateClipboardCaptureHotKeyStatus("Global Hotkey: Ctrl+Option+Cmd+C")
+    } else {
+      clipboardCaptureHotKeyRef = nil
+      if let clipboardCaptureEventHandler {
+        RemoveEventHandler(clipboardCaptureEventHandler)
+        self.clipboardCaptureEventHandler = nil
+      }
+      updateClipboardCaptureHotKeyStatus("Global Hotkey: unavailable")
+      fputs("Learning Companion: global clipboard hotkey registration failed (\(registerStatus))\n", stderr)
+    }
+  }
+
+  private func updateClipboardCaptureHotKeyStatus(_ title: String) {
+    clipboardCaptureHotKeyStatusItem?.title = title
+  }
+
+  private func captureClipboardText(_ text: String, promoteToReview: Bool) {
+    guard let webView,
+          let encoded = jsonStringLiteral(text) else {
+      NSSound.beep()
+      return
+    }
+    window?.makeKeyAndOrderFront(nil)
+    NSApp.activate()
+    let promote = promoteToReview ? "true" : "false"
+    let script = """
+    (() => {
+      const bridge = window.learningCompanionNative;
+      if (!bridge || typeof bridge.captureClipboardText !== "function") return JSON.stringify({ ok: false, error: "bridge_unavailable" });
+      const result = bridge.captureClipboardText(\(encoded), { promoteToReview: \(promote) });
+      return JSON.stringify(result || { ok: false, error: "empty_result" });
+    })()
+    """
+    webView.evaluateJavaScript(script) { [weak self] result, error in
+      guard error == nil,
+            let text = result as? String,
+            let data = text.data(using: .utf8),
+            let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+            payload["ok"] as? Bool == true else {
+        self?.showError("Could not save the clipboard text as a capture.")
+        return
+      }
+    }
   }
 
   private func saveWorkspaceJson(_ json: String) {
@@ -314,3 +458,9 @@ let delegate = AppDelegate()
 app.delegate = delegate
 app.setActivationPolicy(.regular)
 app.run()
+
+private func fourCharCode(_ value: String) -> OSType {
+  value.utf8.reduce(0) { result, character in
+    (result << 8) + OSType(character)
+  }
+}

@@ -17,7 +17,7 @@ Why this instead of Tauri/Electron tonight:
 Boundaries:
 
 - This is not yet the full Mac app.
-- It has an app-focused clipboard-to-capture menu command, but no global capture hotkey.
+- It has clipboard-to-capture menu commands and a best-effort global clipboard capture hotkey.
 - No active browser URL bridge.
 - No packaged `.app`, signing, notarization, auto-update, or menu bar workflow.
 
@@ -30,6 +30,8 @@ Guardrails:
 - `Export Workspace...` uses `Shift+Cmd+E` rather than `Cmd+S` because this is a user-chosen JSON export, not a document save-to-current-file action.
 - The web bridge is intentionally unprivileged: it only exposes workspace JSON import/export already available in the browser UI, while all native file access remains behind user-initiated AppKit panels.
 - Import rejects files larger than 5 MB or non-UTF-8 content before handing text to WebKit, and surfaces those failures through an `NSAlert`.
+- `Save Clipboard as Capture` reads the pasteboard only after an explicit menu command or `Ctrl+Option+Cmd+C` hotkey, then calls the same web-model capture path as the browser UI. It does not inspect browser state, browser cookies, or the current selection directly.
+- Global hotkey registration is intentionally visible in the Capture menu. If another app owns the shortcut, the shell marks the hotkey unavailable and writes a short local diagnostic without any clipboard content.
 
 Next decisions:
 

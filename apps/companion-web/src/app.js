@@ -674,6 +674,46 @@ function capture(promoteToReview) {
   dom.quoteInput.focus();
 }
 
+function captureTextFromNative(text, options = {}) {
+  const quote = String(text || "").trim();
+  if (!quote) {
+    return {
+      ok: false,
+      error: "empty_capture"
+    };
+  }
+  const targetSession = getActiveSession(workspace);
+  const promoteToReview = Boolean(options.promoteToReview);
+  workspace = updateSession(workspace, targetSession.id, { focusMode: "capture" });
+  workspace = addCapture(workspace, targetSession.id, {
+    quote,
+    thought: "",
+    timestamp: "",
+    tags: targetSession.tags,
+    sourceProvenance: "snapshot"
+  }, {
+    promoteToReview
+  });
+  activeTab = promoteToReview ? "review" : "captures";
+  const updated = getActiveSession(workspace);
+  const capture = updated.captures[0];
+  setActivity(updated, {
+    title: promoteToReview ? "Clipboard capture and card saved" : "Clipboard capture saved",
+    detail: summarizeCapture(capture),
+    tab: activeTab,
+    targetId: promoteToReview ? updated.reviewCards[0]?.id : capture?.id
+  });
+  persistAndRender(promoteToReview ? "Clipboard capture + card saved" : "Clipboard capture saved");
+  return {
+    ok: true,
+    sessionId: updated.id,
+    captureId: capture?.id || "",
+    reviewCardId: promoteToReview ? updated.reviewCards[0]?.id || "" : "",
+    captures: updated.captures.length,
+    activeTab
+  };
+}
+
 function buildCloze() {
   const quote = dom.quoteInput.value;
   const start = dom.quoteInput.selectionStart;
@@ -1654,6 +1694,9 @@ function installNativeBridge() {
         sessions: workspace.sessions.length,
         activeSessionId: workspace.activeSessionId
       };
+    },
+    captureClipboardText(text, options = {}) {
+      return captureTextFromNative(text, options);
     }
   };
 }

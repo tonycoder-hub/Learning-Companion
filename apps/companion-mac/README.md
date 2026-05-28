@@ -2,7 +2,7 @@
 
 This is a minimal native macOS shell for the local web MVP. It deliberately has no package dependencies and loads `apps/companion-web/index.html` in a `WKWebView`.
 
-It is a WKWebView shell, not the finished Mac app: no global hotkey, no browser-context capture, no notarization, and not redistributable yet.
+It is a WKWebView shell, not the finished Mac app: no browser-context capture, no notarization, and not redistributable yet.
 
 ## Run
 
@@ -21,7 +21,9 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 ## Current Scope
 
 - Opens the existing local-first web app in a resizable Mac window.
+- Adds `Capture > Save Clipboard as Capture` (`Ctrl+Option+Cmd+C`) plus a matching best-effort global hotkey. Copy text in another app, press the shortcut, and the shell brings Learning Companion forward and saves the clipboard text into the active topic.
 - Adds a local `Capture > Fill Capture From Clipboard` command (`Cmd+Shift+V`) that places clipboard text into Quick Capture without requiring global hotkey permissions.
+- Shows the global hotkey registration status in the Capture menu so shortcut collisions are visible during development.
 - Adds app-focused `File > Export Workspace...` (`Shift+Cmd+E`) and `File > Import Workspace...` (`Cmd+O`) commands for local JSON backup/restore without browser downloads.
 - Uses WebKit's default persistent website data store, so the web MVP keeps its existing localStorage behavior.
 - Uses a deterministic `file://` origin. It does not silently fall back to `127.0.0.1`, because that would create a separate localStorage bucket.
@@ -30,7 +32,7 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 ## Not Yet
 
 - No active browser URL bridge.
-- No global capture hotkey when the app is not focused.
+- No selected-text capture without copying first; the global hotkey reads the clipboard only after you press it.
 - No packaged `.app` menu polish beyond the current capture and workspace file commands.
 - No packaged `.app` signing/notarization flow.
 

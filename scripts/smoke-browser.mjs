@@ -1155,6 +1155,33 @@ try {
   assert.equal(deleteFlow.afterCaptureDelete.notesHasCapture, true);
   assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
 
+  const nativeClipboardCapture = await cdp.evaluate(`(() => {
+    const result = window.learningCompanionNative.captureClipboardText("Native clipboard bridge direct capture.");
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    return {
+      ok: result.ok,
+      activeTab: result.activeTab,
+      captureId: result.captureId,
+      latestQuote: session.captures[0]?.quote || "",
+      latestSourceTitle: session.captures[0]?.sourceTitle || "",
+      latestSourceProvenance: session.captures[0]?.sourceProvenance || "",
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      activeTabUi: document.querySelector(".tab.active")?.dataset.tab || ""
+    };
+  })()`);
+
+  assert.equal(nativeClipboardCapture.ok, true);
+  assert.equal(nativeClipboardCapture.activeTab, "captures");
+  assert.match(nativeClipboardCapture.captureId, /^capture_/);
+  assert.equal(nativeClipboardCapture.latestQuote, "Native clipboard bridge direct capture.");
+  assert.equal(nativeClipboardCapture.latestSourceTitle, "");
+  assert.equal(nativeClipboardCapture.latestSourceProvenance, "snapshot");
+  assert.equal(nativeClipboardCapture.activityTitle, "Clipboard capture saved");
+  assert.match(nativeClipboardCapture.activityDetail, /Native clipboard bridge/);
+  assert.equal(nativeClipboardCapture.activeTabUi, "captures");
+
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,
