@@ -13,6 +13,7 @@ product/mvp-learning-sidecar
 - Sessions, source context, timestamp, tags.
 - Quick capture quote/thought.
 - Capture-to-review-card promotion.
+- Cloze review card authoring from selected quote text.
 - Due review queue with simple strength buckets.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
@@ -21,7 +22,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies notes preview rendering.
+- Browser smoke also verifies Cloze cards and notes preview rendering.
 
 ## Run
 
@@ -59,14 +60,14 @@ Deferred:
 
 - Native Mac shell. The local learning loop needs a little more product truth first.
 - Real Feishu OpenAPI sync. One-way export should come before sync.
-- Cloze card authoring. This is the next review-loop bet, not a prerequisite for the local MVP.
+- Native Mac shell. The local learning loop is now stronger, but shell work should still add OS capture rather than just wrap the UI.
 
 ## Next Best Commits
 
-1. Add cloze-style card authoring from captured quotes.
-2. Add safe capture preview formatting alongside notes preview.
-3. Add a real Feishu one-way export adapter after credentials are explicitly configured.
-4. Start Mac shell exploration once the local loop feels sticky.
+1. Add safe capture preview formatting alongside notes preview.
+2. Add a real Feishu one-way export adapter after credentials are explicitly configured.
+3. Start Mac shell exploration with global capture and sidecar window as the first native affordances.
+4. Start HarmonyOS schema reader prototype after one-way export is stable.
 
 ## Known Risks
 
