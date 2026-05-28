@@ -15,3 +15,11 @@ http://127.0.0.1:5173
 ```
 
 The app stores data in `localStorage` and can export/import a portable workspace JSON payload.
+
+Browser capture:
+
+```text
+bookmarklet.js
+```
+
+Copy the JavaScript URL into a browser bookmark while the local server is running.

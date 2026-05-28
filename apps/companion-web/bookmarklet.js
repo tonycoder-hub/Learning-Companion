@@ -1,0 +1,1 @@
+javascript:(()=>{const base="http://127.0.0.1:5173/";const params=new URLSearchParams({capture:"1",sourceTitle:document.title,sourceUrl:location.href,quote:String(getSelection()||"").trim()});window.open(base+"?"+params.toString(),"learning-companion","noopener,noreferrer,width=1100,height=760");})();

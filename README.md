@@ -12,14 +12,39 @@ A local-first learning note app for Mac and HarmonyOS, with Feishu as the first 
 ## Repository Layout
 
 ```text
+apps/
+  companion-web/
 docs/
+  architecture.md
+  browser-capture.md
   github-permissions.md
+  product-mvp.md
+  roadmap.md
 scripts/
   setup-github-ssh.sh
   configure-github-remote.sh
+  smoke-web.mjs
 ```
 
-Application source folders will be added as the Mac and HarmonyOS projects are scaffolded.
+The first runnable MVP lives in `apps/companion-web`.
+
+## Run The MVP
+
+```bash
+npm run dev
+```
+
+Open:
+
+```text
+http://127.0.0.1:5173
+```
+
+Smoke test:
+
+```bash
+npm run smoke
+```
 
 ## GitHub Hosting
 

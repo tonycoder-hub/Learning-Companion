@@ -158,6 +158,7 @@ function applyUrlCapture() {
   const sourceUrl = params.get("sourceUrl") || params.get("url");
   const sourceTitle = params.get("sourceTitle") || params.get("title");
   const timestamp = params.get("t") || params.get("time");
+  const autoCapture = params.get("capture") === "1" || params.get("autoCapture") === "1";
   if (!quote && !thought && !sourceUrl && !sourceTitle) return;
 
   const session = getActiveSession(workspace);
@@ -165,9 +166,19 @@ function applyUrlCapture() {
     sourceUrl: sourceUrl || session.sourceUrl,
     sourceTitle: sourceTitle || session.sourceTitle
   });
-  dom.quoteInput.value = quote || "";
-  dom.thoughtInput.value = thought || "";
-  dom.timestampInput.value = timestamp || "";
+  if (autoCapture && (quote || thought)) {
+    workspace = addCapture(workspace, session.id, {
+      quote: quote || "",
+      thought: thought || "",
+      timestamp: timestamp || "",
+      tags: dom.sessionTags?.value || session.tags
+    });
+    showToast("Browser capture saved");
+  } else {
+    dom.quoteInput.value = quote || "";
+    dom.thoughtInput.value = thought || "";
+    dom.timestampInput.value = timestamp || "";
+  }
   history.replaceState({}, "", window.location.pathname);
   persist();
 }
