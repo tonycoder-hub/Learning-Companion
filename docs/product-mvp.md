@@ -57,6 +57,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Direct `TODAY.md` copy/save for a quick mobile or Feishu handoff.
 - Feishu mirror ZIP export for manual Drive upload or extraction.
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
+- Mirror bundle includes static `review.html` for reveal-only due-card review on phone or Windows.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 - Minimal macOS WKWebView shell scaffold that loads the web MVP.

@@ -298,9 +298,14 @@ try {
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
+          mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("data-reveal") && file.content.includes("Content-Security-Policy")),
           mirrorTodayEscapesScript: (() => {
             const today = restoredMirror.files.find((file) => file.path === "TODAY.md")?.content || "";
             return today.includes("&lt;script&gt;alert") && !today.includes("<script");
+          })(),
+          mirrorReviewEscapesScript: (() => {
+            const review = restoredMirror.files.find((file) => file.path === "review.html")?.content || "";
+            return review.includes("&lt;script&gt;alert") && !review.includes("<script>alert");
           })(),
           mirrorHasMarkdown: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("Learning Companion MVP")),
           mirrorHasTimeJump: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("t=492s")),
@@ -391,12 +396,14 @@ try {
   assert.match(result.todayExport, /Generated from workspace\.json/);
   assert.equal(result.hasMirrorZipButton, true);
   assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
-  assert.equal(result.mirrorFileCount, 5);
+  assert.equal(result.mirrorFileCount, 6);
   assert.equal(result.mirrorCanonical, "workspace.json");
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);
+  assert.equal(result.mirrorHasReviewHtml, true);
   assert.equal(result.mirrorTodayEscapesScript, true);
+  assert.equal(result.mirrorReviewEscapesScript, true);
   assert.equal(result.mirrorHasMarkdown, true);
   assert.equal(result.mirrorHasTimeJump, true);
   assert.equal(result.mirrorFingerprintsValid, true);

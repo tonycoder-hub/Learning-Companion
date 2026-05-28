@@ -712,6 +712,80 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
+export function generateReviewHtml(workspace, now = new Date()) {
+  const cleanWorkspace = sanitizeWorkspace(workspace);
+  const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
+  const workspaceFingerprint = fingerprintText(workspaceJson);
+  const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 50, recentLimit: 1 });
+  const cards = pack.dueItems.map(({ sessionTitle, sessionPath, card }) => {
+    const safeSessionPath = isSafeMirrorSessionPath(sessionPath) ? sessionPath : "";
+    const sessionLink = safeSessionPath
+      ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
+      : htmlText(sessionTitle);
+    return [
+      '<article class="card">',
+      `  <div class="meta">${sessionLink} · Due ${htmlText(formatDate(card.dueAt))} · strength ${htmlText(card.strength)}</div>`,
+      `  <h2>${htmlText(card.prompt)}</h2>`,
+      '  <button type="button" data-reveal aria-expanded="false">Reveal</button>',
+      `  <div class="answer" hidden>${htmlMultiline(card.answer)}</div>`,
+      "</article>"
+    ].join("\n");
+  });
+
+  const empty = '<p class="empty">No cards are due right now.</p>';
+  return [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    '  <meta name="referrer" content="no-referrer">',
+    '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">',
+    `  <meta name="learning-companion-source" content="workspace.json">`,
+    `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
+    `  <meta name="learning-companion-generated-at" content="${htmlAttribute(pack.generatedAt)}">`,
+    "  <title>Learning Companion Review Pack</title>",
+    "  <style>",
+    "    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f6f0; color: #202124; }",
+    "    body { margin: 0; padding: 18px; }",
+    "    main { max-width: 760px; margin: 0 auto; }",
+    "    header { margin-bottom: 16px; }",
+    "    h1 { margin: 0 0 6px; font-size: 24px; }",
+    "    h2 { margin: 0; font-size: 17px; line-height: 1.35; }",
+    "    .summary, .meta, .empty { color: #697077; font-size: 13px; }",
+    "    .card { display: grid; gap: 12px; margin: 12px 0; padding: 14px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
+    "    button { min-height: 36px; border: 1px solid #2f6f5e; border-radius: 8px; background: #2f6f5e; color: white; font-weight: 700; }",
+    "    .answer { padding: 10px; border: 1px solid #dcd8cc; border-radius: 8px; background: #fbfaf6; line-height: 1.5; }",
+    "    a { color: #315f82; }",
+    "    @media (max-width: 520px) { body { padding: 12px; } h1 { font-size: 21px; } }",
+    "  </style>",
+    "</head>",
+    "<body>",
+    "  <main>",
+    "    <header>",
+    "      <h1>Learning Companion Review Pack</h1>",
+    `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.due)} due ${pack.stats.due === 1 ? "card" : "cards"} · source of truth: workspace.json</p>`,
+    "    </header>",
+    cards.length ? cards.join("\n") : empty,
+    "  </main>",
+    "  <script>",
+    "    document.addEventListener('click', (event) => {",
+    "      const button = event.target.closest('[data-reveal]');",
+    "      if (!button) return;",
+    "      const answer = button.closest('.card')?.querySelector('.answer');",
+    "      if (!answer) return;",
+    "      const willShow = answer.hasAttribute('hidden');",
+    "      answer.toggleAttribute('hidden', !willShow);",
+    "      button.textContent = willShow ? 'Hide' : 'Reveal';",
+    "      button.setAttribute('aria-expanded', String(willShow));",
+    "    });",
+    "  </script>",
+    "</body>",
+    "</html>",
+    ""
+  ].join("\n");
+}
+
 export function getSynthesisStats(session) {
   const captures = Array.isArray(session.captures) ? session.captures : [];
   const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
@@ -740,6 +814,8 @@ export function buildFeishuPayload(session) {
 export function buildMirrorBundle(workspace) {
   const exportedAt = nowIso();
   const cleanWorkspace = sanitizeWorkspace(workspace);
+  const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
+  const workspaceFingerprint = fingerprintText(workspaceJson);
   const files = [];
   const sessionFiles = cleanWorkspace.sessions.flatMap((session) => {
     const paths = getMirrorSessionPaths(session);
@@ -775,10 +851,17 @@ export function buildMirrorBundle(workspace) {
       content: generateTodayMarkdown(cleanWorkspace, new Date(exportedAt))
     }),
     makeMirrorFile({
+      path: "review.html",
+      mediaType: "text/html",
+      role: "portable-review",
+      sourceFingerprint: workspaceFingerprint,
+      content: generateReviewHtml(cleanWorkspace, new Date(exportedAt))
+    }),
+    makeMirrorFile({
       path: "workspace.json",
       mediaType: "application/json",
       role: "workspace-restore",
-      content: JSON.stringify(cleanWorkspace, null, 2)
+      content: workspaceJson
     }),
     ...sessionFiles
   );
@@ -798,6 +881,7 @@ export function buildMirrorBundle(workspace) {
     path: file.path,
     role: file.role,
     sessionId: file.sessionId,
+    sourceFingerprint: file.sourceFingerprint,
     bytes: file.bytes,
     contentFingerprint: file.contentFingerprint
   }));
@@ -807,7 +891,7 @@ export function buildMirrorBundle(workspace) {
     contractStability: "experimental",
     exportedAt,
     canonical: "workspace.json",
-    derived: ["README.md", "TODAY.md", "sessions/*.md", "sessions/*.feishu.json"],
+    derived: ["README.md", "TODAY.md", "review.html", "sessions/*.md", "sessions/*.feishu.json"],
     generator: {
       name: "learning-companion-web",
       version: WORKSPACE_SCHEMA_VERSION,
@@ -872,6 +956,23 @@ function markdownInline(value) {
     .slice(0, 240);
 }
 
+function htmlText(value) {
+  return cleanText(value, MAX_CAPTURE_TEXT_LENGTH)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function htmlMultiline(value) {
+  return htmlText(value).replace(/\n/g, "<br>");
+}
+
+function htmlAttribute(value) {
+  return htmlText(value);
+}
+
 function getMirrorSessionPaths(session) {
   const baseName = `${slugifyPath(session.title)}-${shortId(session.id)}`;
   return {
@@ -883,6 +984,10 @@ function getMirrorSessionPaths(session) {
 function markdownRelativeLink(label, path) {
   if (!path) return markdownInline(label);
   return `[${markdownInline(label)}](${normalizeMirrorPath(path)})`;
+}
+
+function isSafeMirrorSessionPath(path) {
+  return /^sessions\/[A-Za-z0-9._-]+\.md$/.test(String(path || "")) && normalizeMirrorPath(path) === path;
 }
 
 function formatCaptureSource(capture, session) {
@@ -915,6 +1020,7 @@ function generateMirrorReadme(workspace, sessionFiles) {
   ];
   lines.push("- `README.md` (mirror-index)");
   lines.push("- `TODAY.md` (study-pack)");
+  lines.push("- `review.html` (portable-review)");
   lines.push("- `workspace.json` (workspace-restore)");
   sessionFiles.forEach((file) => {
     lines.push(`- \`${file.path}\` (${file.role}, ${file.bytes} B)`);
@@ -922,7 +1028,7 @@ function generateMirrorReadme(workspace, sessionFiles) {
   return lines.join("\n").trim() + "\n";
 }
 
-function makeMirrorFile({ path, mediaType, role, sessionId = "", content }) {
+function makeMirrorFile({ path, mediaType, role, sessionId = "", sourceFingerprint = "", content }) {
   const safePath = normalizeMirrorPath(path);
   const bytes = byteLength(content);
   if (bytes > MAX_MIRROR_FILE_BYTES) {
@@ -934,6 +1040,7 @@ function makeMirrorFile({ path, mediaType, role, sessionId = "", content }) {
     encoding: "utf-8",
     role,
     sessionId,
+    sourceFingerprint,
     bytes,
     contentFingerprint: fingerprintText(content),
     content

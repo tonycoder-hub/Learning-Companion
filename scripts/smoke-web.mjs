@@ -19,6 +19,7 @@ import {
   filterSessions,
   formatLocalIso,
   generateMarkdown,
+  generateReviewHtml,
   generateSynthesisDraft,
   generateTodayMarkdown,
   getRecentCaptureItems,
@@ -146,6 +147,73 @@ assert.match(todayMarkdown, /Due Review/);
 assert.match(todayMarkdown, /Recent Captures/);
 assert.match(todayMarkdown, /Recall why greedy selection works/);
 
+const reviewHtml = generateReviewHtml(multiReviewWorkspace, frozenToday);
+assert.match(reviewHtml, /Learning Companion Review Pack/);
+assert.match(reviewHtml, /Content-Security-Policy/);
+assert.match(reviewHtml, /learning-companion-workspace-fingerprint/);
+assert.match(reviewHtml, /data-reveal/);
+assert.match(reviewHtml, /Recall why greedy selection works/);
+assert.match(reviewHtml, /href="sessions\/.+\.md"/);
+assert.equal(reviewHtml.includes("<script>alert"), false);
+assert.equal(reviewHtml, generateReviewHtml(multiReviewWorkspace, frozenToday));
+
+const maliciousReviewWorkspace = sanitizeWorkspace({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  activeSessionId: "malicious_session",
+  sessions: [{
+    id: "malicious_session",
+    title: "Bad \" onclick=alert(1) x=\" & topic",
+    sourceTitle: "",
+    sourceUrl: "",
+    materialType: "doc",
+    focusMode: "capture",
+    notesMarkdown: "",
+    tags: [],
+    captures: [],
+    reviewCards: [{
+      id: "malicious_card",
+      prompt: "Prompt \" onclick=alert(1) x=\" <img src=x onerror=alert(1)>",
+      answer: "Answer & <script>alert(1)</script> ' `",
+      dueAt: "2026-05-29T00:00:00.000Z",
+      strength: 0
+    }]
+  }]
+});
+const maliciousReviewHtml = generateReviewHtml(maliciousReviewWorkspace, frozenToday);
+assert.match(maliciousReviewHtml, /&quot; onclick=alert\(1\) x=&quot;/);
+assert.match(maliciousReviewHtml, /&amp;/);
+assert.match(maliciousReviewHtml, /&#39;/);
+assert.equal(maliciousReviewHtml.includes("<img src=x"), false);
+assert.equal(maliciousReviewHtml.includes("<script>alert"), false);
+
+const manyCardsWorkspace = sanitizeWorkspace({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  activeSessionId: "many_cards_session",
+  sessions: [{
+    id: "many_cards_session",
+    title: "Many cards",
+    sourceTitle: "",
+    sourceUrl: "",
+    materialType: "doc",
+    focusMode: "capture",
+    notesMarkdown: "",
+    tags: [],
+    captures: [],
+    reviewCards: Array.from({ length: 55 }, (_, index) => ({
+      id: `many_card_${index}`,
+      prompt: `Prompt ${index}`,
+      answer: `Answer ${index}`,
+      dueAt: "2026-05-29T00:00:00.000Z",
+      strength: 0,
+      createdAt: `2026-05-29T00:00:${String(index).padStart(2, "0")}.000Z`
+    }))
+  }]
+});
+const manyCardsReviewHtml = generateReviewHtml(manyCardsWorkspace, frozenToday);
+assert.equal((manyCardsReviewHtml.match(/<article class="card">/g) || []).length, 50);
+
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");
 assert.equal(payload.session.id, session.id);
@@ -156,9 +224,10 @@ assert.equal(mirror.contractStability, "experimental");
 assert.equal(mirror.canonical, "workspace.json");
 assert.equal(mirror.semantics.snapshot, "full");
 assert.equal(mirror.workspace.sessionCount, workspace.sessions.length);
-assert.equal(mirror.manifest.fileCount, 3 + workspace.sessions.length * 2);
+assert.equal(mirror.manifest.fileCount, 4 + workspace.sessions.length * 2);
 assert.equal(mirror.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
+assert.equal(mirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && /Due Review/.test(file.content)), true);
 assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);
 assert.equal(mirror.files.every((file) => file.encoding === "utf-8"), true);
@@ -175,6 +244,7 @@ assert.equal(mirrorZipNames.length, mirror.files.length);
 assert.equal(mirrorZipNames.includes("workspace.json"), true);
 assert.equal(mirrorZipNames.includes("README.md"), true);
 assert.equal(mirrorZipNames.includes("TODAY.md"), true);
+assert.equal(mirrorZipNames.includes("review.html"), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".md") && path.startsWith("sessions/")), true);
 assert.equal(mirrorZipNames.some((path) => path.endsWith(".feishu.json")), true);
 
