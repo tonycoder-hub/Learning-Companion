@@ -2,6 +2,8 @@
 
 This is a minimal native macOS shell for the local web MVP. It deliberately has no package dependencies and loads `apps/companion-web/index.html` in a `WKWebView`.
 
+It is a WKWebView shell, not the finished Mac app: no global hotkey, no browser-context capture, no notarization, and not redistributable yet.
+
 ## Run
 
 From this directory:
@@ -20,7 +22,8 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 
 - Opens the existing local-first web app in a resizable Mac window.
 - Uses WebKit's default persistent website data store, so the web MVP keeps its existing localStorage behavior.
-- Falls back to `http://127.0.0.1:5173/` if the static web root cannot be found.
+- Uses a deterministic `file://` origin. It does not silently fall back to `127.0.0.1`, because that would create a separate localStorage bucket.
+- Opens external `http` and `https` links in the system browser.
 
 ## Not Yet
 

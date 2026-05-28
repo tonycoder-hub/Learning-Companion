@@ -83,6 +83,7 @@ Accepted from Mira:
 - Keep capture source snapshot fields optional in the v1 schema, add source provenance, and harden source jump URL handling.
 - Move core review actions into the desk for sidecar focus, keep reveal state coherent across inspector/desk surfaces, and add keyboard grading shortcuts.
 - Add a derived Today study pack from one pure builder, with explicit generated/window metadata, relative session links, and `workspace.json` as source of truth.
+- Keep the Mac shell honest as a thin WKWebView wrapper: deterministic file origin, external-link handoff, and no silent localhost fallback.
 
 Deferred:
 
@@ -105,6 +106,7 @@ Deferred:
 - Safari/Firefox localStorage quota behavior is not verified.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet.
 - Mac shell is currently a thin WKWebView wrapper; it does not yet add global capture or browser context.
+- Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.
 - HarmonyOS app is not started yet; schema is ready for exploration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.
