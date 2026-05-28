@@ -32,9 +32,10 @@ product/mvp-learning-sidecar
 - Today tab summarizes workspace due review and recent captures.
 - Static mirror `index.html` provides a portable folder home page for Today, Review, Restore, and sessions.
 - Today and mirror exports include a Resume Here / Focus Brief section for mobile, Windows, and Feishu handoff.
-- Static mirror `review.html` supports reveal-only due-card review on mobile/Windows.
+- Static mirror `review.html` supports due-card review on mobile/Windows and exports append-only review progress patch JSON.
 - Static mirror `inbox.html` supports phone/Windows capture drafts and exports append-only mobile inbox patch JSON.
 - Mobile inbox patch import appends captures with patch/capture id dedupe, target-resolution fallback, unsafe URL stripping with receipt counts, and a visible import receipt.
+- Review progress patch import applies Again/Good events only when the card version still matches, and reports duplicates, missing cards, stale conflicts, and invalid events.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
@@ -42,13 +43,13 @@ product/mvp-learning-sidecar
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
-- Import can restore either a raw workspace JSON, a Feishu mirror bundle, or a mobile inbox patch.
+- Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Workspace Find jump-to-capture behavior, Today tab/direct Today export/mirror home/study pack/static review pack/static inbox page, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mobile inbox patch import, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Focus Brief updates, Workspace Find jump-to-capture behavior, Today tab/direct Today export/mirror home/study pack/static review pack/static review-progress patch/static inbox page, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, confirmed capture/card deletion, mobile inbox patch import, review progress patch import receipt, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 
@@ -99,7 +100,7 @@ Accepted from Mira:
 - Keep the Mac shell honest as a thin WKWebView wrapper: deterministic file origin, external-link handoff, and no silent localhost fallback.
 - Add a Mac shell clipboard-to-capture command as a local, permission-free step toward native capture.
 - Pin Focus Brief as a pure model-layer object, with deterministic next-action rules shared by desk UI and portable exports; add workspace-due fallback and synthesis-source freshness.
-- Prefer mobile inbox patch before static review-progress patch because capture import is append-only while scheduler merge conflicts are riskier.
+- Keep review progress patches conflict-aware: apply only against unchanged card versions, and skip stale events with a receipt instead of overwriting Mac-side review state.
 - Add Workspace Find as a local-only jump surface, with result text rendered via `textContent`, capped queries, and read-only navigation into captures/review/notes.
 
 Deferred:
@@ -109,8 +110,7 @@ Deferred:
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
-- Static review-progress patch is deferred until scheduler conflict semantics are explicit.
-- Mobile inbox should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip and the final browser smoke rerun both pass.
+- Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
 
 ## Next Best Commits
 
@@ -125,6 +125,7 @@ Deferred:
 - Focus Brief workspace-review tie-break currently inherits the due queue ordering; document or expose that policy before making it adaptive.
 - Static `inbox.html` is designed for HarmonyOS/Windows manual capture, but real-device storage and download behavior are still unverified.
 - Mobile inbox patch is still manual transport; it is not real sync and depends on the user importing the patch on Mac.
+- Review progress patch is conflict-safe but still manual transport; real device review behavior is not HarmonyOS-verified.
 - Workspace Find is simple substring search; larger workspaces will need debounce/indexing and more per-result navigation assertions.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.

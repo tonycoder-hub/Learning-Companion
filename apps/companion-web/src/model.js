@@ -1,6 +1,7 @@
 export const WORKSPACE_SCHEMA = "learning-companion.workspace.v1";
 export const WORKSPACE_SCHEMA_VERSION = 1;
 export const MOBILE_INBOX_PATCH_SCHEMA = "learning-companion.mobile-inbox-patch.v1";
+export const REVIEW_PROGRESS_PATCH_SCHEMA = "learning-companion.review-progress-patch.v1";
 export const MAX_TITLE_LENGTH = 160;
 export const MAX_URL_LENGTH = 2048;
 export const MAX_NOTE_LENGTH = 120000;
@@ -10,6 +11,8 @@ export const MAX_MIRROR_BUNDLE_BYTES = 25_000_000;
 export const MAX_MIRROR_CANONICAL_BYTES = 5_000_000;
 export const MAX_INBOX_PATCH_BYTES = 256_000;
 export const MAX_INBOX_PATCH_CAPTURES = 50;
+export const MAX_REVIEW_PROGRESS_PATCH_BYTES = 256_000;
+export const MAX_REVIEW_PROGRESS_EVENTS = 200;
 export const MAX_SEARCH_QUERY_LENGTH = 200;
 export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
@@ -207,6 +210,7 @@ export function createDefaultWorkspace() {
     activeSessionId: session.id,
     sessions: [session],
     importedPatches: [],
+    importedReviewPatches: [],
     createdAt: nowIso(),
     updatedAt: nowIso()
   };
@@ -237,6 +241,7 @@ export function sanitizeWorkspace(input) {
     activeSessionId,
     sessions,
     importedPatches: normalizeImportedPatches(workspace.importedPatches),
+    importedReviewPatches: normalizeImportedPatches(workspace.importedReviewPatches),
     createdAt: workspace.createdAt || nowIso(),
     updatedAt: workspace.updatedAt || nowIso()
   };
@@ -255,6 +260,12 @@ export function workspaceFromPortableData(input) {
   if (isMobileInboxPatchLike(input)) {
     throw new Error("Unsupported mobile inbox patch schema.");
   }
+  if (isReviewProgressPatch(input)) {
+    throw new Error("Review progress patches must be imported into the current workspace.");
+  }
+  if (isReviewProgressPatchLike(input)) {
+    throw new Error("Unsupported review progress patch schema.");
+  }
   return sanitizeWorkspace(input);
 }
 
@@ -268,6 +279,14 @@ export function isMobileInboxPatch(input) {
 
 export function isMobileInboxPatchLike(input) {
   return Boolean(input && typeof input === "object" && String(input.schema || "").startsWith("learning-companion.mobile-inbox-patch."));
+}
+
+export function isReviewProgressPatch(input) {
+  return Boolean(input && typeof input === "object" && input.schema === REVIEW_PROGRESS_PATCH_SCHEMA);
+}
+
+export function isReviewProgressPatchLike(input) {
+  return Boolean(input && typeof input === "object" && String(input.schema || "").startsWith("learning-companion.review-progress-patch."));
 }
 
 export function workspaceFromMirrorBundle(bundle) {
@@ -424,6 +443,102 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
       added: importedCaptures.length,
       skippedDuplicate,
       sanitizedSourceUrls,
+      importedAt: now
+    })
+  };
+}
+
+export function applyReviewProgressPatch(workspace, patch, now = new Date()) {
+  if (!isReviewProgressPatch(patch)) {
+    throw new Error(isReviewProgressPatchLike(patch)
+      ? "Unsupported review progress patch schema."
+      : "Unsupported review progress patch.");
+  }
+  const safeWorkspace = sanitizeWorkspace(workspace);
+  if (byteLength(JSON.stringify(patch)) > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
+    throw new Error("Review progress patch is too large.");
+  }
+  const patchId = cleanText(patch.patchId, 128);
+  if (!patchId) throw new Error("Review progress patch is missing patchId.");
+  const events = Array.isArray(patch.events) ? patch.events : [];
+  if (events.length > MAX_REVIEW_PROGRESS_EVENTS) {
+    throw new Error("Review progress patch has too many events.");
+  }
+  const importedReviewPatches = normalizeImportedPatches(safeWorkspace.importedReviewPatches);
+  if (importedReviewPatches.includes(patchId)) {
+    return {
+      workspace: safeWorkspace,
+      receipt: buildReviewProgressReceipt({
+        patchId,
+        targetResolution: "duplicate-patch",
+        applied: 0,
+        skippedDuplicate: events.length,
+        totalEvents: events.length,
+        importedAt: now
+      })
+    };
+  }
+
+  const seenEventIds = new Set();
+  const nextSessions = safeWorkspace.sessions.map((session) => ({
+    ...session,
+    reviewCards: [...session.reviewCards]
+  }));
+  let applied = 0;
+  let skippedDuplicate = 0;
+  let skippedMissing = 0;
+  let skippedConflict = 0;
+  let skippedInvalid = 0;
+
+  events.forEach((event) => {
+    const eventId = cleanText(event?.id, 128);
+    const sessionId = cleanText(event?.sessionId, 128);
+    const cardId = cleanText(event?.cardId, 128);
+    const grade = cleanText(event?.grade, 16);
+    const baseUpdatedAt = cleanText(event?.baseUpdatedAt, 64);
+    if (!eventId || !sessionId || !cardId || !["again", "good"].includes(grade) || !baseUpdatedAt) {
+      skippedInvalid += 1;
+      return;
+    }
+    if (seenEventIds.has(eventId)) {
+      skippedDuplicate += 1;
+      return;
+    }
+    seenEventIds.add(eventId);
+    const session = nextSessions.find((item) => item.id === sessionId);
+    const cardIndex = session?.reviewCards.findIndex((card) => card.id === cardId) ?? -1;
+    if (!session || cardIndex < 0) {
+      skippedMissing += 1;
+      return;
+    }
+    const card = session.reviewCards[cardIndex];
+    if (card.updatedAt !== baseUpdatedAt) {
+      skippedConflict += 1;
+      return;
+    }
+    const reviewedAt = normalizeReviewProgressDate(event.reviewedAt, now);
+    session.reviewCards[cardIndex] = applyGrade(card, grade, reviewedAt);
+    session.updatedAt = nowIso();
+    applied += 1;
+  });
+
+  const nextWorkspace = sanitizeWorkspace({
+    ...safeWorkspace,
+    sessions: nextSessions,
+    importedReviewPatches: [...importedReviewPatches, patchId].slice(-200),
+    updatedAt: nowIso()
+  });
+  return {
+    workspace: nextWorkspace,
+    receipt: buildReviewProgressReceipt({
+      patchId,
+      targetResolution: "event-import",
+      applied,
+      skippedDuplicate,
+      skippedMissing,
+      skippedConflict,
+      skippedInvalid,
+      totalEvents: events.length,
       importedAt: now
     })
   };
@@ -1063,17 +1178,37 @@ export function generateReviewHtml(workspace, now = new Date()) {
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
   const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 50, recentLimit: 1 });
-  const cards = pack.dueItems.map(({ sessionTitle, sessionPath, card }) => {
+  const seed = JSON.stringify({
+    schema: "learning-companion.review-progress-seed.v1",
+    appVersion: WORKSPACE_SCHEMA_VERSION,
+    generatedAt: pack.generatedAt,
+    workspaceFingerprint,
+    cards: pack.dueItems.map(({ sessionId, sessionTitle, card }) => ({
+      sessionId,
+      sessionTitle,
+      cardId: card.id,
+      baseUpdatedAt: card.updatedAt || card.createdAt || "",
+      baseDueAt: card.dueAt,
+      baseStrength: card.strength
+    }))
+  }).replace(/</g, "\\u003c");
+  const cards = pack.dueItems.map(({ sessionId, sessionTitle, sessionPath, card }) => {
+    const cardKey = `${sessionId}::${card.id}`;
     const safeSessionPath = isSafeMirrorSessionPath(sessionPath) ? sessionPath : "";
     const sessionLink = safeSessionPath
       ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
       : htmlText(sessionTitle);
     return [
-      '<article class="card">',
+      `<article class="card" data-card-key="${htmlAttribute(cardKey)}">`,
       `  <div class="meta">${sessionLink} · Due ${htmlText(formatDate(card.dueAt))} · strength ${htmlText(card.strength)}</div>`,
       `  <h2>${htmlText(card.prompt)}</h2>`,
       '  <button type="button" data-reveal aria-expanded="false">Reveal</button>',
       `  <div class="answer" hidden>${htmlMultiline(card.answer)}</div>`,
+      '  <div class="grade-actions" hidden>',
+      '    <button type="button" data-grade="again">Again</button>',
+      '    <button type="button" data-grade="good">Good</button>',
+      '    <span class="review-state" aria-live="polite"></span>',
+      "  </div>",
       "</article>"
     ].join("\n");
   });
@@ -1098,9 +1233,13 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "    header { margin-bottom: 16px; }",
     "    h1 { margin: 0 0 6px; font-size: 24px; }",
     "    h2 { margin: 0; font-size: 17px; line-height: 1.35; }",
-    "    .summary, .meta, .empty { color: #697077; font-size: 13px; }",
+    "    .summary, .meta, .empty, output { color: #697077; font-size: 13px; }",
     "    .card { display: grid; gap: 12px; margin: 12px 0; padding: 14px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
     "    button { min-height: 36px; border: 1px solid #2f6f5e; border-radius: 8px; background: #2f6f5e; color: white; font-weight: 700; }",
+    "    button.secondary { background: white; color: #202124; border-color: #dcd8cc; }",
+    "    .progress-panel { display: grid; gap: 10px; margin: 14px 0; padding: 12px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
+    "    .progress-actions, .grade-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }",
+    "    pre { overflow: auto; max-height: 220px; white-space: pre-wrap; word-break: break-word; border: 1px solid #dcd8cc; border-radius: 8px; padding: 10px; background: #fbfaf6; font-size: 12px; }",
     "    .answer { padding: 10px; border: 1px solid #dcd8cc; border-radius: 8px; background: #fbfaf6; line-height: 1.5; }",
     "    a { color: #315f82; }",
     "    @media (max-width: 520px) { body { padding: 12px; } h1 { font-size: 21px; } }",
@@ -1112,9 +1251,22 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      <h1>Learning Companion Review Pack</h1>",
     `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.due)} due ${pack.stats.due === 1 ? "card" : "cards"} · source of truth: workspace.json</p>`,
     "    </header>",
+    "    <section class=\"progress-panel\" aria-label=\"Review progress patch\">",
+    "      <div class=\"progress-actions\">",
+    "        <button id=\"copyProgressBtn\" type=\"button\">Copy Progress</button>",
+    "        <button id=\"downloadProgressBtn\" type=\"button\">Save Progress</button>",
+    "        <button id=\"clearProgressBtn\" class=\"secondary\" type=\"button\">Clear Progress</button>",
+    "      </div>",
+    "      <output id=\"progressStatus\">Grade cards here, then import the progress patch on the Mac app.</output>",
+    "      <pre id=\"progressPreview\"></pre>",
+    "    </section>",
     cards.length ? cards.join("\n") : empty,
     "  </main>",
     "  <script>",
+    `    const seed = ${seed};`,
+    `    const PATCH_SCHEMA = ${JSON.stringify(REVIEW_PROGRESS_PATCH_SCHEMA)};`,
+    "    const storageKey = `learning-companion.review-progress.${seed.workspaceFingerprint}`;",
+    "    let progress = loadProgress();",
     "    document.addEventListener('click', (event) => {",
     "      const button = event.target.closest('[data-reveal]');",
     "      if (!button) return;",
@@ -1124,7 +1276,65 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      answer.toggleAttribute('hidden', !willShow);",
     "      button.textContent = willShow ? 'Hide' : 'Reveal';",
     "      button.setAttribute('aria-expanded', String(willShow));",
+    "      const gradeActions = button.closest('.card')?.querySelector('.grade-actions');",
+    "      if (gradeActions) gradeActions.hidden = !willShow;",
     "    });",
+    "    document.addEventListener('click', (event) => {",
+    "      const button = event.target.closest('[data-grade]');",
+    "      if (!button) return;",
+    "      const cardEl = button.closest('.card');",
+    "      const card = seed.cards.find((item) => `${item.sessionId}::${item.cardId}` === cardEl?.dataset.cardKey);",
+    "      if (!card) return;",
+    "      const key = `${card.sessionId}::${card.cardId}`;",
+    "      const existing = progress.events[key] || {};",
+    "      progress.events[key] = {",
+    "        id: existing.id || makeId('review_event'),",
+    "        sessionId: card.sessionId,",
+    "        cardId: card.cardId,",
+    "        grade: button.dataset.grade,",
+    "        reviewedAt: new Date().toISOString(),",
+    "        baseUpdatedAt: card.baseUpdatedAt,",
+    "        baseDueAt: card.baseDueAt,",
+    "        baseStrength: card.baseStrength",
+    "      };",
+    "      saveProgress();",
+    "      renderProgress();",
+    "    });",
+    "    document.querySelector('#copyProgressBtn').addEventListener('click', async () => {",
+    "      try { await navigator.clipboard.writeText(JSON.stringify(buildPatch(), null, 2)); setStatus('Progress copied.'); }",
+    "      catch { setStatus('Copy failed. Use Save Progress.'); }",
+    "    });",
+    "    document.querySelector('#downloadProgressBtn').addEventListener('click', () => {",
+    "      const body = JSON.stringify(buildPatch(), null, 2);",
+    "      const blob = new Blob([body], { type: 'application/json' });",
+    "      const url = URL.createObjectURL(blob);",
+    "      const link = document.createElement('a');",
+    "      link.href = url;",
+    "      link.download = 'learning-companion-review-progress-patch.json';",
+    "      link.click();",
+    "      URL.revokeObjectURL(url);",
+    "      setStatus('Progress patch saved. Import it on the Mac app.');",
+    "    });",
+    "    document.querySelector('#clearProgressBtn').addEventListener('click', () => { progress = { events: {} }; saveProgress(); renderProgress(); });",
+    "    function buildPatch() {",
+    "      return { schema: PATCH_SCHEMA, appVersion: seed.appVersion, patchId: makeId('review_patch'), createdAt: new Date().toISOString(), source: { generatedBy: 'review.html', workspaceFingerprint: seed.workspaceFingerprint }, events: Object.values(progress.events) };",
+    "    }",
+    "    function renderProgress() {",
+    "      document.querySelectorAll('.card').forEach((cardEl) => {",
+    "        const event = progress.events[cardEl.dataset.cardKey];",
+    "        const state = cardEl.querySelector('.review-state');",
+    "        if (state) state.textContent = event ? `Marked ${event.grade}` : '';",
+    "      });",
+    "      const count = Object.keys(progress.events).length;",
+    "      document.querySelector('#progressPreview').textContent = JSON.stringify(buildPatch(), null, 2);",
+    "      setStatus(count ? `${count} review ${count === 1 ? 'event' : 'events'} ready to import.` : 'Grade cards here, then import the progress patch on the Mac app.');",
+    "    }",
+    "    function loadProgress() { try { const value = JSON.parse(localStorage.getItem(storageKey) || '{}'); return { events: value.events && typeof value.events === 'object' ? value.events : {} }; } catch { return { events: {} }; } }",
+    "    function saveProgress() { localStorage.setItem(storageKey, JSON.stringify(progress)); }",
+    "    function makeId(prefix) { return `${prefix}_${randomIdPart()}`; }",
+    "    function randomIdPart() { const cryptoApi = globalThis.crypto; if (cryptoApi && typeof cryptoApi.randomUUID === 'function') return cryptoApi.randomUUID(); if (cryptoApi && typeof cryptoApi.getRandomValues === 'function') { const bytes = new Uint8Array(16); cryptoApi.getRandomValues(bytes); return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(''); } return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`; }",
+    "    function setStatus(message) { document.querySelector('#progressStatus').textContent = message; }",
+    "    renderProgress();",
     "  </script>",
     "</body>",
     "</html>",
@@ -1724,6 +1934,40 @@ function normalizeInboxCapturedAt(value, now = new Date()) {
   if (!raw) return Number.isFinite(now?.getTime?.()) ? now.toISOString() : nowIso();
   const date = new Date(raw);
   return Number.isFinite(date.getTime()) ? date.toISOString() : nowIso();
+}
+
+function buildReviewProgressReceipt({
+  patchId,
+  targetResolution,
+  applied,
+  skippedDuplicate = 0,
+  skippedMissing = 0,
+  skippedConflict = 0,
+  skippedInvalid = 0,
+  totalEvents,
+  importedAt
+}) {
+  return {
+    schema: "learning-companion.review-progress-receipt.v1",
+    patchId,
+    importedAt: Number.isFinite(importedAt?.getTime?.()) ? importedAt.toISOString() : nowIso(),
+    targetResolution,
+    applied,
+    skippedDuplicate,
+    skippedMissing,
+    skippedConflict,
+    skippedInvalid,
+    totalEvents
+  };
+}
+
+function normalizeReviewProgressDate(value, now = new Date()) {
+  const raw = cleanText(value, 64);
+  if (!raw) return Number.isFinite(now?.getTime?.()) ? now : new Date();
+  const date = new Date(raw);
+  return Number.isFinite(date.getTime())
+    ? date
+    : Number.isFinite(now?.getTime?.()) ? now : new Date();
 }
 
 function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref) {

@@ -14,6 +14,7 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 - `README.md` is derived documentation.
 - `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session.
 - `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` JSON.
+- `review.html` is a derived, local-only mobile/Windows review page that exports append-only `learning-companion.review-progress-patch.v1` JSON.
 - `sessions/*.md` is derived human-readable material.
 - `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync; it includes the same deterministic focus brief for that session.
 
@@ -56,3 +57,16 @@ Manual ZIP export is allowed before the uploader exists. A future uploader shoul
 - The import receipt reports stripped source links when mobile patch URLs sanitize to empty.
 - Patch size is checked against raw imported file bytes and the parsed payload cap.
 - Patch import never overwrites notes, review cards, or existing captures.
+
+## Review Progress Patch
+
+`learning-companion.review-progress-patch.v1` is an append-only manual return path for review grades created from `review.html`.
+
+- Unknown patch schemas are rejected.
+- Patches require `patchId`; each event requires a stable `id`, session id, card id, `grade`, and `baseUpdatedAt`.
+- `grade` is limited to `again` or `good`.
+- The importer tracks patch ids in `workspace.importedReviewPatches`, pruned to the latest 200 ids.
+- Review events apply only when the current card `updatedAt` still matches the event `baseUpdatedAt`.
+- Stale/conflicting, missing, duplicate, or invalid events are skipped and counted in the visible receipt.
+- Patch size and event count are capped before import.
+- Patch import never overwrites notes, captures, session metadata, or the full workspace.

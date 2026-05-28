@@ -289,15 +289,38 @@ try {
       const synthesisOccurrences = (restoredSession.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
       const badTransfer = new DataTransfer();
       badTransfer.items.add(new File([JSON.stringify({ ...mirror, canonical: "bad.json" })], "bad-mirror.json", { type: "application/json" }));
-      importInput.files = badTransfer.files;
-      importInput.dispatchEvent(new Event("change", { bubbles: true }));
-      setTimeout(() => {
-        const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
-        const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
-        const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
-        const cardMetricBeforeInbox = document.querySelector("#cardMetric").textContent;
-        const dueMetricBeforeInbox = document.querySelector("#dueMetric").textContent;
-        const captureTextBeforeInbox = document.querySelector("#captureList").textContent;
+        importInput.files = badTransfer.files;
+        importInput.dispatchEvent(new Event("change", { bubbles: true }));
+        setTimeout(() => {
+          const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+          const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
+          const reviewProgressPatch = {
+            schema: "learning-companion.review-progress-patch.v1",
+            appVersion: 1,
+            patchId: "browser_review_progress_missing",
+            createdAt: "2026-05-29T09:05:00+08:00",
+            source: { generatedBy: "review.html", workspaceFingerprint: "browser" },
+            events: [{
+              id: "browser_review_event_missing",
+              sessionId: restoredSession.id,
+              cardId: "missing_card",
+              grade: "good",
+              reviewedAt: "2026-05-29T09:06:00+08:00",
+              baseUpdatedAt: "2026-05-29T09:00:00.000Z",
+              baseDueAt: "2026-05-29T09:00:00.000Z",
+              baseStrength: 0
+            }]
+          };
+          const reviewTransfer = new DataTransfer();
+          reviewTransfer.items.add(new File([JSON.stringify(reviewProgressPatch)], "learning-companion-review-progress-patch.json", { type: "application/json" }));
+          importInput.files = reviewTransfer.files;
+          importInput.dispatchEvent(new Event("change", { bubbles: true }));
+          setTimeout(() => {
+          const reviewReceiptBeforeInbox = document.querySelector("#importReceipt").textContent;
+          const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
+          const cardMetricBeforeInbox = document.querySelector("#cardMetric").textContent;
+          const dueMetricBeforeInbox = document.querySelector("#dueMetric").textContent;
+          const captureTextBeforeInbox = document.querySelector("#captureList").textContent;
         const reviewTextBeforeInbox = document.querySelector("#reviewList").textContent;
         const inboxPatch = {
           schema: "learning-companion.mobile-inbox-patch.v1",
@@ -336,6 +359,7 @@ try {
           latestCaptureSourceProvenance: restoredSession.captures[0].sourceProvenance,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
+          reviewReceiptBeforeInbox,
           captureMetric: captureMetricBeforeInbox,
           cardMetric: cardMetricBeforeInbox,
           dueMetric: dueMetricBeforeInbox,
@@ -384,6 +408,7 @@ try {
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("data-reveal") && file.content.includes("Content-Security-Policy")),
+          mirrorReviewHtml: restoredMirror.files.find((file) => file.path === "review.html")?.content || "",
           mirrorHasInboxHtml: restoredMirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && file.content.includes("Learning Companion Inbox") && file.content.includes("learning-companion.mobile-inbox-patch.v1") && !file.content.includes("<link") && !/<script[^>]+src=/i.test(file.content) && !/<iframe/i.test(file.content) && !/srcdoc=/i.test(file.content) && !/href=["']javascript:/i.test(file.content) && !/\\bfetch\\s*\\(/.test(file.content) && !/XMLHttpRequest/.test(file.content)),
           mirrorInboxHtml: restoredMirror.files.find((file) => file.path === "inbox.html")?.content || "",
           mirrorTodayEscapesScript: (() => {
@@ -416,6 +441,7 @@ try {
           clientId: restoredWorkspace.clientId
           });
         }, 80);
+        }, 80);
       }, 80);
     }, 80));
   })()`);
@@ -431,6 +457,9 @@ try {
   assert.equal(result.latestCaptureSourceProvenance, "snapshot");
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
+  assert.match(result.reviewReceiptBeforeInbox, /Review progress imported/);
+  assert.match(result.reviewReceiptBeforeInbox, /0 applied/);
+  assert.match(result.reviewReceiptBeforeInbox, /1 missing/);
   assert.equal(result.inboxCaptureMetric, "4");
   assert.match(result.inboxReceiptText, /1 added, 0 skipped/);
   assert.match(result.inboxReceiptText, /1 source link stripped/);
@@ -514,6 +543,7 @@ try {
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);
   assert.equal(result.mirrorHasReviewHtml, true);
+  assert.match(result.mirrorReviewHtml, /learning-companion\.review-progress-patch\.v1/);
   assert.equal(result.mirrorHasInboxHtml, true);
   assert.match(result.mirrorInboxHtml, /Learning Companion Inbox/);
   assert.equal(result.mirrorTodayEscapesScript, true);
@@ -523,6 +553,38 @@ try {
   assert.equal(result.mirrorFingerprintsValid, true);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
+
+  const exceptionsBeforeReviewRuntime = exceptions.length;
+  virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-review.html` });
+  await sleep(300);
+  const reviewRuntime = await cdp.evaluate(`(() => {
+    document.querySelector('[data-reveal]')?.click();
+    document.querySelector('[data-grade="good"]')?.click();
+    const preview = JSON.parse(document.querySelector("#progressPreview").textContent);
+    return {
+      heading: document.querySelector("h1").textContent,
+      answerVisible: !document.querySelector(".answer").hidden,
+      status: document.querySelector("#progressStatus").textContent,
+      state: document.querySelector(".review-state").textContent,
+      previewSchema: preview.schema,
+      previewEventCount: preview.events.length,
+      previewGrade: preview.events[0]?.grade || "",
+      hasBaseUpdatedAt: Boolean(preview.events[0]?.baseUpdatedAt),
+      storageKey: Object.keys(localStorage).find((key) => key.startsWith("learning-companion.review-progress.")) || ""
+    };
+  })()`);
+
+  assert.equal(exceptions.length, exceptionsBeforeReviewRuntime);
+  assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
+  assert.equal(reviewRuntime.answerVisible, true);
+  assert.match(reviewRuntime.status, /1 review event/);
+  assert.equal(reviewRuntime.state, "Marked good");
+  assert.equal(reviewRuntime.previewSchema, "learning-companion.review-progress-patch.v1");
+  assert.equal(reviewRuntime.previewEventCount, 1);
+  assert.equal(reviewRuntime.previewGrade, "good");
+  assert.equal(reviewRuntime.hasBaseUpdatedAt, true);
+  assert.match(reviewRuntime.storageKey, /^learning-companion\.review-progress\./);
 
   const exceptionsBeforeInboxRuntime = exceptions.length;
   virtualRoutes.set("/mirror-inbox.html", result.mirrorInboxHtml);

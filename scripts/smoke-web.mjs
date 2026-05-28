@@ -5,12 +5,15 @@ import {
   WORKSPACE_SCHEMA_VERSION,
   MAX_CAPTURE_TEXT_LENGTH,
   MAX_INBOX_PATCH_CAPTURES,
+  MAX_REVIEW_PROGRESS_EVENTS,
   MAX_SEARCH_QUERY_LENGTH,
   MOBILE_INBOX_PATCH_SCHEMA,
+  REVIEW_PROGRESS_PATCH_SCHEMA,
   addCapture,
   addSession,
   applyMobileInboxPatch,
   applyGrade,
+  applyReviewProgressPatch,
   buildFeishuPayload,
   buildFocusBrief,
   buildMirrorBundle,
@@ -40,6 +43,8 @@ import {
   gradeCard,
   isMobileInboxPatch,
   isMobileInboxPatchLike,
+  isReviewProgressPatch,
+  isReviewProgressPatchLike,
   promoteCapture,
   reviewIntervalDays,
   safeHref,
@@ -376,11 +381,80 @@ const reviewHtml = generateReviewHtml(multiReviewWorkspace, frozenToday);
 assert.match(reviewHtml, /Learning Companion Review Pack/);
 assert.match(reviewHtml, /Content-Security-Policy/);
 assert.match(reviewHtml, /learning-companion-workspace-fingerprint/);
+assert.match(reviewHtml, /learning-companion\.review-progress-patch\.v1/);
 assert.match(reviewHtml, /data-reveal/);
+assert.match(reviewHtml, /data-grade="good"/);
 assert.match(reviewHtml, /Recall why greedy selection works/);
 assert.match(reviewHtml, /href="sessions\/.+\.md"/);
 assert.equal(reviewHtml.includes("<script>alert"), false);
+assert.equal(/<script[^>]+src=/i.test(reviewHtml), false);
+assert.equal(/\bfetch\s*\(/.test(reviewHtml), false);
+assert.equal(/XMLHttpRequest/.test(reviewHtml), false);
 assert.equal(reviewHtml, generateReviewHtml(multiReviewWorkspace, frozenToday));
+
+const [reviewProgressItem] = getDueReviewItems(multiReviewWorkspace, frozenToday);
+const reviewProgressPatch = {
+  schema: REVIEW_PROGRESS_PATCH_SCHEMA,
+  appVersion: WORKSPACE_SCHEMA_VERSION,
+  patchId: "review_patch_001",
+  createdAt: "2099-01-02T08:00:00.000Z",
+  source: { generatedBy: "review.html", workspaceFingerprint: "fnv1a-test" },
+  events: [{
+    id: "review_event_001",
+    sessionId: reviewProgressItem.sessionId,
+    cardId: reviewProgressItem.card.id,
+    grade: "good",
+    reviewedAt: "2099-01-02T08:01:00.000Z",
+    baseUpdatedAt: reviewProgressItem.card.updatedAt,
+    baseDueAt: reviewProgressItem.card.dueAt,
+    baseStrength: reviewProgressItem.card.strength
+  }, {
+    id: "review_event_001",
+    sessionId: reviewProgressItem.sessionId,
+    cardId: reviewProgressItem.card.id,
+    grade: "again",
+    reviewedAt: "2099-01-02T08:02:00.000Z",
+    baseUpdatedAt: reviewProgressItem.card.updatedAt,
+    baseDueAt: reviewProgressItem.card.dueAt,
+    baseStrength: reviewProgressItem.card.strength
+  }]
+};
+assert.equal(isReviewProgressPatch(reviewProgressPatch), true);
+let reviewProgressResult = applyReviewProgressPatch(multiReviewWorkspace, reviewProgressPatch, frozenToday);
+const reviewedSession = reviewProgressResult.workspace.sessions.find((item) => item.id === reviewProgressItem.sessionId);
+const reviewedCard = reviewedSession.reviewCards.find((card) => card.id === reviewProgressItem.card.id);
+assert.equal(reviewProgressResult.receipt.applied, 1);
+assert.equal(reviewProgressResult.receipt.skippedDuplicate, 1);
+assert.equal(reviewProgressResult.workspace.importedReviewPatches.includes("review_patch_001"), true);
+assert.equal(reviewedCard.strength, reviewProgressItem.card.strength + 1);
+assert.equal(reviewedCard.lastReviewedAt, "2099-01-02T08:01:00.000Z");
+const duplicateReviewProgressResult = applyReviewProgressPatch(reviewProgressResult.workspace, reviewProgressPatch);
+assert.equal(duplicateReviewProgressResult.receipt.targetResolution, "duplicate-patch");
+assert.equal(duplicateReviewProgressResult.receipt.applied, 0);
+const staleReviewProgressResult = applyReviewProgressPatch(reviewProgressResult.workspace, {
+  ...reviewProgressPatch,
+  patchId: "review_patch_002",
+  events: [{ ...reviewProgressPatch.events[0], id: "review_event_002" }]
+});
+assert.equal(staleReviewProgressResult.receipt.applied, 0);
+assert.equal(staleReviewProgressResult.receipt.skippedConflict, 1);
+const missingReviewProgressResult = applyReviewProgressPatch(multiReviewWorkspace, {
+  ...reviewProgressPatch,
+  patchId: "review_patch_003",
+  events: [{ ...reviewProgressPatch.events[0], id: "review_event_003", cardId: "missing_card" }]
+});
+assert.equal(missingReviewProgressResult.receipt.skippedMissing, 1);
+assert.equal(isReviewProgressPatchLike({ schema: "learning-companion.review-progress-patch.v2" }), true);
+assert.throws(() => workspaceFromPortableData({ schema: "learning-companion.review-progress-patch.v2" }), /Unsupported review progress patch schema/);
+assert.throws(() => applyReviewProgressPatch(multiReviewWorkspace, { ...reviewProgressPatch, patchId: "" }), /patchId/);
+assert.throws(() => applyReviewProgressPatch(multiReviewWorkspace, {
+  ...reviewProgressPatch,
+  patchId: "review_patch_too_many",
+  events: Array.from({ length: MAX_REVIEW_PROGRESS_EVENTS + 1 }, (_, index) => ({
+    ...reviewProgressPatch.events[0],
+    id: `too_many_review_${index}`
+  }))
+}), /too many events/);
 
 const maliciousReviewWorkspace = sanitizeWorkspace({
   schema: WORKSPACE_SCHEMA,
@@ -451,7 +525,7 @@ const manyCardsWorkspace = sanitizeWorkspace({
   }]
 });
 const manyCardsReviewHtml = generateReviewHtml(manyCardsWorkspace, frozenToday);
-assert.equal((manyCardsReviewHtml.match(/<article class="card">/g) || []).length, 50);
+assert.equal((manyCardsReviewHtml.match(/<article class="card"/g) || []).length, 50);
 
 const mirrorIndexHtml = generateMirrorIndexHtml(multiReviewWorkspace, frozenToday);
 assert.match(mirrorIndexHtml, /Learning Companion Mirror/);

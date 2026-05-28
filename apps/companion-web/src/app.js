@@ -2,10 +2,12 @@ import {
   WORKSPACE_SCHEMA,
   MAX_INBOX_PATCH_BYTES,
   MAX_MIRROR_BUNDLE_BYTES,
+  MAX_REVIEW_PROGRESS_PATCH_BYTES,
   MAX_SEARCH_QUERY_LENGTH,
   addCapture,
   addSession,
   applyMobileInboxPatch,
+  applyReviewProgressPatch,
   buildFeishuPayload,
   buildFocusBrief,
   buildMirrorBundle,
@@ -27,6 +29,8 @@ import {
   isMirrorBundle,
   isMobileInboxPatch,
   isMobileInboxPatchLike,
+  isReviewProgressPatch,
+  isReviewProgressPatchLike,
   promoteCapture,
   safeHref,
   sanitizeWorkspace,
@@ -173,6 +177,9 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
     if (isMobileInboxPatchLike(imported) && file.size > MAX_INBOX_PATCH_BYTES) {
       throw new Error("Mobile inbox patch is too large.");
     }
+    if (isReviewProgressPatchLike(imported) && file.size > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
+      throw new Error("Review progress patch is too large.");
+    }
     if (isMobileInboxPatch(imported)) {
       const result = applyMobileInboxPatch(workspace, imported);
       workspace = result.workspace;
@@ -186,8 +193,24 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
       persistAndRender(`Inbox import: ${result.receipt.added} added`);
       return;
     }
+    if (isReviewProgressPatch(imported)) {
+      const result = applyReviewProgressPatch(workspace, imported);
+      workspace = result.workspace;
+      lastImportReceipt = result.receipt;
+      setActivity(getActiveSession(workspace), {
+        title: "Review progress imported",
+        detail: formatImportReceipt(result.receipt),
+        tab: "review",
+        targetId: ""
+      });
+      persistAndRender(`Review import: ${result.receipt.applied} applied`);
+      return;
+    }
     if (isMobileInboxPatchLike(imported)) {
       throw new Error("Unsupported mobile inbox patch schema.");
+    }
+    if (isReviewProgressPatchLike(imported)) {
+      throw new Error("Unsupported review progress patch schema.");
     }
     if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
       showToast("Import canceled");
@@ -787,8 +810,17 @@ function renderImportReceipt() {
   const receipt = lastImportReceipt;
   dom.importReceipt.hidden = !receipt;
   if (!receipt) return;
-  dom.importReceiptTitle.textContent = "Mobile inbox imported";
-  dom.importReceiptDetail.textContent = formatInboxReceipt(receipt);
+  dom.importReceiptTitle.textContent = receipt.schema === "learning-companion.review-progress-receipt.v1"
+    ? "Review progress imported"
+    : "Mobile inbox imported";
+  dom.importReceiptDetail.textContent = formatImportReceipt(receipt);
+}
+
+function formatImportReceipt(receipt) {
+  if (receipt?.schema === "learning-companion.review-progress-receipt.v1") {
+    return formatReviewProgressReceipt(receipt);
+  }
+  return formatInboxReceipt(receipt);
 }
 
 function formatInboxReceipt(receipt) {
@@ -803,6 +835,15 @@ function formatInboxReceipt(receipt) {
     ? ` · ${receipt.sanitizedSourceUrls} source ${receipt.sanitizedSourceUrls === 1 ? "link" : "links"} stripped`
     : "";
   return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized} · ${resolution} · ${receipt.targetSessionTitle}`;
+}
+
+function formatReviewProgressReceipt(receipt) {
+  if (!receipt) return "";
+  const duplicate = receipt.skippedDuplicate ? `, ${receipt.skippedDuplicate} duplicate` : "";
+  const missing = receipt.skippedMissing ? `, ${receipt.skippedMissing} missing` : "";
+  const conflict = receipt.skippedConflict ? `, ${receipt.skippedConflict} stale` : "";
+  const invalid = receipt.skippedInvalid ? `, ${receipt.skippedInvalid} invalid` : "";
+  return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events`;
 }
 
 function renderMetrics() {

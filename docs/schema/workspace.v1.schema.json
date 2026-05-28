@@ -42,6 +42,11 @@
       "type": "array",
       "items": { "type": "string", "maxLength": 128 },
       "uniqueItems": true
+    },
+    "importedReviewPatches": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 128 },
+      "uniqueItems": true
     }
   },
   "$defs": {
