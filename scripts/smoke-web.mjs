@@ -17,6 +17,7 @@ import {
   generateSynthesisDraft,
   getSynthesisStats,
   getDueReviewCards,
+  getDueReviewItems,
   getActiveSession,
   gradeCard,
   promoteCapture,
@@ -57,6 +58,19 @@ assert.equal(session.captures[0].tags.includes("rust"), true);
 assert.equal(session.captures[0].originClientId, workspace.clientId);
 assert.equal(session.captures[0].updatedAt.length > 0, true);
 assert.equal(getDueReviewCards(session).length, 1);
+assert.equal(getDueReviewItems(workspace).length, 1);
+
+let multiReviewWorkspace = addSession(workspace, "Algorithms course");
+const algorithmsSession = getActiveSession(multiReviewWorkspace);
+multiReviewWorkspace = addCapture(multiReviewWorkspace, algorithmsSession.id, {
+  quote: "Dijkstra explores the lowest-cost frontier first.",
+  thought: "Recall why greedy selection works.",
+  tags: "algorithms graph"
+}, { promoteToReview: true });
+const dueItems = getDueReviewItems(multiReviewWorkspace);
+assert.equal(dueItems.length, 2);
+assert.equal(dueItems.some((item) => item.sessionTitle === "Rust ownership course"), true);
+assert.equal(dueItems.some((item) => item.sessionTitle === "Algorithms course"), true);
 
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);

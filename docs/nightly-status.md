@@ -15,7 +15,7 @@ product/mvp-learning-sidecar
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
 - Capture-to-review-card promotion.
 - Cloze review card authoring from selected quote text.
-- Due review queue with simple strength buckets.
+- Workspace-wide due review queue with simple strength buckets.
 - Self-graded Again/Good review outcomes with isolated scheduling policy.
 - Review answers are reveal-gated before grading.
 - Markdown notes editor with autosave.
@@ -29,7 +29,7 @@ product/mvp-learning-sidecar
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies Cloze cards, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 

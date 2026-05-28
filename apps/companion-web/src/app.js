@@ -10,6 +10,7 @@ import {
   generateSynthesisDraft,
   getSynthesisStats,
   getDueReviewCards,
+  getDueReviewItems,
   getActiveSession,
   gradeCard,
   isMirrorBundle,
@@ -84,7 +85,7 @@ let activeTab = "captures";
 let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
-let activeReviewCardId = "";
+let activeReviewKey = "";
 const revealedReviewCards = new Set();
 
 applyUrlCapture();
@@ -190,17 +191,16 @@ dom.insertSynthesisBtn.addEventListener("click", () => {
 });
 dom.reviewNextBtn.addEventListener("click", () => {
   activeTab = "review";
-  const session = getActiveSession(workspace);
-  const [next] = getDueReviewCards(session);
+  const [next] = getDueReviewItems(workspace);
   if (!next) {
     showToast("No due cards");
     renderInspector();
     return;
   }
-  activeReviewCardId = next.id;
-  revealedReviewCards.delete(next.id);
+  activeReviewKey = reviewKey(next.sessionId, next.card.id);
+  revealedReviewCards.delete(activeReviewKey);
   renderInspector();
-  const card = document.querySelector(`[data-card-id="${CSS.escape(next.id)}"]`);
+  const card = document.querySelector(`[data-review-key="${CSS.escape(activeReviewKey)}"]`);
   card?.scrollIntoView({ behavior: "smooth", block: "center" });
   card?.classList.add("pulse");
   setTimeout(() => card?.classList.remove("pulse"), 900);
@@ -404,7 +404,7 @@ function renderStorageNotice() {
 
 function renderMetrics() {
   const session = getActiveSession(workspace);
-  const due = getDueReviewCards(session).length;
+  const due = getDueReviewItems(workspace).length;
   const bytes = new Blob([JSON.stringify(workspace)]).size;
   dom.captureMetric.textContent = String(session.captures.length);
   dom.cardMetric.textContent = String(session.reviewCards.length);
@@ -592,31 +592,33 @@ function renderCaptures() {
 
 function renderReviewCards() {
   const session = getActiveSession(workspace);
-  const dueCards = getDueReviewCards(session);
-  dom.dueCount.textContent = `${dueCards.length} due`;
+  const dueItems = getDueReviewItems(workspace);
+  dom.dueCount.textContent = `${dueItems.length} due`;
   clearChildren(dom.reviewList);
-  if (!session.reviewCards.length) {
+  const reviewItems = dueItems.length
+    ? dueItems
+    : [...session.reviewCards]
+      .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+      .map((card) => ({ sessionId: session.id, sessionTitle: session.title, card }));
+  if (!reviewItems.length) {
     dom.reviewList.append(emptyState("No review cards yet"));
     return;
   }
-  const orderedCards = [...session.reviewCards].sort((a, b) => {
-    const aDue = dueCards.some((due) => due.id === a.id) ? 0 : 1;
-    const bDue = dueCards.some((due) => due.id === b.id) ? 0 : 1;
-    if (aDue !== bDue) return aDue - bDue;
-    return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
-  });
-  if (!orderedCards.some((card) => card.id === activeReviewCardId)) {
-    activeReviewCardId = dueCards[0]?.id || orderedCards[0]?.id || "";
+  if (!reviewItems.some((item) => reviewKey(item.sessionId, item.card.id) === activeReviewKey)) {
+    const [first] = reviewItems;
+    activeReviewKey = first ? reviewKey(first.sessionId, first.card.id) : "";
   }
-  orderedCards.forEach((card) => {
-    const isDue = dueCards.some((due) => due.id === card.id);
-    const isActive = card.id === activeReviewCardId;
-    const isRevealed = revealedReviewCards.has(card.id);
+  reviewItems.forEach(({ sessionId, sessionTitle, card }) => {
+    const key = reviewKey(sessionId, card.id);
+    const isDue = dueItems.some((due) => reviewKey(due.sessionId, due.card.id) === key);
+    const isActive = key === activeReviewKey;
+    const isRevealed = revealedReviewCards.has(key);
     const item = document.createElement("article");
     item.className = `item-card review-card${isDue ? " due-card" : ""}${isActive ? " active-review-card" : ""}`;
     item.dataset.cardId = card.id;
+    item.dataset.reviewKey = key;
     item.append(
-      textEl("div", "item-meta", `${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · strength ${card.strength}`),
+      textEl("div", "item-meta", `${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · ${sessionTitle} · strength ${card.strength}`),
       textEl("p", "card-prompt", card.prompt)
     );
 
@@ -644,21 +646,25 @@ function renderReviewCards() {
     item.append(footer);
 
     footer.querySelector("[data-reveal-card]")?.addEventListener("click", () => {
-      activeReviewCardId = card.id;
-      revealedReviewCards.add(card.id);
+      activeReviewKey = key;
+      revealedReviewCards.add(key);
       renderInspector();
     });
     footer.querySelectorAll("[data-grade]").forEach((button) => {
       button.addEventListener("click", () => {
-        workspace = gradeCard(workspace, session.id, card.id, button.dataset.grade);
-        revealedReviewCards.delete(card.id);
-        const [next] = getDueReviewCards(getActiveSession(workspace));
-        activeReviewCardId = next?.id || "";
+        workspace = gradeCard(workspace, sessionId, card.id, button.dataset.grade);
+        revealedReviewCards.delete(key);
+        const [next] = getDueReviewItems(workspace);
+        activeReviewKey = next ? reviewKey(next.sessionId, next.card.id) : "";
         persistAndRender("Review updated");
       });
     });
     dom.reviewList.append(item);
   });
+}
+
+function reviewKey(sessionId, cardId) {
+  return `${sessionId}::${cardId}`;
 }
 
 function renderExport() {

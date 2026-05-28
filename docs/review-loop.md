@@ -8,7 +8,7 @@ The MVP review system is deliberately small but real enough to guide learning be
 2. A selected span inside a quote can become a cloze card.
 3. New cards are due immediately.
 4. Cloze cards are self-graded. There is no typed answer matching in v1.
-5. `Review Next` surfaces the earliest due card.
+5. `Review Next` surfaces the earliest due card across the whole workspace.
 6. The answer stays hidden until `Reveal`.
 7. `Again` lowers strength and keeps the card due now when strength returns to 0.
 8. `Good` increases strength and schedules the next review.
@@ -43,3 +43,5 @@ If typed answer checking is added later, it should be a schema v2 migration with
 Learning Companion should not become a storage bin for highlights. Captures need a path into recall. The review queue is that first path.
 
 The UI deliberately keeps grading controls hidden until the answer is revealed. This nudges the learner to attempt recall before self-grading.
+
+Due counts are workspace-wide so a learner does not miss older cards just because another session is open.

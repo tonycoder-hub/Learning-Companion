@@ -395,6 +395,20 @@ export function getDueReviewCards(session, now = new Date()) {
     .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
 }
 
+export function getDueReviewItems(workspace, now = new Date()) {
+  return workspace.sessions
+    .flatMap((session) => getDueReviewCards(session, now).map((card) => ({
+      sessionId: session.id,
+      sessionTitle: session.title,
+      card
+    })))
+    .sort((a, b) => {
+      const byDue = new Date(a.card.dueAt).getTime() - new Date(b.card.dueAt).getTime();
+      if (byDue !== 0) return byDue;
+      return a.sessionTitle.localeCompare(b.sessionTitle);
+    });
+}
+
 export function filterSessions(workspace, query) {
   const needle = String(query || "").trim().toLowerCase();
   if (!needle) return workspace.sessions;

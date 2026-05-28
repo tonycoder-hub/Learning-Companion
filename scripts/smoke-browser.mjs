@@ -185,7 +185,7 @@ try {
   assert.equal(result.dueAfterGood, "1");
   assert.equal(result.gradedCount, 1);
   assert.match(result.captureText, /Ownership lets Rust/);
-  assert.match(result.reviewText, /compiler-enforced lifetimes/);
+  assert.match(result.reviewText, /Spaced repetition improves/);
   assert.equal(result.synthesisVisible, true);
   assert.equal(result.manualDraftAfterCancel, "manual synthesis survives");
   assert.match(result.staleStatus, /Source changed/);
@@ -238,6 +238,30 @@ try {
   assert.equal(inbound.latestThought, "Turn this into a note");
   assert.equal(inbound.latestTimestamp, "01:02:03");
   assert.equal(inbound.locationSearch, "");
+
+  const globalReview = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Algorithms course");
+    setValue("#quoteInput", "Dijkstra explores the lowest-cost frontier first.");
+    setValue("#thoughtInput", "Recall why greedy selection works.");
+    document.querySelector("#captureCardBtn").click();
+    document.querySelector('[data-tab="review"]').click();
+    return {
+      dueCount: document.querySelector("#dueCount").textContent,
+      dueMetric: document.querySelector("#dueMetric").textContent,
+      reviewText: document.querySelector("#reviewList").textContent
+    };
+  })()`);
+
+  assert.equal(globalReview.dueCount, "2 due");
+  assert.equal(globalReview.dueMetric, "2");
+  assert.match(globalReview.reviewText, /Algorithms course/);
+  assert.match(globalReview.reviewText, /Spaced repetition improves/);
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {
