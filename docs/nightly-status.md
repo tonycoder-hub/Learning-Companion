@@ -27,6 +27,7 @@ product/mvp-learning-sidecar
 - Review answers are reveal-gated before grading.
 - Desk-native review pane works in focused sidecar layout.
 - Today tab summarizes workspace due review and recent captures.
+- Static mirror `index.html` provides a portable folder home page for Today, Review, Restore, and sessions.
 - Static mirror `review.html` supports reveal-only due-card review on mobile/Windows.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
@@ -34,14 +35,14 @@ product/mvp-learning-sidecar
 - Markdown + JSON export for the active session.
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
-- Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `TODAY.md` and `review.html`.
+- Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, and `review.html`.
 - Import can restore either a raw workspace JSON or a Feishu mirror bundle.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
 - Workspace schema contract in `docs/schema/workspace.v1.schema.json`.
 - Browser smoke test verifies capture -> card -> localStorage -> UI metrics.
-- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Today tab/direct Today export/mirror study pack/static review pack, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
+- Browser smoke also verifies installable/offline shell metadata, sidecar layout toggling, desk-level activity feedback, Today tab/direct Today export/mirror home/study pack/static review pack, desk-native review in sidecar layout, mobile-width no-overflow behavior, capture source snapshots/time links, capture-to-notes insertion, mirror ZIP affordance, Cloze cards, workspace-wide due review, reveal-before-grade review flow, synthesis insertion, stale-draft handling, capture formatting, mirror bundle generation/import, inbound bookmarklet capture, and notes preview rendering.
 
 ## Run
 

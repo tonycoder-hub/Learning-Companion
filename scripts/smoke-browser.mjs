@@ -296,6 +296,7 @@ try {
           mirrorFileCount: restoredMirror.manifest.fileCount,
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
+          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"')),
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("data-reveal") && file.content.includes("Content-Security-Policy")),
@@ -396,9 +397,10 @@ try {
   assert.match(result.todayExport, /Generated from workspace\.json/);
   assert.equal(result.hasMirrorZipButton, true);
   assert.equal(result.mirrorSchema, "learning-companion.mirror-bundle.staging.v1");
-  assert.equal(result.mirrorFileCount, 6);
+  assert.equal(result.mirrorFileCount, 7);
   assert.equal(result.mirrorCanonical, "workspace.json");
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
+  assert.equal(result.mirrorHasIndex, true);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);
   assert.equal(result.mirrorHasReviewHtml, true);

@@ -786,6 +786,90 @@ export function generateReviewHtml(workspace, now = new Date()) {
   ].join("\n");
 }
 
+export function generateMirrorIndexHtml(workspace, now = new Date()) {
+  const cleanWorkspace = sanitizeWorkspace(workspace);
+  const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
+  const workspaceFingerprint = fingerprintText(workspaceJson);
+  const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 6, recentLimit: 4 });
+  const sessionLinks = cleanWorkspace.sessions.map((session) => {
+    const paths = getMirrorSessionPaths(session);
+    const due = getDueReviewCards(session, now).length;
+    return [
+      '<article class="session">',
+      `  <a href="${htmlAttribute(paths.markdownPath)}">${htmlText(session.title)}</a>`,
+      `  <span>${htmlText(session.captures.length)} captures · ${htmlText(session.reviewCards.length)} cards · ${htmlText(due)} due</span>`,
+      "</article>"
+    ].join("\n");
+  });
+  const dueList = pack.dueItems.length
+    ? pack.dueItems.map(({ sessionTitle, card }) => `<li>${htmlText(card.prompt)} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
+    : "<li>No cards due right now.</li>";
+  const recentList = pack.recentCaptures.length
+    ? pack.recentCaptures.map(({ sessionTitle, capture }) => `<li>${htmlText(capture.thought || capture.quote || "Untitled capture")} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
+    : "<li>No captures yet.</li>";
+
+  return [
+    "<!doctype html>",
+    '<html lang="en">',
+    "<head>",
+    '  <meta charset="utf-8">',
+    '  <meta name="viewport" content="width=device-width, initial-scale=1">',
+    '  <meta name="referrer" content="no-referrer">',
+    '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">',
+    `  <meta name="learning-companion-source" content="workspace.json">`,
+    `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
+    `  <meta name="learning-companion-generated-at" content="${htmlAttribute(pack.generatedAt)}">`,
+    "  <title>Learning Companion Mirror</title>",
+    "  <style>",
+    "    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7f6f0; color: #202124; }",
+    "    body { margin: 0; padding: 18px; }",
+    "    main { max-width: 860px; margin: 0 auto; display: grid; gap: 16px; }",
+    "    h1, h2, p { margin: 0; }",
+    "    h1 { font-size: 26px; } h2 { font-size: 16px; }",
+    "    .summary, li span, .session span { color: #697077; font-size: 13px; }",
+    "    .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }",
+    "    .action, .panel, .session { border: 1px solid #dcd8cc; border-radius: 8px; background: white; padding: 14px; }",
+    "    .action { display: grid; gap: 5px; text-decoration: none; color: #202124; }",
+    "    .action strong { color: #2f6f5e; }",
+    "    .panel { display: grid; gap: 10px; }",
+    "    ul { margin: 0; padding-left: 20px; }",
+    "    li { margin: 8px 0; }",
+    "    .sessions { display: grid; gap: 8px; }",
+    "    .session { display: grid; gap: 5px; }",
+    "    a { color: #315f82; }",
+    "    @media (max-width: 620px) { body { padding: 12px; } .actions { grid-template-columns: 1fr; } }",
+    "  </style>",
+    "</head>",
+    "<body>",
+    "  <main>",
+    "    <header>",
+    "      <h1>Learning Companion Mirror</h1>",
+    `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.sessions)} sessions · ${htmlText(pack.stats.due)} due cards · source of truth: workspace.json</p>`,
+    "    </header>",
+    "    <nav class=\"actions\" aria-label=\"Mirror entry points\">",
+    "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review and recent captures</span></a>",
+    "      <a class=\"action\" href=\"review.html\"><strong>Review</strong><span>Reveal-only portable cards</span></a>",
+    "      <a class=\"action\" href=\"workspace.json\"><strong>Restore</strong><span>Canonical workspace JSON</span></a>",
+    "    </nav>",
+    "    <section class=\"panel\">",
+    "      <h2>Due Review Preview</h2>",
+    `      <ul>${dueList}</ul>`,
+    "    </section>",
+    "    <section class=\"panel\">",
+    "      <h2>Recent Capture Preview</h2>",
+    `      <ul>${recentList}</ul>`,
+    "    </section>",
+    "    <section class=\"panel\">",
+    "      <h2>Sessions</h2>",
+    `      <div class="sessions">${sessionLinks.join("\n")}</div>`,
+    "    </section>",
+    "  </main>",
+    "</body>",
+    "</html>",
+    ""
+  ].join("\n");
+}
+
 export function getSynthesisStats(session) {
   const captures = Array.isArray(session.captures) ? session.captures : [];
   const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
@@ -839,6 +923,13 @@ export function buildMirrorBundle(workspace) {
 
   files.push(
     makeMirrorFile({
+      path: "index.html",
+      mediaType: "text/html",
+      role: "mirror-home",
+      sourceFingerprint: workspaceFingerprint,
+      content: generateMirrorIndexHtml(cleanWorkspace, new Date(exportedAt))
+    }),
+    makeMirrorFile({
       path: "README.md",
       mediaType: "text/markdown",
       role: "mirror-index",
@@ -891,7 +982,7 @@ export function buildMirrorBundle(workspace) {
     contractStability: "experimental",
     exportedAt,
     canonical: "workspace.json",
-    derived: ["README.md", "TODAY.md", "review.html", "sessions/*.md", "sessions/*.feishu.json"],
+    derived: ["index.html", "README.md", "TODAY.md", "review.html", "sessions/*.md", "sessions/*.feishu.json"],
     generator: {
       name: "learning-companion-web",
       version: WORKSPACE_SCHEMA_VERSION,
@@ -1019,6 +1110,7 @@ function generateMirrorReadme(workspace, sessionFiles) {
     ""
   ];
   lines.push("- `README.md` (mirror-index)");
+  lines.push("- `index.html` (mirror-home)");
   lines.push("- `TODAY.md` (study-pack)");
   lines.push("- `review.html` (portable-review)");
   lines.push("- `workspace.json` (workspace-restore)");

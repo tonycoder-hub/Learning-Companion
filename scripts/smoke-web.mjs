@@ -19,6 +19,7 @@ import {
   filterSessions,
   formatLocalIso,
   generateMarkdown,
+  generateMirrorIndexHtml,
   generateReviewHtml,
   generateSynthesisDraft,
   generateTodayMarkdown,
@@ -214,6 +215,17 @@ const manyCardsWorkspace = sanitizeWorkspace({
 const manyCardsReviewHtml = generateReviewHtml(manyCardsWorkspace, frozenToday);
 assert.equal((manyCardsReviewHtml.match(/<article class="card">/g) || []).length, 50);
 
+const mirrorIndexHtml = generateMirrorIndexHtml(multiReviewWorkspace, frozenToday);
+assert.match(mirrorIndexHtml, /Learning Companion Mirror/);
+assert.match(mirrorIndexHtml, /href="TODAY\.md"/);
+assert.match(mirrorIndexHtml, /href="review\.html"/);
+assert.match(mirrorIndexHtml, /href="workspace\.json"/);
+assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
+assert.match(mirrorIndexHtml, /Content-Security-Policy/);
+assert.match(mirrorIndexHtml, /learning-companion-workspace-fingerprint/);
+assert.equal(mirrorIndexHtml.includes("<script"), false);
+assert.equal(mirrorIndexHtml, generateMirrorIndexHtml(multiReviewWorkspace, frozenToday));
+
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");
 assert.equal(payload.session.id, session.id);
@@ -224,7 +236,8 @@ assert.equal(mirror.contractStability, "experimental");
 assert.equal(mirror.canonical, "workspace.json");
 assert.equal(mirror.semantics.snapshot, "full");
 assert.equal(mirror.workspace.sessionCount, workspace.sessions.length);
-assert.equal(mirror.manifest.fileCount, 4 + workspace.sessions.length * 2);
+assert.equal(mirror.manifest.fileCount, 5 + workspace.sessions.length * 2);
+assert.equal(mirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
 assert.equal(mirror.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
 assert.equal(mirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
@@ -242,6 +255,7 @@ assert.equal(mirrorZip.fileCount, mirror.manifest.fileCount);
 assert.equal(mirrorZip.bytes, mirrorZip.data.length);
 assert.equal(mirrorZipNames.length, mirror.files.length);
 assert.equal(mirrorZipNames.includes("workspace.json"), true);
+assert.equal(mirrorZipNames.includes("index.html"), true);
 assert.equal(mirrorZipNames.includes("README.md"), true);
 assert.equal(mirrorZipNames.includes("TODAY.md"), true);
 assert.equal(mirrorZipNames.includes("review.html"), true);
