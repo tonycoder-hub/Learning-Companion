@@ -60,6 +60,14 @@ Morning review check:
 npm run check:morning
 ```
 
+Generate a fixture-only local review pack for morning inspection:
+
+```bash
+npm run demo:morning
+```
+
+Open `dist/morning-demo/MORNING_REVIEW.md` after generation.
+
 Build the minimal Mac shell:
 
 ```bash

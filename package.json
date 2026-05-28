@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "python3 -m http.server 5173 --directory apps/companion-web",
     "check:morning": "bash scripts/morning-check.sh",
+    "demo:morning": "node scripts/build-morning-demo.mjs",
     "mac:build": "swift build --package-path apps/companion-mac",
     "smoke": "node scripts/smoke-web.mjs",
     "smoke:browser": "node scripts/smoke-browser.mjs"

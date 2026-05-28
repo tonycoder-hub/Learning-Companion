@@ -44,6 +44,7 @@ product/mvp-learning-sidecar
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.
@@ -68,15 +69,17 @@ http://127.0.0.1:5173
 ```bash
 npm run smoke
 npm run smoke:browser
+npm run demo:morning
 npm run mac:build
 npm run check:morning
 ```
 
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
-`check:morning` runs the web smoke, browser UX smoke, Mac shell build, and prints git status.
+`demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
+`check:morning` runs the web smoke, browser UX smoke, Mac shell build, demo pack generation, and prints git status.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run smoke:browser`, `npm run mac:build`, and `npm run check:morning`.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run smoke:browser`, `npm run demo:morning`, `npm run mac:build`, and `npm run check:morning`.
 
 ## Review Notes Absorbed
 
@@ -102,6 +105,7 @@ Accepted from Mira:
 - Pin Focus Brief as a pure model-layer object, with deterministic next-action rules shared by desk UI and portable exports; add workspace-due fallback and synthesis-source freshness.
 - Keep review progress patches conflict-aware: apply only against unchanged card versions, and skip stale events with a receipt instead of overwriting Mac-side review state.
 - Add Workspace Find as a local-only jump surface, with result text rendered via `textContent`, capped queries, and read-only navigation into captures/review/notes.
+- Keep the morning demo pack clearly fixture-only, with sample file names, provenance, per-file hashes, credential sweep results, and explicit "does not prove live sync/device behavior" boundaries.
 
 Deferred:
 
@@ -111,6 +115,7 @@ Deferred:
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
 - Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
+- Add broader negative-path demo assertions, such as malformed patch payloads and oversized patch files; the current demo generator only covers duplicate inbox patches, stale review conflicts, and unsafe URL stripping.
 
 ## Next Best Commits
 

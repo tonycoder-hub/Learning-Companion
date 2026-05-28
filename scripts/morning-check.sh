@@ -18,6 +18,10 @@ echo "== Mac shell build =="
 npm run mac:build
 echo
 
+echo "== Morning demo pack =="
+npm run demo:morning
+echo
+
 echo "== Git status =="
 git status --short
 echo
