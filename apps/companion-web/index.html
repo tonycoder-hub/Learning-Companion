@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f6f0">
+    <title>Learning Companion</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Learning sessions">
+        <header class="brand-row">
+          <div class="brand-mark" aria-hidden="true">LC</div>
+          <div>
+            <h1>Learning Companion</h1>
+            <p id="workspaceMeta">Local workspace</p>
+          </div>
+        </header>
+
+        <div class="search-wrap">
+          <input id="searchInput" type="search" placeholder="Search sessions, notes, captures" autocomplete="off">
+        </div>
+
+        <div class="toolbar-row">
+          <button id="newSessionBtn" class="icon-button primary" type="button" title="New session" aria-label="New session">+</button>
+          <button id="exportWorkspaceBtn" class="icon-button" type="button" title="Export workspace" aria-label="Export workspace">↓</button>
+          <label class="icon-button file-button" title="Import workspace" aria-label="Import workspace">
+            ↑
+            <input id="importWorkspaceInput" type="file" accept="application/json">
+          </label>
+        </div>
+
+        <nav id="sessionList" class="session-list" aria-label="Session list"></nav>
+      </aside>
+
+      <main class="desk">
+        <section class="source-strip" aria-label="Current source">
+          <div class="field title-field">
+            <label for="sessionTitle">Session</label>
+            <input id="sessionTitle" type="text" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="sourceTitle">Source</label>
+            <input id="sourceTitle" type="text" autocomplete="off">
+          </div>
+          <div class="field url-field">
+            <label for="sourceUrl">URL</label>
+            <div class="input-with-button">
+              <input id="sourceUrl" type="url" autocomplete="off">
+              <button id="openSourceBtn" class="icon-button" type="button" title="Open source" aria-label="Open source">↗</button>
+            </div>
+          </div>
+          <div class="field compact-field">
+            <label for="materialType">Type</label>
+            <select id="materialType">
+              <option value="article">Article</option>
+              <option value="video">Video</option>
+              <option value="doc">Doc</option>
+              <option value="course">Course</option>
+              <option value="book">Book</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="focus-row" aria-label="Focus mode">
+          <div class="segmented" role="tablist" aria-label="Focus mode">
+            <button class="segment active" type="button" data-focus-mode="capture">Capture</button>
+            <button class="segment" type="button" data-focus-mode="synthesize">Synthesize</button>
+            <button class="segment" type="button" data-focus-mode="review">Review</button>
+          </div>
+          <div class="field timestamp-field">
+            <label for="timestampInput">Time</label>
+            <input id="timestampInput" type="text" placeholder="12:34" autocomplete="off">
+          </div>
+          <div class="field tags-field">
+            <label for="sessionTags">Tags</label>
+            <input id="sessionTags" type="text" placeholder="ml, rust, system-design" autocomplete="off">
+          </div>
+        </section>
+
+        <section class="work-grid">
+          <div class="capture-pane" aria-label="Quick capture">
+            <div class="panel-heading">
+              <h2>Quick Capture</h2>
+              <div class="capture-actions">
+                <button id="captureBtn" class="command-button primary" type="button">Capture</button>
+                <button id="captureCardBtn" class="command-button" type="button">Card</button>
+              </div>
+            </div>
+            <label for="quoteInput" class="sr-only">Quote</label>
+            <textarea id="quoteInput" class="quote-box" placeholder="Paste a quote, transcript line, or key idea"></textarea>
+            <label for="thoughtInput" class="sr-only">Thought</label>
+            <textarea id="thoughtInput" class="thought-box" placeholder="Your note, question, or synthesis"></textarea>
+          </div>
+
+          <div class="editor-pane" aria-label="Session notes">
+            <div class="panel-heading">
+              <h2>Notes</h2>
+              <span id="saveState" class="save-state">Saved</span>
+            </div>
+            <textarea id="notesEditor" class="notes-editor" spellcheck="true"></textarea>
+          </div>
+        </section>
+      </main>
+
+      <aside class="inspector" aria-label="Learning inspector">
+        <div class="tabs" role="tablist" aria-label="Inspector views">
+          <button class="tab active" type="button" data-tab="captures">Captures</button>
+          <button class="tab" type="button" data-tab="review">Review</button>
+          <button class="tab" type="button" data-tab="export">Export</button>
+        </div>
+
+        <section id="capturesTab" class="tab-panel active" aria-label="Captures">
+          <div id="captureList" class="item-list"></div>
+        </section>
+
+        <section id="reviewTab" class="tab-panel" aria-label="Review cards">
+          <div id="reviewList" class="item-list"></div>
+        </section>
+
+        <section id="exportTab" class="tab-panel export-panel" aria-label="Export">
+          <div class="export-actions">
+            <button id="copyMarkdownBtn" class="command-button" type="button">Copy MD</button>
+            <button id="downloadMarkdownBtn" class="command-button" type="button">Save MD</button>
+          </div>
+          <textarea id="markdownExport" readonly></textarea>
+          <div class="export-actions">
+            <button id="copyPayloadBtn" class="command-button" type="button">Copy JSON</button>
+            <button id="downloadPayloadBtn" class="command-button" type="button">Save JSON</button>
+          </div>
+          <textarea id="payloadExport" readonly></textarea>
+        </section>
+      </aside>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
