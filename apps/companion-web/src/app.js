@@ -318,15 +318,15 @@ function renderFocusMode(mode) {
 function renderSessions() {
   const visible = filterSessions(workspace, dom.searchInput.value);
   const active = getActiveSession(workspace);
-  dom.sessionList.innerHTML = "";
+  clearChildren(dom.sessionList);
   visible.forEach((session) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `session-row${session.id === active.id ? " active" : ""}`;
-    button.innerHTML = `
-      <span class="session-title">${escapeHtml(session.title)}</span>
-      <span class="session-subtitle">${escapeHtml(session.sourceTitle || session.materialType)} · ${session.captures.length} captures</span>
-    `;
+    button.append(
+      textEl("span", "session-title", session.title),
+      textEl("span", "session-subtitle", `${session.sourceTitle || session.materialType} · ${session.captures.length} captures`)
+    );
     button.addEventListener("click", () => {
       workspace = selectSession(workspace, session.id);
       persistAndRender();
@@ -350,27 +350,32 @@ function renderInspector() {
 
 function renderCaptures() {
   const session = getActiveSession(workspace);
-  dom.captureList.innerHTML = "";
+  clearChildren(dom.captureList);
   if (!session.captures.length) {
-    dom.captureList.innerHTML = `<div class="empty-state">No captures yet</div>`;
+    dom.captureList.append(emptyState("No captures yet"));
     return;
   }
   session.captures.forEach((capture) => {
     const item = document.createElement("article");
     item.className = "item-card";
-    item.innerHTML = `
-      <div class="item-meta">${escapeHtml(capture.timestamp || "No time")} · ${new Date(capture.createdAt).toLocaleString()}</div>
-      ${capture.quote ? `<blockquote>${escapeHtml(capture.quote)}</blockquote>` : ""}
-      ${capture.thought ? `<p>${escapeHtml(capture.thought)}</p>` : ""}
-      <div class="item-footer">
-        <span>${capture.tags.map((tag) => `#${escapeHtml(tag)}`).join(" ")}</span>
-        <button class="mini-button" type="button" ${capture.promotedToReview ? "disabled" : ""}>${capture.promotedToReview ? "Card" : "Make card"}</button>
-      </div>
-    `;
-    item.querySelector("button").addEventListener("click", () => {
+    item.append(textEl("div", "item-meta", `${capture.timestamp || "No time"} · ${new Date(capture.createdAt).toLocaleString()}`));
+    if (capture.quote) item.append(textEl("blockquote", "", capture.quote));
+    if (capture.thought) item.append(textEl("p", "", capture.thought));
+
+    const footer = document.createElement("div");
+    footer.className = "item-footer";
+    footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+    const promoteButton = document.createElement("button");
+    promoteButton.className = "mini-button";
+    promoteButton.type = "button";
+    promoteButton.disabled = capture.promotedToReview;
+    promoteButton.textContent = capture.promotedToReview ? "Card" : "Make card";
+    promoteButton.addEventListener("click", () => {
       workspace = promoteCapture(workspace, session.id, capture.id);
       persistAndRender("Review card created");
     });
+    footer.append(promoteButton);
+    item.append(footer);
     dom.captureList.append(item);
   });
 }
@@ -379,9 +384,9 @@ function renderReviewCards() {
   const session = getActiveSession(workspace);
   const dueCards = getDueReviewCards(session);
   dom.dueCount.textContent = `${dueCards.length} due`;
-  dom.reviewList.innerHTML = "";
+  clearChildren(dom.reviewList);
   if (!session.reviewCards.length) {
-    dom.reviewList.innerHTML = `<div class="empty-state">No review cards yet</div>`;
+    dom.reviewList.append(emptyState("No review cards yet"));
     return;
   }
   const orderedCards = [...session.reviewCards].sort((a, b) => {
@@ -391,23 +396,31 @@ function renderReviewCards() {
     return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
   });
   orderedCards.forEach((card) => {
+    const isDue = dueCards.some((due) => due.id === card.id);
     const item = document.createElement("article");
     item.className = `item-card review-card${isDue ? " due-card" : ""}`;
     item.dataset.cardId = card.id;
-    const isDue = dueCards.some((due) => due.id === card.id);
-    item.innerHTML = `
-      <div class="item-meta">${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · strength ${card.strength}</div>
-      <p class="card-prompt">${escapeHtml(card.prompt)}</p>
-      <details>
-        <summary>Answer</summary>
-        <p>${escapeHtml(card.answer)}</p>
-      </details>
-      <div class="item-footer">
-        <button class="mini-button" type="button" data-grade="-1">Again</button>
-        <button class="mini-button" type="button" data-grade="1">Good</button>
-      </div>
-    `;
-    item.querySelectorAll("[data-grade]").forEach((button) => {
+    item.append(
+      textEl("div", "item-meta", `${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · strength ${card.strength}`),
+      textEl("p", "card-prompt", card.prompt)
+    );
+
+    const details = document.createElement("details");
+    details.append(textEl("summary", "", "Answer"), textEl("p", "", card.answer));
+    item.append(details);
+
+    const footer = document.createElement("div");
+    footer.className = "item-footer";
+    const again = textEl("button", "mini-button", "Again");
+    again.type = "button";
+    again.dataset.grade = "-1";
+    const good = textEl("button", "mini-button", "Good");
+    good.type = "button";
+    good.dataset.grade = "1";
+    footer.append(again, good);
+    item.append(footer);
+
+    footer.querySelectorAll("[data-grade]").forEach((button) => {
       button.addEventListener("click", () => {
         workspace = gradeCard(workspace, session.id, card.id, Number(button.dataset.grade));
         persistAndRender("Review updated");
@@ -466,10 +479,17 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function escapeHtml(value) {
-  return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function clearChildren(node) {
+  node.replaceChildren();
+}
+
+function textEl(tagName, className, text) {
+  const node = document.createElement(tagName);
+  if (className) node.className = className;
+  node.textContent = String(text || "");
+  return node;
+}
+
+function emptyState(text) {
+  return textEl("div", "empty-state", text);
 }
