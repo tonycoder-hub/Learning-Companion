@@ -1,5 +1,6 @@
 import {
   WORKSPACE_SCHEMA,
+  MAX_MIRROR_BUNDLE_BYTES,
   addCapture,
   addSession,
   buildFeishuPayload,
@@ -11,11 +12,13 @@ import {
   getDueReviewCards,
   getActiveSession,
   gradeCard,
+  isMirrorBundle,
   promoteCapture,
   safeHref,
   sanitizeWorkspace,
   selectSession,
-  updateSession
+  updateSession,
+  workspaceFromPortableData
 } from "./model.js";
 import { renderMarkdown } from "./markdown.js";
 
@@ -102,11 +105,18 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
   const [file] = event.target.files;
   if (!file) return;
   try {
+    if (file.size > MAX_MIRROR_BUNDLE_BYTES) {
+      throw new Error("Import file is too large");
+    }
     const imported = JSON.parse(await file.text());
-    workspace = sanitizeWorkspace(imported);
+    if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
+      showToast("Import canceled");
+      return;
+    }
+    workspace = workspaceFromPortableData(imported);
     persistAndRender("Workspace imported");
-  } catch {
-    showToast("Import failed");
+  } catch (error) {
+    showToast(error.message || "Import failed");
   } finally {
     event.target.value = "";
   }
@@ -662,6 +672,21 @@ function buildBookmarklet() {
   const base = `${window.location.origin}${window.location.pathname}`;
   const source = `(()=>{const base=${JSON.stringify(base)};const getTime=()=>{const video=[...document.querySelectorAll("video")].find((item)=>!item.paused)||document.querySelector("video");if(!video||!Number.isFinite(video.currentTime))return"";const seconds=Math.floor(video.currentTime);return [Math.floor(seconds/3600),Math.floor(seconds%3600/60),seconds%60].map((part)=>String(part).padStart(2,"0")).join(":")};const params=new URLSearchParams({capture:"1",sourceTitle:document.title,sourceUrl:location.href,quote:String(getSelection()||"").trim(),t:getTime()});window.open(base+"?"+params.toString(),"learning-companion","noopener,noreferrer,width=1100,height=760");})();`;
   return `javascript:${source}`;
+}
+
+function hasUserWorkspace(value) {
+  return Boolean(value?.sessions?.some((session) => (
+    session.captures.length ||
+    session.reviewCards.length ||
+    session.notesMarkdown.trim() ||
+    session.title !== "Untitled learning session"
+  )));
+}
+
+function confirmBundleImport(bundle) {
+  const exportedAt = bundle.exportedAt ? ` from ${new Date(bundle.exportedAt).toLocaleString()}` : "";
+  const count = bundle.workspace?.sessionCount ?? bundle.files?.length ?? 0;
+  return window.confirm(`Replace current workspace with mirror bundle${exportedAt}? (${count} sessions)`);
 }
 
 function showToast(message) {

@@ -22,7 +22,8 @@ import {
   promoteCapture,
   reviewIntervalDays,
   safeHref,
-  sanitizeWorkspace
+  sanitizeWorkspace,
+  workspaceFromPortableData
 } from "../apps/companion-web/src/model.js";
 
 let workspace = createDefaultWorkspace();
@@ -91,11 +92,38 @@ assert.equal(/^fnv1a-[a-f0-9]{8}$/.test(mirror.manifest.bundleFingerprint), true
 
 const restoredWorkspaceFile = mirror.files.find((file) => file.path === "workspace.json");
 const restoredWorkspace = sanitizeWorkspace(JSON.parse(restoredWorkspaceFile.content));
+const importedFromMirror = workspaceFromPortableData(mirror);
+assert.equal(importedFromMirror.activeSessionId, workspace.activeSessionId);
+assert.equal(getActiveSession(importedFromMirror).title, session.title);
+const sidecarPoisoned = workspaceFromPortableData({
+  ...mirror,
+  files: mirror.files.map((file) => file.role === "session-sidecar"
+    ? { ...file, content: JSON.stringify({ sessions: [{ title: "Poisoned sidecar" }] }) }
+    : file)
+});
+assert.equal(getActiveSession(sidecarPoisoned).title, session.title);
 const restoredMirror = buildMirrorBundle(restoredWorkspace);
 assert.deepEqual(
   restoredMirror.files.map((file) => file.path).sort(),
   mirror.files.map((file) => file.path).sort()
 );
+assert.throws(() => workspaceFromPortableData({
+  ...mirror,
+  canonical: "sessions/first.md"
+}), /canonical/);
+assert.throws(() => workspaceFromPortableData({
+  ...mirror,
+  files: [
+    ...mirror.files,
+    { ...restoredWorkspaceFile, path: "backup-workspace.json" }
+  ]
+}), /exactly one/);
+assert.throws(() => workspaceFromPortableData({
+  ...mirror,
+  files: mirror.files.map((file) => file.path === "workspace.json"
+    ? { ...file, content: "not json" }
+    : file)
+}), /not valid JSON/);
 
 const collisionWorkspace = sanitizeWorkspace({
   ...workspace,

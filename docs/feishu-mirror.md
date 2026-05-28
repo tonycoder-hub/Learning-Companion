@@ -10,7 +10,7 @@ Use Feishu Drive as a readable cross-device mirror before any authenticated Open
 2. Go to `Export`.
 3. Use `Save Mirror`.
 4. Upload `learning-companion-feishu-mirror.json` to Feishu Drive, or keep it in any shared folder.
-5. On another device, download the bundle and restore from `workspace.json` when import support is available.
+5. On another device, download the bundle and use the app's import button. The importer reads `workspace.json` from the bundle and restores the workspace.
 
 ## Bundle Layout
 
@@ -34,7 +34,7 @@ Each bundled file has:
 - `contentFingerprint`
 - `content`
 
-`workspace.json` is the canonical restore payload. Markdown files are for human reading in Feishu Drive or Docs. Per-session JSON sidecars preserve enough structure for future round-trip sync.
+`workspace.json` is the canonical restore payload and can be imported by the app directly from the mirror bundle. Markdown files are for human reading in Feishu Drive or Docs. Per-session JSON sidecars preserve enough structure for future round-trip sync.
 
 The bundle is always a full snapshot rebuilt from current app state. It is not an incremental delta. Generated paths use normalized POSIX-style paths with title slugs plus short ids to avoid collisions.
 

@@ -6,6 +6,7 @@ export const MAX_NOTE_LENGTH = 120000;
 export const MAX_CAPTURE_TEXT_LENGTH = 12000;
 export const MAX_MIRROR_FILE_BYTES = 1_000_000;
 export const MAX_MIRROR_BUNDLE_BYTES = 25_000_000;
+export const MAX_MIRROR_CANONICAL_BYTES = 5_000_000;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
@@ -163,6 +164,64 @@ export function sanitizeWorkspace(input) {
     createdAt: workspace.createdAt || nowIso(),
     updatedAt: workspace.updatedAt || nowIso()
   };
+}
+
+export function workspaceFromPortableData(input) {
+  if (!input || typeof input !== "object") {
+    throw new Error("Unsupported import file.");
+  }
+  if (isMirrorBundle(input)) {
+    return workspaceFromMirrorBundle(input);
+  }
+  return sanitizeWorkspace(input);
+}
+
+export function isMirrorBundle(input) {
+  return Boolean(input && typeof input === "object" && input.schema === "learning-companion.mirror-bundle.staging.v1");
+}
+
+export function workspaceFromMirrorBundle(bundle) {
+  if (bundle.schema !== "learning-companion.mirror-bundle.staging.v1") {
+    throw new Error("Unsupported mirror bundle.");
+  }
+  if (bundle.contractStability && bundle.contractStability !== "experimental") {
+    throw new Error("Unsupported mirror bundle stability.");
+  }
+  if (bundle.canonical !== "workspace.json") {
+    throw new Error("Mirror bundle canonical payload is missing.");
+  }
+  if (!Array.isArray(bundle.files)) {
+    throw new Error("Mirror bundle file list is missing.");
+  }
+  const declaredBytes = Number(bundle.manifest?.totalBytes || 0);
+  const contentBytes = bundle.files.reduce((sum, file) => sum + byteLength(file?.content || ""), 0);
+  if (declaredBytes > MAX_MIRROR_BUNDLE_BYTES || contentBytes > MAX_MIRROR_BUNDLE_BYTES) {
+    throw new Error("Mirror bundle is too large to import.");
+  }
+  const restoreFiles = bundle.files.filter((item) => item?.role === "workspace-restore");
+  if (restoreFiles.length !== 1) {
+    throw new Error("Mirror bundle must contain exactly one restore payload.");
+  }
+  const [file] = restoreFiles;
+  if (file.path !== "workspace.json") {
+    throw new Error("Mirror bundle restore payload path is invalid.");
+  }
+  if (!file || file.encoding !== "utf-8" || typeof file.content !== "string") {
+    throw new Error("Mirror bundle has no workspace restore payload.");
+  }
+  if (!file.content.trim()) {
+    throw new Error("Mirror bundle restore payload is empty.");
+  }
+  if (byteLength(file.content) > MAX_MIRROR_CANONICAL_BYTES) {
+    throw new Error("Mirror bundle restore payload is too large.");
+  }
+  try {
+    return sanitizeWorkspace(JSON.parse(file.content));
+  } catch (error) {
+    throw new Error(error instanceof SyntaxError
+      ? "Mirror bundle restore payload is not valid JSON."
+      : error.message || "Mirror bundle restore payload is invalid.");
+  }
 }
 
 export function getActiveSession(workspace) {

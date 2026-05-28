@@ -11,7 +11,7 @@
 - `sessions/*.md` is derived human-readable material.
 - `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync.
 
-Future importers should restore from `workspace.json` first. They may use derived files for diagnostics, previews, or migration help, but not as the primary source of truth.
+Importers restore from `workspace.json` first. They may use derived files for diagnostics, previews, or migration help, but not as the primary source of truth.
 
 ## Snapshot Semantics
 

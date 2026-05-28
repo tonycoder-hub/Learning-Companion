@@ -45,7 +45,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Review cards generated from captures.
 - A simple review queue with due cards and strength buckets.
 - Feishu export preview: Markdown, JSON payload, and full mirror bundle.
-- Portable import/export of the full workspace JSON.
+- Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 
 ## Explicit Non-Goals For Tonight

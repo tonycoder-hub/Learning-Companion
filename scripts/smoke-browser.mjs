@@ -97,45 +97,78 @@ try {
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
     const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
-    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
-    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
-    const synthesisOccurrences = (session.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
-    return {
-      captureMetric: document.querySelector("#captureMetric").textContent,
-      cardMetric: document.querySelector("#cardMetric").textContent,
-      dueMetric: document.querySelector("#dueMetric").textContent,
-      captureText: document.querySelector("#captureList").textContent,
-      reviewText: document.querySelector("#reviewList").textContent,
-      previewText: document.querySelector("#notesPreview").textContent,
-      notesMarkdown: session.notesMarkdown,
-      synthesisVisible,
-      synthesisDraft,
-      manualDraftAfterCancel,
-      staleStatus,
-      synthesisOccurrences,
-      hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
-      hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
-      bookmarklet,
-      mirrorSchema: mirror.schema,
-      mirrorFileCount: mirror.manifest.fileCount,
-      mirrorCanonical: mirror.canonical,
-      mirrorBundleFingerprint: mirror.manifest.bundleFingerprint,
-      mirrorHasWorkspace: mirror.files.some((file) => file.path === "workspace.json"),
-      mirrorHasMarkdown: mirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("Learning Companion MVP")),
-      mirrorFingerprintsValid: mirror.files.every((file) => file.encoding === "utf-8" && /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)),
-      captures: session.captures.length,
-      cards: session.reviewCards.length,
-      latestPrompt: session.reviewCards[0].prompt,
-      latestAnswer: session.reviewCards[0].answer,
-      dueBeforeGood,
-      dueAfterGood: document.querySelector("#dueMetric").textContent,
-      gradedCount: session.reviewCards.filter((card) => card.strength === 1).length,
-      schemaVersion: workspace.schemaVersion,
-      clientId: workspace.clientId
-    };
+    const mirrorText = JSON.stringify(mirror);
+    document.querySelector("#newSessionBtn").click();
+    const titleAfterNewSession = document.querySelector("#sessionTitle").value;
+    const importInput = document.querySelector("#importWorkspaceInput");
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([mirrorText], "learning-companion-feishu-mirror.json", { type: "application/json" }));
+    importInput.files = transfer.files;
+    importInput.dispatchEvent(new Event("change", { bubbles: true }));
+    return new Promise((resolve) => setTimeout(() => {
+      const restoredWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const restoredSession = restoredWorkspace.sessions.find((item) => item.id === restoredWorkspace.activeSessionId);
+      const restoredMirror = JSON.parse(document.querySelector("#mirrorExport").value);
+      const synthesisOccurrences = (restoredSession.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
+      const badTransfer = new DataTransfer();
+      badTransfer.items.add(new File([JSON.stringify({ ...mirror, canonical: "bad.json" })], "bad-mirror.json", { type: "application/json" }));
+      importInput.files = badTransfer.files;
+      importInput.dispatchEvent(new Event("change", { bubbles: true }));
+      setTimeout(() => {
+        const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+        const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
+        resolve({
+          titleAfterNewSession,
+          restoredTitle: restoredSession.title,
+          restoredCaptures: restoredSession.captures.length,
+          restoredCards: restoredSession.reviewCards.length,
+          restoredSourceUrl: restoredSession.sourceUrl,
+          failedImportTitle: afterFailedSession.title,
+          importInputCleared: importInput.value === "",
+          captureMetric: document.querySelector("#captureMetric").textContent,
+          cardMetric: document.querySelector("#cardMetric").textContent,
+          dueMetric: document.querySelector("#dueMetric").textContent,
+          captureText: document.querySelector("#captureList").textContent,
+          reviewText: document.querySelector("#reviewList").textContent,
+          previewText: document.querySelector("#notesPreview").textContent,
+          notesMarkdown: restoredSession.notesMarkdown,
+          synthesisVisible,
+          synthesisDraft,
+          manualDraftAfterCancel,
+          staleStatus,
+          synthesisOccurrences,
+          hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
+          hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
+          bookmarklet: document.querySelector("#bookmarkletExport").value,
+          mirrorSchema: restoredMirror.schema,
+          mirrorFileCount: restoredMirror.manifest.fileCount,
+          mirrorCanonical: restoredMirror.canonical,
+          mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
+          mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
+          mirrorHasMarkdown: restoredMirror.files.some((file) => file.path.endsWith(".md") && file.content.includes("Learning Companion MVP")),
+          mirrorFingerprintsValid: restoredMirror.files.every((file) => file.encoding === "utf-8" && /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)),
+          captures: restoredSession.captures.length,
+          cards: restoredSession.reviewCards.length,
+          latestPrompt: restoredSession.reviewCards[0].prompt,
+          latestAnswer: restoredSession.reviewCards[0].answer,
+          dueBeforeGood,
+          dueAfterGood: document.querySelector("#dueMetric").textContent,
+          gradedCount: restoredSession.reviewCards.filter((card) => card.strength === 1).length,
+          schemaVersion: restoredWorkspace.schemaVersion,
+          clientId: restoredWorkspace.clientId
+        });
+      }, 80);
+    }, 80));
   })()`);
 
   assert.equal(exceptions.length, 0);
+  assert.equal(result.titleAfterNewSession, "New learning session");
+  assert.equal(result.restoredTitle, "Learning Companion MVP");
+  assert.equal(result.restoredCaptures, 3);
+  assert.equal(result.restoredCards, 2);
+  assert.equal(result.restoredSourceUrl, "https://github.com/tonycoder-hub/Learning-Companion");
+  assert.equal(result.failedImportTitle, "Learning Companion MVP");
+  assert.equal(result.importInputCleared, true);
   assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "3");
