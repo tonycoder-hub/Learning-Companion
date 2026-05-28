@@ -14,6 +14,7 @@ A local-first learning note app for Mac and HarmonyOS, with Feishu as the first 
 ```text
 apps/
   companion-web/
+  companion-mac/
 docs/
   architecture.md
   browser-capture.md
@@ -32,6 +33,7 @@ scripts/
 ```
 
 The first runnable MVP lives in `apps/companion-web`.
+The first native shell scaffold lives in `apps/companion-mac`.
 
 ## Run The MVP
 
@@ -50,6 +52,12 @@ Smoke test:
 ```bash
 npm run smoke
 npm run smoke:browser
+```
+
+Build the minimal Mac shell:
+
+```bash
+npm run mac:build
 ```
 
 Current MVP status is tracked in [docs/nightly-status.md](docs/nightly-status.md).

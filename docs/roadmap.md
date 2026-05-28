@@ -11,6 +11,7 @@
 - Manual Feishu mirror ZIP export.
 - Today study pack in the app and Feishu mirror.
 - Desk-native review pane for focused sidecar mode.
+- Minimal macOS WKWebView shell scaffold.
 - Local workspace persistence.
 - Capture, notes, synthesis, review, export.
 - Credential-free Feishu mirror bundle.
@@ -19,6 +20,7 @@
 ## Phase 1: Mac Shell
 
 - Wrap the web app in a Mac shell.
+- Add native menu commands.
 - Add floating sidecar window.
 - Add global capture hotkey.
 - Add clipboard and active browser URL bridge.

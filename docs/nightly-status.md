@@ -10,6 +10,7 @@ product/mvp-learning-sidecar
 
 - Local web MVP runs without installing dependencies.
 - Installable web shell metadata and static offline cache.
+- Minimal macOS WKWebView shell scaffold builds with SwiftPM.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -57,9 +58,11 @@ http://127.0.0.1:5173
 ```bash
 npm run smoke
 npm run smoke:browser
+npm run mac:build
 ```
 
 `smoke:browser` uses local Chrome headless and a temporary profile.
+`mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 
 ## Review Notes Absorbed
 
@@ -84,7 +87,7 @@ Accepted from Mira:
 Deferred:
 
 - Real Feishu OpenAPI sync. One-way export should come before sync.
-- Native Mac shell. The local learning loop is now stronger, but shell work should still add OS capture rather than just wrap the UI.
+- Native Mac shell beyond the thin wrapper: production packaging, global hotkey, menu commands, OS capture, and browser URL bridge.
 - AI-generated synthesis. The deterministic draft should prove the workflow before adding another model.
 - Full timezone boundary matrix for Today pack; current implementation stamps the local day window and due cutoff, but browser/device cross-timezone behavior still deserves manual QA.
 
@@ -101,6 +104,7 @@ Deferred:
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet.
+- Mac shell is currently a thin WKWebView wrapper; it does not yet add global capture or browser context.
 - HarmonyOS app is not started yet; schema is ready for exploration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

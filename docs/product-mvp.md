@@ -59,12 +59,13 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
+- Minimal macOS WKWebView shell scaffold that loads the web MVP.
 
 ## Explicit Non-Goals For Tonight
 
 - Real Feishu OpenAPI upload.
 - Real browser extension.
-- Real native Swift/Tauri shell.
+- Production-packaged native shell with signing, menu commands, hotkeys, and browser automation.
 - OCR/PDF annotation engine.
 - HarmonyOS ArkTS project.
 - Cloud account system.
