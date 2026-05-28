@@ -13,7 +13,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 ## What Works
 
 - Local web MVP runs without installing dependencies.
-- Installable web shell metadata and static offline cache.
+- Installable web shell metadata and online-first service worker with cached offline fallback.
 - Minimal macOS WKWebView shell scaffold builds with SwiftPM.
 - Mac shell has an app-focused clipboard-to-capture menu command.
 - Mac shell can save selected text directly as a capture with `Ctrl+Option+Cmd+X` when macOS Accessibility access and the frontmost app expose `AXSelectedText`, with a labeled clipboard fallback only when the clipboard has changed since the last native capture.
@@ -156,6 +156,7 @@ Deferred:
 - Workspace Find is simple substring search; larger workspaces will need debounce/indexing and more per-result navigation assertions.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
+- Offline fallback is generated and smoke-checked, but a full airplane-mode PWA relaunch is still manual QA.
 - Today pack timezone behavior across Mac, HarmonyOS, and Windows is not manually verified yet; mobile-width layout is covered by smoke, not real-device touch QA.
 - Mac shell is currently a thin WKWebView wrapper with best-effort selected-text capture, labeled clipboard fallback, browser title/URL context, sidecar window commands, and workspace file commands; packaged permission onboarding and live GUI evidence are still missing.
 - Mac shell launch/relaunch persistence has not been manually smoke-tested inside the GUI tonight.

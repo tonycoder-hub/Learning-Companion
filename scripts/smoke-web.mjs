@@ -70,8 +70,11 @@ assert.equal(manifest.display, "standalone");
 assert.equal(manifest.start_url, "./");
 assert.equal(manifest.icons[0].src, "./assets/icon.svg");
 assert.match(serviceWorker, /CACHE_NAME/);
+assert.match(serviceWorker, /learning-companion-static-v2/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
 assert.match(serviceWorker, /src\/app\.js/);
+assert.match(serviceWorker, /await fetch\(request\)/);
+assert.match(serviceWorker, /cache\.match\(request\)/);
 
 let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);
