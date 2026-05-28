@@ -6,12 +6,20 @@ import WebKit
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
   private let maxWorkspaceImportBytes = 5_000_000
   private let clipboardCaptureHotKeyId: UInt32 = 1
+  private let standardMinSize = NSSize(width: 760, height: 560)
+  private let sidecarMinSize = NSSize(width: 390, height: 560)
+  private let standardFrameAutosaveName = "LearningCompanionMainWindow"
+  private let sidecarFrameAutosaveName = "LearningCompanionSidecarWindow"
   private var window: NSWindow?
   private var webView: WKWebView?
   private var webRoot: URL?
   private var clipboardCaptureHotKeyRef: EventHotKeyRef?
   private var clipboardCaptureEventHandler: EventHandlerRef?
   private var clipboardCaptureHotKeyStatusItem: NSMenuItem?
+  private var standardWindowFrame: NSRect?
+  private var keepAboveOthersMenuItem: NSMenuItem?
+  private var keepsWindowAboveOthers = false
+  private var pendingWebSidecarLayout: Bool?
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     let webRoot = resolveWebRoot()
@@ -30,9 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       defer: false
     )
     window.title = "Learning Companion"
-    window.minSize = NSSize(width: 760, height: 560)
+    window.minSize = standardMinSize
     window.contentView = view
-    window.setFrameAutosaveName("LearningCompanionMainWindow")
+    window.setFrameAutosaveName(standardFrameAutosaveName)
     window.makeKeyAndOrderFront(nil)
 
     self.window = window
@@ -134,6 +142,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
   }
 
+  @objc private func enterSidecarWindow(_ sender: Any?) {
+    guard let window else {
+      NSSound.beep()
+      return
+    }
+    if standardWindowFrame == nil {
+      standardWindowFrame = window.frame
+    }
+    window.minSize = sidecarMinSize
+    window.setFrameAutosaveName(sidecarFrameAutosaveName)
+    positionWindowAsSidecar()
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate()
+    requestWebSidecarLayout(true)
+  }
+
+  @objc private func restoreDeskWindow(_ sender: Any?) {
+    guard let window else {
+      NSSound.beep()
+      return
+    }
+    window.minSize = standardMinSize
+    if let standardWindowFrame {
+      window.setFrame(standardWindowFrame, display: true, animate: true)
+    }
+    self.standardWindowFrame = nil
+    window.setFrameAutosaveName(standardFrameAutosaveName)
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate()
+    requestWebSidecarLayout(false)
+  }
+
+  @objc private func toggleKeepWindowAboveOthers(_ sender: Any?) {
+    keepsWindowAboveOthers.toggle()
+    window?.level = keepsWindowAboveOthers ? .floating : .normal
+    keepAboveOthersMenuItem?.state = keepsWindowAboveOthers ? .on : .off
+  }
+
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     true
   }
@@ -177,6 +223,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       _ = openExternally(url)
     }
     return nil
+  }
+
+  func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+    applyPendingWebSidecarLayout(retry: true)
   }
 
   private func resolveWebRoot() -> URL {
@@ -247,6 +297,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     captureMenu.addItem(hotKeyStatus)
     captureItem.submenu = captureMenu
     mainMenu.addItem(captureItem)
+
+    let windowItem = NSMenuItem()
+    let windowMenu = NSMenu(title: "Window")
+    let enterSidecar = NSMenuItem(
+      title: "Enter Sidecar Window",
+      action: #selector(enterSidecarWindow(_:)),
+      keyEquivalent: "]"
+    )
+    enterSidecar.keyEquivalentModifierMask = [.command, .option]
+    enterSidecar.target = self
+    windowMenu.addItem(enterSidecar)
+    let restoreDesk = NSMenuItem(
+      title: "Restore Desk Window",
+      action: #selector(restoreDeskWindow(_:)),
+      keyEquivalent: "["
+    )
+    restoreDesk.keyEquivalentModifierMask = [.command, .option]
+    restoreDesk.target = self
+    windowMenu.addItem(restoreDesk)
+    windowMenu.addItem(NSMenuItem.separator())
+    let keepAbove = NSMenuItem(
+      title: "Keep Window Above Others",
+      action: #selector(toggleKeepWindowAboveOthers(_:)),
+      keyEquivalent: ""
+    )
+    keepAbove.target = self
+    keepAboveOthersMenuItem = keepAbove
+    windowMenu.addItem(keepAbove)
+    windowItem.submenu = windowMenu
+    mainMenu.addItem(windowItem)
 
     NSApp.mainMenu = mainMenu
   }
@@ -357,6 +437,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         return
       }
     }
+  }
+
+  private func requestWebSidecarLayout(_ enabled: Bool) {
+    pendingWebSidecarLayout = enabled
+    applyPendingWebSidecarLayout(retry: true)
+  }
+
+  private func applyPendingWebSidecarLayout(retry: Bool) {
+    guard let enabled = pendingWebSidecarLayout,
+          let webView else {
+      return
+    }
+    let value = enabled ? "true" : "false"
+    let script = """
+    (() => {
+      const bridge = window.learningCompanionNative;
+      if (!bridge || typeof bridge.setSidecarLayout !== "function") return JSON.stringify({ ok: false, error: "bridge_unavailable" });
+      const result = bridge.setSidecarLayout(\(value));
+      return JSON.stringify(result || { ok: false, error: "empty_result" });
+    })()
+    """
+    webView.evaluateJavaScript(script) { [weak self] result, error in
+      guard let self else {
+        return
+      }
+      let ok: Bool
+      if error == nil,
+         let text = result as? String,
+         let data = text.data(using: .utf8),
+         let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+        ok = payload["ok"] as? Bool == true
+      } else {
+        ok = false
+      }
+      if ok {
+        self.pendingWebSidecarLayout = nil
+      } else if retry {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+          self.applyPendingWebSidecarLayout(retry: false)
+        }
+      }
+    }
+  }
+
+  private func positionWindowAsSidecar() {
+    guard let window,
+          let screen = window.screen ?? NSScreen.main else {
+      return
+    }
+    let visibleFrame = screen.visibleFrame
+    let width = min(max(430, sidecarMinSize.width), min(600, visibleFrame.width))
+    let frame = NSRect(
+      x: visibleFrame.maxX - width,
+      y: visibleFrame.minY,
+      width: width,
+      height: visibleFrame.height
+    )
+    window.setFrame(frame, display: true, animate: true)
   }
 
   private func saveWorkspaceJson(_ json: String) {

@@ -282,6 +282,10 @@ try {
     const nativeBridgeExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
     const nativeBridgeImportResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify(nativeBridgeExport));
     const nativeBridgeRoundTrip = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const nativeSidecarOn = window.learningCompanionNative.setSidecarLayout(true);
+    const nativeSidecarClassOn = document.querySelector(".app-shell").classList.contains("sidecar-layout");
+    const nativeSidecarOff = window.learningCompanionNative.setSidecarLayout(false);
+    const nativeSidecarClassOff = document.querySelector(".app-shell").classList.contains("sidecar-layout");
     document.querySelector("#newSessionBtn").click();
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
     const importInput = document.querySelector("#importWorkspaceInput");
@@ -415,6 +419,10 @@ try {
           nativeBridgeRoundTripSchema: nativeBridgeRoundTrip.schema,
           nativeBridgeRoundTripSessions: nativeBridgeRoundTrip.sessions.length,
           nativeBridgeRoundTripActiveId: nativeBridgeRoundTrip.activeSessionId,
+          nativeSidecarOnOk: nativeSidecarOn.ok === true && nativeSidecarOn.sidecarLayout === true,
+          nativeSidecarClassOn,
+          nativeSidecarOffOk: nativeSidecarOff.ok === true && nativeSidecarOff.sidecarLayout === false,
+          nativeSidecarClassOff,
           todayExport,
           hasWorkspaceExportButtons,
           hasTodayExportButtons,
@@ -567,6 +575,10 @@ try {
   assert.equal(result.nativeBridgeRoundTripSchema, "learning-companion.workspace.v1");
   assert.equal(result.nativeBridgeRoundTripSessions, 1);
   assert.equal(typeof result.nativeBridgeRoundTripActiveId, "string");
+  assert.equal(result.nativeSidecarOnOk, true);
+  assert.equal(result.nativeSidecarClassOn, true);
+  assert.equal(result.nativeSidecarOffOk, true);
+  assert.equal(result.nativeSidecarClassOff, false);
   assert.equal(result.hasTodayExportButtons, true);
   assert.match(result.todayExport, /Today Study Pack/);
   assert.match(result.todayExport, /Generated from workspace\.json/);

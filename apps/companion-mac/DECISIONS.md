@@ -17,7 +17,7 @@ Why this instead of Tauri/Electron tonight:
 Boundaries:
 
 - This is not yet the full Mac app.
-- It has clipboard-to-capture menu commands and a best-effort global clipboard capture hotkey.
+- It has clipboard-to-capture menu commands, a best-effort global clipboard capture hotkey, and native window commands for a narrow sidecar layout.
 - No active browser URL bridge.
 - No packaged `.app`, signing, notarization, auto-update, or menu bar workflow.
 
@@ -32,6 +32,16 @@ Guardrails:
 - Import rejects files larger than 5 MB or non-UTF-8 content before handing text to WebKit, and surfaces those failures through an `NSAlert`.
 - `Save Clipboard as Capture` reads the pasteboard only after an explicit menu command or `Ctrl+Option+Cmd+C` hotkey, then calls the same web-model capture path as the browser UI. It does not inspect browser state, browser cookies, or the current selection directly.
 - Global hotkey registration is intentionally visible in the Capture menu. If another app owns the shortcut, the shell marks the hotkey unavailable and writes a short local diagnostic without any clipboard content.
+- `Enter Sidecar Window` changes both layers together: the native window narrows to the right side of the current screen, and the web UI enters its existing sidecar layout through the unprivileged bridge. Normal and sidecar frame autosave names are split so a narrow panel does not overwrite the normal desk frame.
+- `Keep Window Above Others` is manual rather than automatic, so the user decides when the sidecar should float over video or document windows. Default sidecar shortcuts use `Option+Cmd+]` to enter and `Option+Cmd+[` to restore, avoiding the common zoom-reset meaning of `Cmd+0`.
+
+Manual QA checklist before treating the sidecar window as release-ready:
+
+- Single display: enter sidecar, save a clipboard capture, restore desk.
+- Dual display: enter sidecar on the display that currently hosts the app.
+- Display change: unplug or move displays after entering sidecar, then restore desk.
+- Cold launch: invoke Enter Sidecar Window immediately after launch and confirm the web layout eventually enters sidecar mode.
+- Floating: toggle Keep Window Above Others on and off while a browser/video window is active.
 
 Next decisions:
 

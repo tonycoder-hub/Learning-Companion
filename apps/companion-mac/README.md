@@ -25,6 +25,8 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 - Adds a local `Capture > Fill Capture From Clipboard` command (`Cmd+Shift+V`) that places clipboard text into Quick Capture without requiring global hotkey permissions.
 - Shows the global hotkey registration status in the Capture menu so shortcut collisions are visible during development.
 - Adds app-focused `File > Export Workspace...` (`Shift+Cmd+E`) and `File > Import Workspace...` (`Cmd+O`) commands for local JSON backup/restore without browser downloads.
+- Adds `Window > Enter Sidecar Window` (`Option+Cmd+]`) and `Window > Restore Desk Window` (`Option+Cmd+[`) so the shell can snap into a narrow right-side study panel next to a browser or document.
+- Adds `Window > Keep Window Above Others` as a manual floating-window toggle for focused study sessions.
 - Uses WebKit's default persistent website data store, so the web MVP keeps its existing localStorage behavior.
 - Uses a deterministic `file://` origin. It does not silently fall back to `127.0.0.1`, because that would create a separate localStorage bucket.
 - Opens external `http` and `https` links in the system browser.
@@ -33,7 +35,7 @@ swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-
 
 - No active browser URL bridge.
 - No selected-text capture without copying first; the global hotkey reads the clipboard only after you press it.
-- No packaged `.app` menu polish beyond the current capture and workspace file commands.
+- No packaged `.app` menu polish beyond the current capture, sidecar, and workspace file commands.
 - No packaged `.app` signing/notarization flow.
 
 Those should be added only after the web MVP's learning loop is stable.

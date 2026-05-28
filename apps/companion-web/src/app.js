@@ -783,15 +783,24 @@ function render() {
 }
 
 function toggleSidecarLayout() {
+  setSidecarLayout(!uiPrefs.sidecarLayout);
+}
+
+function setSidecarLayout(enabled) {
   const active = document.activeElement;
-  const willHidePanels = !uiPrefs.sidecarLayout;
-  uiPrefs = { ...uiPrefs, sidecarLayout: !uiPrefs.sidecarLayout };
+  const next = Boolean(enabled);
+  const willHidePanels = next && !uiPrefs.sidecarLayout;
+  uiPrefs = { ...uiPrefs, sidecarLayout: next };
   saveUiPrefs();
   renderShellMode();
   renderActivity(getActiveSession(workspace));
   if (willHidePanels && isInSidePanel(active)) {
     dom.sidecarLayoutBtn.focus();
   }
+  return {
+    ok: true,
+    sidecarLayout: uiPrefs.sidecarLayout
+  };
 }
 
 function renderShellMode() {
@@ -1697,6 +1706,9 @@ function installNativeBridge() {
     },
     captureClipboardText(text, options = {}) {
       return captureTextFromNative(text, options);
+    },
+    setSidecarLayout(enabled) {
+      return setSidecarLayout(Boolean(enabled));
     }
   };
 }
