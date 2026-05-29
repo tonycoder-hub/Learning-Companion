@@ -355,6 +355,17 @@ try {
     setValue("#quoteInput", "Draft quote before session switch.");
     setValue("#thoughtInput", "Draft thought should survive.");
     setValue("#timestampInput", "01:23");
+    const draftFocusBrief = {
+      action: document.querySelector("#focusBriefAction").textContent,
+      detail: document.querySelector("#focusBriefDetail").textContent,
+      facts: document.querySelector("#focusBriefFacts").textContent,
+      signals: document.querySelector("#focusBriefSignals").textContent,
+      button: document.querySelector("#focusBriefActionBtn").textContent
+    };
+    const draftActivity = {
+      title: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent
+    };
     const todayDraftCard = document.querySelector("#todayList .draft-card");
     const todayDraftBeforeResume = {
       text: todayDraftCard?.textContent || "",
@@ -560,6 +571,8 @@ try {
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
+          draftFocusBrief,
+          draftActivity,
           todayDraftBeforeResume,
           todayDraftAfterResume,
           captureDraftStatusBeforeSwitch,
@@ -716,6 +729,11 @@ try {
   assert.deepEqual(result.handoffButtons, ["Import Patch", "Export Mirror"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
+  assert.match(result.draftFocusBrief.action, /Review/);
+  assert.equal(result.draftFocusBrief.button, "Review");
+  assert.doesNotMatch(result.draftFocusBrief.action, /Resume capture draft/);
+  assert.equal(result.draftActivity.title, "Capture draft waiting");
+  assert.match(result.draftActivity.detail, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);

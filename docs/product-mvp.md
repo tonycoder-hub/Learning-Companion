@@ -51,8 +51,8 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.
-- Desk-level activity strip for last capture/review/synthesis feedback.
-- Deterministic Focus Brief that suggests review, workspace review, synthesis, capture, continue, or source setup from the current session state.
+- Desk-level activity strip for draft/capture/review/synthesis feedback.
+- Deterministic Focus Brief that suggests draft resume, review, workspace review, synthesis, capture, continue, or source setup from the current session state.
 - Today study pack with due review and recent captures across the workspace.
 - Review cards generated from captures.
 - A simple review queue with due cards and strength buckets.
@@ -122,7 +122,7 @@ Workspace
 
 ## Draft Persistence Model
 
-Quick Capture drafts are device-local UI state, not canonical workspace data. They live in browser/WebKit `localStorage` preferences, are keyed by session id, are capped to the latest 50 active-session drafts, and are cleared when the user captures quote/thought content, presses Clear, or restores/imports a workspace without that session. Drafts do not roundtrip through workspace JSON, Feishu mirrors, Windows static folders, or HarmonyOS patches yet; that keeps sync artifacts focused on committed notes, captures, and review progress.
+Quick Capture drafts are device-local UI state, not canonical workspace data. They live in browser/WebKit `localStorage` preferences, are keyed by session id, are capped to the latest 50 active-session drafts, and are cleared when the user captures quote/thought content, presses Clear, or restores/imports a workspace without that session. Fresh text drafts can appear in Today, the activity strip, and Focus Brief, but due review still outranks draft resume in Focus Brief and drafts older than 24 hours stop taking over the main action. Drafts do not roundtrip through workspace JSON, Feishu mirrors, Windows static folders, or HarmonyOS patches yet; that keeps sync artifacts focused on committed notes, captures, and review progress.
 
 ## First UX Bet
 

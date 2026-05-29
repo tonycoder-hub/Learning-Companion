@@ -46,6 +46,7 @@ const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 1;
 const CAPTURE_DRAFT_LIMIT = 50;
+const CAPTURE_DRAFT_FOCUS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -551,6 +552,17 @@ function hasCaptureDraft(draft) {
   return Boolean(draft?.quote?.trim() || draft?.thought?.trim() || draft?.timestamp?.trim());
 }
 
+function hasCaptureTextDraft(draft) {
+  return Boolean(draft?.quote?.trim() || draft?.thought?.trim());
+}
+
+function isFreshCaptureTextDraft(draft, now = new Date()) {
+  const updatedAt = new Date(draft?.updatedAt);
+  return hasCaptureTextDraft(draft)
+    && Number.isFinite(updatedAt.getTime())
+    && now.getTime() - updatedAt.getTime() <= CAPTURE_DRAFT_FOCUS_MAX_AGE_MS;
+}
+
 function getCaptureDraft(sessionId) {
   return normalizeCaptureDraft(uiPrefs.captureDrafts?.[sessionId]);
 }
@@ -573,18 +585,35 @@ function setCaptureDraft(sessionId, draftInput) {
 }
 
 function saveCurrentCaptureDraft() {
-  setCaptureDraft(getActiveSession(workspace).id, {
+  const session = getActiveSession(workspace);
+  setCaptureDraft(session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
     timestamp: dom.timestampInput.value
   });
-  renderCaptureDraftStatus(getActiveSession(workspace));
+  const draft = getCaptureDraft(session.id);
+  if (isFreshCaptureTextDraft(draft)) {
+    setActivity(session, {
+      title: "Capture draft waiting",
+      detail: summarizeCaptureDraft(draft),
+      tab: "captures",
+      targetId: ""
+    });
+  } else {
+    clearCaptureDraftActivity(session.id);
+  }
+  renderCaptureDraftStatus(session, draft);
+  renderActivity(session);
+  renderFocusBrief();
   if (activeTab === "today") renderToday();
 }
 
 function clearCurrentCaptureDraft() {
   setCaptureDraft(getActiveSession(workspace).id, {});
+  clearCaptureDraftActivity(getActiveSession(workspace).id);
   renderCaptureDraft(getActiveSession(workspace));
+  renderActivity(getActiveSession(workspace));
+  renderFocusBrief();
   if (activeTab === "today") renderToday();
   dom.quoteInput.focus();
 }
@@ -1041,6 +1070,11 @@ function renderActivity(session) {
 function renderFocusBrief() {
   const session = getActiveSession(workspace);
   const brief = buildFocusBrief(session, workspace);
+  const draft = getCaptureDraft(session.id);
+  if (canDraftOwnFocusBrief(draft, brief)) {
+    renderCaptureDraftFocusBrief(session, draft, brief);
+    return;
+  }
   const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
     ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
     : `${brief.stats.dueCards} due`;
@@ -1072,6 +1106,33 @@ function renderFocusBrief() {
   }
 }
 
+function renderCaptureDraftFocusBrief(session, draft, brief) {
+  const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
+    ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
+    : `${brief.stats.dueCards} due`;
+  dom.focusBriefKicker.textContent = `${session.captures.length} captures · ${dueCopy}`;
+  dom.focusBriefAction.textContent = "Resume capture draft";
+  dom.focusBriefDetail.textContent = summarizeCaptureDraft(draft);
+  dom.focusBriefActionBtn.textContent = "Resume";
+  dom.focusBriefActionBtn.title = "Continue the saved quote or thought";
+  dom.focusBriefActionBtn.setAttribute("aria-label", "Resume capture draft");
+  clearChildren(dom.focusBriefFacts);
+  dom.focusBriefFacts.append(
+    focusBriefFact("Source", session.sourceTitle || (session.sourceUrl ? "Open source" : "No source")),
+    focusBriefFact("Draft", draft.timestamp ? `Saved @ ${draft.timestamp}` : "Saved locally"),
+    focusBriefFact("Sync", "Device-local")
+  );
+  clearChildren(dom.focusBriefSignals);
+  dom.focusBriefSignals.append(
+    textEl("span", "focus-signal warn", "Draft waiting"),
+    textEl("span", "focus-signal", "Not exported")
+  );
+}
+
+function canDraftOwnFocusBrief(draft, brief) {
+  return isFreshCaptureTextDraft(draft) && brief.nextAction.kind !== "review";
+}
+
 function focusBriefFact(label, value) {
   const item = document.createElement("div");
   item.className = "focus-brief-fact";
@@ -1092,6 +1153,20 @@ function focusBriefButtonLabel(kind) {
 function runFocusBriefAction() {
   const session = getActiveSession(workspace);
   const brief = buildFocusBrief(session, workspace);
+  const draft = getCaptureDraft(session.id);
+  if (canDraftOwnFocusBrief(draft, brief)) {
+    workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+    activeTab = "captures";
+    setActivity(session, {
+      title: "Capture draft resumed",
+      detail: summarizeCaptureDraft(draft),
+      tab: "captures",
+      targetId: ""
+    });
+    persistAndRender();
+    dom.quoteInput.focus();
+    return;
+  }
   if (["review", "synthesize", "capture", "continue"].includes(brief.nextAction.kind)) {
     workspace = updateSession(workspace, session.id, { focusMode: brief.nextAction.focusMode });
     activeTab = brief.nextAction.tab || activeTab;
@@ -1118,6 +1193,15 @@ function runFocusBriefAction() {
 
 function getActivity(session) {
   if (lastActivity?.sessionId === session.id) return lastActivity;
+  const draft = getCaptureDraft(session.id);
+  if (hasCaptureTextDraft(draft)) {
+    return {
+      title: "Capture draft waiting",
+      detail: summarizeCaptureDraft(draft),
+      tab: "captures",
+      targetId: ""
+    };
+  }
   const due = getDueReviewItems(workspace).length;
   if (session.focusMode === "review" && due) {
     return {
@@ -1142,6 +1226,18 @@ function getActivity(session) {
     tab: "captures",
     targetId: ""
   };
+}
+
+function summarizeCaptureDraft(draft) {
+  const text = [draft.quote, draft.thought].filter(Boolean).join(" - ").trim();
+  return text.length > 96 ? `${text.slice(0, 93)}...` : text || "Continue the saved capture draft.";
+}
+
+function clearCaptureDraftActivity(sessionId) {
+  if (lastActivity?.sessionId === sessionId
+    && ["Capture draft waiting", "Capture draft resumed"].includes(lastActivity.title)) {
+    lastActivity = null;
+  }
 }
 
 function showActivityDetails() {
