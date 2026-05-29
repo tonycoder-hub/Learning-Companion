@@ -63,7 +63,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Direct `TODAY.md` copy/save for a quick mobile or Feishu handoff.
 - Feishu mirror ZIP export for manual Drive upload or extraction.
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
-- Today and mirror exports include the active session's Focus Brief so cross-device handoff starts at "resume here."
+- Today and mirror exports include the active session's Focus Brief so cross-device handoff starts at "resume here," including the latest captured timestamp when the source supports jumps.
 - Mirror bundle includes static `index.html` as a folder home page for Today, Review, Restore, and sessions.
 - Mirror bundle includes static `review.html` for due-card review on phone or Windows, with append-only progress patch export.
 - Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and append-only patch export.
@@ -124,6 +124,8 @@ Workspace
 ## Draft Persistence Model
 
 Quick Capture drafts are device-local UI state, not canonical workspace data. They live in browser/WebKit `localStorage` preferences, are keyed by session id, are capped to the latest 50 active-session drafts, and are cleared when the user captures quote/thought content, presses Clear, or restores/imports a workspace without that session. Fresh text drafts can appear in Today, the activity strip, and Focus Brief, but due review still outranks draft resume in Focus Brief and drafts older than 24 hours stop taking over the main action. Drafts do not roundtrip through workspace JSON, Feishu mirrors, Windows static folders, or HarmonyOS patches yet; that keeps sync artifacts focused on committed notes, captures, and review progress.
+
+Focus Brief resume links use the session source as canonical and add the latest capture timestamp when available, including when the primary next action is review. That keeps the review/capture decision separate from source recovery: the next action tells Tony what to do, while the source link returns to the most recent learning context. If a legacy or imported session lacks a session source URL, the latest capture source URL is used as a fallback and marked in the Focus Brief source provenance.
 
 ## First UX Bet
 

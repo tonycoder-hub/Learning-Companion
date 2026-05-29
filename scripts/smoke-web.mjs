@@ -408,7 +408,38 @@ assert.equal(dueFocusBrief.nextAction.kind, "review");
 assert.equal(dueFocusBrief.nextAction.reason, "Active topic has due review due now.");
 assert.match(generateReviewPackMarkdown(workspace), /Why: Active topic has due review due now\./);
 assert.equal(dueFocusBrief.stats.dueCards, 1);
-assert.match(dueFocusBrief.source.href, /youtube\.com/);
+assert.equal(dueFocusBrief.source.href, "https://www.youtube.com/watch?v=rust123&t=492s");
+assert.equal(dueFocusBrief.source.provenance, "session");
+assert.match(generateTodayMarkdown(workspace, focusNow), /Source: \[RustConf ownership talk\]\(https:\/\/www\.youtube\.com\/watch\?v=rust123&t=492s\)/);
+const noCaptureSourceBrief = buildFocusBrief(createSession({
+  title: "Source without captures",
+  sourceTitle: "Readable source",
+  sourceUrl: "https://example.com/guide"
+}, workspace.clientId), null, focusNow);
+assert.equal(noCaptureSourceBrief.source.href, "https://example.com/guide");
+assert.equal(noCaptureSourceBrief.source.provenance, "session");
+const noTimestampSourceBrief = buildFocusBrief(createSession({
+  title: "Source with untimed capture",
+  sourceTitle: "Video without timestamp",
+  sourceUrl: "https://www.youtube.com/watch?v=notimed",
+  captures: [{ id: "notimed_capture", quote: "No timestamp yet", thought: "", timestamp: "", capturedAt: "2026-05-29T00:19:00.000Z" }]
+}, workspace.clientId), null, focusNow);
+assert.equal(noTimestampSourceBrief.source.href, "https://www.youtube.com/watch?v=notimed");
+const captureFallbackBrief = buildFocusBrief(createSession({
+  title: "Source fallback",
+  captures: [{
+    id: "fallback_capture",
+    quote: "Fallback source capture",
+    thought: "",
+    timestamp: "00:30",
+    sourceTitle: "Fallback video",
+    sourceUrl: "https://youtu.be/fallback",
+    capturedAt: "2026-05-29T00:19:00.000Z"
+  }]
+}, workspace.clientId), null, focusNow);
+assert.equal(captureFallbackBrief.source.href, "https://youtu.be/fallback?t=30s");
+assert.equal(captureFallbackBrief.source.title, "Fallback video");
+assert.equal(captureFallbackBrief.source.provenance, "latest_capture_fallback");
 assert.deepEqual(resolveCaptureDraftFocusOverride(dueFocusBrief, {
   quote: "A fresh draft should not outrank review.",
   updatedAt: "2026-05-29T00:19:00.000Z"
@@ -703,6 +734,7 @@ assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(mirrorIndexHtml, /Resume Here/);
 assert.match(mirrorIndexHtml, /Review 1 due card/);
 assert.match(mirrorIndexHtml, /Why: Active topic has due review due now/);
+assert.match(generateMirrorIndexHtml(workspace, focusNow), /href="https:\/\/www\.youtube\.com\/watch\?v=rust123&amp;t=492s"/);
 assert.match(mirrorIndexHtml, /Content-Security-Policy/);
 assert.match(mirrorIndexHtml, /learning-companion-workspace-fingerprint/);
 assert.equal(mirrorIndexHtml.includes("<script"), false);

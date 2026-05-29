@@ -924,7 +924,14 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
   const synthesisStamp = getSynthesisBlockStamp(session?.notesMarkdown);
   const hasCurrentSynthesis = hasSynthesis && synthesisStamp && synthesisStamp === getSynthesisSourceStamp(session);
   const capturesSinceLastSynthesis = hasCurrentSynthesis ? 0 : captures.length;
-  const sourceHref = buildSourceJumpUrl(session?.sourceUrl || "", "");
+  const hasSessionSourceUrl = Boolean(cleanUrl(session?.sourceUrl || ""));
+  const resumeSourceUrl = hasSessionSourceUrl ? session?.sourceUrl || "" : latestCapture?.sourceUrl || "";
+  const resumeSourceTitle = session?.sourceTitle || latestCapture?.sourceTitle || "";
+  const resumeTimestamp = latestCapture?.timestamp || "";
+  const sourceHref = buildSourceJumpUrl(resumeSourceUrl, resumeTimestamp);
+  const sourceProvenance = hasSessionSourceUrl
+    ? "session"
+    : sourceHref ? "latest_capture_fallback" : "none";
   const minutesSinceLastCapture = latestCapture
     ? Math.max(0, Math.floor((date.getTime() - new Date(latestCapture.capturedAt || latestCapture.createdAt).getTime()) / 60000))
     : null;
@@ -938,9 +945,10 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
     sessionId: cleanText(session?.id, 128),
     sessionTitle: cleanText(session?.title || "Untitled learning session", MAX_TITLE_LENGTH),
     source: {
-      title: cleanText(session?.sourceTitle || "", MAX_TITLE_LENGTH),
-      url: cleanUrl(session?.sourceUrl || ""),
+      title: cleanText(resumeSourceTitle, MAX_TITLE_LENGTH),
+      url: cleanUrl(resumeSourceUrl),
       href: sourceHref,
+      provenance: sourceProvenance,
       materialType: MATERIAL_TYPES.has(session?.materialType) ? session.materialType : "other",
       available: Boolean(sourceHref)
     },
