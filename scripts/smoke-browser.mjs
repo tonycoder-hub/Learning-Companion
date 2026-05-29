@@ -1707,7 +1707,7 @@ try {
     shellCompact: true,
     tagName: "BUTTON",
     ariaLabel: "Open questions",
-    action: "Keep reading"
+    action: "Review 2 workspace due cards"
   });
   assert.equal(questionFlow.questionSignalClick.after.shellCompact, false);
   assert.equal(questionFlow.questionSignalClick.after.activeTab, "today");
