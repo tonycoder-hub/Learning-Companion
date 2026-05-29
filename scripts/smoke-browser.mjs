@@ -207,6 +207,15 @@ try {
         .map((button) => button.textContent)
         .find((text) => text.startsWith("Open @")) || ""
     };
+    const firstStackRow = document.querySelector("#captureStack .capture-stack-row");
+    const stackButtons = [...(firstStackRow?.querySelectorAll("button") || [])];
+    const captureStackAfterCard = {
+      header: document.querySelector("#captureStack .capture-stack-header")?.textContent || "",
+      rows: document.querySelectorAll("#captureStack .capture-stack-row").length,
+      text: firstStackRow?.textContent || "",
+      buttons: stackButtons.map((button) => button.textContent),
+      cardDisabled: stackButtons.find((button) => button.textContent === "Card")?.disabled === true
+    };
     document.querySelector('[data-tab="today"]').click();
     const todayText = document.querySelector("#todayTab").textContent;
     const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
@@ -625,6 +634,7 @@ try {
           captureDraftStaleBeforeImport,
           captureDraftPrunedAfterImport,
           activityAfterCard,
+          captureStackAfterCard,
           captureDraftStatusAfterCard,
           backupNoticeAfterCapture,
           backupNoticeAfterExport,
@@ -828,6 +838,13 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.match(result.captureStackAfterCard.header, /Recent Stack/);
+  assert.match(result.captureStackAfterCard.header, /1 shown · 1 total/);
+  assert.equal(result.captureStackAfterCard.rows, 1);
+  assert.match(result.captureStackAfterCard.text, /08:12/);
+  assert.match(result.captureStackAfterCard.text, /compiler-enforced lifetimes/);
+  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Note", "Card"]);
+  assert.equal(result.captureStackAfterCard.cardDisabled, true);
   assert.match(result.focusBriefAfterCard.action, /Review 1 due card/);
   assert.match(result.focusBriefAfterCard.facts, /compiler-enforced lifetimes/);
   assert.match(result.focusBriefAfterCard.facts, /Active topic has due review due now/);
@@ -1474,7 +1491,21 @@ try {
     document.querySelector("#captureCardBtn").click();
     const before = {
       captures: document.querySelector("#captureMetric").textContent,
-      cards: document.querySelector("#cardMetric").textContent
+      cards: document.querySelector("#cardMetric").textContent,
+      stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
+      stackCardDisabled: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+        .find((button) => button.textContent === "Card")?.disabled === true
+    };
+    document.querySelector("#sidecarLayoutBtn").click();
+    const stackAllBefore = {
+      shellCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      inspectorDisplay: getComputedStyle(document.querySelector(".inspector")).display
+    };
+    document.querySelector("#captureStack .capture-stack-header button").click();
+    const stackAllAfter = {
+      shellCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      inspectorDisplay: getComputedStyle(document.querySelector(".inspector")).display
     };
     document.querySelector('[data-tab="captures"]').click();
     const initialCaptureCard = [...document.querySelectorAll("#captureList .item-card")]
@@ -1500,7 +1531,9 @@ try {
     const afterCardDelete = {
       captures: document.querySelector("#captureMetric").textContent,
       cards: document.querySelector("#cardMetric").textContent,
-      reviewText: document.querySelector("#reviewList").textContent
+      reviewText: document.querySelector("#reviewList").textContent,
+      stackMakeCardEnabled: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+        .some((button) => button.textContent === "Make card" && !button.disabled)
     };
     document.querySelector('[data-tab="captures"]').click();
     const captureCard = [...document.querySelectorAll("#captureList .item-card")]
@@ -1516,26 +1549,39 @@ try {
         captures: document.querySelector("#captureMetric").textContent,
         cards: document.querySelector("#cardMetric").textContent,
         captureText: document.querySelector("#captureList").textContent,
+        stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
+        stackText: document.querySelector("#captureStack").textContent,
         notesHasCapture: document.querySelector("#notesEditor").value.includes("Temporary capture for deletion."),
         activity: document.querySelector("#activityTitle").textContent
       },
       afterCancelDelete,
+      stackAllBefore,
+      stackAllAfter,
       cascadeDeleteLabel
     };
   })()`);
 
   assert.equal(deleteFlow.before.captures, "1");
   assert.equal(deleteFlow.before.cards, "1");
+  assert.equal(deleteFlow.before.stackRows, 1);
+  assert.equal(deleteFlow.before.stackCardDisabled, true);
+  assert.deepEqual(deleteFlow.stackAllBefore, { shellCompact: true, inspectorDisplay: "none" });
+  assert.equal(deleteFlow.stackAllAfter.shellCompact, false);
+  assert.equal(deleteFlow.stackAllAfter.activeTab, "captures");
+  assert.notEqual(deleteFlow.stackAllAfter.inspectorDisplay, "none");
   assert.equal(deleteFlow.cascadeDeleteLabel, "Delete + 1 card");
   assert.equal(deleteFlow.afterCancelDelete.captures, "1");
   assert.equal(deleteFlow.afterCancelDelete.cards, "1");
   assert.equal(deleteFlow.afterCancelDelete.notesHasCapture, true);
   assert.equal(deleteFlow.afterCardDelete.captures, "1");
   assert.equal(deleteFlow.afterCardDelete.cards, "0");
+  assert.equal(deleteFlow.afterCardDelete.stackMakeCardEnabled, true);
   assert.equal(deleteFlow.makeCardEnabled, true);
   assert.equal(deleteFlow.afterCaptureDelete.captures, "0");
   assert.equal(deleteFlow.afterCaptureDelete.cards, "0");
   assert.doesNotMatch(deleteFlow.afterCaptureDelete.captureText, /Temporary capture for deletion/);
+  assert.equal(deleteFlow.afterCaptureDelete.stackRows, 0);
+  assert.doesNotMatch(deleteFlow.afterCaptureDelete.stackText, /Temporary capture for deletion/);
   assert.equal(deleteFlow.afterCaptureDelete.notesHasCapture, true);
   assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
 

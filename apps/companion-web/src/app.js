@@ -102,6 +102,7 @@ const dom = {
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
   capturePane: document.querySelector("#capturePane"),
+  captureStack: document.querySelector("#captureStack"),
   captureDraftStatus: document.querySelector("#captureDraftStatus"),
   clearCaptureDraftBtn: document.querySelector("#clearCaptureDraftBtn"),
   captureBtn: document.querySelector("#captureBtn"),
@@ -1058,6 +1059,7 @@ function render() {
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
   renderCaptureDraft(session);
+  renderCaptureStack(session);
   renderOpenSourceButton(session);
   renderFocusMode(session.focusMode);
   renderShellMode();
@@ -1885,6 +1887,77 @@ function renderTodayDrafts() {
   });
 }
 
+function renderCaptureStack(session) {
+  if (!dom.captureStack) return;
+  clearChildren(dom.captureStack);
+  const header = document.createElement("div");
+  header.className = "capture-stack-header";
+  header.append(
+    textEl("strong", "", "Recent Stack"),
+    textEl("span", "item-meta", session.captures.length
+      ? `${Math.min(3, session.captures.length)} shown · ${session.captures.length} total`
+      : "Sidecar memory")
+  );
+  const showAll = textEl("button", "mini-button", "All");
+  showAll.type = "button";
+  showAll.disabled = !session.captures.length;
+  showAll.addEventListener("click", () => {
+    activeTab = "captures";
+    if (uiPrefs.sidecarLayout) {
+      uiPrefs = { ...uiPrefs, sidecarLayout: false };
+      saveUiPrefs();
+      renderShellMode();
+    }
+    renderInspector();
+  });
+  header.append(showAll);
+  dom.captureStack.append(header);
+
+  if (!session.captures.length) {
+    dom.captureStack.append(textEl("p", "capture-stack-empty", "Saved captures will stay visible here while you read."));
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "capture-stack-list";
+  session.captures.slice(0, 3).forEach((capture) => {
+    const row = document.createElement("article");
+    row.className = "capture-stack-row";
+    row.dataset.stackCaptureId = capture.id;
+    row.append(
+      textEl("div", "capture-stack-meta", [
+        capture.timestamp || "No time",
+        capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
+        new Date(capture.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      ].filter(Boolean).join(" · ")),
+      textEl("p", "capture-stack-text", summarizeCapture(capture))
+    );
+    const actions = document.createElement("div");
+    actions.className = "capture-stack-actions";
+    const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
+    if (sourceHref) {
+      const openButton = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+      openButton.type = "button";
+      openButton.addEventListener("click", () => {
+        window.open(sourceHref, "_blank", "noopener,noreferrer");
+      });
+      actions.append(openButton);
+    }
+    const noteButton = textEl("button", "mini-button", "Note");
+    noteButton.type = "button";
+    noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
+    actions.append(noteButton);
+    const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
+    cardButton.type = "button";
+    cardButton.disabled = capture.promotedToReview;
+    cardButton.addEventListener("click", () => promoteCaptureToReview(capture.id));
+    actions.append(cardButton);
+    row.append(actions);
+    list.append(row);
+  });
+  dom.captureStack.append(list);
+}
+
 function getCaptureDraftItems() {
   return buildCaptureDraftItems(workspace.sessions, uiPrefs.captureDrafts, 5);
 }
@@ -1975,6 +2048,49 @@ function openCaptureFromToday(sessionId, capture) {
   scrollActivityTarget({ tab: "captures", targetId: capture.id });
 }
 
+function getActiveCapture(captureId) {
+  const session = getActiveSession(workspace);
+  const capture = session.captures.find((item) => item.id === captureId);
+  return capture ? { session, capture } : null;
+}
+
+function addCaptureToNotes(captureId) {
+  const target = getActiveCapture(captureId);
+  if (!target) {
+    showToast("Capture no longer exists");
+    return;
+  }
+  const { session, capture } = target;
+  const updatedNotes = upsertCaptureNoteBlock(session.notesMarkdown, capture);
+  workspace = updateSession(workspace, session.id, { notesMarkdown: updatedNotes });
+  notesMode = "preview";
+  setActivity(getActiveSession(workspace), {
+    title: "Capture added to notes",
+    detail: summarizeCapture(capture),
+    tab: "captures",
+    targetId: capture.id
+  });
+  persistAndRender("Capture added to notes");
+}
+
+function promoteCaptureToReview(captureId) {
+  const target = getActiveCapture(captureId);
+  if (!target) {
+    showToast("Capture no longer exists");
+    return;
+  }
+  const { session, capture } = target;
+  if (capture.promotedToReview) return;
+  workspace = promoteCapture(workspace, session.id, capture.id);
+  setActivity(getActiveSession(workspace), {
+    title: "Review card created",
+    detail: summarizeCapture(capture),
+    tab: "review",
+    targetId: getActiveSession(workspace).reviewCards[0]?.id
+  });
+  persistAndRender("Review card created");
+}
+
 function renderCaptures() {
   const session = getActiveSession(workspace);
   clearChildren(dom.captureList);
@@ -2019,34 +2135,14 @@ function renderCaptures() {
     noteButton.className = "mini-button";
     noteButton.type = "button";
     noteButton.textContent = "Note";
-    noteButton.addEventListener("click", () => {
-      const updatedNotes = upsertCaptureNoteBlock(getActiveSession(workspace).notesMarkdown, capture);
-      workspace = updateSession(workspace, session.id, { notesMarkdown: updatedNotes });
-      notesMode = "preview";
-      setActivity(getActiveSession(workspace), {
-        title: "Capture added to notes",
-        detail: summarizeCapture(capture),
-        tab: "captures",
-        targetId: capture.id
-      });
-      persistAndRender("Capture added to notes");
-    });
+    noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const promoteButton = document.createElement("button");
     promoteButton.className = "mini-button";
     promoteButton.type = "button";
     promoteButton.disabled = capture.promotedToReview;
     promoteButton.textContent = capture.promotedToReview ? "Card" : "Make card";
-    promoteButton.addEventListener("click", () => {
-      workspace = promoteCapture(workspace, session.id, capture.id);
-      setActivity(getActiveSession(workspace), {
-        title: "Review card created",
-        detail: summarizeCapture(capture),
-        tab: "review",
-        targetId: getActiveSession(workspace).reviewCards[0]?.id
-      });
-      persistAndRender("Review card created");
-    });
+    promoteButton.addEventListener("click", () => promoteCaptureToReview(capture.id));
     actions.append(promoteButton);
     const linkedReviewCount = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id).length;
     const deleteButton = document.createElement("button");

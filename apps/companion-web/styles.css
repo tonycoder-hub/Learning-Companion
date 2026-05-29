@@ -620,6 +620,10 @@ textarea:focus {
   box-shadow: var(--shadow);
 }
 
+.capture-pane {
+  grid-template-rows: auto minmax(82px, 0.3fr) minmax(96px, 0.38fr) auto;
+}
+
 .capture-pane[hidden],
 .synthesis-pane[hidden],
 .desk-review-pane[hidden] {
@@ -682,6 +686,70 @@ textarea:focus {
 .capture-draft-status {
   min-width: 66px;
   text-align: right;
+}
+
+.capture-stack {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  padding-top: 2px;
+}
+
+.capture-stack-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.capture-stack-header strong,
+.capture-stack-header span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-stack-list {
+  display: grid;
+  gap: 0;
+  min-height: 0;
+  max-height: 210px;
+  overflow: auto;
+  border-top: 1px solid var(--line);
+}
+
+.capture-stack-row {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(220, 216, 204, 0.75);
+}
+
+.capture-stack-meta,
+.capture-stack-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-stack-meta,
+.capture-stack-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.capture-stack-text {
+  font-size: 13px;
+}
+
+.capture-stack-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
 }
 
 .command-button {
