@@ -40,10 +40,10 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
 - Deterministic Focus Brief in the desk with next action, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Workspace Find searches source titles, notes, captures, tags, and review cards, then jumps back to the matching session and surface.
-- Today tab includes a Patch Intake panel with inbox/review patch counts, latest import receipt, and direct import/export handoff actions.
+- Today tab includes capture drafts, Patch Intake counts, latest import receipt, and direct import/export handoff actions.
 - Sessions, source context, timestamp, tags, and source-open jumps that honor the current video time when present.
 - Capture-level source snapshots with source/time jump links.
-- Quick capture quote/thought with per-session draft persistence, visible draft status, and a clear-draft action.
+- Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action.
 - One-click capture insertion into Notes with idempotent capture blocks.
 - Confirmed delete for mistaken captures and review cards.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
@@ -113,7 +113,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run smoke:browser`, `npm run demo:morning`, `npm run mac:build`, `npm run check:morning`, `npm run check:morning:native`, and `npm run check:morning:browser`.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, and `npm run check:morning`. `npm run smoke:browser` passed earlier tonight through the source timestamp jump change; the newer Today capture-draft resume assertions are syntax-checked and need a local-port approval rerun before being claimed as browser-smoke evidence.
 
 ## Review Notes Absorbed
 

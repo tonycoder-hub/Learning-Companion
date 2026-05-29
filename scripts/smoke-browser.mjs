@@ -351,9 +351,22 @@ try {
     const nativeSidecarOff = window.learningCompanionNative.setSidecarLayout(false);
     const nativeSidecarClassOff = document.querySelector(".app-shell").classList.contains("sidecar-layout");
     setValue("#searchInput", "");
+    document.querySelector('[data-tab="today"]').click();
     setValue("#quoteInput", "Draft quote before session switch.");
     setValue("#thoughtInput", "Draft thought should survive.");
     setValue("#timestampInput", "01:23");
+    const todayDraftCard = document.querySelector("#todayList .draft-card");
+    const todayDraftBeforeResume = {
+      text: todayDraftCard?.textContent || "",
+      resumeText: todayDraftCard?.querySelector("button")?.textContent || ""
+    };
+    todayDraftCard?.querySelector("button")?.click();
+    const todayDraftAfterResume = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      focusMode: document.querySelector('[data-focus-mode="capture"]').classList.contains("active"),
+      activeElement: document.activeElement?.id || "",
+      activity: document.querySelector("#activityTitle").textContent
+    };
     const captureDraftStatusBeforeSwitch = {
       text: document.querySelector("#captureDraftStatus").textContent,
       clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
@@ -547,6 +560,8 @@ try {
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
+          todayDraftBeforeResume,
+          todayDraftAfterResume,
           captureDraftStatusBeforeSwitch,
           captureDraftStatusInNewSession,
           captureDraftNewSessionEmpty,
@@ -701,6 +716,17 @@ try {
   assert.deepEqual(result.handoffButtons, ["Import Patch", "Export Mirror"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
+  assert.match(result.todayDraftBeforeResume.text, /Capture Drafts/);
+  assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
+  assert.match(result.todayDraftBeforeResume.text, /device-local/);
+  assert.match(result.todayDraftBeforeResume.text, /Not exported/);
+  assert.equal(result.todayDraftBeforeResume.resumeText, "Resume");
+  assert.deepEqual(result.todayDraftAfterResume, {
+    activeTab: "captures",
+    focusMode: true,
+    activeElement: "quoteInput",
+    activity: "Capture draft resumed"
+  });
   assert.deepEqual(result.captureDraftStatusBeforeSwitch, { text: "Draft saved", clearHidden: false });
   assert.deepEqual(result.captureDraftStatusInNewSession, { text: "No draft", clearHidden: true });
   assert.equal(result.captureDraftNewSessionEmpty, true);

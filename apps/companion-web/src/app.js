@@ -579,11 +579,13 @@ function saveCurrentCaptureDraft() {
     timestamp: dom.timestampInput.value
   });
   renderCaptureDraftStatus(getActiveSession(workspace));
+  if (activeTab === "today") renderToday();
 }
 
 function clearCurrentCaptureDraft() {
   setCaptureDraft(getActiveSession(workspace).id, {});
   renderCaptureDraft(getActiveSession(workspace));
+  if (activeTab === "today") renderToday();
   dom.quoteInput.focus();
 }
 
@@ -1604,6 +1606,7 @@ function renderToday() {
   );
 
   dom.todayList.append(renderPatchIntakePanel());
+  renderTodayDrafts();
 
   dom.todayList.append(textEl("div", "today-section-title", "Due Review"));
   if (!pack.dueItems.length) {
@@ -1680,6 +1683,55 @@ function renderToday() {
     dom.todayList.append(item);
   });
   if (pack.recentOverflow) dom.todayList.append(emptyState(`+${pack.recentOverflow} more captures in workspace.json`));
+}
+
+function renderTodayDrafts() {
+  const drafts = getCaptureDraftItems();
+  if (!drafts.length) return;
+  dom.todayList.append(textEl("div", "today-section-title", "Capture Drafts"));
+  drafts.forEach(({ session, draft }) => {
+    const item = document.createElement("article");
+    item.className = "item-card draft-card";
+    item.append(textEl("div", "item-meta", [
+      session.title,
+      draft.timestamp ? `@ ${draft.timestamp}` : "",
+      "device-local"
+    ].filter(Boolean).join(" · ")));
+    const body = [draft.quote, draft.thought].filter(Boolean).join("\n").trim();
+    item.append(textEl("p", "card-prompt", body || `Time kept: ${draft.timestamp}`));
+    const footer = document.createElement("div");
+    footer.className = "item-footer";
+    footer.append(textEl("span", "", "Not exported"));
+    const resume = textEl("button", "mini-button primary", "Resume");
+    resume.type = "button";
+    resume.addEventListener("click", () => resumeCaptureDraft(session.id));
+    footer.append(resume);
+    item.append(footer);
+    dom.todayList.append(item);
+  });
+}
+
+function getCaptureDraftItems() {
+  return workspace.sessions
+    .map((session) => ({ session, draft: getCaptureDraft(session.id) }))
+    .filter(({ draft }) => hasCaptureDraft(draft))
+    .sort((a, b) => new Date(b.draft.updatedAt).getTime() - new Date(a.draft.updatedAt).getTime())
+    .slice(0, 5);
+}
+
+function resumeCaptureDraft(sessionId) {
+  const selected = selectSession(workspace, sessionId);
+  const session = getActiveSession(selected);
+  workspace = updateSession(selected, session.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setActivity(session, {
+    title: "Capture draft resumed",
+    detail: "Continue the saved quote or thought.",
+    tab: "captures",
+    targetId: ""
+  });
+  persistAndRender();
+  dom.quoteInput.focus();
 }
 
 function todayStat(value, label) {
