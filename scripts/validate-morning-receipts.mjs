@@ -43,6 +43,7 @@ assertEvidence(captureResume.evidence, "EXECUTED", files.captureResume);
 assert.equal(captureResume.roundTrip.ok, true);
 assert.equal(captureResume.roundTrip.allInputsVisibleInToday, true);
 assert.equal(captureResume.roundTrip.todayHashChanged, true);
+assert.equal(captureResume.roundTrip.focusBriefNextAction, "synthesize");
 
 assert.equal(determinism.schema, "learning-companion.morning-determinism-report.v1");
 assertEvidence(determinism.evidence, "EXECUTED", files.determinism);

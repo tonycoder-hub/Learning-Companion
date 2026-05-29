@@ -26,7 +26,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Feishu dry-run report records a no-network `wouldSend` envelope with virtual upsert paths, byte counts, and payload SHA-256 hashes.
 - Morning review pack now emits `EVIDENCE_TIERS.json` and visible `EVIDENCE:` badges so dry-run, handoff-only, and user-gated artifacts are not mistaken for live readiness.
 - Morning receipt contract validator checks generated JSON receipts for schema names, evidence tiers, and critical booleans before the offline gate passes.
-- Capture-to-resume receipt proves three synthetic browser captures written through `addCapture` appear in the generated Today resume pack without requiring GUI permissions.
+- Capture-to-resume receipt proves three synthetic browser captures written through `addCapture` appear in the generated Today resume pack and move Focus Brief to synthesis without requiring GUI permissions.
 - Mirror integrity report walks the generated static mirror and checks every internal HTML/Markdown link before the morning pack is accepted.
 - Morning determinism report runs the generator twice in isolated temp directories and compares output bytes.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.

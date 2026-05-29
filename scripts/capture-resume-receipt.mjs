@@ -39,6 +39,7 @@ export function buildCaptureResumeReceipt(options = {}) {
     assert.equal(afterToday.includes(event.thought), true);
     assert.equal(recentThoughts.has(event.thought), true);
   });
+  assert.equal(afterPack.focusBrief.nextAction.kind, "synthesize");
 
   return {
     schema: CAPTURE_RESUME_RECEIPT_SCHEMA,
@@ -79,7 +80,12 @@ export function buildCaptureResumeReceipt(options = {}) {
       recentCaptureCount: afterPack.recentCaptures.length,
       todaySha256: sha256Text(afterToday),
       workspaceSha256: sha256Json(capturedWorkspace),
-      latestCapture: afterPack.focusBrief.latestCapture,
+      focusBrief: {
+        sessionId: afterPack.focusBrief.sessionId,
+        nextAction: afterPack.focusBrief.nextAction,
+        latestCapture: afterPack.focusBrief.latestCapture,
+        capturesSinceLastSynthesis: afterPack.focusBrief.stats.capturesSinceLastSynthesis
+      },
       recentCaptures: afterPack.recentCaptures.map(({ sessionId, sessionTitle, capture }) => ({
         sessionId,
         sessionTitle,
@@ -96,6 +102,7 @@ export function buildCaptureResumeReceipt(options = {}) {
       workspaceHashChanged: sha256Json(workspace) !== sha256Json(capturedWorkspace),
       allInputsVisibleInToday: captureEvents.every((event) => afterToday.includes(event.thought)),
       allInputsVisibleInRecentCaptures: captureEvents.every((event) => recentThoughts.has(event.thought)),
+      focusBriefNextAction: afterPack.focusBrief.nextAction.kind,
       sourceUrlsPreserved: addedCaptures.every((capture) => Boolean(buildSourceJumpUrl(capture.sourceUrl, capture.timestamp)))
     },
     todayDiff: summarizeLineDiff(beforeToday, afterToday)
