@@ -109,7 +109,7 @@ workspace = addCapture(workspace, session.id, {
   thought: "Connect this to compile-time lifetime checks.",
   timestamp: "08:12",
   tags: "rust memory"
-}, { promoteToReview: true });
+}, { promoteToReview: true, now: "2026-05-29T00:10:00.000Z" });
 
 session = getActiveSession(workspace);
 assert.equal(session.captures.length, 1);
@@ -142,7 +142,7 @@ multiReviewWorkspace = addCapture(multiReviewWorkspace, algorithmsSession.id, {
   quote: "Dijkstra explores the lowest-cost frontier first.",
   thought: "Recall why greedy selection works.",
   tags: "algorithms graph"
-}, { promoteToReview: true });
+}, { promoteToReview: true, now: "2026-05-29T00:11:00.000Z" });
 const dueItems = getDueReviewItems(multiReviewWorkspace);
 assert.equal(dueItems.length, 2);
 assert.equal(dueItems.some((item) => item.sessionTitle === "Rust ownership course"), true);

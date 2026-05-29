@@ -13,6 +13,7 @@
     "demo:capture-resume": "node scripts/demo-capture-resume.mjs",
     "demo:morning": "node scripts/build-morning-demo.mjs",
     "morning:determinism": "node scripts/morning-determinism-check.mjs",
+    "morning:perf": "node scripts/perf-budget-check.mjs --out dist/perf-budget/PERF_BUDGET.json",
     "morning:receipts": "node scripts/validate-morning-receipts.mjs",
     "mac:build": "bash scripts/mac-build.sh",
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",

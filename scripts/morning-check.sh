@@ -38,6 +38,10 @@ echo "== Mirror integrity =="
 npm run mirror:integrity
 echo
 
+echo "== Performance budget =="
+npm run morning:perf
+echo
+
 echo "== Git status =="
 git status --short
 echo

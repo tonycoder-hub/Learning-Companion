@@ -30,6 +30,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Capture-to-resume receipt proves three synthetic browser captures written through `addCapture` appear in the generated Today resume pack and move Focus Brief to synthesis without requiring GUI permissions.
 - Mirror integrity report walks the generated static mirror and checks every internal HTML/Markdown link before the morning pack is accepted.
 - Morning determinism report runs the generator twice in isolated temp directories and compares output bytes.
+- Performance budget report times the morning generator in an isolated output directory and checks file-count/byte-size limits.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
 - HarmonyOS handoff now includes a DevEco/ArkTS scaffold contract plus a pure import/patch boundary module covered by `smoke:harmony`.
 - Three-pane learning sidecar for Mac/browser workflow.
@@ -106,7 +107,7 @@ npm run check:morning:browser
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
-`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, demo pack generation, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, and git status.
+`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, demo pack generation, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, and git status.
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 

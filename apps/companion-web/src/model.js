@@ -619,7 +619,8 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   if (options.promoteToReview) {
     createdCard = createReviewCardFromCapture(capture, workspace.clientId, {
       prompt: options.reviewPrompt,
-      answer: options.reviewAnswer
+      answer: options.reviewAnswer,
+      now: options.now
     });
   }
 
@@ -645,7 +646,7 @@ export function createReviewCardFromCapture(capture, originClientId = capture.or
   const answer = [cleanText(overrides.answer, MAX_CAPTURE_TEXT_LENGTH) || capture.quote, capture.timestamp ? `Time: ${capture.timestamp}` : ""]
     .filter(Boolean)
     .join("\n\n");
-  const timestamp = nowIso();
+  const timestamp = optionIso(overrides.now) || nowIso();
   return {
     id: makeId("card"),
     prompt,
