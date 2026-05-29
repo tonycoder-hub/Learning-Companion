@@ -810,6 +810,7 @@ function buildMorningReviewMarkdown({
     "## What To Judge",
     "",
     "- Sidecar capture: can you capture quote/thought/time/source without losing focus?",
+    "- Capture draft recovery: can you type a half-finished thought, switch sessions, and resume it from Today or the Focus Brief without confusing it for synced/exported data?",
     "- Workspace Find: can you find a prior capture or card quickly?",
     "- Today pack: does it tell you what to resume?",
     "- Mirror folder: would this be readable in Feishu Drive or Windows?",
@@ -997,7 +998,8 @@ function buildReviewStartHereHtml({
       <div class="grid">
         <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
         <div class="card"><strong>2. Import</strong><p>Open the app and import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>.</p></div>
-        <div class="card"><strong>3. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
+        <div class="card"><strong>3. Dogfood</strong><p>Type a half-finished Quick Capture thought, switch sessions, and confirm Today/Focus Brief make it easy to resume without calling it synced data.</p></div>
+        <div class="card"><strong>4. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
     </section>
     <section>
