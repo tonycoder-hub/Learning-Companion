@@ -1,6 +1,6 @@
 # HarmonyOS DevEco Handoff
 
-Stage: schema-prototype to DevEco scaffold handoff. This is not a runnable HarmonyOS project yet.
+Stage: DevEco scaffold handoff. A credential-free scaffold now lives at `apps/companion-harmony-dev/`, but it is not claimed as a compiled HarmonyOS app until DevEco or the HarmonyOS command-line toolchain verifies it.
 
 ## Goal
 
@@ -12,7 +12,7 @@ Create a minimal HarmonyOS app that can read the same portable artifacts produce
 
 The first device milestone is read-only: import a workspace or mirror bundle, render the active topic, due review cards, recent captures, and Focus Brief next action. Phone-side writes remain append-only patch exports.
 
-## Suggested DevEco Layout
+## Scaffold Layout
 
 ```text
 apps/companion-harmony-dev/
@@ -30,7 +30,7 @@ apps/companion-harmony-dev/
   entry/src/main/ets/services/exportPatch.ts
 ```
 
-Keep the generated app separate from the current credential-free prototype until SDK setup is available.
+The scaffold is intentionally separate from the executable JavaScript prototype in `apps/companion-harmony/src/`. The JS prototype remains the authoritative smoke-tested implementation until DevEco compilation passes.
 
 ## Screens
 
@@ -85,3 +85,13 @@ Keep the generated app separate from the current credential-free prototype until
 - Any requirement for Feishu login, browser cookie recovery, or background sync belongs to a later live-integration stage.
 - Any native patch writer must be tested against Mac import receipts before calling it a device roundtrip.
 - If DevEco setup requires approvals, record the blocked step and keep the schema prototype as the current evidence.
+
+## Current Local Gate
+
+Run:
+
+```bash
+npm run smoke:harmony
+```
+
+This verifies the JS schema reader/import boundary and checks that the DevEco scaffold has the expected files, schema constants, page names, and patch export service names. It does not compile ArkTS.

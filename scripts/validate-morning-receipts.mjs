@@ -15,6 +15,7 @@ const files = {
   adversarial: "ADVERSARIAL_GATES.json",
   determinism: "DETERMINISM.json",
   mirrorIntegrity: "MIRROR_INTEGRITY.json",
+  harmonyScaffold: "HARMONY_SCAFFOLD_REPORT.json",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
   feishuReport: "feishu-upload/feishu-upload-report.json"
 };
@@ -27,6 +28,7 @@ const patchIntakeNegative = readJson(files.patchIntakeNegative);
 const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
 const mirrorIntegrity = readJson(files.mirrorIntegrity);
+const harmonyScaffold = readJson(files.harmonyScaffold);
 const feishuPlan = readJson(files.feishuPlan);
 const feishuReport = readJson(files.feishuReport);
 
@@ -38,6 +40,7 @@ assert.equal(summary.assertions.morningDeterministic, true);
 assert.equal(summary.assertions.feishuUploadWouldSendNoNetwork, true);
 assert.equal(summary.assertions.deferredGatesPending >= 5, true);
 assert.equal(summary.assertions.patchIntakeNegativeExpectedFailures, summary.assertions.patchIntakeNegativeCases);
+assert.equal(summary.assertions.harmonyScaffoldOk, true);
 
 assert.equal(evidence.schema, "learning-companion.evidence-tiers.v1");
 assert.equal(evidence.summary.artifactCount > 0, true);
@@ -86,6 +89,13 @@ assert.equal(mirrorIntegrity.schema, "learning-companion.mirror-integrity-report
 assertEvidence(mirrorIntegrity.evidence, "EXECUTED", files.mirrorIntegrity);
 assert.equal(mirrorIntegrity.ok, true);
 assert.equal(mirrorIntegrity.summary.brokenLinks, 0);
+
+assert.equal(harmonyScaffold.schema, "learning-companion.harmony-scaffold-report.v1");
+assertEvidence(harmonyScaffold.evidence, "HANDOFF_ONLY", files.harmonyScaffold);
+assert.equal(harmonyScaffold.ok, true);
+assert.equal(harmonyScaffold.app.bundleName, "com.tonycoder.learningcompanion");
+assert.equal(harmonyScaffold.pages.includes("pages/Index"), true);
+assert.equal(harmonyScaffold.checks.every((check) => check.ok), true);
 
 assert.equal(feishuPlan.schema, "learning-companion.feishu-upload-plan.v1");
 assertEvidence(feishuPlan.evidence, "DRY_RUN", files.feishuPlan);

@@ -21,6 +21,7 @@ import {
 } from "./feishu-mirror-uploader.mjs";
 import { buildCaptureResumeReceipt } from "./capture-resume-receipt.mjs";
 import { buildPatchIntakeNegativeReceipt } from "./patch-intake-negative-receipt.mjs";
+import { buildHarmonyScaffoldReport } from "./smoke-harmony-scaffold.mjs";
 import { buildMirrorIntegrityReport } from "./mirror-integrity-check.mjs";
 import { buildMorningDeterminismReport } from "./morning-determinism-check.mjs";
 import { buildAdversarialGateReport } from "./adversarial-gate-check.mjs";
@@ -40,6 +41,7 @@ const REVIEW_REPORT_FILE = "review-start-here.html";
 const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
+const HARMONY_SCAFFOLD_REPORT_FILE = "HARMONY_SCAFFOLD_REPORT.json";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
 const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
 const PATCH_INTAKE_NEGATIVE_RECEIPT_FILE = "PATCH_INTAKE_NEGATIVE_RECEIPT.json";
@@ -290,10 +292,14 @@ const feishuUploadPlan = buildFeishuUploadPlan(mirrorBundle, {
 const harmonyReaderView = buildHarmonyReaderView(mirrorBundle, {
   now: "2026-05-29T07:20:00.000+08:00"
 });
+const harmonyScaffoldReport = buildHarmonyScaffoldReport({
+  checkedAt: "2026-05-29T07:21:00.000+08:00"
+});
 const sampleMirrorZipFile = `sample-${mirrorZip.filename}`;
 await writeJson(join(OUT_DIR, SAMPLE_WORKSPACE_FILE), demoWorkspace);
 await writeJson(join(OUT_DIR, SAMPLE_MIRROR_JSON_FILE), mirrorBundle);
 await writeJson(join(OUT_DIR, SAMPLE_HARMONY_READER_FILE), harmonyReaderView);
+await writeJson(join(OUT_DIR, HARMONY_SCAFFOLD_REPORT_FILE), harmonyScaffoldReport);
 await writeFile(join(OUT_DIR, sampleMirrorZipFile), Buffer.from(mirrorZip.data));
 await writeJson(join(PATCH_DIR, SAMPLE_MOBILE_INBOX_PATCH_FILE), mobileInboxPatch);
 await writeJson(join(PATCH_DIR, SAMPLE_REVIEW_PROGRESS_PATCH_FILE), reviewProgressPatch);
@@ -325,6 +331,7 @@ assert.equal(patchIntakeNegativeReceipt.summary.ok, true);
 assert.equal(patchIntakeNegativeReceipt.summary.expectedFailuresObserved, patchIntakeNegativeReceipt.summary.cases);
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
 assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
+assert.equal(harmonyScaffoldReport.ok, true);
 
 for (const file of mirrorBundle.files) {
   await writeText(join(MIRROR_DIR, file.path), file.content);
@@ -376,6 +383,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   deferredGates,
   determinismReport,
   harmonyReaderView,
+  harmonyScaffoldReport,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
@@ -392,6 +400,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   deferredGates,
   determinismReport,
   harmonyReaderView,
+  harmonyScaffoldReport,
   unsupportedInboxPatchRejected,
   macManualQaStatus
 }));
@@ -414,6 +423,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   deferredGates,
   determinismReport,
   harmonyReaderView,
+  harmonyScaffoldReport,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
@@ -471,6 +481,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   reviewReport: REVIEW_REPORT_FILE,
   macManualQa: MAC_MANUAL_QA_FILE,
   harmonyDevEcoHandoff: HARMONY_DEVECO_HANDOFF_FILE,
+  harmonyScaffoldReport: HARMONY_SCAFFOLD_REPORT_FILE,
   evidenceTiers: EVIDENCE_TIERS_FILE,
   deferredGates: DEFERRED_GATES_FILE,
   evidenceTierCounts: evidenceTiers.summary.counts,
@@ -522,6 +533,8 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     deferredGatesPending: deferredGates.summary.pending,
     morningDeterministic: determinismReport ? determinismReport.ok : "skipped",
     harmonyReaderTopics: harmonyReaderView.topics.length,
+    harmonyScaffoldOk: harmonyScaffoldReport.ok,
+    harmonyScaffoldFiles: harmonyScaffoldReport.fileCount,
     dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
   },
@@ -553,6 +566,7 @@ function buildStageMarkdown({
   deferredGates,
   determinismReport,
   harmonyReaderView,
+  harmonyScaffoldReport,
   unsupportedInboxPatchRejected,
   macManualQaStatus
 }) {
@@ -576,7 +590,7 @@ function buildStageMarkdown({
     `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
     `| Deferred gates | pending-user-gate | ${deferredGates.summary.pending}/${deferredGates.summary.total} approval/device/signing gates are explicitly tracked in \`${DEFERRED_GATES_FILE}\`. | Completion evidence for those gates. |`,
     `| Morning determinism | ${determinismReport ? "executed-byte-compare" : "SKIPPED(child-run)"} | ${determinismReport ? `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.` : "Skipped inside determinism child run."} | Runtime environment outside this repo. |`,
-    `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
+    `| HarmonyOS | schema-prototype + scaffold | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; DevEco scaffold report checks ${harmonyScaffoldReport.fileCount} files. | SDK compile, real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
     "",
@@ -734,6 +748,7 @@ function buildMorningReviewMarkdown({
   deferredGates,
   determinismReport,
   harmonyReaderView,
+  harmonyScaffoldReport,
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
@@ -776,6 +791,7 @@ function buildMorningReviewMarkdown({
     `- Deferred gates: \`${DEFERRED_GATES_FILE}\` (${deferredGates.summary.pending} approval/device/signing gates still pending)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
+    `- HarmonyOS scaffold report: \`${HARMONY_SCAFFOLD_REPORT_FILE}\` (${harmonyScaffoldReport.fileCount} scaffold files checked, no SDK compile claimed)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, ${feishuUploadReport.targetTree.files.length} target-tree files, not sent)`,
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief next action ${captureResumeReceipt.roundTrip.focusBriefNextAction})`,
@@ -815,6 +831,7 @@ function buildMorningReviewMarkdown({
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
     determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
+    `- Harmony scaffold sample: ${harmonyScaffoldReport.fileCount} files checked, bundle ${harmonyScaffoldReport.app.bundleName}, pages ${harmonyScaffoldReport.pages.length}.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
     `- Unsupported mobile inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}.`,
@@ -854,6 +871,7 @@ function buildReviewStartHereHtml({
   deferredGates,
   determinismReport,
   harmonyReaderView,
+  harmonyScaffoldReport,
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
@@ -867,6 +885,7 @@ function buildReviewStartHereHtml({
     ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, patch boundary, and device test gates."],
+    ["HarmonyOS Scaffold Report", HARMONY_SCAFFOLD_REPORT_FILE, `${harmonyScaffoldReport.fileCount} scaffold files checked; no SDK compile claimed.`],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
     ["Mirror home", "mirror-folder/index.html", "Static folder intended for Feishu Drive or Windows reading."],
     ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],
@@ -901,6 +920,7 @@ function buildReviewStartHereHtml({
     ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
     ["Deferred gates", `${deferredGates.summary.pending}/${deferredGates.summary.total} pending`, "approval/device/signing/live-write evidence still required"],
     ...(determinismReport ? [["Morning determinism", determinismReport.ok ? "ok" : "diff", `${determinismReport.summary.comparedFiles} files; ${determinismReport.summary.differences} differences`]] : []),
+    ["Harmony scaffold", harmonyScaffoldReport.ok ? "ok" : "needs fix", `${harmonyScaffoldReport.fileCount} files; ${harmonyScaffoldReport.pages.length} pages`],
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   const stageRows = [
@@ -912,7 +932,7 @@ function buildReviewStartHereHtml({
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
-    ["HarmonyOS", "schema-prototype", `${harmonyReaderView.topics.length} topic reader view`, "real device roundtrip"],
+    ["HarmonyOS", "schema-prototype + scaffold", `${harmonyReaderView.topics.length} topic reader view; ${harmonyScaffoldReport.fileCount} scaffold files`, "SDK compile and real device roundtrip"],
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
@@ -1066,6 +1086,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === HARMONY_DEVECO_HANDOFF_FILE) {
     return evidenceTier("HANDOFF_ONLY", "DevEco/ArkTS scaffold guidance and interface contract only; no HarmonyOS device run is claimed.");
+  }
+  if (normalized === HARMONY_SCAFFOLD_REPORT_FILE) {
+    return evidenceTier("HANDOFF_ONLY", "DevEco scaffold file structure and ArkTS contract names were checked locally; no SDK compile or device run is claimed.");
   }
   if (normalized === DEFERRED_GATES_FILE) {
     return evidenceTier("PENDING_USER_GATE", "Explicitly lists live-write, device, Windows, signing, and GUI gates that require approval or target hardware.");

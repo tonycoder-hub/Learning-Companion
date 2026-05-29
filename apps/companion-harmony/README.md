@@ -1,6 +1,6 @@
 # Learning Companion HarmonyOS Prototype
 
-This directory is a credential-free HarmonyOS preparation area, not a runnable DevEco project yet.
+This directory is the executable credential-free HarmonyOS preparation area. The DevEco scaffold handoff lives next door in `../companion-harmony-dev/`; it is structure-checked, but not claimed as compiled until DevEco or the HarmonyOS command-line toolchain verifies it.
 
 The first implemented piece is a schema reader that consumes the same portable data already produced by the Mac/web MVP:
 
@@ -19,18 +19,17 @@ npm run smoke:harmony
 
 ## Current Boundary
 
-- No HarmonyOS SDK or DevEco build is required.
+- No HarmonyOS SDK or DevEco build is required for the local smoke gate.
 - No Feishu credential, browser state, or local device permission is read.
-- No write path exists yet. Phone-side capture and review progress still use the static `inbox.html` and `review.html` pages in the mirror bundle.
+- Native write UI is scaffolded only. Phone-side capture and review progress still use append-only patch JSON and must be imported on Mac.
 - The reader is intentionally close to plain JavaScript so the shape can be ported to ArkTS after the view model feels right.
 - Patch envelopes can be built as pure JSON fixtures, but no native HarmonyOS writer UI exists yet.
 
-See [DEVECO_HANDOFF.md](DEVECO_HANDOFF.md) for the proposed DevEco project layout, ArkTS port boundaries, permissions, and device test gates.
+See [DEVECO_HANDOFF.md](DEVECO_HANDOFF.md) for the scaffold layout, ArkTS port boundaries, permissions, and device test gates.
 
 ## Next Steps
 
-- Create a minimal DevEco project only after the reader view is stable.
-- Use `DEVECO_HANDOFF.md` as the scaffold contract when DevEco setup is available.
+- Verify `../companion-harmony-dev/` in DevEco Studio once SDK setup is available.
 - Add a file-picker/import path for `workspace.json` or the mirror bundle.
 - Render active topic, due review, and recent captures from `harmony-reader-view.v1`.
 - Port `src/import-boundary.mjs` into ArkTS services.

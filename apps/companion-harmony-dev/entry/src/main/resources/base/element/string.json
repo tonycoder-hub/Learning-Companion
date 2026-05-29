@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "app_name",
+      "value": "Learning Companion"
+    },
+    {
+      "name": "module_desc",
+      "value": "Learning Companion HarmonyOS scaffold"
+    },
+    {
+      "name": "entry_desc",
+      "value": "Read-only learning mirror and patch handoff"
+    }
+  ]
+}

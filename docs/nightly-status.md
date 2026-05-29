@@ -34,7 +34,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Deferred gates manifest lists the approval/device/signing/live-write checks that are intentionally not proven by green offline gates.
 - Performance budget report times the morning generator in an isolated output directory, checks file-count/byte-size limits, and has a self-test proving violations fail.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
-- HarmonyOS handoff now includes a DevEco/ArkTS scaffold contract plus a pure import/patch boundary module covered by `smoke:harmony`.
+- HarmonyOS handoff now includes a DevEco/ArkTS scaffold directory plus a pure import/patch boundary module covered by `smoke:harmony`; it is structure-checked, not SDK-compiled.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps save/review/synthesis feedback visible in focused sidecar mode.
@@ -159,7 +159,7 @@ Deferred:
 ## Next Best Commits
 
 1. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
-2. Turn the HarmonyOS DevEco handoff into a minimal project scaffold once SDK/project setup is available; until then keep the schema reader honest as a prototype.
+2. Verify `apps/companion-harmony-dev/` in DevEco Studio once SDK/project setup is available; until then keep the schema reader honest as the executable prototype.
 3. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
 4. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
 
@@ -181,7 +181,6 @@ Deferred:
 - Mac manual QA now has a generated receipt template with default `NT` rows; `STAGE.md` reports the filled/total count, but the receipt is not filled until a real dogfood run.
 - Mac shell AppKit import/export panels build successfully, but panel cancel/oversize/invalid-file paths are not GUI-automated tonight.
 - `File > Open Morning Review Pack` is a developer shortcut over the generated fixture; it shows an alert when the demo pack is missing and does not generate, sync, or validate live integrations.
-- HarmonyOS native app is not started yet; the read-only schema reader prototype is local JavaScript and still needs DevEco/file-picker integration.
-- HarmonyOS DevEco handoff is a scaffold contract, not a compiled app.
+- HarmonyOS native app is scaffolded but not DevEco-compiled; the read-only schema reader prototype is still the executable evidence and still needs file-picker integration.
 - Sidecar layout still hides full inspector details; the desk review pane handles core review, while bulk review management still lives in the inspector.
 - Activity strip messages are intentionally ephemeral UI state; after reload or session switch they fall back to derived latest-capture/review-queue summaries.

@@ -1,0 +1,35 @@
+# Learning Companion HarmonyOS Scaffold
+
+Stage: DevEco scaffold handoff. This directory is intentionally not claimed as a compiled HarmonyOS app until DevEco Studio or the HarmonyOS command-line toolchain verifies it.
+
+## Purpose
+
+This scaffold gives the native HarmonyOS work a concrete shape without requiring credentials, device access, or SDK approval tonight.
+
+- Import local `learning-companion.workspace.v1` or `learning-companion.mirror-bundle.staging.v1` JSON.
+- Render Resume Here, topic summaries, due review cards, and import receipts.
+- Export append-only inbox/review-progress patch envelopes.
+- Avoid Feishu credentials, browser cookies, background sync, or direct Mac workspace mutation.
+
+## DevEco Import
+
+Open this folder as a HarmonyOS project candidate:
+
+```text
+apps/companion-harmony-dev/
+```
+
+Expected first DevEco tasks:
+
+1. Confirm `AppScope/app.json5` and `entry/src/main/module.json5` match the installed SDK version.
+2. Wire a document picker into `services/importPortableData.ts`.
+3. Replace `sampleReaderView()` with persisted imported data.
+4. Add device storage for the last accepted reader view.
+5. Run the manual gates from `../companion-harmony/DEVECO_HANDOFF.md`.
+
+## Boundaries
+
+- Read-only reader screens may ship first.
+- Phone writes must remain append-only patch exports.
+- Mac remains the authority for importing patches and resolving conflicts.
+- Live Feishu sync is not part of this scaffold.
