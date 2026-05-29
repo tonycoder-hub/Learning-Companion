@@ -186,11 +186,16 @@ textarea {
 }
 
 .search-result:hover,
-.search-result:focus,
-.search-result.active,
-.search-result[aria-selected="true"] {
+.search-result:focus {
   border-color: rgba(47, 111, 94, 0.35);
   background: var(--green-soft);
+}
+
+.search-result.active,
+.search-result[aria-selected="true"] {
+  border-color: rgba(49, 95, 130, 0.45);
+  background: #eef6f3;
+  box-shadow: inset 3px 0 0 var(--green);
 }
 
 .search-result-type {

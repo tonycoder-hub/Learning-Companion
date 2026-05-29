@@ -245,7 +245,17 @@ try {
       bubbles: true,
       cancelable: true
     }));
-    const searchAfterEscape = {
+    const searchAfterFirstEscape = {
+      value: document.querySelector("#searchInput").value,
+      hidden: document.querySelector("#searchResults").hidden,
+      expanded: document.querySelector("#searchInput").getAttribute("aria-expanded") || ""
+    };
+    document.querySelector("#searchInput").dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true
+    }));
+    const searchAfterSecondEscape = {
       value: document.querySelector("#searchInput").value,
       hidden: document.querySelector("#searchResults").hidden,
       expanded: document.querySelector("#searchInput").getAttribute("aria-expanded") || ""
@@ -616,7 +626,8 @@ try {
           noteHasSource,
           searchBeforeOpen,
           searchAfterOpen,
-          searchAfterEscape,
+          searchAfterFirstEscape,
+          searchAfterSecondEscape,
           activityOpenedReviewTab,
           activityTargetPulsed,
           activityAfterSynthesis,
@@ -825,7 +836,8 @@ try {
   assert.equal(result.searchAfterOpen.activeTab, "captures");
   assert.equal(result.searchAfterOpen.activity, "Search result opened");
   assert.equal(result.searchAfterOpen.targetPulsed, true);
-  assert.deepEqual(result.searchAfterEscape, { value: "", hidden: true, expanded: "false" });
+  assert.deepEqual(result.searchAfterFirstEscape, { value: "lifetime", hidden: true, expanded: "false" });
+  assert.deepEqual(result.searchAfterSecondEscape, { value: "", hidden: true, expanded: "false" });
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });

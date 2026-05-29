@@ -158,6 +158,7 @@ let saveTimer = null;
 let storageWarning = null;
 let activeReviewKey = "";
 let activeSearchIndex = -1;
+let searchResultsCollapsed = false;
 let lastActivity = null;
 let lastImportReceipt = null;
 const revealedReviewCards = new Set();
@@ -280,18 +281,26 @@ dom.searchInput.addEventListener("input", () => {
   if (dom.searchInput.value.length > MAX_SEARCH_QUERY_LENGTH) {
     dom.searchInput.value = dom.searchInput.value.slice(0, MAX_SEARCH_QUERY_LENGTH);
   }
+  searchResultsCollapsed = false;
   activeSearchIndex = dom.searchInput.value.trim() ? 0 : -1;
   renderSessions();
   renderSearchResults();
 });
 
 dom.searchInput.addEventListener("keydown", (event) => {
+  if (event.isComposing) return;
   if (!["ArrowDown", "ArrowUp", "Enter", "Escape"].includes(event.key)) return;
   const results = currentSearchResults();
   if (event.key === "Escape") {
     if (!dom.searchInput.value) return;
     event.preventDefault();
+    if (!searchResultsCollapsed && results.length) {
+      searchResultsCollapsed = true;
+      renderSearchResults();
+      return;
+    }
     dom.searchInput.value = "";
+    searchResultsCollapsed = false;
     activeSearchIndex = -1;
     renderSessions();
     renderSearchResults();
@@ -300,6 +309,7 @@ dom.searchInput.addEventListener("keydown", (event) => {
   if (!results.length) return;
   if (event.key === "ArrowDown" || event.key === "ArrowUp") {
     event.preventDefault();
+    searchResultsCollapsed = false;
     const direction = event.key === "ArrowDown" ? 1 : -1;
     const nextIndex = activeSearchIndex < 0 ? 0 : activeSearchIndex + direction;
     activeSearchIndex = (nextIndex + results.length) % results.length;
@@ -307,6 +317,7 @@ dom.searchInput.addEventListener("keydown", (event) => {
     return;
   }
   if (event.key === "Enter") {
+    if (activeSearchIndex < 0) return;
     event.preventDefault();
     openSearchResult(results[Math.max(0, activeSearchIndex)]);
   }
@@ -1574,11 +1585,11 @@ function renderSessions() {
 function renderSearchResults() {
   if (!dom.searchResults) return;
   const query = dom.searchInput.value.trim();
-  dom.searchResults.hidden = !query;
-  dom.searchInput.setAttribute("aria-expanded", query ? "true" : "false");
+  dom.searchResults.hidden = !query || searchResultsCollapsed;
+  dom.searchInput.setAttribute("aria-expanded", query && !searchResultsCollapsed ? "true" : "false");
   dom.searchInput.removeAttribute("aria-activedescendant");
   clearChildren(dom.searchResults);
-  if (!query) return;
+  if (!query || searchResultsCollapsed) return;
   const results = currentSearchResults();
   activeSearchIndex = results.length ? Math.max(0, Math.min(activeSearchIndex, results.length - 1)) : -1;
   const heading = document.createElement("div");
@@ -1608,6 +1619,7 @@ function renderSearchResults() {
   });
   if (activeSearchIndex >= 0) {
     dom.searchInput.setAttribute("aria-activedescendant", `search-result-${activeSearchIndex}`);
+    document.querySelector(`#search-result-${activeSearchIndex}`)?.scrollIntoView({ block: "nearest" });
   }
 }
 
