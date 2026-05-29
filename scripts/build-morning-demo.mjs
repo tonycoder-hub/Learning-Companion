@@ -762,6 +762,7 @@ function buildMorningReviewMarkdown({
     buildEvidenceBadgeMarkdown("MORNING_REVIEW.md").trim(),
     "",
     "> FIXTURE ONLY: this pack is generated sample data. It does not prove live Feishu sync, real HarmonyOS device behavior, or signed Mac packaging.",
+    "> FRESHNESS: offline and native gates were rerun against HEAD; latest Today draft-resume UI assertions are receipt + syntax checked and still need the separate local browser smoke gate.",
     "",
     "This pack is generated from a representative local workspace. It is credential-free and safe to inspect without Feishu or HarmonyOS setup.",
     "",
@@ -828,6 +829,7 @@ function buildMorningReviewMarkdown({
     `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
     `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes, ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement}`,
     `- Capture to resume sample: ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added, Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}, all inputs visible in Today: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}, Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}, draft-vs-review override allowed: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}.`,
+    `- Draft focus precedence sample: due review > fresh draft resume > stale draft > timestamp-only; due review blocks draft override: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.blockedByReview}.`,
     `- Patch intake negative sample: ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed; malformed rejected: ${patchIntakeNegativeReceipt.summary.malformedRejected}, oversized rejected: ${patchIntakeNegativeReceipt.summary.oversizedRejected}, duplicate review skipped: ${patchIntakeNegativeReceipt.summary.duplicateReviewSkipped}, stale review conflict skipped: ${patchIntakeNegativeReceipt.summary.staleReviewConflictSkipped}.`,
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
@@ -989,6 +991,7 @@ function buildReviewStartHereHtml({
     <header>
       <h1>Learning Companion Morning Review</h1>
       <p class="banner"><strong>Fixture-only review pack.</strong> This dashboard proves generated local artifacts and safety receipts, not live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, or signed Mac packaging.</p>
+      <p class="banner"><strong>Freshness note.</strong> Offline and native gates were rerun against HEAD. Latest Today draft-resume UI assertions are receipt + syntax checked and still need the separate local browser smoke gate.</p>
       <p class="meta">Scope: cross-end fixture-ready · no live Feishu sync · no device run · no signed packaging · see <a href="${escapeHtml(STAGE_FILE)}">STAGE.md</a></p>
       <p><span class="badge">${escapeHtml(getEvidenceTierForPath(REVIEW_REPORT_FILE).label)}</span></p>
       <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
