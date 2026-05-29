@@ -50,6 +50,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Synthesis draft generation from captures, questions, and review cards.
 - Captured questions stay visible as Focus Brief signals and Recent Stack chips before being folded into synthesis.
 - Today study pack carries an Open Questions backlog across sessions for Feishu, Windows, and mobile handoff.
+- Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.

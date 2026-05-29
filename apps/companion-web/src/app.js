@@ -1855,6 +1855,11 @@ function renderToday() {
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
+      const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
+      card.type = "button";
+      card.disabled = capture.promotedToReview;
+      card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
+      footer.append(card);
       item.append(footer);
       dom.todayList.append(item);
     });
@@ -2118,15 +2123,21 @@ function addCaptureToNotes(captureId) {
   persistAndRender("Capture added to notes");
 }
 
-function promoteCaptureToReview(captureId) {
-  const target = getActiveCapture(captureId);
-  if (!target) {
+function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspace).id) {
+  const targetSession = workspace.sessions.find((session) => session.id === sessionId);
+  if (!targetSession) {
+    showToast("Topic no longer exists");
+    return;
+  }
+  const capture = targetSession.captures.find((item) => item.id === captureId);
+  if (!capture) {
     showToast("Capture no longer exists");
     return;
   }
-  const { session, capture } = target;
   if (capture.promotedToReview) return;
-  workspace = promoteCapture(workspace, session.id, capture.id);
+  workspace = selectSession(workspace, targetSession.id);
+  workspace = promoteCapture(workspace, targetSession.id, capture.id);
+  activeTab = "review";
   setActivity(getActiveSession(workspace), {
     title: "Review card created",
     detail: summarizeCapture(capture),
