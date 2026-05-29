@@ -417,7 +417,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   evidence: getEvidenceTierForPath("SUMMARY.json"),
   stageStatement: "cross-end fixture-ready, not live cross-end ready",
   integrationStages: [
-    { area: "Mac", stage: "internal-build", proof: "SwiftPM build plus browser/native bridge smoke" },
+    { area: "Mac", stage: "internal-build", proof: "offline pack generated; native/browser gates are split to avoid sandbox-only failures" },
     { area: "Feishu", stage: "dry-run", proof: "local upload plan/report; no network call was made" },
     { area: "HarmonyOS", stage: "schema-prototype", proof: "local reader view smoke only" },
     { area: "Windows", stage: "portable-fixture", proof: "static mirror files only" }
@@ -524,7 +524,7 @@ function buildStageMarkdown({
     "",
     "| Area | Stage | Evidence in this pack | Not proven |",
     "| --- | --- | --- | --- |",
-    `| Mac shell | internal-build | SwiftPM build plus native bridge smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
+    `| Mac shell | internal-build | Offline pack generated; run \`npm run check:morning:native\` for SwiftPM build and \`npm run check:morning:browser\` for browser smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}. | Native selected-text GUI permissions, real browser selection. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
@@ -542,7 +542,8 @@ function buildStageMarkdown({
     "| harmony_device | BLOCKED(no_device) | Needs DevEco/device run using the handoff contract. |",
     "| windows_manual | NOT_RUN | Needs manual mirror folder and patch file roundtrip on Windows. |",
     "| mac_signed | NOT_RUN | Needs packaging/signing/notarization flow. |",
-    "| local_browser_smoke | EXECUTED_WITH_LOCAL_PORT | `npm run check:morning` may need a non-sandbox shell because browser smoke binds `127.0.0.1`. |",
+    "| mac_native_build | SEPARATE_NATIVE_GATE | Run `npm run check:morning:native`; SwiftPM may require toolchain/cache access outside restricted sandboxes. |",
+    "| local_browser_smoke | SEPARATE_BROWSER_GATE | Run `npm run check:morning:browser` in a shell that can bind `127.0.0.1`; the headline `check:morning` gate is offline. |",
     `| patch_intake_fixture | ${unsupportedInboxPatchRejected ? "PASS" : "NEEDS_FIX"} | Browser smoke and generator cover duplicate/conflict/unsupported fixture paths. |`,
     "",
     "Use wording: fixture, dry-run, schema-prototype, internal-build. Do not call this pack live sync, device-ready, or production Mac packaging.",
@@ -582,7 +583,9 @@ function buildMacManualQaMarkdown({
     "",
     "## Preconditions",
     "",
-    "- Run `npm run check:morning` from the repository root.",
+    "- Run `npm run check:morning` from the repository root for the offline headline gate.",
+    "- Run `npm run check:morning:native` separately when SwiftPM toolchain/cache access is allowed.",
+    "- Run `npm run check:morning:browser` separately when local browser port binding is allowed.",
     "- Launch the shell with `swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-web`.",
     "- Import `dist/morning-demo/sample-workspace.json` into the app.",
     "- Keep `dist/morning-demo/review-start-here.html` open for artifact links.",
@@ -648,7 +651,9 @@ function buildMorningReviewMarkdown({
     "0a. Read `dist/morning-demo/STAGE.md` before interpreting any artifact as a capability claim.",
     "0b. Use `dist/morning-demo/MAC_MANUAL_QA.md` to record Mac GUI dogfood results.",
     "0c. Use `dist/morning-demo/HARMONY_DEVECO_HANDOFF.md` as the phone-app scaffold contract.",
-    "1. Run `npm run check:morning` from the repo root.",
+    "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
+    "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
+    "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
     "4. Open the Export tab and compare it with `dist/morning-demo/mirror-folder/index.html`.",
@@ -717,7 +722,9 @@ function buildMorningReviewMarkdown({
     "- `npm run smoke` covers model contracts and generated static artifacts.",
     "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract plus pure import/patch boundary fixtures.",
     "- `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, patch import receipts, duplicate review patch receipts, and visible issue receipts for bad mirror, malformed JSON, and oversized patch imports.",
-    "- `npm run check:morning` runs web smoke, Harmony reader smoke, browser smoke, Mac shell build, and this demo pack generator.",
+    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, determinism, and mirror integrity.",
+    "- `npm run check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.",
+    "- `npm run check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.",
     ""
   ].join("\n");
 }
@@ -777,7 +784,7 @@ function buildReviewStartHereHtml({
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   const stageRows = [
-    ["Mac shell", "internal-build", "SwiftPM build and native bridge smoke", "signed/notarized app"],
+    ["Mac shell", "internal-build", "offline pack plus separate native/browser gates", "signed/notarized app"],
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today`, "native GUI selection"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
@@ -844,7 +851,7 @@ function buildReviewStartHereHtml({
     <section>
       <h2>Fast Path</h2>
       <div class="grid">
-        <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code>. It runs web smoke, Harmony reader smoke, browser smoke, Mac build, and this generator.</p></div>
+        <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
         <div class="card"><strong>2. Import</strong><p>Open the app and import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>.</p></div>
         <div class="card"><strong>3. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>

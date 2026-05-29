@@ -97,14 +97,18 @@ npm run smoke:browser
 npm run demo:morning
 npm run mac:build
 npm run check:morning
+npm run check:morning:native
+npm run check:morning:browser
 ```
 
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
-`check:morning` runs the web smoke, browser UX smoke, Mac shell build, demo pack generation, and prints git status.
+`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, demo pack generation, determinism, mirror integrity, and git status.
+`check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
+`check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run smoke:browser`, `npm run demo:morning`, `npm run mac:build`, and `npm run check:morning`.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run smoke:browser`, `npm run demo:morning`, `npm run mac:build`, `npm run check:morning`, `npm run check:morning:native`, and `npm run check:morning:browser`.
 
 ## Review Notes Absorbed
 

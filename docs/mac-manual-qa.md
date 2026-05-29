@@ -6,7 +6,9 @@ Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
 
 ## Preconditions
 
-- Run `npm run check:morning` from the repository root.
+- Run `npm run check:morning` from the repository root for the offline headline gate.
+- Run `npm run check:morning:native` separately when SwiftPM toolchain/cache access is allowed.
+- Run `npm run check:morning:browser` separately when local browser port binding is allowed.
 - Launch the shell with `swift run --package-path apps/companion-mac LearningCompanionMac apps/companion-web`.
 - Import `dist/morning-demo/sample-workspace.json`.
 - Open `dist/morning-demo/review-start-here.html`.

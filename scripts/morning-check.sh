@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-echo "== Learning Companion morning check =="
+echo "== Learning Companion morning offline check =="
 echo
 
 echo "== Web model smoke =="
@@ -14,16 +14,8 @@ echo "== HarmonyOS reader smoke =="
 npm run smoke:harmony
 echo
 
-echo "== Browser UX smoke =="
-npm run smoke:browser
-echo
-
 echo "== Capture resume receipt =="
 npm run demo:capture-resume
-echo
-
-echo "== Mac shell build =="
-npm run mac:build
 echo
 
 echo "== Morning demo pack =="
@@ -42,4 +34,4 @@ echo "== Git status =="
 git status --short
 echo
 
-echo "morning_check_ok"
+echo "morning_offline_check_ok"

@@ -6,7 +6,7 @@ This project now has several useful local capabilities. This document keeps the 
 
 | Stage | Meaning | Current Evidence | Promotion Gate |
 | --- | --- | --- | --- |
-| Local internal shell | SwiftPM WKWebView shell runs the web app and exposes native capture/window/file commands. | `swift build --package-path apps/companion-mac`, `npm run check:morning` | Keep iterating. |
+| Local internal shell | SwiftPM WKWebView shell runs the web app and exposes native capture/window/file commands. | `npm run check:morning:native`, plus offline pack evidence from `npm run check:morning` | Keep iterating. |
 | Tony dogfood build | Tony can use the shell for a real study session without terminal-only workarounds. | Missing live GUI matrix. | Manual QA for sidecar, clipboard capture, selected-text capture, browser context, import/export, relaunch. |
 | Signed package | Installable `.app` suitable for repeated daily use. | Not started. | App bundle, signing/notarization decision, permission onboarding, update/export safety. |
 
