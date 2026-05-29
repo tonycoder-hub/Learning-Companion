@@ -38,6 +38,7 @@ const SAMPLE_HARMONY_READER_FILE = "sample-harmony-reader-view.json";
 const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
 const REVIEW_REPORT_FILE = "review-start-here.html";
+const DEMO_SCRIPT_FILE = "DEMO_SCRIPT.md";
 const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
@@ -409,6 +410,13 @@ await writeText(
   join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE),
   `${buildEvidenceBadgeMarkdown(HARMONY_DEVECO_HANDOFF_FILE)}${await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8")}`
 );
+await writeText(join(OUT_DIR, DEMO_SCRIPT_FILE), buildDemoScriptMarkdown({
+  captureResumeReceipt,
+  deferredGates,
+  harmonyScaffoldReport,
+  mirrorIntegrityReport,
+  sampleMirrorZipFile
+}));
 const reviewReportHtml = buildReviewStartHereHtml({
   mirrorBundle,
   mirrorZip,
@@ -431,6 +439,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   unsupportedInboxPatchRejected
 });
 assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
+assert.match(reviewReportHtml, /href="DEMO_SCRIPT\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
@@ -739,6 +748,51 @@ function buildMacManualQaMarkdown({
   ].join("\n");
 }
 
+function buildDemoScriptMarkdown({
+  captureResumeReceipt,
+  deferredGates,
+  harmonyScaffoldReport,
+  mirrorIntegrityReport,
+  sampleMirrorZipFile
+}) {
+  return [
+    "# Learning Companion 60-Second Review Script",
+    "",
+    buildEvidenceBadgeMarkdown(DEMO_SCRIPT_FILE).trim(),
+    "",
+    "Use this to review only the surfaces this pack actually proves. It is a route through the demo, not a claim that deferred gates are complete.",
+    "",
+    "## 0-10s: Open The Evidence Pack",
+    "",
+    "- Open `review-start-here.html`.",
+    "- Read `STAGE.md` and `DEFERRED_GATES.json` first; there are no live Feishu, HarmonyOS device, Windows, signing, or completed Mac GUI claims here.",
+    `- Deferred gates pending: ${deferredGates.summary.pending}/${deferredGates.summary.total}.`,
+    "",
+    "## 10-25s: Check Resume Value",
+    "",
+    "- Open `mirror-folder/index.html` and `mirror-folder/TODAY.md`.",
+    "- Confirm Resume Here shows the next action, source, latest capture, and the reason behind the recommendation.",
+    `- Model receipt: \`CAPTURE_RESUME_RECEIPT.json\` shows ${captureResumeReceipt.roundTrip.addedCaptureCount} captures, Focus Brief \`${captureResumeReceipt.roundTrip.focusBriefNextAction}\`, and due review blocking draft override: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.blockedByReview}.`,
+    "",
+    "## 25-40s: Check Cross-End Boundaries",
+    "",
+    `- Open \`mirror-folder/review.html\` and \`mirror-folder/inbox.html\`; they are static patch exporters for phone/Windows/manual transport.`,
+    `- Open \`${sampleMirrorZipFile}\` or \`sample-feishu-mirror.json\`; mirror integrity checked ${mirrorIntegrityReport.summary.internalLinks} internal links with ${mirrorIntegrityReport.summary.brokenLinks} broken.`,
+    `- Open \`HARMONY_SCAFFOLD_REPORT.json\`; it checks ${harmonyScaffoldReport.fileCount} scaffold files, not an SDK compile.`,
+    "",
+    "## 40-55s: Check Local Data Honesty",
+    "",
+    "- In the app, add a real capture, confirm the local storage notice appears, then export workspace and verify the downloaded JSON file yourself.",
+    "- Use `MAC_MANUAL_QA.md` for GUI rows; leave anything approval/device-bound as `NT` or `BLOCKED` rather than treating it as passed.",
+    "",
+    "## 55-60s: Decide The Next Gate",
+    "",
+    "- If the sidecar capture loop feels right, the next honest gates are `npm run check:morning:browser`, `npm run check:morning:native`, and one real Mac GUI dogfood pass.",
+    "- Do not treat dry-run Feishu files, Harmony scaffold shape, or static Windows mirror files as live cross-end completion.",
+    ""
+  ].join("\n");
+}
+
 function buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
@@ -790,6 +844,7 @@ function buildMorningReviewMarkdown({
     "",
     "## Generated Artifacts",
     "",
+    `- 60-second review script: \`${DEMO_SCRIPT_FILE}\` (bounded path through verified surfaces and deferred gates)`,
     `- Sample mirror JSON: \`${SAMPLE_MIRROR_JSON_FILE}\` (${mirrorBundle.manifest.fileCount} files)`,
     `- Sample mirror ZIP: \`${sampleMirrorZipFile}\` (${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes)`,
     "- Extracted folder: `mirror-folder/`",
@@ -899,6 +954,7 @@ function buildReviewStartHereHtml({
 }) {
   const artifactRows = [
     ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
+    ["60-second review script", DEMO_SCRIPT_FILE, "Bounded route through the verified demo surfaces and deferred gates."],
     ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
     ["Evidence tiers", EVIDENCE_TIERS_FILE, "Machine-readable evidence tier for each generated artifact."],
     ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
