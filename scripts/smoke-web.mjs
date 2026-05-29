@@ -35,6 +35,7 @@ import {
   generateInboxHtml,
   generateMarkdown,
   generateMirrorIndexHtml,
+  generateReviewPackMarkdown,
   generateReviewHtml,
   generateSynthesisDraft,
   generateTodayMarkdown,
@@ -103,6 +104,11 @@ let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);
 assert.equal(workspace.schemaVersion, WORKSPACE_SCHEMA_VERSION);
 assert.equal(workspace.version, WORKSPACE_SCHEMA_VERSION);
+
+const reviewPackMarkdown = generateReviewPackMarkdown(workspace);
+assert.match(reviewPackMarkdown, /Learning Companion Review Pack/);
+assert.match(reviewPackMarkdown, /Next action: Capture next point/);
+assert.match(reviewPackMarkdown, /Why: The source is available and the session has gone quiet\./);
 
 const normalizedDraft = normalizeCaptureDraft({
   quote: "  Draft quote\n",
@@ -377,6 +383,7 @@ const dueFocusBrief = buildFocusBrief(session, workspace, focusNow);
 assert.equal(dueFocusBrief.schema, "learning-companion.focus-brief.v1");
 assert.equal(dueFocusBrief.nextAction.kind, "review");
 assert.equal(dueFocusBrief.nextAction.reason, "Active topic has due review due now.");
+assert.match(generateReviewPackMarkdown(workspace), /Why: Active topic has due review due now\./);
 assert.equal(dueFocusBrief.stats.dueCards, 1);
 assert.match(dueFocusBrief.source.href, /youtube\.com/);
 assert.deepEqual(resolveCaptureDraftFocusOverride(dueFocusBrief, {

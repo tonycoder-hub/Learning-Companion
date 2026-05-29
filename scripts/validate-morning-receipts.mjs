@@ -16,6 +16,9 @@ const files = {
   determinism: "DETERMINISM.json",
   mirrorIntegrity: "MIRROR_INTEGRITY.json",
   harmonyScaffold: "HARMONY_SCAFFOLD_REPORT.json",
+  morningReview: "MORNING_REVIEW.md",
+  demoScript: "DEMO_SCRIPT.md",
+  manualQa: "MAC_MANUAL_QA.md",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
   feishuReport: "feishu-upload/feishu-upload-report.json"
 };
@@ -29,6 +32,9 @@ const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
 const mirrorIntegrity = readJson(files.mirrorIntegrity);
 const harmonyScaffold = readJson(files.harmonyScaffold);
+const morningReview = readText(files.morningReview);
+const demoScript = readText(files.demoScript);
+const manualQa = readText(files.manualQa);
 const feishuPlan = readJson(files.feishuPlan);
 const feishuReport = readJson(files.feishuReport);
 
@@ -49,6 +55,7 @@ assert.equal(evidence.artifacts.every((artifact) => {
   assertEvidence(artifact.evidence, artifact.evidence.tier, artifact.path);
   return Boolean(artifact.path && artifact.sha256 && artifact.bytes > 0);
 }), true);
+assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.demoScript), true);
 
 assert.equal(deferredGates.schema, "learning-companion.deferred-gates.v1");
 assertEvidence(deferredGates.evidence, "PENDING_USER_GATE", files.deferredGates);
@@ -119,6 +126,15 @@ assert.equal(feishuReport.targetTree.directories.includes("sessions"), true);
 assert.equal(feishuReport.targetTree.files.length, feishuReport.wouldSend.requestCount);
 assert.equal(feishuReport.targetTree.files.every((file) => /^[a-f0-9]{64}$/.test(file.payloadSha256)), true);
 
+assert.match(morningReview, /^## What Tony Will Not See Working Tonight$/m);
+assert.match(morningReview, /DEMO_SCRIPT\.md/);
+assert.match(morningReview, /CAPTURE_RESUME_RECEIPT\.json/);
+assert.match(morningReview, /No executed local browser smoke in this run/);
+assert.match(morningReview, /When the separate browser gate is allowed/);
+assert.match(demoScript, /Do not treat dry-run Feishu files/);
+assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
+assert.match(manualQa, /verify the downloaded JSON file yourself/);
+
 console.log("morning_receipts_ok");
 
 function assertEvidence(evidence, expectedTier, label) {
@@ -132,4 +148,8 @@ function assertEvidence(evidence, expectedTier, label) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(join(ROOT, path), "utf8"));
+}
+
+function readText(path) {
+  return readFileSync(join(ROOT, path), "utf8");
 }

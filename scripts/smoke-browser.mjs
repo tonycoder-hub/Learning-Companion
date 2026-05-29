@@ -889,6 +889,7 @@ try {
   assert.equal(result.workspaceExportActiveSession, "Learning Companion MVP");
   assert.match(result.reviewPackExport, /Learning Companion Review Pack/);
   assert.match(result.reviewPackExport, /Scope: local MVP fixture\/internal build/);
+  assert.match(result.reviewPackExport, /Why: Active topic has due review due now/);
   assert.match(result.reviewPackExport, /Feishu: local mirror bundle plus upload plan\/dry-run boundary/);
   assert.match(result.reviewPackExport, /HarmonyOS: schema reader prototype/);
   assert.match(result.reviewPackExport, /npm run check:morning/);

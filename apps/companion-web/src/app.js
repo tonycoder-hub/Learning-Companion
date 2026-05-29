@@ -22,6 +22,7 @@ import {
   deleteReviewCard,
   filterSessions,
   generateMarkdown,
+  generateReviewPackMarkdown,
   generateSynthesisDraft,
   generateTodayMarkdown,
   getSynthesisStats,
@@ -2146,7 +2147,7 @@ function reviewKey(sessionId, cardId) {
 function renderExport() {
   const session = getActiveSession(workspace);
   dom.workspaceExport.value = workspaceJson();
-  dom.reviewPackExport.value = buildReviewPackMarkdown(workspace);
+  dom.reviewPackExport.value = generateReviewPackMarkdown(workspace);
   dom.markdownExport.value = generateMarkdown(session);
   dom.payloadExport.value = JSON.stringify(buildFeishuPayload(session), null, 2);
   dom.todayExport.value = generateTodayMarkdown(workspace);
@@ -2189,61 +2190,6 @@ function workspaceBackupFingerprint(value) {
     updatedAt: ""
   };
   return workspaceFingerprint(JSON.stringify(stableWorkspace));
-}
-
-function buildReviewPackMarkdown(workspaceData) {
-  const safeWorkspace = sanitizeWorkspace(workspaceData);
-  const active = getActiveSession(safeWorkspace);
-  const mirror = buildMirrorBundle(safeWorkspace);
-  const due = getDueReviewItems(safeWorkspace);
-  const captures = safeWorkspace.sessions.reduce((sum, session) => sum + session.captures.length, 0);
-  const cards = safeWorkspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0);
-  const focusBrief = buildFocusBrief(active, safeWorkspace);
-  return [
-    "# Learning Companion Review Pack",
-    "",
-    "> Scope: local MVP fixture/internal build. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
-    "",
-    "## Workspace",
-    "",
-    `- Sessions: ${safeWorkspace.sessions.length}`,
-    `- Captures: ${captures}`,
-    `- Review cards: ${cards}`,
-    `- Due now: ${due.length}`,
-    `- Active topic: ${active.title}`,
-    `- Next action: ${focusBrief.nextAction.label}`,
-    "",
-    "## Export Artifacts",
-    "",
-    `- Workspace restore: \`learning-companion-workspace.json\` (${safeWorkspace.sessions.length} sessions)`,
-    `- Mirror bundle: \`learning-companion-feishu-mirror.json\` (${mirror.manifest.fileCount} files, ${mirror.manifest.bundleFingerprint})`,
-    "- Mirror ZIP: `learning-companion-feishu-mirror.zip` (manual folder package)",
-    "- Today pack: `TODAY.md`",
-    "- Current session Markdown and `.feishu.json` sidecar",
-    "",
-    "## Stage Wording",
-    "",
-    "- Mac: internal WKWebView shell, not signed production app.",
-    "- Feishu: local mirror bundle plus upload plan/dry-run boundary, not live sync.",
-    "- HarmonyOS: schema reader prototype, not device-verified app.",
-    "",
-    "## Morning Commands",
-    "",
-    "```bash",
-    "npm run smoke",
-    "npm run smoke:harmony",
-    "npm run smoke:browser",
-    "npm run check:morning",
-    "npm run demo:morning",
-    "```",
-    "",
-    "## Promotion Gates",
-    "",
-    "- Mac dogfood: run sidecar, clipboard capture, selected-text capture, browser context, import/export, and relaunch manual QA.",
-    "- Feishu live writer: configure credentials explicitly, set Drive folder target, then compare upload report against dry-run report.",
-    "- HarmonyOS app: import workspace or mirror bundle on device, render reader view, export append-only inbox/review patches.",
-    ""
-  ].join("\n");
 }
 
 function installNativeBridge() {
