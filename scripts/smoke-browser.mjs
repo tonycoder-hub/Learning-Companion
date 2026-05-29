@@ -1585,6 +1585,37 @@ try {
   assert.equal(deleteFlow.afterCaptureDelete.notesHasCapture, true);
   assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
 
+  const questionFlow = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    const zeroFocusFacts = document.querySelector("#focusBriefFacts").textContent;
+    setValue("#sessionTitle", "Question parking smoke");
+    setValue("#sourceUrl", "https://example.com/question-parking");
+    setValue("#thoughtInput", "Why does this theorem need the compactness assumption?");
+    document.querySelector("#captureBtn").click();
+    const questionSignal = Array.from(document.querySelectorAll("#focusBriefSignals .focus-signal"))
+      .find((node) => /open question/.test(node.textContent));
+    return {
+      zeroFocusFacts,
+      stackText: document.querySelector("#captureStack").textContent,
+      signals: document.querySelector("#focusBriefSignals").textContent,
+      focusFacts: document.querySelector("#focusBriefFacts").textContent,
+      questionSignalClass: questionSignal ? questionSignal.className : ""
+    };
+  })()`);
+
+  assert.match(questionFlow.zeroFocusFacts, /Questions/);
+  assert.match(questionFlow.zeroFocusFacts, /None/);
+  assert.match(questionFlow.stackText, /Question/);
+  assert.match(questionFlow.stackText, /compactness assumption/);
+  assert.match(questionFlow.signals, /1 open question/);
+  assert.match(questionFlow.focusFacts, /Questions/);
+  assert.doesNotMatch(questionFlow.questionSignalClass, /warn/);
+
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);

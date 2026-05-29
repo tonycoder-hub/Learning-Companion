@@ -18,6 +18,7 @@ import {
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
+  captureHasQuestion,
   cleanUrl,
   deleteCapture,
   deleteReviewCard,
@@ -1160,12 +1161,14 @@ function renderFocusBrief() {
     focusBriefFact("Synthesis", brief.stats.capturesSinceLastSynthesis
       ? `${brief.stats.capturesSinceLastSynthesis} waiting`
       : "Current"),
+    focusBriefFact("Questions", brief.stats.questions ? `${brief.stats.questions} open` : "None"),
     focusBriefFact("Why", brief.nextAction.reason)
   );
   clearChildren(dom.focusBriefSignals);
   if (brief.warnings.length) {
     brief.warnings.forEach((warning) => {
-      const signal = textEl("span", "focus-signal warn", warning.label);
+      const signalClass = warning.kind === "open_questions" ? "focus-signal" : "focus-signal warn";
+      const signal = textEl("span", signalClass, warning.label);
       signal.title = warning.detail;
       dom.focusBriefSignals.append(signal);
     });
@@ -1924,6 +1927,7 @@ function renderCaptureStack(session) {
     const row = document.createElement("article");
     row.className = "capture-stack-row";
     row.dataset.stackCaptureId = capture.id;
+    const isQuestion = captureHasQuestion(capture);
     row.append(
       textEl("div", "capture-stack-meta", [
         capture.timestamp || "No time",
@@ -1932,6 +1936,7 @@ function renderCaptureStack(session) {
       ].filter(Boolean).join(" · ")),
       textEl("p", "capture-stack-text", summarizeCapture(capture))
     );
+    if (isQuestion) row.append(textEl("span", "capture-stack-chip", "Question"));
     const actions = document.createElement("div");
     actions.className = "capture-stack-actions";
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);

@@ -48,6 +48,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - One-click capture insertion into Notes, without duplicate blocks.
 - Confirmed cleanup for mistaken captures and review cards.
 - Synthesis draft generation from captures, questions, and review cards.
+- Captured questions stay visible as Focus Brief signals and Recent Stack chips before being folded into synthesis.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.

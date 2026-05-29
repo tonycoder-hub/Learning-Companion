@@ -26,6 +26,7 @@ import {
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
+  captureHasQuestion,
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
@@ -434,11 +435,102 @@ assert.match(synthesis, /Generated from 1 capture \/ 0 questions \/ 1 card/);
 assert.match(synthesis, /compile-time lifetime checks/);
 assert.match(synthesis, /Review Targets/);
 
+const focusNow = new Date("2026-05-29T00:20:00.000Z");
+const questionSession = createSession({
+  title: "Question parking",
+  sourceUrl: "https://example.com/questions",
+  captures: [{
+    id: "question_capture",
+    thought: "Why does ownership make aliasing safe？",
+    quote: "Ownership constrains mutable aliases.",
+    capturedAt: "2026-05-29T00:18:00.000Z"
+  }],
+  reviewCards: []
+}, workspace.clientId);
+const questionBrief = buildFocusBrief(questionSession, null, focusNow);
+assert.equal(captureHasQuestion(questionSession.captures[0]), true);
+assert.equal(getSynthesisStats(questionSession).questions, 1);
+assert.equal(questionBrief.stats.questions, 1);
+assert.equal(questionBrief.warnings.some((warning) => warning.kind === "open_questions"), true);
+assert.match(generateSynthesisDraft(questionSession), /Why does ownership make aliasing safe？/);
+
+const statementSession = createSession({
+  title: "No question parking",
+  sourceUrl: "https://example.com/statements",
+  captures: [{
+    id: "statement_capture",
+    thought: "Ownership constrains aliases without an explicit question.",
+    capturedAt: "2026-05-29T00:18:30.000Z"
+  }],
+  reviewCards: []
+}, workspace.clientId);
+const statementBrief = buildFocusBrief(statementSession, null, focusNow);
+assert.equal(captureHasQuestion(statementSession.captures[0]), false);
+assert.equal(getSynthesisStats(statementSession).questions, 0);
+assert.equal(statementBrief.stats.questions, 0);
+assert.equal(statementBrief.warnings.some((warning) => warning.kind === "open_questions"), false);
+
+const urlCodeSession = createSession({
+  title: "Question false positives",
+  sourceUrl: "https://example.com/question-false-positives",
+  captures: [
+    {
+      id: "url_capture",
+      thought: "Reference https://example.com/course?unit=1 before the next section.",
+      capturedAt: "2026-05-29T00:18:40.000Z"
+    },
+    {
+      id: "inline_code_capture",
+      thought: "Try `value?.prop` in the console.",
+      capturedAt: "2026-05-29T00:18:50.000Z"
+    },
+    {
+      id: "fenced_code_capture",
+      thought: "```\nfetch('/api?debug=1')\n```",
+      capturedAt: "2026-05-29T00:19:00.000Z"
+    }
+  ],
+  reviewCards: []
+}, workspace.clientId);
+const urlCodeBrief = buildFocusBrief(urlCodeSession, null, focusNow);
+assert.equal(urlCodeSession.captures.every((capture) => !captureHasQuestion(capture)), true);
+assert.equal(getSynthesisStats(urlCodeSession).questions, 0);
+assert.equal(urlCodeBrief.stats.questions, 0);
+assert.equal(urlCodeBrief.warnings.some((warning) => warning.kind === "open_questions"), false);
+const urlCodeSynthesis = generateSynthesisDraft(urlCodeSession);
+const urlCodeOpenQuestions = urlCodeSynthesis.split("### Open Questions")[1].split("### Review Targets")[0];
+assert.match(urlCodeSynthesis, /Generated from 3 captures \/ 0 questions \/ 0 cards/);
+assert.doesNotMatch(urlCodeOpenQuestions, /https:\/\/example\.com/);
+assert.doesNotMatch(urlCodeOpenQuestions, /value\?\.prop/);
+assert.doesNotMatch(urlCodeOpenQuestions, /api\?debug/);
+
+const mixedQuestionSession = createSession({
+  title: "Questions with code and links",
+  sourceUrl: "https://example.com/mixed-questions",
+  captures: [
+    {
+      id: "url_question_capture",
+      thought: "Why does https://example.com/course?unit=1 still load slowly?",
+      capturedAt: "2026-05-29T00:19:10.000Z"
+    },
+    {
+      id: "code_question_capture",
+      thought: "Does `value?.prop` short-circuit when value is null?",
+      capturedAt: "2026-05-29T00:19:20.000Z"
+    }
+  ],
+  reviewCards: []
+}, workspace.clientId);
+const mixedQuestionSynthesis = generateSynthesisDraft(mixedQuestionSession);
+assert.equal(mixedQuestionSession.captures.every((capture) => captureHasQuestion(capture)), true);
+assert.equal(getSynthesisStats(mixedQuestionSession).questions, 2);
+assert.match(mixedQuestionSynthesis, /Why does https:\/\/example\.com\/course\?unit=1 still load slowly\?/);
+assert.match(mixedQuestionSynthesis, /Does `value\?\.prop` short-circuit when value is null\?/);
+
 const emptySynthesis = generateSynthesisDraft(createSession({ title: "Empty topic" }, workspace.clientId));
 assert.match(emptySynthesis, /No captures yet/);
 assert.deepEqual(getSynthesisStats(session), { captures: 1, questions: 0, cards: 1 });
 
-const focusNow = new Date("2026-05-29T00:20:00.000Z");
 const dueFocusBrief = buildFocusBrief(session, workspace, focusNow);
 assert.equal(dueFocusBrief.schema, "learning-companion.focus-brief.v1");
 assert.equal(dueFocusBrief.nextAction.kind, "review");
@@ -503,7 +595,7 @@ const synthesizeBrief = buildFocusBrief(createSession({
   sourceUrl: "https://example.com/course",
   captures: [
     { id: "cap_a", thought: "First idea", capturedAt: "2026-05-29T00:00:00.000Z" },
-    { id: "cap_b", thought: "Second idea", capturedAt: "2026-05-29T00:01:00.000Z" },
+    { id: "cap_b", thought: "Second idea?", capturedAt: "2026-05-29T00:01:00.000Z" },
     { id: "cap_c", thought: "Third idea", capturedAt: "2026-05-29T00:02:00.000Z" }
   ],
   reviewCards: []
@@ -511,7 +603,9 @@ const synthesizeBrief = buildFocusBrief(createSession({
 assert.equal(synthesizeBrief.nextAction.kind, "synthesize");
 assert.equal(synthesizeBrief.nextAction.reason, "Unsynthesized captures reached the compression threshold.");
 assert.equal(synthesizeBrief.stats.capturesSinceLastSynthesis, 3);
+assert.equal(synthesizeBrief.stats.questions, 1);
 assert.equal(synthesizeBrief.warnings.some((warning) => warning.kind === "needs_synthesis"), true);
+assert.equal(synthesizeBrief.warnings.some((warning) => warning.kind === "open_questions"), true);
 assert.equal(resolveCaptureDraftFocusOverride(synthesizeBrief, {
   thought: "Fresh draft can outrank synthesis.",
   updatedAt: "2026-05-29T00:19:00.000Z"

@@ -1064,12 +1064,13 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
   const capturesSinceLastSynthesis = hasCurrentSynthesis ? 0 : captures.length;
   const source = buildResumeSource(session, "", latestCapture);
   const sourceHref = source.href;
+  const questionCount = captures.filter((capture) => captureHasQuestion(capture)).length;
   const minutesSinceLastCapture = latestCapture
     ? Math.max(0, Math.floor((date.getTime() - new Date(latestCapture.capturedAt || latestCapture.createdAt).getTime()) / 60000))
     : null;
   const hasRecentCapture = minutesSinceLastCapture !== null && minutesSinceLastCapture < FOCUS_BRIEF_CAPTURE_IDLE_MINUTES;
   const synthesisDue = isFocusSynthesisDue(capturesSinceLastSynthesis, hasCurrentSynthesis);
-  const warnings = buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref);
+  const warnings = buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref, questionCount);
 
   return {
     schema: "learning-companion.focus-brief.v1",
@@ -1082,7 +1083,8 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
       cards: reviewCards.length,
       dueCards: dueCards.length,
       workspaceDueCards,
-      capturesSinceLastSynthesis
+      capturesSinceLastSynthesis,
+      questions: questionCount
     },
     latestCapture: latestCapture ? {
       id: cleanText(latestCapture.id, 128),
@@ -1337,7 +1339,7 @@ export function generateSynthesisDraft(session) {
   lines.push("", "### Open Questions", "");
   const questions = captures
     .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH))
-    .filter((thought) => /\?/.test(thought));
+    .filter((thought) => isQuestionText(thought));
   if (questions.length) {
     questions.slice(0, 5).forEach((question) => lines.push(`- ${question}`));
   } else {
@@ -1994,11 +1996,13 @@ export function getSynthesisStats(session) {
   const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
   return {
     captures: captures.length,
-    questions: captures
-      .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH))
-      .filter((thought) => /\?/.test(thought)).length,
+    questions: captures.filter((capture) => captureHasQuestion(capture)).length,
     cards: reviewCards.length
   };
+}
+
+export function captureHasQuestion(capture) {
+  return isQuestionText(cleanText(capture?.thought, MAX_CAPTURE_TEXT_LENGTH));
 }
 
 export function getSynthesisSourceStamp(session) {
@@ -2338,7 +2342,7 @@ function normalizeReviewProgressDate(value, now = new Date()) {
     : Number.isFinite(now?.getTime?.()) ? now : new Date();
 }
 
-function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref) {
+function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisDue, sourceHref, questionCount = 0) {
   const captures = Array.isArray(session?.captures) ? session.captures : [];
   return [
     !sourceHref ? {
@@ -2350,6 +2354,11 @@ function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisD
       kind: "notes_empty",
       label: "Notes empty",
       detail: "Move at least one capture into notes before ending the session."
+    } : null,
+    questionCount > 0 ? {
+      kind: "open_questions",
+      label: formatCount(questionCount, "open question"),
+      detail: "Captured questions are parked for synthesis or review before closing the loop."
     } : null,
     synthesisDue ? {
       kind: "needs_synthesis",
@@ -2422,6 +2431,16 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
 
 function isFocusSynthesisDue(capturesSinceLastSynthesis, hasCurrentSynthesis) {
   return capturesSinceLastSynthesis >= FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD && !hasCurrentSynthesis;
+}
+
+// Ignore incidental question marks in code or URLs; the remaining prose is the study question signal.
+function isQuestionText(value) {
+  const text = String(value || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`[^`\n]*`/g, " ")
+    .replace(/\bhttps?:\/\/\S+/gi, " ")
+    .replace(/\bwww\.\S+/gi, " ");
+  return /[?？]/.test(text);
 }
 
 function hasSynthesisBlock(notesMarkdown) {

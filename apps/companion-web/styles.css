@@ -745,6 +745,21 @@ textarea:focus {
   font-size: 13px;
 }
 
+.capture-stack-chip {
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid rgba(49, 95, 130, 0.24);
+  border-radius: 999px;
+  background: #eef6f3;
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .capture-stack-actions {
   display: flex;
   flex-wrap: wrap;
