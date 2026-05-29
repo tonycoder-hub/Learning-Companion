@@ -42,6 +42,29 @@ export function buildMorningDeterminismReport(options = {}) {
   }
 }
 
+export function compareOutputDirs(firstDir, secondDir, options = {}) {
+  const firstFiles = fileHashes(resolve(firstDir));
+  const secondFiles = fileHashes(resolve(secondDir));
+  const differences = compareHashes(firstFiles, secondFiles);
+  return {
+    schema: MORNING_DETERMINISM_SCHEMA,
+    evidence: {
+      tier: "EXECUTED",
+      label: "EVIDENCE: EXECUTED",
+      reason: "Two output directories were compared byte-for-byte."
+    },
+    checkedAt: options.checkedAt || new Date().toISOString(),
+    ok: differences.length === 0,
+    summary: {
+      comparedFiles: Object.keys(firstFiles).length,
+      differences: differences.length
+    },
+    differences,
+    firstOutputSha256: sha256Text(JSON.stringify(firstFiles)),
+    secondOutputSha256: sha256Text(JSON.stringify(secondFiles))
+  };
+}
+
 function runGenerator(scriptPath, repoRoot, outDir) {
   execFileSync(process.execPath, [scriptPath], {
     cwd: repoRoot,

@@ -9,6 +9,7 @@
     "check:morning:offline": "bash scripts/morning-check.sh",
     "check:morning:browser": "bash scripts/morning-check-browser.sh",
     "check:morning:native": "bash scripts/morning-check-native.sh",
+    "morning:adversarial": "node scripts/adversarial-gate-check.mjs",
     "demo:capture-resume": "node scripts/demo-capture-resume.mjs",
     "demo:morning": "node scripts/build-morning-demo.mjs",
     "morning:determinism": "node scripts/morning-determinism-check.mjs",

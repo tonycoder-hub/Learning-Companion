@@ -22,6 +22,7 @@ import {
 import { buildCaptureResumeReceipt } from "./capture-resume-receipt.mjs";
 import { buildMirrorIntegrityReport } from "./mirror-integrity-check.mjs";
 import { buildMorningDeterminismReport } from "./morning-determinism-check.mjs";
+import { buildAdversarialGateReport } from "./adversarial-gate-check.mjs";
 
 const OUT_DIR = process.env.MORNING_DEMO_OUT_DIR || "dist/morning-demo";
 const MIRROR_DIR = join(OUT_DIR, "mirror-folder");
@@ -42,6 +43,7 @@ const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
 const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
 const MIRROR_INTEGRITY_FILE = "MIRROR_INTEGRITY.json";
 const DETERMINISM_FILE = "DETERMINISM.json";
+const ADVERSARIAL_GATES_FILE = "ADVERSARIAL_GATES.json";
 
 const EVIDENCE_TIER_DEFINITIONS = Object.freeze({
   EXECUTED: {
@@ -325,6 +327,12 @@ const mirrorIntegrityReport = buildMirrorIntegrityReport(MIRROR_DIR, {
 await writeJson(join(OUT_DIR, MIRROR_INTEGRITY_FILE), mirrorIntegrityReport);
 assert.equal(mirrorIntegrityReport.ok, true);
 assert.equal(mirrorIntegrityReport.summary.brokenLinks, 0);
+const adversarialGateReport = buildAdversarialGateReport({
+  checkedAt: mirrorBundle.exportedAt
+});
+await writeJson(join(OUT_DIR, ADVERSARIAL_GATES_FILE), adversarialGateReport);
+assert.equal(adversarialGateReport.ok, true);
+assert.equal(adversarialGateReport.checks.every((check) => check.expectedFailureObserved), true);
 let determinismReport = null;
 if (process.env.MORNING_SKIP_DETERMINISM !== "1") {
   determinismReport = buildMorningDeterminismReport({
@@ -350,6 +358,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  adversarialGateReport,
   determinismReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
@@ -363,6 +372,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  adversarialGateReport,
   determinismReport,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
@@ -382,6 +392,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  adversarialGateReport,
   determinismReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
@@ -456,6 +467,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   },
   captureResumeReceipt: CAPTURE_RESUME_RECEIPT_FILE,
   mirrorIntegrity: MIRROR_INTEGRITY_FILE,
+  adversarialGates: ADVERSARIAL_GATES_FILE,
   determinism: determinismReport ? DETERMINISM_FILE : null,
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   macManualQaStatus,
@@ -480,6 +492,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     captureResumeFocusBriefNextAction: captureResumeReceipt.roundTrip.focusBriefNextAction,
     mirrorIntegrityOk: mirrorIntegrityReport.ok,
     mirrorIntegrityBrokenLinks: mirrorIntegrityReport.summary.brokenLinks,
+    adversarialGatesExpectedFailuresObserved: adversarialGateReport.checks.filter((check) => check.expectedFailureObserved).length,
     morningDeterministic: determinismReport ? determinismReport.ok : "skipped",
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
@@ -508,6 +521,7 @@ function buildStageMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  adversarialGateReport,
   determinismReport,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
@@ -529,6 +543,7 @@ function buildStageMarkdown({
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}. | Native selected-text GUI permissions, real browser selection. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
+    `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
     `| Morning determinism | ${determinismReport ? "executed-byte-compare" : "SKIPPED(child-run)"} | ${determinismReport ? `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.` : "Skipped inside determinism child run."} | Runtime environment outside this repo. |`,
     `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
@@ -629,6 +644,7 @@ function buildMorningReviewMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  adversarialGateReport,
   determinismReport,
   harmonyReaderView,
   inboxReceipt,
@@ -675,6 +691,7 @@ function buildMorningReviewMarkdown({
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, not sent)`,
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief next action ${captureResumeReceipt.roundTrip.focusBriefNextAction})`,
     `- Mirror integrity report: \`${MIRROR_INTEGRITY_FILE}\` (${mirrorIntegrityReport.summary.internalLinks} internal links checked, ${mirrorIntegrityReport.summary.brokenLinks} broken)`,
+    `- Adversarial gates report: \`${ADVERSARIAL_GATES_FILE}\` (${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed)`,
     determinismReport ? `- Determinism report: \`${DETERMINISM_FILE}\` (${determinismReport.summary.comparedFiles} files compared across two isolated runs)` : "",
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
     `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
@@ -703,6 +720,7 @@ function buildMorningReviewMarkdown({
     `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes; ${feishuUploadReport.boundary.statement}`,
     `- Capture to resume sample: ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added, Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}, all inputs visible in Today: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}, Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}.`,
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
+    `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
     determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
@@ -739,6 +757,7 @@ function buildReviewStartHereHtml({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  adversarialGateReport,
   determinismReport,
   harmonyReaderView,
   inboxReceipt,
@@ -762,6 +781,7 @@ function buildReviewStartHereHtml({
     ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests remain not-sent.`],
     ["Capture Resume Receipt", CAPTURE_RESUME_RECEIPT_FILE, `${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through model path, surfaced in Today, and moved Focus Brief to ${captureResumeReceipt.roundTrip.focusBriefNextAction}.`],
     ["Mirror Integrity Report", MIRROR_INTEGRITY_FILE, `${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken.`],
+    ["Adversarial Gates Report", ADVERSARIAL_GATES_FILE, `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures observed expected failures.`],
     ...(determinismReport ? [["Determinism Report", DETERMINISM_FILE, `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.`]] : []),
     ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
     ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics; not device-verified.`],
@@ -781,6 +801,7 @@ function buildReviewStartHereHtml({
     ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.boundary.statement}`],
     ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; Focus Brief: ${captureResumeReceipt.roundTrip.focusBriefNextAction}`],
     ["Mirror integrity", mirrorIntegrityReport.ok ? "ok" : "broken", `${mirrorIntegrityReport.summary.internalLinks} internal links; ${mirrorIntegrityReport.summary.brokenLinks} broken`],
+    ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
     ...(determinismReport ? [["Morning determinism", determinismReport.ok ? "ok" : "diff", `${determinismReport.summary.comparedFiles} files; ${determinismReport.summary.differences} differences`]] : []),
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
@@ -788,6 +809,7 @@ function buildReviewStartHereHtml({
     ["Mac shell", "internal-build", "offline pack plus separate native/browser gates", "signed/notarized app"],
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}`, "native GUI selection"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
+    ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
     ["HarmonyOS", "schema-prototype", `${harmonyReaderView.topics.length} topic reader view`, "real device roundtrip"],
@@ -955,6 +977,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === MIRROR_INTEGRITY_FILE) {
     return evidenceTier("EXECUTED", "Static mirror folder was walked and every internal HTML/Markdown link was resolved on disk.");
+  }
+  if (normalized === ADVERSARIAL_GATES_FILE) {
+    return evidenceTier("EXECUTED", "Negative fixtures prove determinism and mirror-integrity gates fail when invariants are violated.");
   }
   if (normalized === DETERMINISM_FILE) {
     return evidenceTier("EXECUTED", "Morning generator was run twice in isolated temp directories and output bytes were compared.");

@@ -26,6 +26,10 @@ echo "== Morning receipt contracts =="
 npm run morning:receipts
 echo
 
+echo "== Adversarial gate fixtures =="
+npm run morning:adversarial
+echo
+
 echo "== Morning determinism =="
 npm run morning:determinism
 echo

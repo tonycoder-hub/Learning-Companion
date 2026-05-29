@@ -10,6 +10,7 @@ const files = {
   summary: "SUMMARY.json",
   evidence: "EVIDENCE_TIERS.json",
   captureResume: "CAPTURE_RESUME_RECEIPT.json",
+  adversarial: "ADVERSARIAL_GATES.json",
   determinism: "DETERMINISM.json",
   mirrorIntegrity: "MIRROR_INTEGRITY.json",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
@@ -19,6 +20,7 @@ const files = {
 const summary = readJson(files.summary);
 const evidence = readJson(files.evidence);
 const captureResume = readJson(files.captureResume);
+const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
 const mirrorIntegrity = readJson(files.mirrorIntegrity);
 const feishuPlan = readJson(files.feishuPlan);
@@ -44,6 +46,11 @@ assert.equal(captureResume.roundTrip.ok, true);
 assert.equal(captureResume.roundTrip.allInputsVisibleInToday, true);
 assert.equal(captureResume.roundTrip.todayHashChanged, true);
 assert.equal(captureResume.roundTrip.focusBriefNextAction, "synthesize");
+
+assert.equal(adversarial.schema, "learning-companion.adversarial-gates-report.v1");
+assertEvidence(adversarial.evidence, "EXECUTED", files.adversarial);
+assert.equal(adversarial.ok, true);
+assert.equal(adversarial.checks.every((check) => check.expectedFailureObserved), true);
 
 assert.equal(determinism.schema, "learning-companion.morning-determinism-report.v1");
 assertEvidence(determinism.evidence, "EXECUTED", files.determinism);
