@@ -828,6 +828,11 @@ const questionTodayMarkdown = generateTodayMarkdown(questionTodayWorkspace, froz
 assert.match(questionTodayMarkdown, /Open question rule: latest 6 open question captures by capturedAt/);
 assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 2 cards \/ 2 due cards/);
 assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
+const questionMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
+assert.match(questionMirrorIndexHtml, /Open Question Preview/);
+assert.match(questionMirrorIndexHtml, /1 open question/);
+assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is stale\?/);
+assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(questionTodayMarkdown, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionTodayMarkdown, /#question #graph/);
 
@@ -1014,6 +1019,8 @@ assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(mirrorIndexHtml, /Resume Here/);
 assert.match(mirrorIndexHtml, /Review 1 due card/);
 assert.match(mirrorIndexHtml, /Why: Active topic has due review due now/);
+assert.match(mirrorIndexHtml, /Open Question Preview/);
+assert.match(mirrorIndexHtml, /No open questions captured yet/);
 assert.match(generateMirrorIndexHtml(workspace, focusNow), /href="https:\/\/www\.youtube\.com\/watch\?v=rust123&amp;t=492s"/);
 assert.match(mirrorIndexHtml, /Content-Security-Policy/);
 assert.match(mirrorIndexHtml, /learning-companion-workspace-fingerprint/);

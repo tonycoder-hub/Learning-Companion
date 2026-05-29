@@ -67,7 +67,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Local storage backup notice appears after committed learning data changes or a stale seven-day matching export, and export asks the user to verify the requested JSON download rather than treating the click as durable backup proof.
 - Direct `TODAY.md` copy/save for a quick mobile or Feishu handoff.
 - Feishu mirror ZIP export for manual Drive upload or extraction.
-- Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
+- Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point, while `index.html` gives a shorter open-question preview for folder-first review.
 - Today and mirror exports include the active session's Focus Brief so cross-device handoff starts at "resume here," including the latest captured timestamp when the source supports jumps.
 - Mirror bundle includes static `index.html` as a folder home page for Today, Review, Restore, and sessions.
 - Mirror bundle includes static `review.html` for due-card review on phone or Windows, with append-only progress patch export.

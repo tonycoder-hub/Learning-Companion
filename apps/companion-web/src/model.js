@@ -1998,6 +1998,17 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const dueList = pack.dueItems.length
     ? pack.dueItems.map(({ sessionTitle, card }) => `<li>${htmlText(card.prompt)} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
     : "<li>No cards due right now.</li>";
+  const questionList = pack.questionItems.length
+    ? [
+        ...pack.questionItems.map(({ sessionTitle, sessionPath, capture }) => {
+          const sessionLabel = sessionPath
+            ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
+            : htmlText(sessionTitle);
+          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel}</span></li>`;
+        }),
+        pack.questionOverflow > 0 ? `<li>${htmlText(formatCount(pack.questionOverflow, "more open question"))} in <a href="TODAY.md">TODAY.md</a>.</li>` : ""
+      ].filter(Boolean).join("\n")
+    : "<li>No open questions captured yet.</li>";
   const recentList = pack.recentCaptures.length
     ? pack.recentCaptures.map(({ sessionTitle, capture }) => `<li>${htmlText(capture.thought || capture.quote || "Untitled capture")} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
     : "<li>No captures yet.</li>";
@@ -2048,7 +2059,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "  <main>",
     "    <header>",
     "      <h1>Learning Companion Mirror</h1>",
-    `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.sessions)} sessions · ${htmlText(pack.stats.due)} due cards · source of truth: workspace.json</p>`,
+    `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(formatCount(pack.stats.sessions, "session"))} · ${htmlText(formatCount(pack.stats.questions, "open question"))} · ${htmlText(formatCount(pack.stats.due, "due card"))} · source of truth: workspace.json</p>`,
     "    </header>",
     "    <nav class=\"actions\" aria-label=\"Mirror entry points\">",
     "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review, open questions, and recent captures</span></a>",
@@ -2068,6 +2079,10 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    <section class=\"panel\">",
     "      <h2>Due Review Preview</h2>",
     `      <ul>${dueList}</ul>`,
+    "    </section>",
+    "    <section class=\"panel\">",
+    "      <h2>Open Question Preview</h2>",
+    `      <ul>${questionList}</ul>`,
     "    </section>",
     "    <section class=\"panel\">",
     "      <h2>Recent Capture Preview</h2>",
