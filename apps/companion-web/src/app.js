@@ -1243,8 +1243,9 @@ function openFocusBriefWarning(warning) {
   const section = warning.targetSection
     ? document.querySelector(`[data-today-section="${CSS.escape(warning.targetSection)}"]`)
     : null;
-  section?.scrollIntoView({ behavior: "smooth", block: "start" });
-  pulseNode(section);
+  const scrollTarget = section || dom.todayList;
+  scrollTarget?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (section) pulseNode(section);
   renderActivity(getActiveSession(workspace));
 }
 

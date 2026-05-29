@@ -85,6 +85,7 @@ import {
 const manifest = JSON.parse(readFileSync("apps/companion-web/manifest.webmanifest", "utf8"));
 const indexHtml = readFileSync("apps/companion-web/index.html", "utf8");
 const appJs = readFileSync("apps/companion-web/src/app.js", "utf8");
+const appCss = readFileSync("apps/companion-web/styles.css", "utf8");
 const serviceWorker = readFileSync("apps/companion-web/service-worker.js", "utf8");
 assert.equal(manifest.display, "standalone");
 assert.equal(manifest.start_url, "./");
@@ -107,6 +108,8 @@ assert.match(appJs, /Export requested - verify downloaded file/);
 assert.match(appJs, /openFocusBriefWarning/);
 assert.match(appJs, /data-today-section/);
 assert.match(appJs, /signal-button/);
+assert.match(appJs, /const scrollTarget = section \|\| dom\.todayList/);
+assert.match(appCss, /prefers-reduced-motion: reduce/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v2/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
@@ -463,6 +466,30 @@ assert.equal(questionWarning.actionLabel, "Open questions");
 assert.equal(questionWarning.targetTab, "today");
 assert.equal(questionWarning.targetSection, "open_questions");
 assert.match(generateSynthesisDraft(questionSession), /Why does ownership make aliasing safe？/);
+
+const questionReviewSession = createSession({
+  ...questionSession,
+  reviewCards: [{
+    id: "question_due_card",
+    prompt: "Recall the open question context.",
+    answer: "Use the captured question as evidence.",
+    sourceCaptureId: "question_capture",
+    dueAt: "2026-05-29T00:19:00.000Z",
+    strength: 0,
+    createdAt: "2026-05-29T00:19:00.000Z",
+    updatedAt: "2026-05-29T00:19:00.000Z"
+  }]
+}, workspace.clientId);
+const questionReviewBrief = buildFocusBrief(questionReviewSession, {
+  ...workspace,
+  activeSessionId: questionReviewSession.id,
+  sessions: [questionReviewSession]
+}, focusNow);
+const questionReviewWarning = questionReviewBrief.warnings.find((warning) => warning.kind === "open_questions");
+assert.equal(questionReviewBrief.nextAction.kind, "review");
+assert.equal(questionReviewBrief.nextAction.reason, "Active topic has due review due now.");
+assert.equal(questionReviewWarning.targetTab, "today");
+assert.equal(questionReviewWarning.targetSection, "open_questions");
 
 let questionLifecycleWorkspace = sanitizeWorkspace({
   ...createDefaultWorkspace(),

@@ -1020,6 +1020,14 @@ textarea:focus {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+    outline: 3px solid rgba(47, 111, 94, 0.32);
+    outline-offset: 2px;
+  }
+}
+
 .export-panel {
   display: none;
   gap: 10px;

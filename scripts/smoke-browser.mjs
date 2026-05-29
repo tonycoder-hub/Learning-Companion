@@ -1601,6 +1601,20 @@ try {
     document.querySelector("#captureBtn").click();
     const questionSignal = Array.from(document.querySelectorAll("#focusBriefSignals .focus-signal"))
       .find((node) => /open question/.test(node.textContent));
+    document.querySelector("#sidecarLayoutBtn").click();
+    const beforeQuestionSignalClick = {
+      shellCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      tagName: questionSignal?.tagName || "",
+      ariaLabel: questionSignal?.getAttribute("aria-label") || "",
+      action: document.querySelector("#focusBriefAction").textContent
+    };
+    questionSignal?.click();
+    const afterQuestionSignalClick = {
+      shellCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      sectionPulsed: document.querySelector('[data-today-section="open_questions"]')?.classList.contains("pulse") === true,
+      sectionText: document.querySelector('[data-today-section="open_questions"]')?.textContent || ""
+    };
     const initialQuestionStackText = document.querySelector("#captureStack").textContent;
     document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Different active smoke");
@@ -1662,6 +1676,10 @@ try {
       todaySummary: document.querySelector("#todaySummary").textContent,
       todayText: document.querySelector("#todayList").textContent,
       questionButtons,
+      questionSignalClick: {
+        before: beforeQuestionSignalClick,
+        after: afterQuestionSignalClick
+      },
       afterQuestionCard,
       promotedQuestionButton: {
         text: promotedCardButton?.textContent || "",
@@ -1685,6 +1703,16 @@ try {
   assert.match(questionFlow.todaySummary, /questions/);
   assert.match(questionFlow.todayText, /Open Questions/);
   assert.match(questionFlow.todayText, /compactness assumption/);
+  assert.deepEqual(questionFlow.questionSignalClick.before, {
+    shellCompact: true,
+    tagName: "BUTTON",
+    ariaLabel: "Open questions",
+    action: "Keep reading"
+  });
+  assert.equal(questionFlow.questionSignalClick.after.shellCompact, false);
+  assert.equal(questionFlow.questionSignalClick.after.activeTab, "today");
+  assert.equal(questionFlow.questionSignalClick.after.sectionPulsed, true);
+  assert.equal(questionFlow.questionSignalClick.after.sectionText, "Open Questions");
   assert.equal(questionFlow.questionButtons.includes("Make card"), true);
   assert.equal(questionFlow.afterQuestionCard.activity, "Review card created");
   assert.equal(questionFlow.afterQuestionCard.activeTitle, "Question parking smoke");

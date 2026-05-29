@@ -2468,6 +2468,8 @@ function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisD
       label: "Notes empty",
       detail: "Move at least one capture into notes before ending the session."
     } : null,
+    // Warning targets are optional, navigation-only hints for clients; they must not promote a warning
+    // into the primary Focus Brief nextAction.
     questionCount > 0 ? {
       kind: "open_questions",
       label: formatCount(questionCount, "open question"),
