@@ -7,6 +7,7 @@ import {
   getActiveSession,
   promoteCapture,
   sanitizeWorkspace,
+  setCaptureQuestionResolved,
   updateSession
 } from "../apps/companion-web/src/model.js";
 import {
@@ -30,7 +31,43 @@ workspace = addCapture(workspace, active.id, {
   sourceTitle: "Mac study video",
   sourceUrl: "https://example.com/study?t=192"
 }, { now });
-const captureId = getActiveSession(workspace).captures[0].id;
+const captureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.thought === "Use this as the first phone-side topic preview."
+)).id;
+workspace = addCapture(workspace, active.id, {
+  quote: "The phone should keep unfinished questions visible.",
+  thought: "What should I check first when I resume this topic on HarmonyOS?",
+  timestamp: "00:04:10",
+  tags: "harmony reader question",
+  sourceTitle: "Mac study video",
+  sourceUrl: "https://example.com/study?t=250"
+}, { now: new Date("2026-05-29T08:21:00.000+08:00") });
+const openQuestionCaptureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.thought === "What should I check first when I resume this topic on HarmonyOS?"
+)).id;
+workspace = setCaptureQuestionResolved(workspace, active.id, openQuestionCaptureId, true);
+workspace = setCaptureQuestionResolved(workspace, active.id, openQuestionCaptureId, false);
+workspace = addCapture(workspace, active.id, {
+  quote: "Resolved questions should stay as evidence without filling the backlog.",
+  thought: "How do I keep answered phone questions out of the open list?",
+  timestamp: "00:05:11",
+  tags: "harmony reader question",
+  sourceTitle: "Mac study video",
+  sourceUrl: "https://example.com/study?t=311"
+}, { now: new Date("2026-05-29T08:22:00.000+08:00") });
+const resolvedQuestionCaptureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.thought === "How do I keep answered phone questions out of the open list?"
+)).id;
+workspace = setCaptureQuestionResolved(workspace, active.id, resolvedQuestionCaptureId, true);
+for (let index = 0; index < 13; index += 1) {
+  workspace = addCapture(workspace, active.id, {
+    quote: `Extra phone backlog question ${index + 1}.`,
+    thought: `What is the extra HarmonyOS backlog question ${index + 1}?`,
+    tags: "harmony backlog",
+    sourceTitle: "Mac study video",
+    sourceUrl: "https://example.com/study"
+  }, { now: new Date(`2026-05-29T07:${String(index).padStart(2, "0")}:00.000+08:00`) });
+}
 workspace = promoteCapture(workspace, active.id, captureId, { now });
 const card = getActiveSession(workspace).reviewCards[0];
 workspace = updateSession(workspace, active.id, {
@@ -48,11 +85,31 @@ assert.equal(workspaceView.workspace.activeTopicId, workspace.activeSessionId);
 assert.equal(workspaceView.activeTopic.title, getActiveSession(workspace).title);
 assert.equal(workspaceView.activeTopic.nextAction.reason, "Active topic has due review due now.");
 assert.equal(workspaceView.activeTopic.nextAction.detail, "Reveal and grade before adding more material.");
+assert.equal(workspaceView.activeTopic.openQuestionCount, 14);
+assert.equal(workspaceView.workspace.openQuestionCount, 14);
 assert.equal(workspaceView.topics.length, workspace.sessions.length);
 assert.equal(workspaceView.topics.some((topic) => topic.captureCount > 0), true);
 assert.equal(workspaceView.dueReview.length, 1);
 assert.equal(workspaceView.dueReview[0].answer.includes("HarmonyOS reader"), true);
-assert.equal(workspaceView.recentCaptures[0].quote, "HarmonyOS reader should preserve a fresh learning capture.");
+assert.equal(workspaceView.openQuestions.length, 12);
+assert.equal(workspaceView.openQuestions.some((item) => item.captureId === openQuestionCaptureId), true);
+assert.equal(workspaceView.openQuestions.every((item) => item.thought.endsWith("?")), true);
+const recentOpenQuestion = workspaceView.recentCaptures.find((item) => item.captureId === openQuestionCaptureId);
+assert.equal(recentOpenQuestion.isQuestion, true);
+assert.equal(recentOpenQuestion.isOpenQuestion, true);
+assert.equal(recentOpenQuestion.questionResolvedAt, "");
+const recentResolvedQuestion = workspaceView.recentCaptures.find((item) => item.captureId === resolvedQuestionCaptureId);
+assert.equal(recentResolvedQuestion.isQuestion, true);
+assert.equal(recentResolvedQuestion.isOpenQuestion, false);
+assert.equal(typeof recentResolvedQuestion.questionResolvedAt, "string");
+assert.notEqual(recentResolvedQuestion.questionResolvedAt, "");
+const recentLearningCapture = workspaceView.recentCaptures.find((item) => item.captureId === captureId);
+assert.equal(recentLearningCapture.quote, "HarmonyOS reader should preserve a fresh learning capture.");
+assert.equal(recentLearningCapture.isQuestion, false);
+assert.equal(recentLearningCapture.isOpenQuestion, false);
+assert.equal(typeof recentLearningCapture.isQuestion, "boolean");
+assert.equal(typeof recentLearningCapture.isOpenQuestion, "boolean");
+assert.equal(recentLearningCapture.questionResolvedAt, "");
 assert.equal(workspaceView.limitations.some((item) => item.includes("Prototype reader only")), true);
 
 const mirror = buildMirrorBundle(workspace);
@@ -63,6 +120,9 @@ assert.deepEqual(
 );
 assert.equal(mirrorView.activeTopic.id, workspaceView.activeTopic.id);
 assert.equal(mirrorView.dueReview[0].cardId, workspaceView.dueReview[0].cardId);
+assert.equal(mirrorView.workspace.openQuestionCount, workspaceView.workspace.openQuestionCount);
+assert.equal(mirrorView.activeTopic.openQuestionCount, workspaceView.activeTopic.openQuestionCount);
+assert.deepEqual(mirrorView.openQuestions, workspaceView.openQuestions);
 
 const workspaceImport = importPortableForHarmony(workspace, { now });
 assert.equal(workspaceImport.ok, true);

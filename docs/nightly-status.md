@@ -33,8 +33,8 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Morning determinism report runs the generator twice in isolated temp directories and compares output bytes.
 - Deferred gates manifest lists the approval/device/signing/live-write checks that are intentionally not proven by green offline gates.
 - Performance budget report times the morning generator in an isolated output directory, checks file-count/byte-size limits, and has a self-test proving violations fail.
-- HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
-- HarmonyOS handoff now includes a DevEco/ArkTS scaffold directory plus a pure import/patch boundary module covered by `smoke:harmony`; it is structure/schema-parity checked, not SDK-compiled. The scaffold next-action contract matches the web Focus Brief shape, including `open_source`, detail, and reason fields for phone-side resume decisions.
+- HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model, including open-question backlog counts and resolved-question status.
+- HarmonyOS handoff now includes a DevEco/ArkTS scaffold directory plus a pure import/patch boundary module covered by `smoke:harmony`; it is structure/schema-parity checked, not SDK-compiled. The scaffold next-action contract matches the web Focus Brief shape, including `open_source`, detail, reason, and open-question counts for phone-side resume decisions.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps draft/save/review/synthesis feedback visible in focused sidecar mode.
@@ -48,7 +48,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Captured question-thoughts are surfaced as Focus Brief signals and Recent Stack chips, then carried into synthesis as Open Questions.
 - Today and `TODAY.md` include an Open Questions backlog across sessions so handoff does not hide unresolved study questions inside recent captures.
 - Today Open Questions can create review cards directly while selecting the correct source session.
-- Captured questions can be marked resolved or reopened, and resolved questions stop counting in Focus Brief, synthesis, Today, and handoff exports without losing the original capture.
+- Captured questions can be marked resolved or reopened, and resolved questions stop counting in Focus Brief, synthesis, Today, HarmonyOS reader backlog, and handoff exports without losing the original capture.
 - One-click capture insertion into Notes with idempotent capture blocks.
 - Confirmed delete for mistaken captures and review cards.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
@@ -160,7 +160,7 @@ Deferred:
 - Focus Brief's next-action ladder is intentionally simple; adaptive ranking and cross-session recommendations are deferred until real usage shows the current ladder is too blunt.
 - Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
 - Add broader negative-path demo-generator assertions, such as malformed JSON and oversized patch files; browser smoke already covers visible issue receipts for those cases, while the current demo generator covers duplicate inbox patches, stale review conflicts, unsafe URL stripping, and unsupported inbox patch schema rejection.
-- Keep HarmonyOS import/patch boundary logic pure until DevEco is available; the current module is executable smoke evidence, not a native app.
+- Keep HarmonyOS import/patch boundary logic pure until DevEco is available; the current module is executable smoke evidence, not a native app. Open-question parity is schema-verified locally, not device-verified.
 
 ## Next Best Commits
 

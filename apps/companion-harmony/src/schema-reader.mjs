@@ -1,6 +1,9 @@
 import {
   buildFocusBrief,
+  captureHasOpenQuestion,
+  captureHasQuestion,
   getDueReviewItems,
+  getOpenQuestionItems,
   getRecentCaptureItems,
   workspaceFromPortableData
 } from "../../companion-web/src/model.js";
@@ -10,6 +13,8 @@ export const HARMONY_READER_VIEW_SCHEMA = "learning-companion.harmony-reader-vie
 export function buildHarmonyReaderView(portableData, options = {}) {
   const now = normalizeDate(options.now);
   const workspace = workspaceFromPortableData(portableData);
+  const openQuestionItems = getOpenQuestionItems(workspace, 12);
+  const openQuestionCount = countOpenQuestions(workspace);
   const topics = workspace.sessions.map((session) => {
     const focusBrief = buildFocusBrief(session, workspace, now);
     return {
@@ -22,6 +27,7 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       captureCount: session.captures.length,
       reviewCardCount: session.reviewCards.length,
       dueReviewCount: focusBrief.stats.dueCards,
+      openQuestionCount: focusBrief.stats.questions,
       nextAction: focusBrief.nextAction,
       latestCapture: focusBrief.latestCapture
         ? {
@@ -51,6 +57,7 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       schemaVersion: workspace.schemaVersion,
       clientId: workspace.clientId,
       sessionCount: workspace.sessions.length,
+      openQuestionCount,
       activeTopicId: activeTopic?.id || ""
     },
     activeTopic,
@@ -72,6 +79,19 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       thought: item.capture.thought,
       capturedAt: item.capture.capturedAt || item.capture.createdAt,
       sourceTitle: item.capture.sourceTitle,
+      sourceUrl: item.capture.sourceUrl,
+      isQuestion: captureHasQuestion(item.capture),
+      isOpenQuestion: captureHasOpenQuestion(item.capture),
+      questionResolvedAt: item.capture.questionResolvedAt || ""
+    })),
+    openQuestions: openQuestionItems.map((item) => ({
+      sessionId: item.sessionId,
+      sessionTitle: item.sessionTitle,
+      captureId: item.capture.id,
+      quote: item.capture.quote,
+      thought: item.capture.thought,
+      capturedAt: item.capture.capturedAt || item.capture.createdAt,
+      sourceTitle: item.capture.sourceTitle,
       sourceUrl: item.capture.sourceUrl
     })),
     limitations: [
@@ -80,6 +100,12 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       "No live Feishu sync or device file picker is implemented here."
     ]
   };
+}
+
+function countOpenQuestions(workspace) {
+  return workspace.sessions.reduce((sum, session) => (
+    sum + session.captures.filter((capture) => captureHasOpenQuestion(capture)).length
+  ), 0);
 }
 
 function normalizeDate(value) {

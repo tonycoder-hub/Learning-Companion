@@ -14,12 +14,14 @@ export function createEmptyReaderView(nowIso: string): HarmonyReaderView {
       schemaVersion: 0,
       clientId: '',
       sessionCount: 0,
+      openQuestionCount: 0,
       activeTopicId: ''
     },
     activeTopic: undefined,
     topics: [],
     dueReview: [],
     recentCaptures: [],
+    openQuestions: [],
     limitations: [
       'DevEco scaffold only; import adapter is not device-verified.',
       'Phone writes export append-only patch JSON for Mac import.',
@@ -31,8 +33,9 @@ export function createEmptyReaderView(nowIso: string): HarmonyReaderView {
 export function summarizeReaderView(view: HarmonyReaderView): string {
   const topicCount = view.topics.length;
   const dueCount = view.dueReview.length;
+  const questionCount = view.workspace.openQuestionCount;
   const active = view.activeTopic?.title || 'No active topic';
-  return `${active} · ${topicCount} topics · ${dueCount} due`;
+  return `${active} · ${topicCount} topics · ${dueCount} due · ${questionCount} questions`;
 }
 
 export function topicById(view: HarmonyReaderView, topicId: string): TopicSummary | undefined {

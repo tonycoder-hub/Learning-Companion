@@ -28,11 +28,25 @@ struct Index {
       Button('Review Queue')
         .onClick(() => router.pushUrl({ url: 'pages/ReviewQueue' }))
 
+      if (this.readerView.openQuestions.length > 0) {
+        Text('Open Questions')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+        Text(`Showing ${Math.min(this.readerView.openQuestions.length, 3)} of ${this.readerView.workspace.openQuestionCount}`)
+          .fontSize(12)
+          .fontColor('#666154')
+        ForEach(this.readerView.openQuestions.slice(0, 3), (question) => {
+          Text(`${question.sessionTitle}: ${question.thought}`)
+            .fontSize(12)
+            .fontColor('#5f4b20')
+        }, (question) => question.captureId)
+      }
+
       ForEach(this.readerView.topics, (topic) => {
         Row() {
           Column() {
             Text(topic.title).fontSize(16).fontWeight(FontWeight.Medium)
-            Text(`${topic.captureCount} captures · ${topic.dueReviewCount} due · ${topic.nextAction.kind}`)
+            Text(`${topic.captureCount} captures · ${topic.openQuestionCount} questions · ${topic.dueReviewCount} due · ${topic.nextAction.kind}`)
               .fontSize(12)
               .fontColor('#666154')
           }
@@ -66,6 +80,7 @@ function sampleReaderView(): HarmonyReaderView {
     captureCount: 0,
     reviewCardCount: 0,
     dueReviewCount: 0,
+    openQuestionCount: 0,
     nextAction: {
       kind: 'capture',
       label: 'Capture next',
@@ -78,6 +93,7 @@ function sampleReaderView(): HarmonyReaderView {
   }];
   view.activeTopic = view.topics[0];
   view.workspace.sessionCount = view.topics.length;
+  view.workspace.openQuestionCount = 0;
   view.workspace.activeTopicId = view.activeTopic.id;
   return view;
 }

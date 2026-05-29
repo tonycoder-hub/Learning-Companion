@@ -52,6 +52,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Today study pack carries an Open Questions backlog across sessions for Feishu, Windows, and mobile handoff.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
 - Captured questions can be marked resolved and reopened so the Open Questions backlog stays bounded without deleting the original evidence.
+- HarmonyOS reader handoff carries the same open-question counts and marks recent captures as open or answered so phone resume does not flatten unresolved questions into generic notes.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.

@@ -10,7 +10,7 @@ Create a minimal HarmonyOS app that can read the same portable artifacts produce
 - `learning-companion.mirror-bundle.staging.v1`
 - derived `learning-companion.harmony-reader-view.v1`
 
-The first device milestone is read-only: import a workspace or mirror bundle, render the active topic, due review cards, recent captures, and Focus Brief next action. Phone-side writes remain append-only patch exports.
+The first device milestone is read-only: import a workspace or mirror bundle, render the active topic, open questions, due review cards, recent captures, and Focus Brief next action. Phone-side writes remain append-only patch exports.
 
 ## Scaffold Layout
 
@@ -39,11 +39,13 @@ apps/companion-harmony-dev/
 
 The scaffold is intentionally separate from the executable JavaScript prototype in `apps/companion-harmony/src/`. The JS prototype remains the authoritative smoke-tested implementation until DevEco compilation passes.
 
+`learning-companion.harmony-reader-view.v1` is additive during the prototype stage: new fields may be added for scaffold consumers, but removing or renaming fields requires a derived schema bump. Current open-question fields are JSON contract evidence only, not device evidence.
+
 ## Screens
 
 | Screen | Purpose | Data |
 | --- | --- | --- |
-| Index | Resume Here, topic list, import button, latest intake status. | `activeTopic`, `topics`, `workspace` summary. |
+| Index | Resume Here, open questions, topic list, import button, latest intake status. | `activeTopic`, `openQuestions`, `topics`, `workspace` summary. |
 | TopicDetail | Source title/URL, latest capture, notes preview, capture count. | One topic from `topics`. |
 | ReviewQueue | Read-only due cards with answer reveal. | `dueReview`. |
 | ImportReceipt | Shows imported workspace/mirror metadata and limitations. | `source`, `workspace`, `limitations`. |
@@ -83,6 +85,7 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 | --- | --- |
 | Import workspace JSON | Topic count, active topic, due cards match `sample-harmony-reader-view.json`. |
 | Import mirror bundle | Same view model as workspace import. |
+| Open question backlog | Open questions and per-topic counts match the Mac Today backlog, while resolved questions only appear in recent captures as answered. |
 | Offline relaunch | Last imported view model reopens without network. |
 | Review reveal | Answer reveal works without changing card state. |
 | Capture patch export | App writes append-only inbox patch JSON, then Mac imports it with a visible receipt. |
@@ -103,3 +106,11 @@ npm run smoke:harmony
 ```
 
 This verifies the JS schema reader/import boundary and checks that the DevEco scaffold has the expected files, schema constants, page names, and patch export service names. It does not compile ArkTS.
+
+## Not Proven Tonight
+
+- DevEco compile or ArkTS type-check.
+- HarmonyOS phone/emulator rendering.
+- Native file picker import.
+- Feishu-backed transport or live sync.
+- Any credential, login, or browser-cookie path.

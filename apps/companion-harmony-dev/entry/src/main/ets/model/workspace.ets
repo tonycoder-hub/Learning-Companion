@@ -28,6 +28,7 @@ export interface TopicSummary {
   captureCount: number;
   reviewCardCount: number;
   dueReviewCount: number;
+  openQuestionCount: number;
   nextAction: FocusNextAction;
   latestCapture?: CapturePreview;
 }
@@ -59,6 +60,20 @@ export interface RecentCapture {
   capturedAt: string;
   sourceTitle: string;
   sourceUrl: string;
+  isQuestion: boolean;
+  isOpenQuestion: boolean;
+  questionResolvedAt: string;
+}
+
+export interface OpenQuestion {
+  sessionId: string;
+  sessionTitle: string;
+  captureId: string;
+  quote: string;
+  thought: string;
+  capturedAt: string;
+  sourceTitle: string;
+  sourceUrl: string;
 }
 
 export interface HarmonyReaderView {
@@ -70,12 +85,14 @@ export interface HarmonyReaderView {
     schemaVersion: number;
     clientId: string;
     sessionCount: number;
+    openQuestionCount: number;
     activeTopicId: string;
   };
   activeTopic?: TopicSummary;
   topics: TopicSummary[];
   dueReview: DueReviewCard[];
   recentCaptures: RecentCapture[];
+  openQuestions: OpenQuestion[];
   limitations: string[];
 }
 

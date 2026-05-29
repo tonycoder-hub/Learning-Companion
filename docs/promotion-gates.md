@@ -28,12 +28,14 @@ Current wording: "Feishu local upload plan/dry-run", not "Feishu sync".
 
 | Stage | Meaning | Current Evidence | Promotion Gate |
 | --- | --- | --- | --- |
-| Schema reader prototype | Plain JS reader turns workspace or mirror bundle into read-only phone view model. | `npm run smoke:harmony`, `learning-companion.harmony-reader-view.v1` | Use this as ArkTS view-model reference. |
+| Schema reader prototype | Plain JS reader turns workspace or mirror bundle into read-only phone view model with active topic, due review, recent captures, and open questions. | `npm run smoke:harmony`, `learning-companion.harmony-reader-view.v1` | Use this as ArkTS view-model reference. |
 | DevEco shell | Minimal HarmonyOS app imports workspace/mirror JSON and renders active topic/review/captures. | Not started. | SDK/project setup, file picker, local storage, basic navigation. |
 | Device roundtrip | Real phone can read mirror, create inbox patch, and Mac imports it. | Not verified. | Manual HarmonyOS test with exported patch receipt. |
 | Feishu-backed phone workflow | Phone gets mirror from Feishu and returns append-only patches safely. | Not implemented. | Live Feishu folder access plus patch transport policy. |
 
 Current wording: "HarmonyOS schema reader prototype", not "HarmonyOS app".
+
+Reader-view schema note: `learning-companion.harmony-reader-view.v1` may gain additive fields while the HarmonyOS consumer is still scaffold-only. Removing or renaming fields should bump the derived reader-view schema. Open-question handoff is therefore JSON contract evidence until DevEco compile and device import/render gates pass.
 
 ## Morning Review Rule
 
