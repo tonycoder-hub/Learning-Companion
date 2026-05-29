@@ -272,6 +272,7 @@ assert.equal(workspaceDueBrief.stats.dueCards, 0);
 assert.equal(workspaceDueBrief.stats.workspaceDueCards, 1);
 assert.equal(workspaceDueBrief.nextAction.kind, "review");
 assert.match(workspaceDueBrief.nextAction.label, /workspace due card/);
+assert.equal(workspaceDueBrief.nextAction.reason, "Workspace review debt outranks adding new material.");
 
 const inboxPatch = {
   schema: MOBILE_INBOX_PATCH_SCHEMA,
@@ -375,6 +376,7 @@ const focusNow = new Date("2026-05-29T00:20:00.000Z");
 const dueFocusBrief = buildFocusBrief(session, workspace, focusNow);
 assert.equal(dueFocusBrief.schema, "learning-companion.focus-brief.v1");
 assert.equal(dueFocusBrief.nextAction.kind, "review");
+assert.equal(dueFocusBrief.nextAction.reason, "Active topic has due review due now.");
 assert.equal(dueFocusBrief.stats.dueCards, 1);
 assert.match(dueFocusBrief.source.href, /youtube\.com/);
 assert.deepEqual(resolveCaptureDraftFocusOverride(dueFocusBrief, {
@@ -400,6 +402,7 @@ const synthesizeBrief = buildFocusBrief(createSession({
   reviewCards: []
 }, workspace.clientId), null, focusNow);
 assert.equal(synthesizeBrief.nextAction.kind, "synthesize");
+assert.equal(synthesizeBrief.nextAction.reason, "Unsynthesized captures reached the compression threshold.");
 assert.equal(synthesizeBrief.stats.capturesSinceLastSynthesis, 3);
 assert.equal(synthesizeBrief.warnings.some((warning) => warning.kind === "needs_synthesis"), true);
 assert.equal(resolveCaptureDraftFocusOverride(synthesizeBrief, {
@@ -426,6 +429,7 @@ const oldCaptureBrief = buildFocusBrief(createSession({
   reviewCards: []
 }, workspace.clientId), null, focusNow);
 assert.equal(oldCaptureBrief.nextAction.kind, "capture");
+assert.equal(oldCaptureBrief.nextAction.reason, "The source is available and the session has gone quiet.");
 const recentCaptureBrief = buildFocusBrief(createSession({
   id: "focus_continue",
   title: "Continue reading",
@@ -434,8 +438,10 @@ const recentCaptureBrief = buildFocusBrief(createSession({
   reviewCards: []
 }, workspace.clientId), null, focusNow);
 assert.equal(recentCaptureBrief.nextAction.kind, "continue");
+assert.equal(recentCaptureBrief.nextAction.reason, "A recent capture exists, so the best next step is to keep reading.");
 const noSourceBrief = buildFocusBrief(createSession({ id: "focus_no_source", title: "No source" }, workspace.clientId), null, focusNow);
 assert.equal(noSourceBrief.nextAction.kind, "open_source");
+assert.equal(noSourceBrief.nextAction.reason, "Source context is missing, so captures would be hard to revisit.");
 assert.equal(noSourceBrief.warnings.some((warning) => warning.kind === "missing_source"), true);
 const unsafeSourceBrief = buildFocusBrief(createSession({
   id: "focus_unsafe_source",

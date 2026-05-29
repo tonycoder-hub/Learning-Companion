@@ -38,7 +38,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps draft/save/review/synthesis feedback visible in focused sidecar mode.
-- Deterministic Focus Brief in the desk with next action, fresh capture-draft resume when review is not due, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
+- Deterministic Focus Brief in the desk with next action, visible reason, fresh capture-draft resume when review is not due, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Workspace Find searches source titles, notes, captures, tags, and review cards, then jumps back to the matching session and surface.
 - Today tab includes capture drafts, Patch Intake counts, latest import receipt, and direct import/export handoff actions.
 - Sessions, source context, timestamp, tags, and source-open jumps that honor the current video time when present.

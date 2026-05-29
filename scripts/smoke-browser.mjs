@@ -829,11 +829,13 @@ try {
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
   assert.match(result.focusBriefAfterCard.action, /Review 1 due card/);
   assert.match(result.focusBriefAfterCard.facts, /compiler-enforced lifetimes/);
+  assert.match(result.focusBriefAfterCard.facts, /Active topic has due review due now/);
   assert.equal(result.focusBriefAfterCard.button, "Review");
   assert.match(result.focusBriefAfterGood.action, /Review 1 due card/);
   assert.match(result.focusBriefAfterGood.kicker, /1 due/);
   assert.equal(result.focusBriefAfterSynthesis.signals.includes("Synthesis due"), false);
   assert.match(result.focusBriefAfterSynthesis.facts, /Current/);
+  assert.match(result.focusBriefAfterSynthesis.facts, /A recent capture exists/);
   assert.equal(result.todayActive, true);
   assert.equal(result.todayHasDueReview, true);
   assert.equal(result.todayHasRecentCapture, true);

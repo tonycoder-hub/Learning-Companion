@@ -1116,7 +1116,8 @@ function renderFocusBrief() {
       : "No captures yet"),
     focusBriefFact("Synthesis", brief.stats.capturesSinceLastSynthesis
       ? `${brief.stats.capturesSinceLastSynthesis} waiting`
-      : "Current")
+      : "Current"),
+    focusBriefFact("Why", brief.nextAction.reason)
   );
   clearChildren(dom.focusBriefSignals);
   if (brief.warnings.length) {
@@ -1144,7 +1145,8 @@ function renderCaptureDraftFocusBrief(session, draft, brief) {
   dom.focusBriefFacts.append(
     focusBriefFact("Source", session.sourceTitle || (session.sourceUrl ? "Open source" : "No source")),
     focusBriefFact("Draft", draft.timestamp ? `Saved @ ${draft.timestamp}` : "Saved locally"),
-    focusBriefFact("Sync", "Device-local")
+    focusBriefFact("Sync", "Device-local"),
+    focusBriefFact("Why", "Fresh local draft and no due review is blocking it.")
   );
   clearChildren(dom.focusBriefSignals);
   dom.focusBriefSignals.append(

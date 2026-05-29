@@ -52,7 +52,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.
 - Desk-level activity strip for draft/capture/review/synthesis feedback.
-- Deterministic Focus Brief that suggests draft resume, review, workspace review, synthesis, capture, continue, or source setup from the current session state.
+- Deterministic Focus Brief that suggests draft resume, review, workspace review, synthesis, capture, continue, or source setup from the current session state, with a visible reason for the chosen next action.
 - Today study pack with due review and recent captures across the workspace.
 - Review cards generated from captures.
 - A simple review queue with due cards and strength buckets.

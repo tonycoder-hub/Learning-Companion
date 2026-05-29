@@ -1178,6 +1178,7 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     "",
     `- Session: ${markdownRelativeLink(brief.sessionTitle, brief.sessionPath)}`,
     `- Next: ${markdownInline(brief.nextAction.label)} - ${markdownInline(brief.nextAction.detail)}`,
+    `- Why: ${markdownInline(brief.nextAction.reason)}`,
     brief.source.href
       ? `- Source: [${markdownInline(brief.source.title || "Open source")}](${brief.source.href})`
       : "- Source: _Add a source URL before the next export._",
@@ -2066,6 +2067,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
       kind: "review",
       label: `Review ${formatCount(dueCards, "due card")}`,
       detail: "Reveal and grade before adding more material.",
+      reason: "Active topic has due review due now.",
       focusMode: "review",
       tab: "review"
     };
@@ -2075,6 +2077,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
       kind: "review",
       label: `Review ${formatCount(workspaceDueCards, "workspace due card")}`,
       detail: "Due cards exist outside the active topic.",
+      reason: "Workspace review debt outranks adding new material.",
       focusMode: "review",
       tab: "review"
     };
@@ -2084,6 +2087,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
       kind: "synthesize",
       label: "Build synthesis",
       detail: `${capturesSinceLastSynthesis} captures are ready to compress into notes.`,
+      reason: "Unsynthesized captures reached the compression threshold.",
       focusMode: "synthesize",
       tab: "captures"
     };
@@ -2093,6 +2097,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
       kind: "capture",
       label: "Capture next point",
       detail: `No capture in the last ${FOCUS_BRIEF_CAPTURE_IDLE_MINUTES} minutes.`,
+      reason: "The source is available and the session has gone quiet.",
       focusMode: "capture",
       tab: "captures"
     };
@@ -2102,6 +2107,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
       kind: "continue",
       label: "Keep reading",
       detail: "The source is open; capture the next idea that changes your model.",
+      reason: "A recent capture exists, so the best next step is to keep reading.",
       focusMode: "capture",
       tab: "captures"
     };
@@ -2110,6 +2116,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
     kind: "open_source",
     label: "Add source",
     detail: "Paste the browser URL before capturing more notes.",
+    reason: "Source context is missing, so captures would be hard to revisit.",
     focusMode: "capture",
     tab: "captures"
   };
