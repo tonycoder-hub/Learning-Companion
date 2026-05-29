@@ -35,6 +35,7 @@ const feishuReport = readJson(files.feishuReport);
 assert.equal(summary.ok, true);
 assertEvidence(summary.evidence, "EXECUTED", "SUMMARY.json");
 assert.equal(summary.assertions.captureResumeVisibleInToday, true);
+assert.equal(summary.assertions.captureDraftDueReviewOverrideAllowed, false);
 assert.equal(summary.assertions.mirrorIntegrityOk, true);
 assert.equal(summary.assertions.morningDeterministic, true);
 assert.equal(summary.assertions.feishuUploadWouldSendNoNetwork, true);

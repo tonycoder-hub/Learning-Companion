@@ -525,6 +525,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     captureResumeVisibleInToday: captureResumeReceipt.roundTrip.allInputsVisibleInToday,
     captureResumeTodayHashChanged: captureResumeReceipt.roundTrip.todayHashChanged,
     captureResumeFocusBriefNextAction: captureResumeReceipt.roundTrip.focusBriefNextAction,
+    captureDraftDueReviewOverrideAllowed: captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride,
     patchIntakeNegativeExpectedFailures: patchIntakeNegativeReceipt.summary.expectedFailuresObserved,
     patchIntakeNegativeCases: patchIntakeNegativeReceipt.summary.cases,
     mirrorIntegrityOk: mirrorIntegrityReport.ok,
@@ -584,7 +585,7 @@ function buildStageMarkdown({
     "| --- | --- | --- | --- |",
     `| Mac shell | internal-build | Offline pack generated; run \`npm run check:morning:native\` for SwiftPM build and \`npm run check:morning:browser\` for browser smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests and ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
-    `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}. | Native selected-text GUI permissions, real browser selection. |`,
+    `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}. | Native selected-text GUI permissions, real browser selection. |`,
     `| Patch intake negatives | executed-negative-fixture | ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} malformed/oversized/duplicate/stale patch cases observed expected failures. | Real off-Mac patch origination. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
     `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
@@ -914,7 +915,7 @@ function buildReviewStartHereHtml({
     ["Unsupported patch rejection", unsupportedInboxPatchRejected ? "covered" : "missing", "invalid mobile inbox patch rejected before import"],
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
     ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement}`],
-    ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; Focus Brief: ${captureResumeReceipt.roundTrip.focusBriefNextAction}`],
+    ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; Focus Brief: ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}`],
     ["Patch intake negatives", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} observed`, "malformed, unsupported, oversized, duplicate, and stale patch inputs are rejected or skipped"],
     ["Mirror integrity", mirrorIntegrityReport.ok ? "ok" : "broken", `${mirrorIntegrityReport.summary.internalLinks} internal links; ${mirrorIntegrityReport.summary.brokenLinks} broken`],
     ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
@@ -925,7 +926,7 @@ function buildReviewStartHereHtml({
   ];
   const stageRows = [
     ["Mac shell", "internal-build", "offline pack plus separate native/browser gates", "signed/notarized app"],
-    ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}`, "native GUI selection"],
+    ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}`, "native GUI selection"],
     ["Patch intake negatives", "executed-negative-fixture", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed`, "real off-Mac patch origination"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
@@ -1042,6 +1043,7 @@ function buildReviewStartHereHtml({
         <li>HarmonyOS and Windows behavior still need real-device verification.</li>
         <li>The Mac shell is an internal WKWebView shell, not a signed production app.</li>
         <li>Native selected-text capture has no live GUI matrix in this generator.</li>
+        <li>Latest Today draft-resume browser assertions still need the separate local browser smoke gate.</li>
         <li>See <a href="${escapeHtml(DEFERRED_GATES_FILE)}">${escapeHtml(DEFERRED_GATES_FILE)}</a> for the exact pending approval/device/signing gates and closing evidence.</li>
       </ul>
     </section>
