@@ -22,6 +22,7 @@ import {
   buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
+  buildResumeSource,
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
@@ -410,14 +411,20 @@ assert.match(generateReviewPackMarkdown(workspace), /Why: Active topic has due r
 assert.equal(dueFocusBrief.stats.dueCards, 1);
 assert.equal(dueFocusBrief.source.href, "https://www.youtube.com/watch?v=rust123&t=492s");
 assert.equal(dueFocusBrief.source.provenance, "session");
+assert.deepEqual(dueFocusBrief.source, buildResumeSource(session));
+assert.equal(buildResumeSource(session).href, "https://www.youtube.com/watch?v=rust123&t=492s");
+assert.equal(buildResumeSource(session, "09:00").href, "https://www.youtube.com/watch?v=rust123&t=540s");
+assert.equal(buildResumeSource(session, "not a timestamp").href, "https://www.youtube.com/watch?v=rust123&t=492s");
 assert.match(generateTodayMarkdown(workspace, focusNow), /Source: \[RustConf ownership talk\]\(https:\/\/www\.youtube\.com\/watch\?v=rust123&t=492s\)/);
-const noCaptureSourceBrief = buildFocusBrief(createSession({
+const noCaptureSession = createSession({
   title: "Source without captures",
   sourceTitle: "Readable source",
   sourceUrl: "https://example.com/guide"
-}, workspace.clientId), null, focusNow);
+}, workspace.clientId);
+const noCaptureSourceBrief = buildFocusBrief(noCaptureSession, null, focusNow);
 assert.equal(noCaptureSourceBrief.source.href, "https://example.com/guide");
 assert.equal(noCaptureSourceBrief.source.provenance, "session");
+assert.deepEqual(noCaptureSourceBrief.source, buildResumeSource(noCaptureSession));
 const noTimestampSourceBrief = buildFocusBrief(createSession({
   title: "Source with untimed capture",
   sourceTitle: "Video without timestamp",
@@ -425,7 +432,7 @@ const noTimestampSourceBrief = buildFocusBrief(createSession({
   captures: [{ id: "notimed_capture", quote: "No timestamp yet", thought: "", timestamp: "", capturedAt: "2026-05-29T00:19:00.000Z" }]
 }, workspace.clientId), null, focusNow);
 assert.equal(noTimestampSourceBrief.source.href, "https://www.youtube.com/watch?v=notimed");
-const captureFallbackBrief = buildFocusBrief(createSession({
+const captureFallbackSession = createSession({
   title: "Source fallback",
   captures: [{
     id: "fallback_capture",
@@ -436,10 +443,13 @@ const captureFallbackBrief = buildFocusBrief(createSession({
     sourceUrl: "https://youtu.be/fallback",
     capturedAt: "2026-05-29T00:19:00.000Z"
   }]
-}, workspace.clientId), null, focusNow);
+}, workspace.clientId);
+const captureFallbackBrief = buildFocusBrief(captureFallbackSession, null, focusNow);
 assert.equal(captureFallbackBrief.source.href, "https://youtu.be/fallback?t=30s");
 assert.equal(captureFallbackBrief.source.title, "Fallback video");
 assert.equal(captureFallbackBrief.source.provenance, "latest_capture_fallback");
+assert.deepEqual(captureFallbackBrief.source, buildResumeSource(captureFallbackSession));
+assert.equal(buildResumeSource(captureFallbackSession).href, "https://youtu.be/fallback?t=30s");
 assert.deepEqual(resolveCaptureDraftFocusOverride(dueFocusBrief, {
   quote: "A fresh draft should not outrank review.",
   updatedAt: "2026-05-29T00:19:00.000Z"

@@ -41,7 +41,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 
 - Session list for learning topics.
 - Workspace Find for jumping from source titles, notes, captures, and review cards back into the right session, including multi-term matches across fields like source type plus title or tag plus excerpt.
-- Source panel for URL, title, material type, and video timestamp, with source-open jumps that respect the current time.
+- Source panel for URL, title, material type, and video timestamp, with source-open jumps that respect a typed time or fall back to the latest captured timestamp.
 - Quick capture for quote + note + tags, with per-session draft recovery and a Today resume entry while switching learning contexts.
 - Capture-level source snapshots and source/time jump links.
 - Browser inbound capture routes clips to an existing normalized source match before falling back to the active topic.
@@ -126,6 +126,8 @@ Workspace
 Quick Capture drafts are device-local UI state, not canonical workspace data. They live in browser/WebKit `localStorage` preferences, are keyed by session id, are capped to the latest 50 active-session drafts, and are cleared when the user captures quote/thought content, presses Clear, or restores/imports a workspace without that session. Fresh text drafts can appear in Today, the activity strip, and Focus Brief, but due review still outranks draft resume in Focus Brief and drafts older than 24 hours stop taking over the main action. Drafts do not roundtrip through workspace JSON, Feishu mirrors, Windows static folders, or HarmonyOS patches yet; that keeps sync artifacts focused on committed notes, captures, and review progress.
 
 Focus Brief resume links use the session source as canonical and add the latest capture timestamp when available, including when the primary next action is review. That keeps the review/capture decision separate from source recovery: the next action tells Tony what to do, while the source link returns to the most recent learning context. If a legacy or imported session lacks a session source URL, the latest capture source URL is used as a fallback and marked in the Focus Brief source provenance.
+
+The source-open button uses the same resume-source contract: a valid typed timestamp wins, otherwise the latest capture timestamp is used, otherwise the safe source URL opens without a time jump. Invalid timestamp text does not mask a known latest capture time. A safe source href is one accepted by the local URL sanitizer (`http` or `https`) and then passed through the provider-specific jump builder; today only YouTube time jumps are rewritten.
 
 Workspace Find is deterministic local find, not indexed or fuzzy search. It first preserves exact phrase matches inside one field. If that fails, the query is split on whitespace and common punctuation, lowercased, deduplicated, and capped to eight terms; every term must appear inside the same candidate object across its weighted fields. There is no minimum token length so Chinese/Japanese/Korean queries and short course identifiers still work, but tokens from different sessions or different captures must not combine into one result.
 

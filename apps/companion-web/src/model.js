@@ -909,29 +909,53 @@ export function getStudyPackStats(workspace, now = new Date()) {
   };
 }
 
+function latestSessionCapture(session) {
+  const captures = Array.isArray(session?.captures) ? [...session.captures] : [];
+  return captures.sort((a, b) => {
+    const byTime = new Date(b.capturedAt || b.createdAt).getTime() - new Date(a.capturedAt || a.createdAt).getTime();
+    if (byTime !== 0) return byTime;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  })[0] || null;
+}
+
+export function buildResumeSource(session, timestampOverride = "", latestCaptureOverride = undefined) {
+  const latestCapture = latestCaptureOverride === undefined ? latestSessionCapture(session) : latestCaptureOverride;
+  const hasSessionSourceUrl = Boolean(cleanUrl(session?.sourceUrl || ""));
+  const resumeSourceUrl = hasSessionSourceUrl ? session?.sourceUrl || "" : latestCapture?.sourceUrl || "";
+  const resumeSourceTitle = session?.sourceTitle || latestCapture?.sourceTitle || "";
+  const overrideTimestamp = cleanText(timestampOverride, 32);
+  const resumeTimestamp = timestampToSeconds(overrideTimestamp) !== null ? overrideTimestamp : latestCapture?.timestamp || "";
+  const sourceHref = buildSourceJumpUrl(resumeSourceUrl, resumeTimestamp);
+  const sourceProvenance = hasSessionSourceUrl
+    ? "session"
+    : sourceHref ? "latest_capture_fallback" : "none";
+  const materialType = MATERIAL_TYPES.has(session?.materialType)
+    ? session.materialType
+    : MATERIAL_TYPES.has(latestCapture?.materialType) ? latestCapture.materialType : "other";
+  return {
+    title: cleanText(resumeSourceTitle, MAX_TITLE_LENGTH),
+    url: cleanUrl(resumeSourceUrl),
+    href: sourceHref,
+    provenance: sourceProvenance,
+    timestamp: cleanText(resumeTimestamp, 32),
+    materialType,
+    available: Boolean(sourceHref)
+  };
+}
+
 export function buildFocusBrief(session, workspace = null, now = new Date()) {
   const date = Number.isFinite(now?.getTime?.()) ? now : new Date(now);
   const captures = Array.isArray(session?.captures) ? [...session.captures] : [];
   const reviewCards = Array.isArray(session?.reviewCards) ? session.reviewCards : [];
   const dueCards = getDueReviewCards({ ...session, reviewCards }, date);
   const workspaceDueCards = workspace ? getDueReviewItems(workspace, date).length : dueCards.length;
-  const latestCapture = captures.sort((a, b) => {
-    const byTime = new Date(b.capturedAt || b.createdAt).getTime() - new Date(a.capturedAt || a.createdAt).getTime();
-    if (byTime !== 0) return byTime;
-    return String(a.id || "").localeCompare(String(b.id || ""));
-  })[0] || null;
+  const latestCapture = latestSessionCapture(session);
   const hasSynthesis = hasSynthesisBlock(session?.notesMarkdown);
   const synthesisStamp = getSynthesisBlockStamp(session?.notesMarkdown);
   const hasCurrentSynthesis = hasSynthesis && synthesisStamp && synthesisStamp === getSynthesisSourceStamp(session);
   const capturesSinceLastSynthesis = hasCurrentSynthesis ? 0 : captures.length;
-  const hasSessionSourceUrl = Boolean(cleanUrl(session?.sourceUrl || ""));
-  const resumeSourceUrl = hasSessionSourceUrl ? session?.sourceUrl || "" : latestCapture?.sourceUrl || "";
-  const resumeSourceTitle = session?.sourceTitle || latestCapture?.sourceTitle || "";
-  const resumeTimestamp = latestCapture?.timestamp || "";
-  const sourceHref = buildSourceJumpUrl(resumeSourceUrl, resumeTimestamp);
-  const sourceProvenance = hasSessionSourceUrl
-    ? "session"
-    : sourceHref ? "latest_capture_fallback" : "none";
+  const source = buildResumeSource(session, "", latestCapture);
+  const sourceHref = source.href;
   const minutesSinceLastCapture = latestCapture
     ? Math.max(0, Math.floor((date.getTime() - new Date(latestCapture.capturedAt || latestCapture.createdAt).getTime()) / 60000))
     : null;
@@ -944,14 +968,7 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
     generatedAt: formatLocalIso(date),
     sessionId: cleanText(session?.id, 128),
     sessionTitle: cleanText(session?.title || "Untitled learning session", MAX_TITLE_LENGTH),
-    source: {
-      title: cleanText(resumeSourceTitle, MAX_TITLE_LENGTH),
-      url: cleanUrl(resumeSourceUrl),
-      href: sourceHref,
-      provenance: sourceProvenance,
-      materialType: MATERIAL_TYPES.has(session?.materialType) ? session.materialType : "other",
-      available: Boolean(sourceHref)
-    },
+    source,
     stats: {
       captures: captures.length,
       cards: reviewCards.length,

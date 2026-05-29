@@ -14,6 +14,7 @@ import {
   buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
+  buildResumeSource,
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
@@ -356,8 +357,8 @@ dom.notesPreviewBtn.addEventListener("click", () => {
 
 dom.openSourceBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
-  const href = buildSourceJumpUrl(session.sourceUrl, dom.timestampInput.value);
-  if (href) window.open(href, "_blank", "noopener,noreferrer");
+  const resume = buildResumeSource(session, dom.timestampInput.value);
+  if (resume.href) window.open(resume.href, "_blank", "noopener,noreferrer");
 });
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
@@ -639,6 +640,7 @@ function saveCurrentCaptureDraft() {
     clearCaptureDraftActivity(session.id);
   }
   renderCaptureDraftStatus(session, draft);
+  renderOpenSourceButton(session);
   renderActivity(session);
   renderFocusBrief();
   if (activeTab === "today") renderToday();
@@ -648,6 +650,7 @@ function clearCurrentCaptureDraft() {
   setCaptureDraft(getActiveSession(workspace).id, {});
   clearCaptureDraftActivity(getActiveSession(workspace).id);
   renderCaptureDraft(getActiveSession(workspace));
+  renderOpenSourceButton(getActiveSession(workspace));
   renderActivity(getActiveSession(workspace));
   renderFocusBrief();
   if (activeTab === "today") renderToday();
@@ -848,6 +851,7 @@ function updateSessionFromFields() {
     tags: dom.sessionTags.value
   });
   scheduleSave();
+  renderOpenSourceButton(getActiveSession(workspace));
   renderFocusBrief();
   renderSessions();
   renderInspector();
@@ -1030,6 +1034,7 @@ function render() {
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
   renderCaptureDraft(session);
+  renderOpenSourceButton(session);
   renderFocusMode(session.focusMode);
   renderShellMode();
   renderActivity(session);
@@ -1041,6 +1046,14 @@ function render() {
   renderSessions();
   renderSearchResults();
   renderInspector();
+}
+
+function renderOpenSourceButton(session) {
+  const resume = buildResumeSource(session, dom.timestampInput.value);
+  dom.openSourceBtn.disabled = !resume.href;
+  const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
+  dom.openSourceBtn.title = title;
+  dom.openSourceBtn.setAttribute("aria-label", title);
 }
 
 function toggleSidecarLayout() {
