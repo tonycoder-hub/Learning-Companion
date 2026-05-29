@@ -672,6 +672,7 @@ assert.match(mirrorIndexHtml, /href="workspace\.json"/);
 assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(mirrorIndexHtml, /Resume Here/);
 assert.match(mirrorIndexHtml, /Review 1 due card/);
+assert.match(mirrorIndexHtml, /Why: Active topic has due review due now/);
 assert.match(mirrorIndexHtml, /Content-Security-Policy/);
 assert.match(mirrorIndexHtml, /learning-companion-workspace-fingerprint/);
 assert.equal(mirrorIndexHtml.includes("<script"), false);

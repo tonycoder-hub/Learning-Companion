@@ -12,7 +12,7 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 
 - `workspace.json` is canonical for restore.
 - `README.md` is derived documentation.
-- `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session.
+- `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session, including why that next action was selected.
 - `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` JSON.
 - `review.html` is a derived, local-only mobile/Windows review page that exports append-only `learning-companion.review-progress-patch.v1` JSON.
 - `sessions/*.md` is derived human-readable material.
