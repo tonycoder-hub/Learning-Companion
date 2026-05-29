@@ -23,6 +23,10 @@ Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
 | Sidecar | Use `Window > Enter Sidecar Window`, then `Window > Restore Desk Window`. | Native window and web layout narrow/restore together. | NT |  |
 | Floating | Toggle `Window > Keep Window Above Others`. | Window level changes only when manually toggled. | NT |  |
 | Clipboard capture | Copy text elsewhere, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with clipboard source. | NT |  |
+| Quick Capture draft persistence | Type a quote, thought, and time in Quick Capture without saving; switch to another session and return. | Draft text and time are restored, and the capture surface shows a local draft status. | NT |  |
+| Today draft resume | Leave a non-empty Quick Capture draft, open Today, then use the draft Resume action. | Today shows a device-local/not-exported draft card and Resume returns focus to Quick Capture. | NT |  |
+| Focus Brief draft precedence | In a workspace with both a due review and a fresh Quick Capture draft, open Focus Brief. | Due review stays the primary next action; the draft remains recoverable from Today instead of being treated as synced/exported data. | NT |  |
+| Source timestamp jump | Enter a current Time value on a session with a video source, then open the source. | Browser target includes the current timestamp when the source supports timestamp jumps. | NT |  |
 | Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | Selected text is captured when Accessibility exposes it. | NT |  |
 | Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | No stale clipboard capture is imported. | NT |  |
 | Browser context | Capture while Safari or Chrome is frontmost on an HTTP(S) page. | Title/URL attach when Automation is available, otherwise text-only capture succeeds. | NT |  |
