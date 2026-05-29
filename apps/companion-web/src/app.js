@@ -156,6 +156,7 @@ let lastActivity = null;
 let lastImportReceipt = null;
 const revealedReviewCards = new Set();
 
+pruneCurrentCaptureDrafts();
 applyUrlCapture();
 render();
 registerServiceWorker();
@@ -523,6 +524,17 @@ function pruneCaptureDrafts(value) {
     .filter(([sessionId]) => activeIds.has(sessionId)));
 }
 
+function pruneCurrentCaptureDrafts() {
+  const current = normalizeCaptureDrafts(uiPrefs.captureDrafts);
+  const pruned = pruneCaptureDrafts(current);
+  if (JSON.stringify(current) === JSON.stringify(pruned)) return;
+  uiPrefs = {
+    ...uiPrefs,
+    captureDrafts: pruned
+  };
+  saveUiPrefs();
+}
+
 function normalizeCaptureDraft(value) {
   const draft = value && typeof value === "object" ? value : {};
   const updatedAt = Number.isFinite(new Date(draft.updatedAt).getTime())
@@ -586,8 +598,14 @@ function renderCaptureDraft(session) {
 
 function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) {
   const hasDraft = hasCaptureDraft(draft);
-  dom.captureDraftStatus.textContent = hasDraft ? "Draft saved" : "No draft";
+  dom.captureDraftStatus.textContent = captureDraftStatusText(draft);
   dom.clearCaptureDraftBtn.hidden = !hasDraft;
+}
+
+function captureDraftStatusText(draft) {
+  if (draft?.quote?.trim() || draft?.thought?.trim()) return "Draft saved";
+  if (draft?.timestamp?.trim()) return "Time kept";
+  return "No draft";
 }
 
 function applyUrlCapture() {
@@ -928,6 +946,7 @@ function persistAndRender(message) {
 
 function persist() {
   workspace = { ...workspace, updatedAt: new Date().toISOString() };
+  pruneCurrentCaptureDrafts();
   const serialized = JSON.stringify(workspace);
   const bytes = new Blob([serialized]).size;
   storageWarning = null;

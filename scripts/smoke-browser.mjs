@@ -169,6 +169,10 @@ try {
     setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
+    const captureDraftStatusAfterCard = {
+      text: document.querySelector("#captureDraftStatus").textContent,
+      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
+    };
     const focusBriefAfterCard = {
       action: document.querySelector("#focusBriefAction").textContent,
       facts: document.querySelector("#focusBriefFacts").textContent,
@@ -338,6 +342,7 @@ try {
     const nativeSidecarClassOn = document.querySelector(".app-shell").classList.contains("sidecar-layout");
     const nativeSidecarOff = window.learningCompanionNative.setSidecarLayout(false);
     const nativeSidecarClassOff = document.querySelector(".app-shell").classList.contains("sidecar-layout");
+    setValue("#searchInput", "");
     setValue("#quoteInput", "Draft quote before session switch.");
     setValue("#thoughtInput", "Draft thought should survive.");
     setValue("#timestampInput", "01:23");
@@ -384,6 +389,14 @@ try {
           || draft.thought === "Draft thought should survive."
           || draft.timestamp === "01:23")
     };
+    const staleDraftPruneQuote = "Stale draft should be pruned on restore.";
+    [...document.querySelectorAll("#sessionList .session-row")]
+      .find((button) => button.textContent.includes(titleAfterNewSession))
+      .click();
+    setValue("#quoteInput", staleDraftPruneQuote);
+    const uiPrefsWithStaleDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const captureDraftStaleBeforeImport = Object.values(uiPrefsWithStaleDraft.captureDrafts || {})
+      .some((draft) => draft.quote === staleDraftPruneQuote);
     const importInput = document.querySelector("#importWorkspaceInput");
     const transfer = new DataTransfer();
     transfer.items.add(new File([mirrorText], "learning-companion-feishu-mirror.json", { type: "application/json" }));
@@ -392,6 +405,9 @@ try {
     return new Promise((resolve) => setTimeout(() => {
       const restoredWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
       const restoredSession = restoredWorkspace.sessions.find((item) => item.id === restoredWorkspace.activeSessionId);
+      const uiPrefsAfterImport = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      const captureDraftPrunedAfterImport = !Object.values(uiPrefsAfterImport.captureDrafts || {})
+        .some((draft) => draft.quote === staleDraftPruneQuote);
       const restoredMirror = JSON.parse(document.querySelector("#mirrorExport").value);
       const synthesisOccurrences = (restoredSession.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
       const badTransfer = new DataTransfer();
@@ -529,7 +545,10 @@ try {
           captureDraftAfterSwitch,
           captureDraftStatusAfterSwitch,
           captureDraftAfterClear,
+          captureDraftStaleBeforeImport,
+          captureDraftPrunedAfterImport,
           activityAfterCard,
+          captureDraftStatusAfterCard,
           focusBriefAfterCard,
           focusBriefAfterGood,
           focusBriefAfterSynthesis,
@@ -689,6 +708,8 @@ try {
     clearHidden: true,
     persisted: false
   });
+  assert.equal(result.captureDraftStaleBeforeImport, true);
+  assert.equal(result.captureDraftPrunedAfterImport, true);
   assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "3");
@@ -731,6 +752,7 @@ try {
   assert.equal(result.searchAfterOpen.targetPulsed, true);
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
+  assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /Spaced repetition improves/);
@@ -1585,7 +1607,9 @@ async function connectCdp(url) {
         returnByValue: true
       }).then((result) => {
         if (result.exceptionDetails) {
-          throw new Error(result.exceptionDetails.text || "Evaluation failed.");
+          throw new Error(result.exceptionDetails.exception?.description
+            || result.exceptionDetails.text
+            || "Evaluation failed.");
         }
         return result.result.value;
       });

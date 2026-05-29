@@ -120,6 +120,10 @@ Workspace
       strength
 ```
 
+## Draft Persistence Model
+
+Quick Capture drafts are device-local UI state, not canonical workspace data. They live in browser/WebKit `localStorage` preferences, are keyed by session id, are capped to the latest 50 active-session drafts, and are cleared when the user captures quote/thought content, presses Clear, or restores/imports a workspace without that session. Drafts do not roundtrip through workspace JSON, Feishu mirrors, Windows static folders, or HarmonyOS patches yet; that keeps sync artifacts focused on committed notes, captures, and review progress.
+
 ## First UX Bet
 
 The main screen should not be a landing page. It should open directly into a working learning desk:
