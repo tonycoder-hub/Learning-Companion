@@ -148,6 +148,16 @@ export function secondsToTimestamp(value) {
   return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
 }
 
+function secondsToDurationTimestamp(value) {
+  const seconds = Math.max(0, Math.floor(Number(value) || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainder = seconds % 60;
+  if (hours) return `${hours}h${minutes ? `${minutes}m` : ""}${remainder}s`;
+  if (minutes) return `${minutes}m${remainder}s`;
+  return `${remainder}s`;
+}
+
 export function buildSourceJumpUrl(sourceUrl, timestamp = "") {
   const href = cleanUrl(sourceUrl);
   if (!href) return "";
@@ -157,8 +167,16 @@ export function buildSourceJumpUrl(sourceUrl, timestamp = "") {
     const url = new URL(href);
     if (isYouTubeHost(url.hostname)) {
       url.searchParams.delete("start");
+      url.searchParams.delete("time_continue");
       url.searchParams.set("t", `${seconds}s`);
       return url.href;
+    }
+    if (isBilibiliHost(url.hostname)) {
+      url.searchParams.set("t", String(seconds));
+      return url.href;
+    }
+    if (isVimeoHost(url.hostname)) {
+      return setVimeoHashTimestamp(url, seconds);
     }
     return href;
   } catch {
@@ -170,14 +188,46 @@ function isYouTubeHost(hostname) {
   return /(^|\.)youtube\.com$/i.test(hostname) || /^youtu\.be$/i.test(hostname);
 }
 
+function isBilibiliHost(hostname) {
+  return /(^|\.)bilibili\.com$/i.test(hostname);
+}
+
+function isVimeoHost(hostname) {
+  return /(^|\.)vimeo\.com$/i.test(hostname);
+}
+
+function readHashTimestamp(url) {
+  const hash = String(url.hash || "").replace(/^#/, "");
+  if (!hash || !hash.includes("=")) return null;
+  return timestampToSeconds(new URLSearchParams(hash).get("t") || "");
+}
+
+function setVimeoHashTimestamp(url, seconds) {
+  const hash = String(url.hash || "").replace(/^#/, "");
+  if (hash && !hash.includes("=")) return url.href;
+  const params = hash && hash.includes("=") ? new URLSearchParams(hash) : new URLSearchParams();
+  params.set("t", secondsToDurationTimestamp(seconds));
+  url.hash = params.toString();
+  return url.href;
+}
+
 export function extractSourceTimestamp(sourceUrl) {
   const href = cleanUrl(sourceUrl);
   if (!href) return "";
   try {
     const url = new URL(href);
-    if (!isYouTubeHost(url.hostname)) return "";
-    for (const key of ["t", "start", "time_continue"]) {
-      const seconds = timestampToSeconds(url.searchParams.get(key) || "");
+    if (isYouTubeHost(url.hostname)) {
+      for (const key of ["t", "start", "time_continue"]) {
+        const seconds = timestampToSeconds(url.searchParams.get(key) || "");
+        if (seconds !== null) return secondsToTimestamp(seconds);
+      }
+    }
+    if (isBilibiliHost(url.hostname)) {
+      const seconds = timestampToSeconds(url.searchParams.get("t") || "");
+      if (seconds !== null) return secondsToTimestamp(seconds);
+    }
+    if (isVimeoHost(url.hostname)) {
+      const seconds = readHashTimestamp(url);
       if (seconds !== null) return secondsToTimestamp(seconds);
     }
     return "";
@@ -194,10 +244,25 @@ export function stripSourceTimestamp(sourceUrl) {
     if (isYouTubeHost(url.hostname)) {
       ["t", "start", "time_continue"].forEach((key) => url.searchParams.delete(key));
     }
+    if (isBilibiliHost(url.hostname)) {
+      url.searchParams.delete("t");
+    }
+    if (isVimeoHost(url.hostname)) {
+      stripVimeoHashTimestamp(url);
+    }
     return url.href;
   } catch {
     return href;
   }
+}
+
+function stripVimeoHashTimestamp(url) {
+  const hash = String(url.hash || "").replace(/^#/, "");
+  if (!hash || !hash.includes("=")) return;
+  const params = new URLSearchParams(hash);
+  params.delete("t");
+  const nextHash = params.toString();
+  url.hash = nextHash ? nextHash : "";
 }
 
 function normalizeSourceProvenance(value) {
