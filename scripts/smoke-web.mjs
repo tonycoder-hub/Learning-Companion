@@ -109,6 +109,9 @@ const reviewPackMarkdown = generateReviewPackMarkdown(workspace);
 assert.match(reviewPackMarkdown, /Learning Companion Review Pack/);
 assert.match(reviewPackMarkdown, /Next action: Capture next point/);
 assert.match(reviewPackMarkdown, /Why: The source is available and the session has gone quiet\./);
+assert.match(reviewPackMarkdown, /Offline headline gate/);
+assert.match(reviewPackMarkdown, /Separate permissioned gates/);
+assert.match(reviewPackMarkdown, /npm run check:morning:browser/);
 
 const normalizedDraft = normalizeCaptureDraft({
   quote: "  Draft quote\n",

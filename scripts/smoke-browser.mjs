@@ -892,7 +892,9 @@ try {
   assert.match(result.reviewPackExport, /Why: Active topic has due review due now/);
   assert.match(result.reviewPackExport, /Feishu: local mirror bundle plus upload plan\/dry-run boundary/);
   assert.match(result.reviewPackExport, /HarmonyOS: schema reader prototype/);
+  assert.match(result.reviewPackExport, /Separate permissioned gates/);
   assert.match(result.reviewPackExport, /npm run check:morning/);
+  assert.match(result.reviewPackExport, /npm run check:morning:browser/);
   assert.equal(result.workspaceDetailsCollapsed, true);
   assert.match(result.workspaceExportNote, /not cloud sync or Feishu upload/);
   assert.deepEqual(result.exportSections, [
