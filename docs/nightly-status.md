@@ -39,7 +39,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps draft/save/review/synthesis feedback visible in focused sidecar mode.
 - Deterministic Focus Brief in the desk with next action, visible reason, fresh capture-draft resume when review is not due, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
-- Workspace Find searches source titles, notes, captures, tags, and review cards, then jumps back to the matching session and surface.
+- Workspace Find is deterministic local find over source titles, notes, captures, tags, and review cards, supports multi-term matches within the same candidate object, then jumps back to the matching session and surface.
 - Today tab includes capture drafts, Patch Intake counts, latest import receipt, and direct import/export handoff actions.
 - Sessions, source context, timestamp, tags, and source-open jumps that honor the current video time when present.
 - Capture-level source snapshots with source/time jump links.
@@ -172,7 +172,7 @@ Deferred:
 - Mobile inbox patch is still manual transport; it is not real sync and depends on the user importing the patch on Mac.
 - Feishu uploader boundary is local-folder/plan only; it does not authenticate or write to Feishu Drive yet.
 - Review progress patch is conflict-safe but still manual transport; real device review behavior is not HarmonyOS-verified.
-- Workspace Find is simple substring search; larger workspaces will need debounce/indexing and more per-result navigation assertions.
+- Workspace Find now supports multi-term cross-field matching, but larger workspaces will still need debounce/indexing and broader per-result navigation assertions.
 - Bookmarklet behavior should be tested on YouTube, Feishu Docs, and common documentation sites.
 - Safari/Firefox localStorage quota behavior is not verified.
 - Offline fallback is generated and smoke-checked, but a full airplane-mode PWA relaunch is still manual QA.

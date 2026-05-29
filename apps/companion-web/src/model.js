@@ -1065,11 +1065,12 @@ export function filterSessions(workspace, query) {
 export function searchWorkspace(workspace, query, limit = 8) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const needle = cleanText(query, MAX_SEARCH_QUERY_LENGTH).toLocaleLowerCase();
+  const tokens = searchTokens(needle);
   if (!needle) return [];
   const results = [];
 
   cleanWorkspace.sessions.forEach((session) => {
-    addSearchResult(results, needle, {
+    addSearchResult(results, needle, tokens, {
       type: "session",
       sessionId: session.id,
       targetId: session.id,
@@ -1086,7 +1087,7 @@ export function searchWorkspace(workspace, query, limit = 8) {
       ]
     });
 
-    addSearchResult(results, needle, {
+    addSearchResult(results, needle, tokens, {
       type: "note",
       sessionId: session.id,
       targetId: "",
@@ -1098,7 +1099,7 @@ export function searchWorkspace(workspace, query, limit = 8) {
     });
 
     session.captures.forEach((capture) => {
-      addSearchResult(results, needle, {
+      addSearchResult(results, needle, tokens, {
         type: "capture",
         sessionId: session.id,
         targetId: capture.id,
@@ -1115,7 +1116,7 @@ export function searchWorkspace(workspace, query, limit = 8) {
     });
 
     session.reviewCards.forEach((card) => {
-      addSearchResult(results, needle, {
+      addSearchResult(results, needle, tokens, {
         type: "review",
         sessionId: session.id,
         targetId: card.id,
@@ -2063,8 +2064,8 @@ function normalizeImportedPatches(value) {
     .slice(-200);
 }
 
-function addSearchResult(results, needle, candidate) {
-  const match = bestSearchMatch(candidate.fields, needle);
+function addSearchResult(results, needle, tokens, candidate) {
+  const match = bestSearchMatch(candidate.fields, needle, tokens);
   if (!match) return;
   results.push({
     type: candidate.type,
@@ -2078,19 +2079,56 @@ function addSearchResult(results, needle, candidate) {
   });
 }
 
-function bestSearchMatch(fields, needle) {
-  return fields.reduce((best, field) => {
-    const value = String(field.value || "");
-    if (!value.toLocaleLowerCase().includes(needle)) return best;
-    if (!best || field.score > best.score) {
-      return {
+function searchTokens(needle) {
+  return needle
+    .split(/[\s,.;:!?()[\]{}"'<>/\\|]+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .filter((token, index, all) => all.indexOf(token) === index)
+    .slice(0, 8);
+}
+
+function bestSearchMatch(fields, needle, tokens) {
+  const normalizedFields = fields.map((field) => ({
+    ...field,
+    value: String(field.value || ""),
+    lowerValue: String(field.value || "").toLocaleLowerCase()
+  }));
+  const exact = normalizedFields.reduce((best, field) => {
+    if (!field.lowerValue.includes(needle)) return best;
+    const match = {
+      label: field.label,
+      value: field.value,
+      score: field.score + 24
+    };
+    return !best || match.score > best.score ? match : best;
+  }, null);
+  if (exact || !tokens.length) return exact;
+
+  const matches = [];
+  for (const token of tokens) {
+    const match = normalizedFields.reduce((best, field) => {
+      if (!field.lowerValue.includes(token)) return best;
+      const candidate = {
         label: field.label,
-        value,
+        value: field.value,
         score: field.score
       };
-    }
-    return best;
-  }, null);
+      return !best || candidate.score > best.score ? candidate : best;
+    }, null);
+    if (!match) return null;
+    matches.push(match);
+  }
+
+  const labels = matches
+    .map((match) => match.label)
+    .filter((label, index, all) => all.indexOf(label) === index);
+  const primary = matches.reduce((best, match) => (match.score > best.score ? match : best), matches[0]);
+  return {
+    label: labels.length === 1 ? labels[0] : `${tokens.length} terms: ${labels.slice(0, 3).join(", ")}`,
+    value: primary.value,
+    score: primary.score + (tokens.length * 8) + (labels.length * 3)
+  };
 }
 
 function buildSearchExcerpt(value, needle) {

@@ -975,6 +975,28 @@ assert.equal(captureSearch[0].type, "capture");
 assert.equal(captureSearch[0].sessionId, session.id);
 assert.equal(captureSearch[0].targetId, session.captures[0].id);
 assert.match(captureSearch[0].excerpt, /lifetime/);
+const splitCaptureSearch = searchWorkspace(workspace, "rust lifetime", 5);
+assert.equal(splitCaptureSearch[0].type, "capture");
+assert.equal(splitCaptureSearch[0].targetId, session.captures[0].id);
+assert.match(splitCaptureSearch[0].matchLabel, /2 terms:/);
+const splitSourceSearch = searchWorkspace(workspace, "rustconf video", 5);
+assert.equal(splitSourceSearch[0].type, "session");
+assert.match(splitSourceSearch[0].matchLabel, /2 terms:/);
+let splitGuardWorkspace = createDefaultWorkspace();
+splitGuardWorkspace = addSession(splitGuardWorkspace, "Zebra source only");
+splitGuardWorkspace = addSession(splitGuardWorkspace, "Quartz topic only");
+assert.equal(searchWorkspace(splitGuardWorkspace, "zebra quartz", 5).length, 0);
+let cjkSearchWorkspace = createDefaultWorkspace();
+cjkSearchWorkspace = addSession(cjkSearchWorkspace, "中文学习");
+let cjkSession = getActiveSession(cjkSearchWorkspace);
+cjkSearchWorkspace = addCapture(cjkSearchWorkspace, cjkSession.id, {
+  quote: "保持焦点，不要被浏览器标签打断。",
+  thought: "侧边栏应该帮助回到上下文。",
+  tags: "学习"
+});
+const cjkSearch = searchWorkspace(cjkSearchWorkspace, "学习 焦点", 5);
+assert.equal(cjkSearch[0].type, "capture");
+assert.match(cjkSearch[0].matchLabel, /2 terms:/);
 const sourceSearch = searchWorkspace(workspace, "RustConf", 5);
 assert.equal(sourceSearch.some((result) => result.type === "session" && result.matchLabel === "Source"), true);
 const reviewSearch = searchWorkspace(workspace, "garbage collector", 5);
