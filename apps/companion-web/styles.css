@@ -760,6 +760,12 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.capture-stack-chip.resolved {
+  border-color: rgba(96, 108, 118, 0.22);
+  background: #f2f3f1;
+  color: var(--muted);
+}
+
 .capture-stack-actions {
   display: flex;
   flex-wrap: wrap;

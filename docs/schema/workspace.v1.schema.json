@@ -128,6 +128,13 @@
         },
         "inboxPatchId": { "type": "string", "maxLength": 128 },
         "inboxCaptureId": { "type": "string", "maxLength": 128 },
+        "questionResolvedAt": {
+          "description": "Optional timestamp marking a captured question as resolved. Missing or null means a question-shaped capture is still open.",
+          "anyOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        },
         "tags": {
           "type": "array",
           "items": { "type": "string", "maxLength": 64 },

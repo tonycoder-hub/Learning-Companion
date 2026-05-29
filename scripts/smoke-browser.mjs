@@ -1601,6 +1601,7 @@ try {
     document.querySelector("#captureBtn").click();
     const questionSignal = Array.from(document.querySelectorAll("#focusBriefSignals .focus-signal"))
       .find((node) => /open question/.test(node.textContent));
+    const initialQuestionStackText = document.querySelector("#captureStack").textContent;
     document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Different active smoke");
     document.querySelector('[data-tab="today"]').click();
@@ -1609,7 +1610,9 @@ try {
     const questionButtons = questionCard
       ? Array.from(questionCard.querySelectorAll("button")).map((button) => button.textContent)
       : [];
-    questionCard?.querySelector("button:last-child")?.click();
+    Array.from(questionCard?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Make card")
+      ?.click();
     const afterQuestionCard = {
       activity: document.querySelector("#activityTitle").textContent,
       activeTitle: document.querySelector("#sessionTitle").value,
@@ -1620,11 +1623,39 @@ try {
     document.querySelector('[data-tab="today"]').click();
     const promotedQuestionCard = Array.from(document.querySelectorAll("#todayList .question-card"))
       .find((node) => /compactness assumption/.test(node.textContent));
-    const promotedQuestionButton = promotedQuestionCard?.querySelector("button:last-child");
+    const promotedQuestionButtons = promotedQuestionCard
+      ? Array.from(promotedQuestionCard.querySelectorAll("button"))
+      : [];
+    const promotedCardButton = promotedQuestionButtons.find((button) => button.textContent === "Card");
+    promotedQuestionButtons.find((button) => button.textContent === "Resolve")?.click();
+    const afterResolve = {
+      activity: document.querySelector("#activityTitle").textContent,
+      focusFacts: document.querySelector("#focusBriefFacts").textContent,
+      stackText: document.querySelector("#captureStack").textContent,
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length
+    };
+    document.querySelector('[data-tab="captures"]').click();
+    const resolvedCaptureCard = Array.from(document.querySelectorAll("#captureList .item-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    const captureButtonsAfterResolve = resolvedCaptureCard
+      ? Array.from(resolvedCaptureCard.querySelectorAll("button")).map((button) => button.textContent)
+      : [];
+    Array.from(resolvedCaptureCard?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Reopen")
+      ?.click();
+    document.querySelector('[data-tab="today"]').click();
+    const afterReopen = {
+      activity: document.querySelector("#activityTitle").textContent,
+      focusFacts: document.querySelector("#focusBriefFacts").textContent,
+      stackText: document.querySelector("#captureStack").textContent,
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length
+    };
     return {
       zeroFocusFacts,
       emptyTodayText,
-      stackText: document.querySelector("#captureStack").textContent,
+      stackText: initialQuestionStackText,
       signals: document.querySelector("#focusBriefSignals").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
       questionSignalClass: questionSignal ? questionSignal.className : "",
@@ -1633,9 +1664,12 @@ try {
       questionButtons,
       afterQuestionCard,
       promotedQuestionButton: {
-        text: promotedQuestionButton?.textContent || "",
-        disabled: promotedQuestionButton?.disabled === true
-      }
+        text: promotedCardButton?.textContent || "",
+        disabled: promotedCardButton?.disabled === true
+      },
+      afterResolve,
+      captureButtonsAfterResolve,
+      afterReopen
     };
   })()`);
 
@@ -1658,6 +1692,17 @@ try {
   assert.equal(questionFlow.afterQuestionCard.reviewActive, true);
   assert.match(questionFlow.afterQuestionCard.reviewText, /compactness assumption/);
   assert.deepEqual(questionFlow.promotedQuestionButton, { text: "Card", disabled: true });
+  assert.equal(questionFlow.questionButtons.includes("Resolve"), true);
+  assert.equal(questionFlow.afterResolve.activity, "Question resolved");
+  assert.equal(questionFlow.afterResolve.openQuestionCards, 0);
+  assert.match(questionFlow.afterResolve.focusFacts, /Questions/);
+  assert.match(questionFlow.afterResolve.focusFacts, /None/);
+  assert.match(questionFlow.afterResolve.stackText, /Answered/);
+  assert.equal(questionFlow.captureButtonsAfterResolve.includes("Reopen"), true);
+  assert.equal(questionFlow.afterReopen.activity, "Question reopened");
+  assert.equal(questionFlow.afterReopen.openQuestionCards, 1);
+  assert.match(questionFlow.afterReopen.focusFacts, /1 open/);
+  assert.match(questionFlow.afterReopen.stackText, /Question/);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {

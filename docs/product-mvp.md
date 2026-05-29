@@ -51,6 +51,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Captured questions stay visible as Focus Brief signals and Recent Stack chips before being folded into synthesis.
 - Today study pack carries an Open Questions backlog across sessions for Feishu, Windows, and mobile handoff.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
+- Captured questions can be marked resolved and reopened so the Open Questions backlog stays bounded without deleting the original evidence.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.
@@ -113,6 +114,7 @@ Workspace
       materialType
       sourceProvenance: snapshot | inbound | inherited | unknown
       tags[]
+      questionResolvedAt?
       createdAt
       promotedToReview
     reviewCards[]

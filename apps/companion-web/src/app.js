@@ -18,6 +18,7 @@ import {
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
+  captureHasOpenQuestion,
   captureHasQuestion,
   cleanUrl,
   deleteCapture,
@@ -49,6 +50,7 @@ import {
   searchWorkspace,
   summarizeCaptureDraft,
   selectSession,
+  setCaptureQuestionResolved,
   stripSourceTimestamp,
   updateSession,
   workspaceBackupFingerprint,
@@ -1860,6 +1862,10 @@ function renderToday() {
       card.disabled = capture.promotedToReview;
       card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
       footer.append(card);
+      const resolve = textEl("button", "mini-button primary", "Resolve");
+      resolve.type = "button";
+      resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
+      footer.append(resolve);
       item.append(footer);
       dom.todayList.append(item);
     });
@@ -1973,6 +1979,7 @@ function renderCaptureStack(session) {
     row.className = "capture-stack-row";
     row.dataset.stackCaptureId = capture.id;
     const isQuestion = captureHasQuestion(capture);
+    const isOpenQuestion = captureHasOpenQuestion(capture);
     row.append(
       textEl("div", "capture-stack-meta", [
         capture.timestamp || "No time",
@@ -1981,7 +1988,9 @@ function renderCaptureStack(session) {
       ].filter(Boolean).join(" · ")),
       textEl("p", "capture-stack-text", summarizeCapture(capture))
     );
-    if (isQuestion) row.append(textEl("span", "capture-stack-chip", "Question"));
+    if (isQuestion) {
+      row.append(textEl("span", isOpenQuestion ? "capture-stack-chip" : "capture-stack-chip resolved", isOpenQuestion ? "Question" : "Answered"));
+    }
     const actions = document.createElement("div");
     actions.className = "capture-stack-actions";
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
@@ -2147,6 +2156,26 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
   persistAndRender("Review card created");
 }
 
+function setQuestionResolved(captureId, sessionId = getActiveSession(workspace).id, resolved = true) {
+  const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+  const capture = sourceSession?.captures.find((item) => item.id === captureId);
+  if (!sourceSession || !capture) {
+    showToast("Capture no longer exists");
+    return;
+  }
+  if (!captureHasQuestion(capture)) return;
+  if (Boolean(capture.questionResolvedAt) === resolved) return;
+  workspace = setCaptureQuestionResolved(workspace, sourceSession.id, capture.id, resolved);
+  const targetIsActive = sourceSession.id === getActiveSession(workspace).id;
+  setActivity(getActiveSession(workspace), {
+    title: resolved ? "Question resolved" : "Question reopened",
+    detail: `${sourceSession.title} · ${summarizeCapture(capture)}`,
+    tab: targetIsActive ? "captures" : "today",
+    targetId: targetIsActive ? capture.id : ""
+  });
+  persistAndRender(resolved ? "Question resolved" : "Question reopened");
+}
+
 function renderCaptures() {
   const session = getActiveSession(workspace);
   clearChildren(dom.captureList);
@@ -2200,6 +2229,15 @@ function renderCaptures() {
     promoteButton.textContent = capture.promotedToReview ? "Card" : "Make card";
     promoteButton.addEventListener("click", () => promoteCaptureToReview(capture.id));
     actions.append(promoteButton);
+    if (captureHasQuestion(capture)) {
+      const resolveButton = document.createElement("button");
+      resolveButton.className = "mini-button";
+      resolveButton.type = "button";
+      const isOpenQuestion = captureHasOpenQuestion(capture);
+      resolveButton.textContent = isOpenQuestion ? "Resolve" : "Reopen";
+      resolveButton.addEventListener("click", () => setQuestionResolved(capture.id, session.id, isOpenQuestion));
+      actions.append(resolveButton);
+    }
     const linkedReviewCount = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id).length;
     const deleteButton = document.createElement("button");
     deleteButton.className = "mini-button danger";

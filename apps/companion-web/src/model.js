@@ -295,6 +295,7 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
     originClientId: capture.originClientId || originClientId,
     inboxPatchId: cleanText(capture.inboxPatchId, 128),
     inboxCaptureId: cleanText(capture.inboxCaptureId, 128),
+    questionResolvedAt: capture.questionResolvedAt ? cleanText(capture.questionResolvedAt, 64) : null,
     promotedToReview: Boolean(capture.promotedToReview)
   };
 }
@@ -824,6 +825,7 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
     capturedAt: timestamp,
     updatedAt: timestamp,
     originClientId: workspace.clientId,
+    questionResolvedAt: null,
     promotedToReview: Boolean(options.promoteToReview)
   };
 
@@ -890,6 +892,39 @@ export function promoteCapture(workspace, sessionId, captureId) {
       };
     })
   };
+}
+
+export function setCaptureQuestionResolved(workspace, sessionId, captureId, resolved = true) {
+  const timestamp = nowIso();
+  let changed = false;
+  const sessions = workspace.sessions.map((session) => {
+    if (session.id !== sessionId) return session;
+    let sessionChanged = false;
+    const captures = session.captures.map((capture) => {
+      if (capture.id !== captureId || !captureHasQuestion(capture)) return capture;
+      if (Boolean(capture.questionResolvedAt) === Boolean(resolved)) return capture;
+      sessionChanged = true;
+      return {
+        ...capture,
+        questionResolvedAt: resolved ? timestamp : null,
+        updatedAt: timestamp
+      };
+    });
+    if (!sessionChanged) return session;
+    changed = true;
+    return {
+      ...session,
+      captures,
+      updatedAt: timestamp
+    };
+  });
+  return changed
+    ? {
+        ...workspace,
+        updatedAt: timestamp,
+        sessions
+      }
+    : workspace;
 }
 
 export function deleteCapture(workspace, sessionId, captureId) {
@@ -1011,7 +1046,7 @@ export function getRecentCaptureItems(workspace, limit = 6) {
 export function getOpenQuestionItems(workspace, limit = 6) {
   return workspace.sessions
     .flatMap((session) => session.captures
-      .filter((capture) => captureHasQuestion(capture))
+      .filter((capture) => captureHasOpenQuestion(capture))
       .map((capture) => ({
         sessionId: session.id,
         sessionTitle: session.title,
@@ -1033,7 +1068,7 @@ export function getStudyPackStats(workspace, now = new Date()) {
     sessions: workspace.sessions.length,
     captures: workspace.sessions.reduce((sum, session) => sum + session.captures.length, 0),
     questions: workspace.sessions.reduce((sum, session) => (
-      sum + session.captures.filter((capture) => captureHasQuestion(capture)).length
+      sum + session.captures.filter((capture) => captureHasOpenQuestion(capture)).length
     ), 0),
     cards: workspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0),
     due: getDueReviewItems(workspace, now).length
@@ -1087,7 +1122,7 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
   const capturesSinceLastSynthesis = hasCurrentSynthesis ? 0 : captures.length;
   const source = buildResumeSource(session, "", latestCapture);
   const sourceHref = source.href;
-  const questionCount = captures.filter((capture) => captureHasQuestion(capture)).length;
+  const questionCount = captures.filter((capture) => captureHasOpenQuestion(capture)).length;
   const minutesSinceLastCapture = latestCapture
     ? Math.max(0, Math.floor((date.getTime() - new Date(latestCapture.capturedAt || latestCapture.createdAt).getTime()) / 60000))
     : null;
@@ -1369,8 +1404,8 @@ export function generateSynthesisDraft(session) {
 
   lines.push("", "### Open Questions", "");
   const questions = captures
-    .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH))
-    .filter((thought) => isQuestionText(thought));
+    .filter((capture) => captureHasOpenQuestion(capture))
+    .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH));
   if (questions.length) {
     questions.slice(0, 5).forEach((question) => lines.push(`- ${question}`));
   } else {
@@ -2016,7 +2051,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.sessions)} sessions · ${htmlText(pack.stats.due)} due cards · source of truth: workspace.json</p>`,
     "    </header>",
     "    <nav class=\"actions\" aria-label=\"Mirror entry points\">",
-    "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review and recent captures</span></a>",
+    "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review, open questions, and recent captures</span></a>",
     "      <a class=\"action\" href=\"review.html\"><strong>Review</strong><span>Reveal-only portable cards</span></a>",
     "      <a class=\"action\" href=\"inbox.html\"><strong>Inbox</strong><span>Capture on mobile or Windows</span></a>",
     "      <a class=\"action\" href=\"workspace.json\"><strong>Restore</strong><span>Canonical workspace JSON</span></a>",
@@ -2054,13 +2089,17 @@ export function getSynthesisStats(session) {
   const reviewCards = Array.isArray(session.reviewCards) ? session.reviewCards : [];
   return {
     captures: captures.length,
-    questions: captures.filter((capture) => captureHasQuestion(capture)).length,
+    questions: captures.filter((capture) => captureHasOpenQuestion(capture)).length,
     cards: reviewCards.length
   };
 }
 
 export function captureHasQuestion(capture) {
   return isQuestionText(cleanText(capture?.thought, MAX_CAPTURE_TEXT_LENGTH));
+}
+
+export function captureHasOpenQuestion(capture) {
+  return captureHasQuestion(capture) && !capture?.questionResolvedAt;
 }
 
 export function getSynthesisSourceStamp(session) {
@@ -2072,6 +2111,7 @@ export function getSynthesisSourceStamp(session) {
       quote: capture.quote,
       thought: capture.thought,
       timestamp: capture.timestamp,
+      questionResolvedAt: capture.questionResolvedAt || null,
       updatedAt: capture.updatedAt
     })).sort((a, b) => String(a.id || "").localeCompare(String(b.id || ""))),
     reviewCards: (Array.isArray(session?.reviewCards) ? session.reviewCards : []).map((card) => ({

@@ -26,6 +26,7 @@ import {
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
+  captureHasOpenQuestion,
   captureHasQuestion,
   cleanText,
   cleanUrl,
@@ -65,6 +66,7 @@ import {
   sanitizeWorkspace,
   searchWorkspace,
   secondsToTimestamp,
+  setCaptureQuestionResolved,
   stripSourceTimestamp,
   timestampToSeconds,
   updateSession,
@@ -449,10 +451,98 @@ const questionSession = createSession({
 }, workspace.clientId);
 const questionBrief = buildFocusBrief(questionSession, null, focusNow);
 assert.equal(captureHasQuestion(questionSession.captures[0]), true);
+assert.equal(captureHasOpenQuestion(questionSession.captures[0]), true);
 assert.equal(getSynthesisStats(questionSession).questions, 1);
 assert.equal(questionBrief.stats.questions, 1);
 assert.equal(questionBrief.warnings.some((warning) => warning.kind === "open_questions"), true);
 assert.match(generateSynthesisDraft(questionSession), /Why does ownership make aliasing safe？/);
+
+let questionLifecycleWorkspace = sanitizeWorkspace({
+  ...createDefaultWorkspace(),
+  activeSessionId: questionSession.id,
+  sessions: [questionSession]
+});
+const questionCaptureId = questionSession.captures[0].id;
+questionLifecycleWorkspace = setCaptureQuestionResolved(
+  questionLifecycleWorkspace,
+  questionSession.id,
+  questionCaptureId
+);
+let questionLifecycleSession = getActiveSession(questionLifecycleWorkspace);
+const resolvedQuestionTimestamp = questionLifecycleSession.captures[0].questionResolvedAt;
+assert.equal(captureHasQuestion(questionLifecycleSession.captures[0]), true);
+assert.equal(captureHasOpenQuestion(questionLifecycleSession.captures[0]), false);
+assert.match(resolvedQuestionTimestamp, /^\d{4}-\d{2}-\d{2}T/);
+assert.equal(getSynthesisStats(questionLifecycleSession).questions, 0);
+assert.equal(buildFocusBrief(questionLifecycleSession, questionLifecycleWorkspace, focusNow).stats.questions, 0);
+assert.equal(buildTodayPack(questionLifecycleWorkspace, focusNow).stats.questions, 0);
+assert.equal(buildTodayPack(questionLifecycleWorkspace, focusNow).questionItems.length, 0);
+const resolvedQuestionSynthesis = generateSynthesisDraft(questionLifecycleSession);
+const resolvedQuestionOpenQuestions = resolvedQuestionSynthesis.split("### Open Questions")[1].split("### Review Targets")[0];
+assert.match(resolvedQuestionSynthesis, /Generated from 1 capture \/ 0 questions \/ 0 cards/);
+assert.doesNotMatch(resolvedQuestionOpenQuestions, /Why does ownership make aliasing safe/);
+assert.equal(setCaptureQuestionResolved(
+  questionLifecycleWorkspace,
+  questionSession.id,
+  questionCaptureId
+), questionLifecycleWorkspace);
+const roundTripResolvedWorkspace = workspaceFromPortableData(JSON.parse(JSON.stringify(questionLifecycleWorkspace)));
+const roundTripResolvedSession = getActiveSession(roundTripResolvedWorkspace);
+assert.equal(roundTripResolvedSession.captures[0].questionResolvedAt, resolvedQuestionTimestamp);
+assert.equal(captureHasOpenQuestion(roundTripResolvedSession.captures[0]), false);
+questionLifecycleWorkspace = setCaptureQuestionResolved(
+  questionLifecycleWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  false
+);
+questionLifecycleSession = getActiveSession(questionLifecycleWorkspace);
+assert.equal(captureHasOpenQuestion(questionLifecycleSession.captures[0]), true);
+assert.equal(questionLifecycleSession.captures[0].questionResolvedAt, null);
+assert.equal(buildTodayPack(questionLifecycleWorkspace, focusNow).stats.questions, 1);
+assert.equal(setCaptureQuestionResolved(
+  questionLifecycleWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  false
+), questionLifecycleWorkspace);
+const legacyQuestionWorkspace = sanitizeWorkspace({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  version: WORKSPACE_SCHEMA_VERSION,
+  clientId: "legacy_question_client",
+  activeSessionId: "legacy_question_session",
+  createdAt: "2026-05-29T00:00:00.000Z",
+  updatedAt: "2026-05-29T00:00:00.000Z",
+  sessions: [{
+    id: "legacy_question_session",
+    originClientId: "legacy_question_client",
+    title: "Legacy question topic",
+    sourceTitle: "",
+    sourceUrl: "",
+    materialType: "article",
+    tags: [],
+    focusMode: "capture",
+    notesMarkdown: "",
+    captures: [{
+      id: "legacy_question_capture",
+      originClientId: "legacy_question_client",
+      quote: "",
+      thought: "Why does this old workspace still count?",
+      timestamp: "",
+      tags: [],
+      createdAt: "2026-05-29T00:00:00.000Z",
+      capturedAt: "2026-05-29T00:00:00.000Z",
+      updatedAt: "2026-05-29T00:00:00.000Z",
+      promotedToReview: false
+    }],
+    reviewCards: [],
+    createdAt: "2026-05-29T00:00:00.000Z",
+    updatedAt: "2026-05-29T00:00:00.000Z"
+  }]
+});
+assert.equal(getActiveSession(legacyQuestionWorkspace).captures[0].questionResolvedAt, null);
+assert.equal(captureHasOpenQuestion(getActiveSession(legacyQuestionWorkspace).captures[0]), true);
 
 const statementSession = createSession({
   title: "No question parking",
