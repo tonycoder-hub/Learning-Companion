@@ -44,6 +44,7 @@ const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
 const MIRROR_INTEGRITY_FILE = "MIRROR_INTEGRITY.json";
 const DETERMINISM_FILE = "DETERMINISM.json";
 const ADVERSARIAL_GATES_FILE = "ADVERSARIAL_GATES.json";
+const DEFERRED_GATES_FILE = "DEFERRED_GATES.json";
 
 const EVIDENCE_TIER_DEFINITIONS = Object.freeze({
   EXECUTED: {
@@ -333,6 +334,10 @@ const adversarialGateReport = buildAdversarialGateReport({
 await writeJson(join(OUT_DIR, ADVERSARIAL_GATES_FILE), adversarialGateReport);
 assert.equal(adversarialGateReport.ok, true);
 assert.equal(adversarialGateReport.checks.every((check) => check.expectedFailureObserved), true);
+const deferredGates = buildDeferredGatesManifest({
+  generatedAt: mirrorBundle.exportedAt
+});
+await writeJson(join(OUT_DIR, DEFERRED_GATES_FILE), deferredGates);
 let determinismReport = null;
 if (process.env.MORNING_SKIP_DETERMINISM !== "1") {
   determinismReport = buildMorningDeterminismReport({
@@ -359,6 +364,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   captureResumeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
+  deferredGates,
   determinismReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
@@ -373,6 +379,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   captureResumeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
+  deferredGates,
   determinismReport,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
@@ -393,6 +400,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   captureResumeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
+  deferredGates,
   determinismReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
@@ -406,6 +414,7 @@ assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
 assert.match(reviewReportHtml, /href="EVIDENCE_TIERS\.json"/);
+assert.match(reviewReportHtml, /href="DEFERRED_GATES\.json"/);
 assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
 assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
@@ -452,6 +461,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   macManualQa: MAC_MANUAL_QA_FILE,
   harmonyDevEcoHandoff: HARMONY_DEVECO_HANDOFF_FILE,
   evidenceTiers: EVIDENCE_TIERS_FILE,
+  deferredGates: DEFERRED_GATES_FILE,
   evidenceTierCounts: evidenceTiers.summary.counts,
   mirrorBundle: SAMPLE_MIRROR_JSON_FILE,
   mirrorZip: sampleMirrorZipFile,
@@ -495,6 +505,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     mirrorIntegrityOk: mirrorIntegrityReport.ok,
     mirrorIntegrityBrokenLinks: mirrorIntegrityReport.summary.brokenLinks,
     adversarialGatesExpectedFailuresObserved: adversarialGateReport.checks.filter((check) => check.expectedFailureObserved).length,
+    deferredGatesPending: deferredGates.summary.pending,
     morningDeterministic: determinismReport ? determinismReport.ok : "skipped",
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
@@ -524,6 +535,7 @@ function buildStageMarkdown({
   captureResumeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
+  deferredGates,
   determinismReport,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
@@ -546,6 +558,7 @@ function buildStageMarkdown({
     `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}. | Native selected-text GUI permissions, real browser selection. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
     `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
+    `| Deferred gates | pending-user-gate | ${deferredGates.summary.pending}/${deferredGates.summary.total} approval/device/signing gates are explicitly tracked in \`${DEFERRED_GATES_FILE}\`. | Completion evidence for those gates. |`,
     `| Morning determinism | ${determinismReport ? "executed-byte-compare" : "SKIPPED(child-run)"} | ${determinismReport ? `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.` : "Skipped inside determinism child run."} | Runtime environment outside this repo. |`,
     `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
@@ -556,10 +569,7 @@ function buildStageMarkdown({
     "| Gate | Status | Evidence / next action |",
     "| --- | --- | --- |",
     `| mac_manual_qa | ${macQaGate} | Fill \`${MAC_MANUAL_QA_FILE}\` during real dogfood. |`,
-    "| feishu_live_write | BLOCKED(creds) | Needs explicit credential configuration and approval. |",
-    "| harmony_device | BLOCKED(no_device) | Needs DevEco/device run using the handoff contract. |",
-    "| windows_manual | NOT_RUN | Needs manual mirror folder and patch file roundtrip on Windows. |",
-    "| mac_signed | NOT_RUN | Needs packaging/signing/notarization flow. |",
+    ...deferredGates.gates.map((gate) => `| ${gate.id} | ${gate.status} | ${gate.nextEvidence} |`),
     "| mac_native_build | SEPARATE_NATIVE_GATE | Run `npm run check:morning:native`; SwiftPM may require toolchain/cache access outside restricted sandboxes. |",
     "| local_browser_smoke | SEPARATE_BROWSER_GATE | Run `npm run check:morning:browser` in a shell that can bind `127.0.0.1`; the headline `check:morning` gate is offline. |",
     `| patch_intake_fixture | ${unsupportedInboxPatchRejected ? "PASS" : "NEEDS_FIX"} | Browser smoke and generator cover duplicate/conflict/unsupported fixture paths. |`,
@@ -567,6 +577,63 @@ function buildStageMarkdown({
     "Use wording: fixture, dry-run, schema-prototype, internal-build. Do not call this pack live sync, device-ready, or production Mac packaging.",
     ""
   ].join("\n");
+}
+
+function buildDeferredGatesManifest(options = {}) {
+  const gates = [
+    {
+      id: "feishu_live_write",
+      status: "deferred_no_approval",
+      owner: "Tony/Hermes",
+      reason: "Needs explicit Feishu credentials, remote folder target, and approval for live Drive writes.",
+      nextEvidence: "Run credentialed Feishu upload against a test folder, record remote file ids/counts, and verify stale cleanup behavior.",
+      approvalRequired: true
+    },
+    {
+      id: "harmony_device_roundtrip",
+      status: "deferred_no_approval",
+      owner: "Tony",
+      reason: "Needs a real HarmonyOS device or DevEco run outside the credential-free schema prototype.",
+      nextEvidence: "Import a generated mirror bundle on device, add a phone capture, export a patch, and import that patch on Mac.",
+      approvalRequired: true
+    },
+    {
+      id: "windows_manual_roundtrip",
+      status: "deferred_no_approval",
+      owner: "Tony",
+      reason: "Needs the home Windows machine for static mirror inspection and patch-file roundtrip.",
+      nextEvidence: "Open mirror-folder on Windows, create inbox/review patches, and confirm Mac import receipts.",
+      approvalRequired: true
+    },
+    {
+      id: "mac_signed_packaging",
+      status: "deferred_no_approval",
+      owner: "Tony/Codex",
+      reason: "Needs signing/notarization choices and local keychain access; current app is an internal build.",
+      nextEvidence: "Build signed app artifact, verify launch/quarantine behavior, and record notarization or explicit unsigned distribution decision.",
+      approvalRequired: true
+    },
+    {
+      id: "mac_gui_selected_text",
+      status: "deferred_no_approval",
+      owner: "Tony",
+      reason: "Needs macOS Accessibility/Automation prompts and real frontmost browser/document selection.",
+      nextEvidence: "Run MAC_MANUAL_QA selected-text rows, record PASS/FAIL/BLOCKED, and capture permission prompt outcomes.",
+      approvalRequired: true
+    }
+  ];
+  return {
+    schema: "learning-companion.deferred-gates.v1",
+    generatedAt: options.generatedAt || new Date().toISOString(),
+    evidence: getEvidenceTierForPath(DEFERRED_GATES_FILE),
+    summary: {
+      total: gates.length,
+      pending: gates.filter((gate) => gate.status === "deferred_no_approval").length,
+      status: "not_live_ready",
+      note: "These gates are intentionally not executed in the offline morning pack; they prevent green local checks from implying live cross-end readiness."
+    },
+    gates
+  };
 }
 
 function summarizeMacManualQa(markdown) {
@@ -647,6 +714,7 @@ function buildMorningReviewMarkdown({
   captureResumeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
+  deferredGates,
   determinismReport,
   harmonyReaderView,
   inboxReceipt,
@@ -670,6 +738,7 @@ function buildMorningReviewMarkdown({
     "0a. Read `dist/morning-demo/STAGE.md` before interpreting any artifact as a capability claim.",
     "0b. Use `dist/morning-demo/MAC_MANUAL_QA.md` to record Mac GUI dogfood results.",
     "0c. Use `dist/morning-demo/HARMONY_DEVECO_HANDOFF.md` as the phone-app scaffold contract.",
+    "0d. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
@@ -687,6 +756,7 @@ function buildMorningReviewMarkdown({
     "- Extracted folder: `mirror-folder/`",
     `- Stage matrix: \`${STAGE_FILE}\` (fixture/dry-run/prototype/internal labels)`,
     `- Evidence tiers: \`${EVIDENCE_TIERS_FILE}\` (machine-readable claim labels for generated artifacts)`,
+    `- Deferred gates: \`${DEFERRED_GATES_FILE}\` (${deferredGates.summary.pending} approval/device/signing gates still pending)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
@@ -694,6 +764,7 @@ function buildMorningReviewMarkdown({
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief next action ${captureResumeReceipt.roundTrip.focusBriefNextAction})`,
     `- Mirror integrity report: \`${MIRROR_INTEGRITY_FILE}\` (${mirrorIntegrityReport.summary.internalLinks} internal links checked, ${mirrorIntegrityReport.summary.brokenLinks} broken)`,
     `- Adversarial gates report: \`${ADVERSARIAL_GATES_FILE}\` (${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed)`,
+    `- Deferred gates sample: ${deferredGates.gates.map((gate) => `${gate.id}=${gate.status}`).join(", ")}.`,
     determinismReport ? `- Determinism report: \`${DETERMINISM_FILE}\` (${determinismReport.summary.comparedFiles} files compared across two isolated runs)` : "",
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
     `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
@@ -760,6 +831,7 @@ function buildReviewStartHereHtml({
   captureResumeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
+  deferredGates,
   determinismReport,
   harmonyReaderView,
   inboxReceipt,
@@ -772,6 +844,7 @@ function buildReviewStartHereHtml({
     ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
     ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
     ["Evidence tiers", EVIDENCE_TIERS_FILE, "Machine-readable evidence tier for each generated artifact."],
+    ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, patch boundary, and device test gates."],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
@@ -804,6 +877,7 @@ function buildReviewStartHereHtml({
     ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; Focus Brief: ${captureResumeReceipt.roundTrip.focusBriefNextAction}`],
     ["Mirror integrity", mirrorIntegrityReport.ok ? "ok" : "broken", `${mirrorIntegrityReport.summary.internalLinks} internal links; ${mirrorIntegrityReport.summary.brokenLinks} broken`],
     ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
+    ["Deferred gates", `${deferredGates.summary.pending}/${deferredGates.summary.total} pending`, "approval/device/signing/live-write evidence still required"],
     ...(determinismReport ? [["Morning determinism", determinismReport.ok ? "ok" : "diff", `${determinismReport.summary.comparedFiles} files; ${determinismReport.summary.differences} differences`]] : []),
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
@@ -812,6 +886,7 @@ function buildReviewStartHereHtml({
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}`, "native GUI selection"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
+    ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
     ["HarmonyOS", "schema-prototype", `${harmonyReaderView.topics.length} topic reader view`, "real device roundtrip"],
@@ -924,6 +999,7 @@ function buildReviewStartHereHtml({
         <li>HarmonyOS and Windows behavior still need real-device verification.</li>
         <li>The Mac shell is an internal WKWebView shell, not a signed production app.</li>
         <li>Native selected-text capture has no live GUI matrix in this generator.</li>
+        <li>See <a href="${escapeHtml(DEFERRED_GATES_FILE)}">${escapeHtml(DEFERRED_GATES_FILE)}</a> for the exact pending approval/device/signing gates and closing evidence.</li>
       </ul>
     </section>
   </main>
@@ -967,6 +1043,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === HARMONY_DEVECO_HANDOFF_FILE) {
     return evidenceTier("HANDOFF_ONLY", "DevEco/ArkTS scaffold guidance and interface contract only; no HarmonyOS device run is claimed.");
+  }
+  if (normalized === DEFERRED_GATES_FILE) {
+    return evidenceTier("PENDING_USER_GATE", "Explicitly lists live-write, device, Windows, signing, and GUI gates that require approval or target hardware.");
   }
   if (normalized.startsWith("feishu-upload/")) {
     return evidenceTier("DRY_RUN", "Feishu folder files, plan, and report are credential-free local dry-run artifacts; no network or remote write is claimed.");

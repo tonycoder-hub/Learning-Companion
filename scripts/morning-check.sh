@@ -42,6 +42,10 @@ echo "== Performance budget =="
 npm run morning:perf
 echo
 
+echo "== Performance budget self-test =="
+npm run morning:perf:selftest
+echo
+
 echo "== Git status =="
 git status --short
 echo

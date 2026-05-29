@@ -24,6 +24,9 @@ export function buildPerfBudgetReport(options = {}) {
       cwd: repoRoot,
       env: {
         ...process.env,
+        // The headline morning gate runs determinism separately before this check.
+        // Perf uses a single isolated generator run so timing is not dominated by
+        // the recursive byte-compare child run inside build-morning-demo.
         MORNING_DEMO_OUT_DIR: outDir,
         MORNING_SKIP_DETERMINISM: "1"
       },
@@ -101,24 +104,40 @@ function listFiles(root) {
 
 function parseArgs(argv) {
   const args = {
-    out: "",
-    checkedAt: ""
+    budgets: {},
+    checkedAt: "",
+    out: ""
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--out") args.out = argv[++index] || "";
     else if (arg === "--checked-at") args.checkedAt = argv[++index] || "";
+    else if (arg === "--max-generator-ms") args.budgets.generatorElapsedMs = parsePositiveNumber(argv[++index], arg);
+    else if (arg === "--max-file-count") args.budgets.fileCount = parsePositiveNumber(argv[++index], arg);
+    else if (arg === "--max-total-bytes") args.budgets.totalBytes = parsePositiveNumber(argv[++index], arg);
+    else if (arg === "--max-largest-file-bytes") args.budgets.largestFileBytes = parsePositiveNumber(argv[++index], arg);
     else if (arg === "--help") {
-      console.log("Usage: node scripts/perf-budget-check.mjs --out dist/perf-budget/PERF_BUDGET.json");
+      console.log("Usage: node scripts/perf-budget-check.mjs --out dist/perf-budget/PERF_BUDGET.json [--max-file-count 60]");
       process.exit(0);
     }
   }
   return args;
 }
 
+function parsePositiveNumber(value, flag) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number < 0) {
+    throw new Error(`${flag} expects a non-negative number`);
+  }
+  return number;
+}
+
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = parseArgs(process.argv.slice(2));
-  const report = buildPerfBudgetReport({ checkedAt: args.checkedAt });
+  const report = buildPerfBudgetReport({
+    budgets: args.budgets,
+    checkedAt: args.checkedAt
+  });
   if (args.out) {
     mkdirSync(dirname(args.out), { recursive: true, mode: 0o700 });
     writeFileSync(args.out, `${JSON.stringify(report, null, 2)}\n`, "utf8");

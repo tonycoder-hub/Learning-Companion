@@ -9,6 +9,7 @@ const EVIDENCE_TIERS = new Set(["EXECUTED", "DRY_RUN", "HANDOFF_ONLY", "PENDING_
 const files = {
   summary: "SUMMARY.json",
   evidence: "EVIDENCE_TIERS.json",
+  deferredGates: "DEFERRED_GATES.json",
   captureResume: "CAPTURE_RESUME_RECEIPT.json",
   adversarial: "ADVERSARIAL_GATES.json",
   determinism: "DETERMINISM.json",
@@ -19,6 +20,7 @@ const files = {
 
 const summary = readJson(files.summary);
 const evidence = readJson(files.evidence);
+const deferredGates = readJson(files.deferredGates);
 const captureResume = readJson(files.captureResume);
 const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
@@ -32,6 +34,7 @@ assert.equal(summary.assertions.captureResumeVisibleInToday, true);
 assert.equal(summary.assertions.mirrorIntegrityOk, true);
 assert.equal(summary.assertions.morningDeterministic, true);
 assert.equal(summary.assertions.feishuUploadWouldSendNoNetwork, true);
+assert.equal(summary.assertions.deferredGatesPending >= 5, true);
 
 assert.equal(evidence.schema, "learning-companion.evidence-tiers.v1");
 assert.equal(evidence.summary.artifactCount > 0, true);
@@ -39,6 +42,14 @@ assert.equal(evidence.artifacts.every((artifact) => {
   assertEvidence(artifact.evidence, artifact.evidence.tier, artifact.path);
   return Boolean(artifact.path && artifact.sha256 && artifact.bytes > 0);
 }), true);
+
+assert.equal(deferredGates.schema, "learning-companion.deferred-gates.v1");
+assertEvidence(deferredGates.evidence, "PENDING_USER_GATE", files.deferredGates);
+assert.equal(deferredGates.summary.status, "not_live_ready");
+assert.equal(deferredGates.summary.pending, deferredGates.gates.length);
+assert.equal(deferredGates.gates.every((gate) => gate.status === "deferred_no_approval"), true);
+assert.equal(deferredGates.gates.some((gate) => gate.id === "feishu_live_write"), true);
+assert.equal(deferredGates.gates.some((gate) => gate.id === "mac_gui_selected_text"), true);
 
 assert.equal(captureResume.schema, "learning-companion.capture-resume-receipt.v1");
 assertEvidence(captureResume.evidence, "EXECUTED", files.captureResume);

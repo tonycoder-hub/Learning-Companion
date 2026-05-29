@@ -125,6 +125,31 @@ assert.equal(getDueReviewCards(session).length, 1);
 assert.equal(getDueReviewItems(workspace).length, 1);
 assert.equal(timestampToSeconds("08:12"), 492);
 assert.equal(buildSourceJumpUrl(session.captures[0].sourceUrl, session.captures[0].timestamp), "https://www.youtube.com/watch?v=rust123&t=492s");
+
+const promotedDeterminismBase = addSession(createDefaultWorkspace(), "Promoted card determinism");
+const promotedDeterminismSession = getActiveSession(promotedDeterminismBase);
+const promotedDeterminismInput = {
+  id: "capture_promoted_deterministic",
+  quote: "Fixed review-card timestamps make resume gates stable.",
+  thought: "Check promoted card determinism."
+};
+const promotedA = addCapture(promotedDeterminismBase, promotedDeterminismSession.id, promotedDeterminismInput, {
+  promoteToReview: true,
+  now: "2026-05-29T00:12:00.000Z"
+});
+const promotedB = addCapture(promotedDeterminismBase, promotedDeterminismSession.id, promotedDeterminismInput, {
+  promoteToReview: true,
+  now: "2026-05-29T00:12:00.000Z"
+});
+const scrubPromotedCard = (workspaceValue) => {
+  const card = getActiveSession(workspaceValue).reviewCards[0];
+  return { ...card, id: "<generated-card-id>" };
+};
+assert.deepEqual(scrubPromotedCard(promotedA), scrubPromotedCard(promotedB));
+assert.equal(scrubPromotedCard(promotedA).dueAt, "2026-05-29T00:12:00.000Z");
+assert.equal(scrubPromotedCard(promotedA).createdAt, "2026-05-29T00:12:00.000Z");
+assert.equal(scrubPromotedCard(promotedA).updatedAt, "2026-05-29T00:12:00.000Z");
+
 const timedWorkspace = addCapture(workspace, session.id, {
   id: "timed_capture",
   quote: "Timed capture for deterministic receipts.",
