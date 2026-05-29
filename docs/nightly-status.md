@@ -23,7 +23,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Mac shell can open the generated morning review dashboard (`dist/morning-demo/review-start-here.html`) from `File > Open Morning Review Pack`.
 - Mac shell has native sidecar window commands: enter a narrow right-side panel (`Option+Cmd+]`), restore the desk (`Option+Cmd+[`), and manually keep the window above others.
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
-- Feishu dry-run report records a no-network `wouldSend` envelope with virtual upsert paths, byte counts, and payload SHA-256 hashes.
+- Feishu dry-run report records a no-network `wouldSend` envelope and target tree with virtual upsert paths, folder hierarchy, byte counts, and payload SHA-256 hashes.
 - Morning review pack now emits `EVIDENCE_TIERS.json` and visible `EVIDENCE:` badges so dry-run, handoff-only, and user-gated artifacts are not mistaken for live readiness.
 - Morning receipt contract validator checks generated JSON receipts for schema names, evidence tiers, and critical booleans before the offline gate passes.
 - Adversarial gate report proves determinism and mirror-integrity checks fail on deliberately corrupted fixtures.

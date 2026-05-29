@@ -72,6 +72,10 @@ assertEvidence(feishuReport.evidence, "DRY_RUN", files.feishuReport);
 assert.equal(feishuReport.boundary.network, "not-called");
 assert.equal(feishuReport.wouldSend.status, "not-sent");
 assert.equal(feishuReport.wouldSend.requests.every((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)), true);
+assert.equal(feishuReport.targetTree.layout, "folder-files");
+assert.equal(feishuReport.targetTree.directories.includes("sessions"), true);
+assert.equal(feishuReport.targetTree.files.length, feishuReport.wouldSend.requestCount);
+assert.equal(feishuReport.targetTree.files.every((file) => /^[a-f0-9]{64}$/.test(file.payloadSha256)), true);
 
 console.log("morning_receipts_ok");
 

@@ -643,6 +643,11 @@ try {
   assert.equal(dryRunReport.wouldSend.requestCount, mirror.files.length);
   assert.equal(dryRunReport.wouldSend.requests.every((request) => request.adapterAction === "upsert"), true);
   assert.equal(dryRunReport.wouldSend.requests.every((request) => /^[a-f0-9]{64}$/.test(request.payloadSha256)), true);
+  assert.equal(dryRunReport.targetTree.rootName, "Tony Learning Mirror");
+  assert.equal(dryRunReport.targetTree.directories.includes("sessions"), true);
+  assert.equal(dryRunReport.targetTree.files.length, mirror.files.length);
+  assert.equal(dryRunReport.targetTree.files.every((file) => /^[a-f0-9]{64}$/.test(file.payloadSha256)), true);
+  assert.equal(dryRunReport.targetTree.files.some((file) => file.path === "TODAY.md" && file.filename === "TODAY.md"), true);
   assert.equal(dryRunReport.summary.plannedFiles, mirror.files.length);
   assert.equal(dryRunReport.summary.verifiedFiles, mirror.files.length);
   assert.equal(dryRunReport.summary.wouldUpsert, mirror.files.length);

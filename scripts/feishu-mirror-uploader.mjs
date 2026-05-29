@@ -207,6 +207,7 @@ export function buildFeishuUploadDryRunReport(plan, filesDir, options = {}) {
       wouldUpsert: files.length,
       totalBytes
     },
+    targetTree: buildTargetTree(safePlan.target.rootName, files),
     wouldSend: {
       status: "not-sent",
       reason: "dry-run-no-network",
@@ -344,6 +345,30 @@ function fingerprintText(value) {
 
 function sha256Text(value) {
   return createHash("sha256").update(String(value)).digest("hex");
+}
+
+function buildTargetTree(rootName, files) {
+  const directories = new Set([""]);
+  const treeFiles = files.map((file) => {
+    const parts = file.path.split("/").filter(Boolean);
+    for (let index = 1; index < parts.length; index += 1) {
+      directories.add(parts.slice(0, index).join("/"));
+    }
+    return {
+      path: file.path,
+      directory: parts.length > 1 ? parts.slice(0, -1).join("/") : "",
+      filename: parts[parts.length - 1] || file.path,
+      mediaType: file.mediaType,
+      payloadBytes: file.bytes,
+      payloadSha256: file.payloadSha256
+    };
+  }).sort((a, b) => a.path.localeCompare(b.path));
+  return {
+    rootName,
+    layout: "folder-files",
+    directories: Array.from(directories).sort((a, b) => a.localeCompare(b)),
+    files: treeFiles
+  };
 }
 
 function parseArgs(argv) {
