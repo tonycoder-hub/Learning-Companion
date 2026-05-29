@@ -1,6 +1,6 @@
 import {
   WORKSPACE_SCHEMA,
-  MAX_CAPTURE_TEXT_LENGTH,
+  CAPTURE_DRAFT_LIMIT,
   MAX_INBOX_PATCH_BYTES,
   MAX_MIRROR_BUNDLE_BYTES,
   MAX_REVIEW_PROGRESS_PATCH_BYTES,
@@ -10,11 +10,13 @@ import {
   applyMobileInboxPatch,
   applyReviewProgressPatch,
   buildFeishuPayload,
+  buildCaptureDraftItems,
   buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
   buildSourceJumpUrl,
   buildTodayPack,
+  captureDraftStatusText,
   cleanUrl,
   deleteCapture,
   deleteReviewCard,
@@ -28,15 +30,19 @@ import {
   getDueReviewItems,
   getActiveSession,
   gradeCard,
+  hasCaptureDraft,
+  hasCaptureTextDraft,
   isMirrorBundle,
   isMobileInboxPatch,
   isMobileInboxPatchLike,
   isReviewProgressPatch,
   isReviewProgressPatchLike,
+  normalizeCaptureDraft,
   promoteCapture,
   resolveCaptureDraftFocusOverride,
   sanitizeWorkspace,
   searchWorkspace,
+  summarizeCaptureDraft,
   selectSession,
   updateSession,
   workspaceFromPortableData
@@ -46,7 +52,6 @@ import { renderMarkdown } from "./markdown.js";
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 1;
-const CAPTURE_DRAFT_LIMIT = 50;
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -535,27 +540,6 @@ function pruneCurrentCaptureDrafts() {
   saveUiPrefs();
 }
 
-function normalizeCaptureDraft(value) {
-  const draft = value && typeof value === "object" ? value : {};
-  const updatedAt = Number.isFinite(new Date(draft.updatedAt).getTime())
-    ? new Date(draft.updatedAt).toISOString()
-    : new Date().toISOString();
-  return {
-    quote: String(draft.quote || "").slice(0, MAX_CAPTURE_TEXT_LENGTH),
-    thought: String(draft.thought || "").slice(0, MAX_CAPTURE_TEXT_LENGTH),
-    timestamp: String(draft.timestamp || "").slice(0, 32),
-    updatedAt
-  };
-}
-
-function hasCaptureDraft(draft) {
-  return Boolean(draft?.quote?.trim() || draft?.thought?.trim() || draft?.timestamp?.trim());
-}
-
-function hasCaptureTextDraft(draft) {
-  return Boolean(draft?.quote?.trim() || draft?.thought?.trim());
-}
-
 function getCaptureDraft(sessionId) {
   return normalizeCaptureDraft(uiPrefs.captureDrafts?.[sessionId]);
 }
@@ -623,12 +607,6 @@ function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) 
   const hasDraft = hasCaptureDraft(draft);
   dom.captureDraftStatus.textContent = captureDraftStatusText(draft);
   dom.clearCaptureDraftBtn.hidden = !hasDraft;
-}
-
-function captureDraftStatusText(draft) {
-  if (draft?.quote?.trim() || draft?.thought?.trim()) return "Draft saved";
-  if (draft?.timestamp?.trim()) return "Time kept";
-  return "No draft";
 }
 
 function applyUrlCapture() {
@@ -1221,11 +1199,6 @@ function getActivity(session) {
   };
 }
 
-function summarizeCaptureDraft(draft) {
-  const text = [draft.quote, draft.thought].filter(Boolean).join(" - ").trim();
-  return text.length > 96 ? `${text.slice(0, 93)}...` : text || "Continue the saved capture draft.";
-}
-
 function clearCaptureDraftActivity(sessionId) {
   if (lastActivity?.sessionId === sessionId
     && ["Capture draft waiting", "Capture draft resumed"].includes(lastActivity.title)) {
@@ -1801,11 +1774,7 @@ function renderTodayDrafts() {
 }
 
 function getCaptureDraftItems() {
-  return workspace.sessions
-    .map((session) => ({ session, draft: getCaptureDraft(session.id) }))
-    .filter(({ draft }) => hasCaptureDraft(draft))
-    .sort((a, b) => new Date(b.draft.updatedAt).getTime() - new Date(a.draft.updatedAt).getTime())
-    .slice(0, 5);
+  return buildCaptureDraftItems(workspace.sessions, uiPrefs.captureDrafts, 5);
 }
 
 function resumeCaptureDraft(sessionId) {

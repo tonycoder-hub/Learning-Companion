@@ -17,6 +17,7 @@ export const MAX_SEARCH_QUERY_LENGTH = 200;
 export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
 export const CAPTURE_DRAFT_FOCUS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const CAPTURE_DRAFT_LIMIT = 50;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
@@ -65,6 +66,46 @@ export function cleanText(value, maxLength = MAX_CAPTURE_TEXT_LENGTH) {
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .trim()
     .slice(0, maxLength);
+}
+
+export function normalizeCaptureDraft(value, now = new Date()) {
+  const draft = value && typeof value === "object" ? value : {};
+  const updatedAt = Number.isFinite(new Date(draft.updatedAt).getTime())
+    ? new Date(draft.updatedAt).toISOString()
+    : new Date(now).toISOString();
+  return {
+    quote: cleanText(draft.quote, MAX_CAPTURE_TEXT_LENGTH),
+    thought: cleanText(draft.thought, MAX_CAPTURE_TEXT_LENGTH),
+    timestamp: cleanText(draft.timestamp, 32),
+    updatedAt
+  };
+}
+
+export function hasCaptureDraft(draft) {
+  return Boolean(draft?.quote?.trim() || draft?.thought?.trim() || draft?.timestamp?.trim());
+}
+
+export function hasCaptureTextDraft(draft) {
+  return Boolean(draft?.quote?.trim() || draft?.thought?.trim());
+}
+
+export function captureDraftStatusText(draft) {
+  if (hasCaptureTextDraft(draft)) return "Draft saved";
+  if (draft?.timestamp?.trim()) return "Time kept";
+  return "No draft";
+}
+
+export function summarizeCaptureDraft(draft, maxLength = 96) {
+  const text = [draft?.quote, draft?.thought].filter(Boolean).join(" - ").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength - 3)}...` : text || "Continue the saved capture draft.";
+}
+
+export function buildCaptureDraftItems(sessions = [], captureDrafts = {}, limit = 5) {
+  return sessions
+    .map((session) => ({ session, draft: normalizeCaptureDraft(captureDrafts?.[session.id]) }))
+    .filter(({ draft }) => hasCaptureDraft(draft))
+    .sort((a, b) => new Date(b.draft.updatedAt).getTime() - new Date(a.draft.updatedAt).getTime())
+    .slice(0, Math.max(0, limit));
 }
 
 export function cleanUrl(value) {

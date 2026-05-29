@@ -17,11 +17,13 @@ import {
   applyGrade,
   applyReviewProgressPatch,
   buildFeishuPayload,
+  buildCaptureDraftItems,
   buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
   buildSourceJumpUrl,
   buildTodayPack,
+  captureDraftStatusText,
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
@@ -43,10 +45,13 @@ import {
   getDueReviewItems,
   getActiveSession,
   gradeCard,
+  hasCaptureDraft,
+  hasCaptureTextDraft,
   isMobileInboxPatch,
   isMobileInboxPatchLike,
   isReviewProgressPatch,
   isReviewProgressPatchLike,
+  normalizeCaptureDraft,
   promoteCapture,
   resolveCaptureDraftFocusOverride,
   reviewIntervalDays,
@@ -84,6 +89,39 @@ let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);
 assert.equal(workspace.schemaVersion, WORKSPACE_SCHEMA_VERSION);
 assert.equal(workspace.version, WORKSPACE_SCHEMA_VERSION);
+
+const normalizedDraft = normalizeCaptureDraft({
+  quote: "  Draft quote\n",
+  thought: "Draft thought",
+  timestamp: " 08:12 ",
+  updatedAt: "2026-05-29T00:01:00.000Z"
+});
+assert.deepEqual(normalizedDraft, {
+  quote: "Draft quote",
+  thought: "Draft thought",
+  timestamp: "08:12",
+  updatedAt: "2026-05-29T00:01:00.000Z"
+});
+assert.equal(hasCaptureDraft(normalizedDraft), true);
+assert.equal(hasCaptureTextDraft(normalizedDraft), true);
+assert.equal(captureDraftStatusText(normalizedDraft), "Draft saved");
+assert.equal(captureDraftStatusText(normalizeCaptureDraft({ timestamp: "01:23" })), "Time kept");
+assert.equal(captureDraftStatusText(normalizeCaptureDraft({})), "No draft");
+assert.match(normalizeCaptureDraft({ quote: "\u0000safe" }).quote, /^safe$/);
+assert.equal(normalizeCaptureDraft({ quote: "x" }, new Date("2026-05-29T00:02:00.000Z")).updatedAt, "2026-05-29T00:02:00.000Z");
+
+const draftSessions = [
+  createSession({ id: "draft_a", title: "Draft A" }, workspace.clientId),
+  createSession({ id: "draft_b", title: "Draft B" }, workspace.clientId),
+  createSession({ id: "draft_empty", title: "Draft Empty" }, workspace.clientId)
+];
+const draftItems = buildCaptureDraftItems(draftSessions, {
+  draft_a: { quote: "Older draft", updatedAt: "2026-05-29T00:01:00.000Z" },
+  draft_b: { thought: "Newest draft", updatedAt: "2026-05-29T00:03:00.000Z" },
+  draft_empty: { quote: "   ", updatedAt: "2026-05-29T00:04:00.000Z" }
+}, 5);
+assert.deepEqual(draftItems.map((item) => item.session.id), ["draft_b", "draft_a"]);
+assert.equal(buildCaptureDraftItems(draftSessions, { draft_a: { quote: "Only draft" } }, 0).length, 0);
 assert.match(workspace.clientId, /^client_/);
 assert.equal(workspace.sessions.length, 1);
 assert.equal(cleanUrl("javascript:alert(1)"), "");
