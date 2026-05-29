@@ -11,6 +11,7 @@ const files = {
   evidence: "EVIDENCE_TIERS.json",
   deferredGates: "DEFERRED_GATES.json",
   captureResume: "CAPTURE_RESUME_RECEIPT.json",
+  patchIntakeNegative: "PATCH_INTAKE_NEGATIVE_RECEIPT.json",
   adversarial: "ADVERSARIAL_GATES.json",
   determinism: "DETERMINISM.json",
   mirrorIntegrity: "MIRROR_INTEGRITY.json",
@@ -22,6 +23,7 @@ const summary = readJson(files.summary);
 const evidence = readJson(files.evidence);
 const deferredGates = readJson(files.deferredGates);
 const captureResume = readJson(files.captureResume);
+const patchIntakeNegative = readJson(files.patchIntakeNegative);
 const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
 const mirrorIntegrity = readJson(files.mirrorIntegrity);
@@ -35,6 +37,7 @@ assert.equal(summary.assertions.mirrorIntegrityOk, true);
 assert.equal(summary.assertions.morningDeterministic, true);
 assert.equal(summary.assertions.feishuUploadWouldSendNoNetwork, true);
 assert.equal(summary.assertions.deferredGatesPending >= 5, true);
+assert.equal(summary.assertions.patchIntakeNegativeExpectedFailures, summary.assertions.patchIntakeNegativeCases);
 
 assert.equal(evidence.schema, "learning-companion.evidence-tiers.v1");
 assert.equal(evidence.summary.artifactCount > 0, true);
@@ -57,6 +60,16 @@ assert.equal(captureResume.roundTrip.ok, true);
 assert.equal(captureResume.roundTrip.allInputsVisibleInToday, true);
 assert.equal(captureResume.roundTrip.todayHashChanged, true);
 assert.equal(captureResume.roundTrip.focusBriefNextAction, "synthesize");
+
+assert.equal(patchIntakeNegative.schema, "learning-companion.patch-intake-negative-receipt.v1");
+assertEvidence(patchIntakeNegative.evidence, "EXECUTED", files.patchIntakeNegative);
+assert.equal(patchIntakeNegative.summary.ok, true);
+assert.equal(patchIntakeNegative.summary.expectedFailuresObserved, patchIntakeNegative.summary.cases);
+assert.equal(patchIntakeNegative.summary.malformedRejected, true);
+assert.equal(patchIntakeNegative.summary.oversizedRejected, true);
+assert.equal(patchIntakeNegative.summary.duplicateReviewSkipped, true);
+assert.equal(patchIntakeNegative.summary.staleReviewConflictSkipped, true);
+assert.equal(patchIntakeNegative.cases.every((item) => item.expectedFailureObserved), true);
 
 assert.equal(adversarial.schema, "learning-companion.adversarial-gates-report.v1");
 assertEvidence(adversarial.evidence, "EXECUTED", files.adversarial);

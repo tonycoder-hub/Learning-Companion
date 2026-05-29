@@ -12,6 +12,7 @@
     "morning:adversarial": "node scripts/adversarial-gate-check.mjs",
     "demo:capture-resume": "node scripts/demo-capture-resume.mjs",
     "demo:morning": "node scripts/build-morning-demo.mjs",
+    "demo:patch-intake-negative": "node scripts/patch-intake-negative-receipt.mjs --out dist/patch-intake-negative/PATCH_INTAKE_NEGATIVE_RECEIPT.json",
     "morning:determinism": "node scripts/morning-determinism-check.mjs",
     "morning:perf": "node scripts/perf-budget-check.mjs --out dist/perf-budget/PERF_BUDGET.json",
     "morning:perf:selftest": "node scripts/perf-budget-self-test.mjs",

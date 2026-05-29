@@ -18,6 +18,10 @@ echo "== Capture resume receipt =="
 npm run demo:capture-resume
 echo
 
+echo "== Patch intake negative receipt =="
+npm run demo:patch-intake-negative
+echo
+
 echo "== Morning demo pack =="
 npm run demo:morning
 echo

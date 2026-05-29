@@ -20,6 +20,7 @@ import {
   materializeMirrorBundle
 } from "./feishu-mirror-uploader.mjs";
 import { buildCaptureResumeReceipt } from "./capture-resume-receipt.mjs";
+import { buildPatchIntakeNegativeReceipt } from "./patch-intake-negative-receipt.mjs";
 import { buildMirrorIntegrityReport } from "./mirror-integrity-check.mjs";
 import { buildMorningDeterminismReport } from "./morning-determinism-check.mjs";
 import { buildAdversarialGateReport } from "./adversarial-gate-check.mjs";
@@ -41,6 +42,7 @@ const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
 const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
+const PATCH_INTAKE_NEGATIVE_RECEIPT_FILE = "PATCH_INTAKE_NEGATIVE_RECEIPT.json";
 const MIRROR_INTEGRITY_FILE = "MIRROR_INTEGRITY.json";
 const DETERMINISM_FILE = "DETERMINISM.json";
 const ADVERSARIAL_GATES_FILE = "ADVERSARIAL_GATES.json";
@@ -306,6 +308,10 @@ const captureResumeReceipt = buildCaptureResumeReceipt({
   generatedAt: CAPTURE_RESUME_GENERATED_AT
 });
 await writeJson(join(OUT_DIR, CAPTURE_RESUME_RECEIPT_FILE), captureResumeReceipt);
+const patchIntakeNegativeReceipt = buildPatchIntakeNegativeReceipt({
+  generatedAt: "2026-05-29T07:30:00.000+08:00"
+});
+await writeJson(join(OUT_DIR, PATCH_INTAKE_NEGATIVE_RECEIPT_FILE), patchIntakeNegativeReceipt);
 assert.equal(feishuUploadResult.fileCount, mirrorBundle.files.length);
 assert.equal(feishuUploadResult.bundleFingerprint, mirrorBundle.manifest.bundleFingerprint);
 assert.equal(feishuUploadReport.summary.verifiedFiles, mirrorBundle.files.length);
@@ -315,6 +321,8 @@ assert.equal(feishuUploadReport.wouldSend.requests.every((request) => /^[a-f0-9]
 assert.equal(captureResumeReceipt.roundTrip.ok, true);
 assert.equal(captureResumeReceipt.roundTrip.addedCaptureCount, 3);
 assert.equal(captureResumeReceipt.roundTrip.allInputsVisibleInToday, true);
+assert.equal(patchIntakeNegativeReceipt.summary.ok, true);
+assert.equal(patchIntakeNegativeReceipt.summary.expectedFailuresObserved, patchIntakeNegativeReceipt.summary.cases);
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
 assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
 
@@ -362,6 +370,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
   deferredGates,
@@ -377,6 +386,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
   captureResumeReceipt,
+  patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
   deferredGates,
@@ -398,6 +408,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
   deferredGates,
@@ -477,6 +488,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
       targetTreeFiles: feishuUploadReport.targetTree.files.length
     },
   captureResumeReceipt: CAPTURE_RESUME_RECEIPT_FILE,
+  patchIntakeNegativeReceipt: PATCH_INTAKE_NEGATIVE_RECEIPT_FILE,
   mirrorIntegrity: MIRROR_INTEGRITY_FILE,
   adversarialGates: ADVERSARIAL_GATES_FILE,
   determinism: determinismReport ? DETERMINISM_FILE : null,
@@ -502,6 +514,8 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     captureResumeVisibleInToday: captureResumeReceipt.roundTrip.allInputsVisibleInToday,
     captureResumeTodayHashChanged: captureResumeReceipt.roundTrip.todayHashChanged,
     captureResumeFocusBriefNextAction: captureResumeReceipt.roundTrip.focusBriefNextAction,
+    patchIntakeNegativeExpectedFailures: patchIntakeNegativeReceipt.summary.expectedFailuresObserved,
+    patchIntakeNegativeCases: patchIntakeNegativeReceipt.summary.cases,
     mirrorIntegrityOk: mirrorIntegrityReport.ok,
     mirrorIntegrityBrokenLinks: mirrorIntegrityReport.summary.brokenLinks,
     adversarialGatesExpectedFailuresObserved: adversarialGateReport.checks.filter((check) => check.expectedFailureObserved).length,
@@ -533,6 +547,7 @@ function buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
   captureResumeReceipt,
+  patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
   deferredGates,
@@ -556,6 +571,7 @@ function buildStageMarkdown({
     `| Mac shell | internal-build | Offline pack generated; run \`npm run check:morning:native\` for SwiftPM build and \`npm run check:morning:browser\` for browser smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests and ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}. | Native selected-text GUI permissions, real browser selection. |`,
+    `| Patch intake negatives | executed-negative-fixture | ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} malformed/oversized/duplicate/stale patch cases observed expected failures. | Real off-Mac patch origination. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
     `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
     `| Deferred gates | pending-user-gate | ${deferredGates.summary.pending}/${deferredGates.summary.total} approval/device/signing gates are explicitly tracked in \`${DEFERRED_GATES_FILE}\`. | Completion evidence for those gates. |`,
@@ -572,7 +588,7 @@ function buildStageMarkdown({
     ...deferredGates.gates.map((gate) => `| ${gate.id} | ${gate.status} | ${gate.nextEvidence} |`),
     "| mac_native_build | SEPARATE_NATIVE_GATE | Run `npm run check:morning:native`; SwiftPM may require toolchain/cache access outside restricted sandboxes. |",
     "| local_browser_smoke | SEPARATE_BROWSER_GATE | Run `npm run check:morning:browser` in a shell that can bind `127.0.0.1`; the headline `check:morning` gate is offline. |",
-    `| patch_intake_fixture | ${unsupportedInboxPatchRejected ? "PASS" : "NEEDS_FIX"} | Browser smoke and generator cover duplicate/conflict/unsupported fixture paths. |`,
+    `| patch_intake_fixture | ${unsupportedInboxPatchRejected && patchIntakeNegativeReceipt.summary.ok ? "PASS" : "NEEDS_FIX"} | Browser smoke and generator cover duplicate/conflict/unsupported/malformed/oversized fixture paths. |`,
     "",
     "Use wording: fixture, dry-run, schema-prototype, internal-build. Do not call this pack live sync, device-ready, or production Mac packaging.",
     ""
@@ -712,6 +728,7 @@ function buildMorningReviewMarkdown({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
   deferredGates,
@@ -762,6 +779,7 @@ function buildMorningReviewMarkdown({
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, ${feishuUploadReport.targetTree.files.length} target-tree files, not sent)`,
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief next action ${captureResumeReceipt.roundTrip.focusBriefNextAction})`,
+    `- Patch intake negative receipt: \`${PATCH_INTAKE_NEGATIVE_RECEIPT_FILE}\` (${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed)`,
     `- Mirror integrity report: \`${MIRROR_INTEGRITY_FILE}\` (${mirrorIntegrityReport.summary.internalLinks} internal links checked, ${mirrorIntegrityReport.summary.brokenLinks} broken)`,
     `- Adversarial gates report: \`${ADVERSARIAL_GATES_FILE}\` (${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed)`,
     `- Deferred gates sample: ${deferredGates.gates.map((gate) => `${gate.id}=${gate.status}`).join(", ")}.`,
@@ -792,6 +810,7 @@ function buildMorningReviewMarkdown({
     `- Feishu upload plan sample: ${feishuUploadPlan.files.length} upserts, auth status ${feishuUploadPlan.provider.auth.status}.`,
     `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes, ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement}`,
     `- Capture to resume sample: ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added, Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}, all inputs visible in Today: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}, Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}.`,
+    `- Patch intake negative sample: ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed; malformed rejected: ${patchIntakeNegativeReceipt.summary.malformedRejected}, oversized rejected: ${patchIntakeNegativeReceipt.summary.oversizedRejected}, duplicate review skipped: ${patchIntakeNegativeReceipt.summary.duplicateReviewSkipped}, stale review conflict skipped: ${patchIntakeNegativeReceipt.summary.staleReviewConflictSkipped}.`,
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
     determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
@@ -829,6 +848,7 @@ function buildReviewStartHereHtml({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
   deferredGates,
@@ -855,6 +875,7 @@ function buildReviewStartHereHtml({
     ["Feishu Upload Plan (local fixture, no live API)", "feishu-upload/feishu-upload-plan.json", `${feishuUploadPlan.files.length} local one-way upserts; no live credentials or Drive writes.`],
     ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests and ${feishuUploadReport.targetTree.files.length} target-tree files remain not-sent.`],
     ["Capture Resume Receipt", CAPTURE_RESUME_RECEIPT_FILE, `${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through model path, surfaced in Today, and moved Focus Brief to ${captureResumeReceipt.roundTrip.focusBriefNextAction}.`],
+    ["Patch Intake Negative Receipt", PATCH_INTAKE_NEGATIVE_RECEIPT_FILE, `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} malformed/oversized/duplicate/stale cases observed expected failures.`],
     ["Mirror Integrity Report", MIRROR_INTEGRITY_FILE, `${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken.`],
     ["Adversarial Gates Report", ADVERSARIAL_GATES_FILE, `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures observed expected failures.`],
     ...(determinismReport ? [["Determinism Report", DETERMINISM_FILE, `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.`]] : []),
@@ -875,6 +896,7 @@ function buildReviewStartHereHtml({
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
     ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement}`],
     ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; Focus Brief: ${captureResumeReceipt.roundTrip.focusBriefNextAction}`],
+    ["Patch intake negatives", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} observed`, "malformed, unsupported, oversized, duplicate, and stale patch inputs are rejected or skipped"],
     ["Mirror integrity", mirrorIntegrityReport.ok ? "ok" : "broken", `${mirrorIntegrityReport.summary.internalLinks} internal links; ${mirrorIntegrityReport.summary.brokenLinks} broken`],
     ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
     ["Deferred gates", `${deferredGates.summary.pending}/${deferredGates.summary.total} pending`, "approval/device/signing/live-write evidence still required"],
@@ -884,6 +906,7 @@ function buildReviewStartHereHtml({
   const stageRows = [
     ["Mac shell", "internal-build", "offline pack plus separate native/browser gates", "signed/notarized app"],
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}`, "native GUI selection"],
+    ["Patch intake negatives", "executed-negative-fixture", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed`, "real off-Mac patch origination"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
@@ -1055,6 +1078,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === CAPTURE_RESUME_RECEIPT_FILE) {
     return evidenceTier("EXECUTED", "Pure model round-trip proves addCapture writes are visible in the generated Today resume pack.");
+  }
+  if (normalized === PATCH_INTAKE_NEGATIVE_RECEIPT_FILE) {
+    return evidenceTier("EXECUTED", "Pure model/import negative fixtures prove malformed, unsupported, oversized, duplicate, and stale patch paths fail safely.");
   }
   if (normalized === MIRROR_INTEGRITY_FILE) {
     return evidenceTier("EXECUTED", "Static mirror folder was walked and every internal HTML/Markdown link was resolved on disk.");

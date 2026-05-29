@@ -28,6 +28,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Morning receipt contract validator checks generated JSON receipts for schema names, evidence tiers, and critical booleans before the offline gate passes.
 - Adversarial gate report proves determinism and mirror-integrity checks fail on deliberately corrupted fixtures.
 - Capture-to-resume receipt proves three synthetic browser captures written through `addCapture` appear in the generated Today resume pack and move Focus Brief to synthesis without requiring GUI permissions.
+- Patch intake negative receipt proves malformed JSON, unsupported patch schemas, oversized inbox/review patches, duplicate review patches, and stale review conflicts fail safely without credentials.
 - Mirror integrity report walks the generated static mirror and checks every internal HTML/Markdown link before the morning pack is accepted.
 - Morning determinism report runs the generator twice in isolated temp directories and compares output bytes.
 - Deferred gates manifest lists the approval/device/signing/live-write checks that are intentionally not proven by green offline gates.
@@ -108,7 +109,7 @@ npm run check:morning:browser
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
-`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, demo pack generation, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, perf self-test, and git status.
+`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, patch-intake negative receipt, demo pack generation, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, perf self-test, and git status.
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
@@ -157,11 +158,10 @@ Deferred:
 
 ## Next Best Commits
 
-1. Add more patch intake negative-path evidence that does not need credentials: malformed JSON, oversized patch files, and duplicate review patch UI receipts.
-2. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
-3. Turn the HarmonyOS DevEco handoff into a minimal project scaffold once SDK/project setup is available; until then keep the schema reader honest as a prototype.
-4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
-5. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
+1. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
+2. Turn the HarmonyOS DevEco handoff into a minimal project scaffold once SDK/project setup is available; until then keep the schema reader honest as a prototype.
+3. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
+4. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
 
 ## Known Risks
 
