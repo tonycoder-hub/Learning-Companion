@@ -69,7 +69,10 @@ function sampleReaderView(): HarmonyReaderView {
     nextAction: {
       kind: 'capture',
       label: 'Capture next',
-      reason: 'No imported workspace is loaded yet.'
+      detail: 'Import a workspace or mirror bundle before phone capture.',
+      reason: 'No imported workspace is loaded yet.',
+      focusMode: 'capture',
+      tab: 'captures'
     },
     latestCapture: undefined
   }];

@@ -5,14 +5,17 @@ export const MOBILE_INBOX_PATCH_SCHEMA = 'learning-companion.mobile-inbox-patch.
 export const REVIEW_PROGRESS_PATCH_SCHEMA = 'learning-companion.review-progress-patch.v1';
 export const HARMONY_IMPORT_RECEIPT_SCHEMA = 'learning-companion.harmony-import-receipt.v1';
 
-export type FocusActionKind = 'review' | 'synthesize' | 'capture' | 'continue';
+export type FocusActionKind = 'review' | 'synthesize' | 'capture' | 'continue' | 'open_source';
 export type MaterialType = 'article' | 'video' | 'doc' | 'course' | 'book' | 'other';
 export type ReviewGrade = 'again' | 'good';
 
 export interface FocusNextAction {
   kind: FocusActionKind;
   label: string;
+  detail: string;
   reason: string;
+  focusMode: string;
+  tab: string;
 }
 
 export interface TopicSummary {

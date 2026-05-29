@@ -34,7 +34,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Deferred gates manifest lists the approval/device/signing/live-write checks that are intentionally not proven by green offline gates.
 - Performance budget report times the morning generator in an isolated output directory, checks file-count/byte-size limits, and has a self-test proving violations fail.
 - HarmonyOS preparation has a credential-free schema reader prototype that turns workspace JSON or mirror bundles into a read-only phone view model.
-- HarmonyOS handoff now includes a DevEco/ArkTS scaffold directory plus a pure import/patch boundary module covered by `smoke:harmony`; it is structure/schema-parity checked, not SDK-compiled.
+- HarmonyOS handoff now includes a DevEco/ArkTS scaffold directory plus a pure import/patch boundary module covered by `smoke:harmony`; it is structure/schema-parity checked, not SDK-compiled. The scaffold next-action contract matches the web Focus Brief shape, including `open_source`, detail, and reason fields for phone-side resume decisions.
 - Three-pane learning sidecar for Mac/browser workflow.
 - Sidecar layout toggle that collapses navigation and inspector around the active session.
 - Desk activity strip that keeps draft/save/review/synthesis feedback visible in focused sidecar mode.

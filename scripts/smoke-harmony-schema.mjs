@@ -46,6 +46,8 @@ assert.equal(workspaceView.mode, "read-only-prototype");
 assert.equal(workspaceView.workspace.sessionCount, workspace.sessions.length);
 assert.equal(workspaceView.workspace.activeTopicId, workspace.activeSessionId);
 assert.equal(workspaceView.activeTopic.title, getActiveSession(workspace).title);
+assert.equal(workspaceView.activeTopic.nextAction.reason, "Active topic has due review due now.");
+assert.equal(workspaceView.activeTopic.nextAction.detail, "Reveal and grade before adding more material.");
 assert.equal(workspaceView.topics.length, workspace.sessions.length);
 assert.equal(workspaceView.topics.some((topic) => topic.captureCount > 0), true);
 assert.equal(workspaceView.dueReview.length, 1);
