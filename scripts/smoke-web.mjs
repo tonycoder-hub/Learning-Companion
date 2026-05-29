@@ -9,6 +9,7 @@ import {
   MAX_INBOX_PATCH_CAPTURES,
   MAX_REVIEW_PROGRESS_EVENTS,
   MAX_SEARCH_QUERY_LENGTH,
+  WORKSPACE_BACKUP_STALE_DAYS,
   MOBILE_INBOX_PATCH_SCHEMA,
   REVIEW_PROGRESS_PATCH_SCHEMA,
   addCapture,
@@ -31,6 +32,7 @@ import {
   deleteCapture,
   deleteReviewCard,
   filterSessions,
+  formatBytes,
   formatLocalIso,
   generateInboxHtml,
   generateMarkdown,
@@ -61,6 +63,8 @@ import {
   searchWorkspace,
   timestampToSeconds,
   updateSession,
+  workspaceBackupFingerprint,
+  workspaceStorageNotice,
   workspaceFromPortableData
 } from "../apps/companion-web/src/model.js";
 import {
@@ -90,8 +94,8 @@ assert.match(appJs, /searchResultsCollapsed/);
 assert.match(appJs, /scrollIntoView\(\{ block: "nearest" \}\)/);
 assert.match(appJs, /openSearchResult\(results\[Math\.max\(0, activeSearchIndex\)\]\)/);
 assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 2/);
-assert.match(appJs, /Local changes not exported/);
 assert.match(appJs, /workspaceBackupFingerprint/);
+assert.match(appJs, /workspaceStorageNotice/);
 assert.match(appJs, /Export requested - verify downloaded file/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v2/);
@@ -190,6 +194,21 @@ assert.equal(getDueReviewCards(session).length, 1);
 assert.equal(getDueReviewItems(workspace).length, 1);
 assert.equal(timestampToSeconds("08:12"), 492);
 assert.equal(buildSourceJumpUrl(session.captures[0].sourceUrl, session.captures[0].timestamp), "https://www.youtube.com/watch?v=rust123&t=492s");
+const backupFingerprint = workspaceBackupFingerprint(workspace);
+const backupNow = new Date("2026-05-29T00:30:00.000Z");
+const emptyWorkspace = createDefaultWorkspace();
+const emptyBackupFingerprint = workspaceBackupFingerprint(emptyWorkspace);
+assert.equal(workspaceStorageNotice(createDefaultWorkspace(), null, 1000, backupNow), null);
+assert.equal(workspaceStorageNotice(emptyWorkspace, { fingerprint: emptyBackupFingerprint, exportedAt: "2026-05-21T00:30:00.000Z" }, 1000, backupNow), null);
+assert.equal(workspaceStorageNotice(workspace, null, 1000, backupNow), "Local changes not exported");
+assert.equal(workspaceStorageNotice(workspace, { fingerprint: backupFingerprint, exportedAt: "2026-05-28T00:30:00.000Z" }, 1000, backupNow), null);
+assert.equal(
+  workspaceStorageNotice(workspace, { fingerprint: backupFingerprint, exportedAt: "2026-05-21T23:30:00.000Z" }, 1000, backupNow),
+  `Last export was ${WORKSPACE_BACKUP_STALE_DAYS} days ago; re-export to refresh your local copy`
+);
+assert.equal(workspaceStorageNotice(workspace, { fingerprint: backupFingerprint, exportedAt: "2026-05-28T00:30:00.000Z" }, 4_000_000, backupNow), "Workspace is 3.8 MB; export now.");
+assert.equal(workspaceStorageNotice(workspace, { fingerprint: backupFingerprint, exportedAt: "2026-05-21T23:30:00.000Z" }, 4_000_000, backupNow), "Workspace is 3.8 MB; export now.");
+assert.equal(formatBytes(1536), "2 KB");
 
 const promotedDeterminismBase = addSession(createDefaultWorkspace(), "Promoted card determinism");
 const promotedDeterminismSession = getActiveSession(promotedDeterminismBase);

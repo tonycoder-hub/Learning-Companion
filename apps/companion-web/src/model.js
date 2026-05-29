@@ -18,6 +18,9 @@ export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
 export const CAPTURE_DRAFT_FOCUS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const CAPTURE_DRAFT_LIMIT = 50;
+// Keep the warning below common 5 MB localStorage quotas so export prompts arrive before writes fail.
+export const WORKSPACE_STORAGE_WARNING_BYTES = 3_500_000;
+export const WORKSPACE_BACKUP_STALE_DAYS = 7;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
@@ -293,6 +296,65 @@ export function sanitizeWorkspace(input) {
     createdAt: workspace.createdAt || nowIso(),
     updatedAt: workspace.updatedAt || nowIso()
   };
+}
+
+export function workspaceFingerprint(serialized) {
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function workspaceBackupFingerprint(value) {
+  const stableWorkspace = {
+    ...value,
+    updatedAt: ""
+  };
+  return workspaceFingerprint(JSON.stringify(stableWorkspace));
+}
+
+export function hasBackupWorthyWorkspace(value) {
+  return Boolean(
+    value?.sessions?.length > 1 ||
+    value?.importedPatches?.length ||
+    value?.importedReviewPatches?.length ||
+    value?.sessions?.some((session) => session.captures.length || session.reviewCards.length)
+  );
+}
+
+export function workspaceStorageNotice(workspaceData, backup, bytes = 0, now = new Date()) {
+  // Priority: storage pressure first, then unsaved changes, then stale matching exports.
+  if (bytes > WORKSPACE_STORAGE_WARNING_BYTES) {
+    return `Workspace is ${formatBytes(bytes)}; export now.`;
+  }
+  if (!hasBackupWorthyWorkspace(workspaceData)) return null;
+
+  const currentFingerprint = workspaceBackupFingerprint(workspaceData);
+  const backupFingerprint = cleanText(backup?.fingerprint, 64);
+  if (backupFingerprint !== currentFingerprint) {
+    return "Local changes not exported";
+  }
+
+  const exportedAt = new Date(backup?.exportedAt || "");
+  if (!Number.isFinite(exportedAt.getTime())) {
+    return "Local backup status unknown";
+  }
+
+  const date = Number.isFinite(now?.getTime?.()) ? now : new Date(now);
+  const nowTime = Number.isFinite(date.getTime()) ? date.getTime() : Date.now();
+  const ageDays = Math.floor((nowTime - exportedAt.getTime()) / (24 * 60 * 60 * 1000));
+  if (ageDays >= WORKSPACE_BACKUP_STALE_DAYS) {
+    return `Last export was ${ageDays} ${ageDays === 1 ? "day" : "days"} ago; re-export to refresh your local copy`;
+  }
+  return null;
+}
+
+export function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export function workspaceFromPortableData(input) {

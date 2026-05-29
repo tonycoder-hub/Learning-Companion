@@ -21,6 +21,7 @@ import {
   deleteCapture,
   deleteReviewCard,
   filterSessions,
+  formatBytes,
   generateMarkdown,
   generateReviewPackMarkdown,
   generateSynthesisDraft,
@@ -46,6 +47,8 @@ import {
   summarizeCaptureDraft,
   selectSession,
   updateSession,
+  workspaceBackupFingerprint,
+  workspaceStorageNotice,
   workspaceFromPortableData
 } from "./model.js";
 import { renderMarkdown } from "./markdown.js";
@@ -1009,7 +1012,7 @@ function persist() {
   storageWarning = null;
   try {
     localStorage.setItem(STORAGE_KEY, serialized);
-    storageWarning = storageHealthWarning(bytes);
+    storageWarning = workspaceStorageNotice(workspace, uiPrefs.workspaceBackup, bytes);
   } catch {
     storageWarning = "Storage full. Export now.";
     dom.saveState.textContent = "Export needed";
@@ -1305,25 +1308,6 @@ function renderStorageNotice() {
   const shouldShow = Boolean(storageWarning);
   dom.storageNotice.hidden = !shouldShow;
   dom.storageNoticeText.textContent = storageWarning || "";
-}
-
-function storageHealthWarning(bytes) {
-  if (bytes > 3_500_000) {
-    return `Workspace is ${(bytes / 1024 / 1024).toFixed(1)} MB`;
-  }
-  if (hasBackupWorthyWorkspace(workspace) && uiPrefs.workspaceBackup?.fingerprint !== workspaceBackupFingerprint(workspace)) {
-    return "Local changes not exported";
-  }
-  return null;
-}
-
-function hasBackupWorthyWorkspace(value) {
-  return Boolean(
-    value?.sessions?.length > 1 ||
-    value?.importedPatches?.length ||
-    value?.importedReviewPatches?.length ||
-    value?.sessions?.some((session) => session.captures.length || session.reviewCards.length)
-  );
 }
 
 function renderImportReceipt() {
@@ -2175,23 +2159,6 @@ function workspaceJson() {
   return JSON.stringify(workspace, null, 2);
 }
 
-function workspaceFingerprint(serialized) {
-  let hash = 2166136261;
-  for (let index = 0; index < serialized.length; index += 1) {
-    hash ^= serialized.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
-
-function workspaceBackupFingerprint(value) {
-  const stableWorkspace = {
-    ...value,
-    updatedAt: ""
-  };
-  return workspaceFingerprint(JSON.stringify(stableWorkspace));
-}
-
 function installNativeBridge() {
   window.learningCompanionNative = {
     exportWorkspaceJson() {
@@ -2286,12 +2253,6 @@ function slugify(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
     .slice(0, 80) || "learning-session";
-}
-
-function formatBytes(bytes) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function summarizeCapture(capture) {

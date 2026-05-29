@@ -131,6 +131,7 @@ assert.match(morningReview, /DEMO_SCRIPT\.md/);
 assert.match(morningReview, /CAPTURE_RESUME_RECEIPT\.json/);
 assert.match(morningReview, /No executed local browser smoke in this run/);
 assert.match(morningReview, /When the separate browser gate is allowed/);
+assert.match(morningReview, /stale seven-day export/);
 assert.match(demoScript, /Do not treat dry-run Feishu files/);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
 assert.match(manualQa, /verify the downloaded JSON file yourself/);
