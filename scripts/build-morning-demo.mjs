@@ -505,6 +505,10 @@ assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
 assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
 assert.match(reviewReportHtml, /open question/);
+assert.match(reviewReportHtml, /What To Inspect First/);
+assert.match(reviewReportHtml, /Focus Loop/);
+assert.match(reviewReportHtml, /Question Closure/);
+assert.match(reviewReportHtml, /Evidence Boundary/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
 
 const preSummaryManifest = await collectOutputManifest(OUT_DIR);
@@ -1264,6 +1268,28 @@ function buildReviewStartHereHtml({
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
+  const inspectRows = [
+    [
+      "1. Focus Loop",
+      `Import the sample workspace, then confirm Focus Brief points to review before capture while Today keeps ${openQuestionLabel} visible.`,
+      SAMPLE_WORKSPACE_FILE
+    ],
+    [
+      "2. Question Closure",
+      "Use the Focus Brief open-question signal, then Make card, Resolve, and Reopen from Today/Captures.",
+      MAC_MANUAL_QA_FILE
+    ],
+    [
+      "3. Cross-End Mirror",
+      "Open the static mirror home, then try the portable review and inbox pages as the Windows/Harmony/Feishu folder proxy.",
+      "mirror-folder/index.html"
+    ],
+    [
+      "4. Evidence Boundary",
+      `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
+      DEFERRED_GATES_FILE
+    ]
+  ];
   const tierRows = Object.entries(EVIDENCE_TIER_DEFINITIONS).map(([code, definition]) => [
     code,
     definition.label,
@@ -1288,6 +1314,7 @@ function buildReviewStartHereHtml({
     section { margin-top: 20px; }
     .card { background: #fffaf2; border: 1px solid #e5ded1; border-radius: 8px; padding: 16px; }
     .artifact { display: grid; gap: 6px; }
+    .priority { border-left: 4px solid #0f766e; }
     .badge { display: inline-block; width: fit-content; border: 1px solid #d6cabb; border-radius: 999px; padding: 2px 7px; font-size: 11px; font-weight: 700; color: #5f4b20; background: #fff4d6; }
     a { color: #0f766e; font-weight: 650; text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -1301,6 +1328,7 @@ function buildReviewStartHereHtml({
       body { background: #171612; color: #f3efe6; }
       .banner { background: #2f2415; border-left-color: #f59e0b; }
       .card, table { background: #201f1b; border-color: #3d382f; }
+      .priority { border-left-color: #5eead4; }
       th { background: #2c2923; }
       th, td { border-bottom-color: #3d382f; }
       a { color: #5eead4; }
@@ -1320,6 +1348,12 @@ function buildReviewStartHereHtml({
       <p><span class="badge">${escapeHtml(getEvidenceTierForPath(REVIEW_REPORT_FILE).label)}</span></p>
       <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
     </header>
+    <section>
+      <h2>What To Inspect First</h2>
+      <div class="grid">
+        ${inspectRows.map(([title, description, href]) => `<div class="card priority"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(description)}</p><p class="meta"><a href="${escapeHtml(href)}">${escapeHtml(href)}</a></p></div>`).join("\n        ")}
+      </div>
+    </section>
     <section>
       <h2>Fast Path</h2>
       <div class="grid">
