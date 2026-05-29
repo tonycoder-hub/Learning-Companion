@@ -32,7 +32,7 @@ Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
 | Browser context | Capture while Safari or Chrome is frontmost on an HTTP(S) page. | Title/URL attach when Automation is available, otherwise text-only capture succeeds. | NT |  |
 | Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |
 | Native import failure | Import malformed JSON. | Alert and in-app issue receipt explain the failure. | NT |  |
-| Export backup | After adding a capture, confirm the storage notice appears; then use `File > Export Workspace...`. | Notice asks for export before backup and asks you to confirm the requested JSON download was actually saved after export. | NT |  |
+| Export backup | After adding a capture, confirm the storage notice appears; then use `File > Export Workspace...`. | Notice asks for export before backup and then asks you to verify the downloaded JSON file yourself. | NT |  |
 | Relaunch persistence | Quit and relaunch. | Workspace persists through WebKit localStorage. | NT |  |
 
 Permission prompts are expected for Accessibility or browser Automation; record them instead of treating them as automatic failures.

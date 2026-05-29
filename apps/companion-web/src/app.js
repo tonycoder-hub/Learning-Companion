@@ -2165,9 +2165,9 @@ function exportWorkspace() {
     }
   };
   saveUiPrefs();
-  storageWarning = "Export requested - confirm file saved";
+  storageWarning = "Export requested - verify downloaded file";
   renderStorageNotice();
-  showToast("Export requested - confirm file saved");
+  showToast("Export requested - verify downloaded file");
 }
 
 function workspaceJson() {

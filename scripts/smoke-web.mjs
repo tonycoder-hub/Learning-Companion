@@ -91,7 +91,7 @@ assert.match(appJs, /openSearchResult\(results\[Math\.max\(0, activeSearchIndex\
 assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 2/);
 assert.match(appJs, /Local changes not exported/);
 assert.match(appJs, /workspaceBackupFingerprint/);
-assert.match(appJs, /Export requested - confirm file saved/);
+assert.match(appJs, /Export requested - verify downloaded file/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v2/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
