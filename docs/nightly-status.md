@@ -25,6 +25,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Credential-free Feishu uploader boundary can validate a mirror bundle, build an upload plan, materialize the Drive folder locally, and emit a dry-run upload report without reading live credentials.
 - Feishu dry-run report records a no-network `wouldSend` envelope with virtual upsert paths, byte counts, and payload SHA-256 hashes.
 - Morning review pack now emits `EVIDENCE_TIERS.json` and visible `EVIDENCE:` badges so dry-run, handoff-only, and user-gated artifacts are not mistaken for live readiness.
+- Morning receipt contract validator checks generated JSON receipts for schema names, evidence tiers, and critical booleans before the offline gate passes.
 - Capture-to-resume receipt proves three synthetic browser captures written through `addCapture` appear in the generated Today resume pack without requiring GUI permissions.
 - Mirror integrity report walks the generated static mirror and checks every internal HTML/Markdown link before the morning pack is accepted.
 - Morning determinism report runs the generator twice in isolated temp directories and compares output bytes.
@@ -104,7 +105,7 @@ npm run check:morning:browser
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
-`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, demo pack generation, determinism, mirror integrity, and git status.
+`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, demo pack generation, receipt contracts, determinism, mirror integrity, and git status.
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 

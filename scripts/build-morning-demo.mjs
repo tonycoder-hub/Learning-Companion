@@ -722,7 +722,7 @@ function buildMorningReviewMarkdown({
     "- `npm run smoke` covers model contracts and generated static artifacts.",
     "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract plus pure import/patch boundary fixtures.",
     "- `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, patch import receipts, duplicate review patch receipts, and visible issue receipts for bad mirror, malformed JSON, and oversized patch imports.",
-    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, determinism, and mirror integrity.",
+    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, receipt contracts, determinism, and mirror integrity.",
     "- `npm run check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.",
     "- `npm run check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.",
     ""

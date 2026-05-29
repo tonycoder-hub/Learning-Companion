@@ -22,6 +22,10 @@ echo "== Morning demo pack =="
 npm run demo:morning
 echo
 
+echo "== Morning receipt contracts =="
+npm run morning:receipts
+echo
+
 echo "== Morning determinism =="
 npm run morning:determinism
 echo
