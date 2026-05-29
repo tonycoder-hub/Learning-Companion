@@ -177,6 +177,7 @@ try {
     const backupPrefsAfterExport = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").workspaceBackup || {};
     const backupNoticeAfterExport = {
       hidden: document.querySelector("#storageNotice").hidden,
+      text: document.querySelector("#storageNoticeText").textContent,
       fingerprint: backupPrefsAfterExport.fingerprint || "",
       exportedAt: backupPrefsAfterExport.exportedAt || ""
     };
@@ -854,7 +855,8 @@ try {
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.deepEqual(result.backupNoticeAfterCapture, { hidden: false, text: "Local changes not exported" });
-  assert.equal(result.backupNoticeAfterExport.hidden, true);
+  assert.equal(result.backupNoticeAfterExport.hidden, false);
+  assert.equal(result.backupNoticeAfterExport.text, "Export requested - confirm file saved");
   assert.match(result.backupNoticeAfterExport.fingerprint, /^[a-f0-9]{8}$/);
   assert.match(result.backupNoticeAfterExport.exportedAt, /^20/);
   assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });

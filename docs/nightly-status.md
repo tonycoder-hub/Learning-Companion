@@ -66,7 +66,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for the active session.
 - Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs.
-- Storage notice prompts for a local workspace export after committed learning data changes until a fresh backup marker is recorded.
+- Storage notice prompts for a local workspace export after committed learning data changes, then asks the user to confirm the requested download was actually saved.
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
