@@ -63,6 +63,12 @@ assert.equal(captureResume.roundTrip.ok, true);
 assert.equal(captureResume.roundTrip.allInputsVisibleInToday, true);
 assert.equal(captureResume.roundTrip.todayHashChanged, true);
 assert.equal(captureResume.roundTrip.focusBriefNextAction, "synthesize");
+assert.equal(captureResume.draftFocus.schema, "learning-companion.capture-draft-focus-receipt.v1");
+assert.equal(captureResume.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride, false);
+assert.equal(captureResume.draftFocus.cases.dueReviewBeatsFreshDraft.blockedByReview, true);
+assert.equal(captureResume.draftFocus.cases.freshDraftBeatsSynthesis.shouldOverride, true);
+assert.equal(captureResume.draftFocus.cases.staleDraftDoesNotOverride.shouldOverride, false);
+assert.equal(captureResume.draftFocus.cases.timestampOnlyDoesNotOverride.shouldOverride, false);
 
 assert.equal(patchIntakeNegative.schema, "learning-companion.patch-intake-negative-receipt.v1");
 assertEvidence(patchIntakeNegative.evidence, "EXECUTED", files.patchIntakeNegative);

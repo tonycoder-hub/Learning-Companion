@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import {
   addCapture,
+  buildFocusBrief,
   buildSourceJumpUrl,
   buildTodayPack,
+  createSession,
   generateTodayMarkdown,
+  resolveCaptureDraftFocusOverride,
   sanitizeWorkspace
 } from "../apps/companion-web/src/model.js";
 
@@ -40,6 +43,7 @@ export function buildCaptureResumeReceipt(options = {}) {
     assert.equal(recentThoughts.has(event.thought), true);
   });
   assert.equal(afterPack.focusBrief.nextAction.kind, "synthesize");
+  const draftFocus = buildDraftFocusReceipt(baseTime);
 
   return {
     schema: CAPTURE_RESUME_RECEIPT_SCHEMA,
@@ -105,7 +109,83 @@ export function buildCaptureResumeReceipt(options = {}) {
       focusBriefNextAction: afterPack.focusBrief.nextAction.kind,
       sourceUrlsPreserved: addedCaptures.every((capture) => Boolean(buildSourceJumpUrl(capture.sourceUrl, capture.timestamp)))
     },
+    draftFocus,
     todayDiff: summarizeLineDiff(beforeToday, afterToday)
+  };
+}
+
+function buildDraftFocusReceipt(baseTime) {
+  const freshDraft = {
+    quote: "Uncommitted quote should resume only when review is not due.",
+    thought: "Draft is local UI state, not workspace truth.",
+    updatedAt: new Date(baseTime.getTime() - 60_000).toISOString()
+  };
+  const staleDraft = {
+    thought: "Old draft should stay visible in Today, not own Focus Brief.",
+    updatedAt: new Date(baseTime.getTime() - 25 * 60 * 60_000).toISOString()
+  };
+  const timestampOnlyDraft = {
+    timestamp: "08:12",
+    updatedAt: new Date(baseTime.getTime() - 60_000).toISOString()
+  };
+  const dueSession = createSession({
+    id: "draft_focus_due",
+    title: "Draft focus due review",
+    sourceUrl: "https://example.com/draft-focus",
+    reviewCards: [{
+      id: "draft_focus_due_card",
+      prompt: "What wins over draft resume?",
+      answer: "Due review.",
+      dueAt: new Date(baseTime.getTime() - 60_000).toISOString(),
+      strength: 0
+    }]
+  }, "client_capture_resume_receipt");
+  const dueWorkspace = sanitizeWorkspace({
+    schema: "learning-companion.workspace.v1",
+    schemaVersion: 1,
+    version: 1,
+    clientId: "client_capture_resume_receipt",
+    activeSessionId: dueSession.id,
+    importedPatches: [],
+    importedReviewPatches: [],
+    createdAt: baseTime.toISOString(),
+    updatedAt: baseTime.toISOString(),
+    sessions: [dueSession]
+  });
+  const dueBrief = buildFocusBrief(dueSession, dueWorkspace, baseTime);
+  const synthesisBrief = buildFocusBrief(createSession({
+    id: "draft_focus_synthesis",
+    title: "Draft focus synthesis",
+    sourceUrl: "https://example.com/draft-focus",
+    captures: [
+      { id: "draft_focus_cap_1", thought: "First", capturedAt: new Date(baseTime.getTime() - 180_000).toISOString() },
+      { id: "draft_focus_cap_2", thought: "Second", capturedAt: new Date(baseTime.getTime() - 120_000).toISOString() },
+      { id: "draft_focus_cap_3", thought: "Third", capturedAt: new Date(baseTime.getTime() - 60_000).toISOString() }
+    ],
+    reviewCards: []
+  }, "client_capture_resume_receipt"), null, baseTime);
+  const dueResult = resolveCaptureDraftFocusOverride(dueBrief, freshDraft, baseTime);
+  const synthesisResult = resolveCaptureDraftFocusOverride(synthesisBrief, freshDraft, baseTime);
+  const staleResult = resolveCaptureDraftFocusOverride(synthesisBrief, staleDraft, baseTime);
+  const timestampOnlyResult = resolveCaptureDraftFocusOverride(synthesisBrief, timestampOnlyDraft, baseTime);
+
+  assert.equal(dueBrief.nextAction.kind, "review");
+  assert.equal(dueResult.shouldOverride, false);
+  assert.equal(dueResult.blockedByReview, true);
+  assert.equal(synthesisBrief.nextAction.kind, "synthesize");
+  assert.equal(synthesisResult.shouldOverride, true);
+  assert.equal(staleResult.shouldOverride, false);
+  assert.equal(timestampOnlyResult.shouldOverride, false);
+
+  return {
+    schema: "learning-companion.capture-draft-focus-receipt.v1",
+    maxAgeHours: synthesisResult.maxAgeHours,
+    cases: {
+      dueReviewBeatsFreshDraft: dueResult,
+      freshDraftBeatsSynthesis: synthesisResult,
+      staleDraftDoesNotOverride: staleResult,
+      timestampOnlyDoesNotOverride: timestampOnlyResult
+    }
   };
 }
 
