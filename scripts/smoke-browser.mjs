@@ -188,7 +188,10 @@ try {
     const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
     const todayHasDueReview = todayText.includes("Due Review") && todayText.includes("Ownership lets Rust");
     const todayHasRecentCapture = todayText.includes("Recent Captures") && todayText.includes("compiler-enforced lifetimes");
-    const todayOpenLinkText = [...document.querySelectorAll("#todayTab .mini-button")]
+    const todayDueOpenLinkText = [...document.querySelectorAll("#todayTab .due-card .mini-button")]
+      .map((button) => button.textContent)
+      .find((text) => text.startsWith("Open @")) || "";
+    const todayRecentOpenLinkText = [...document.querySelectorAll("#todayTab .item-card:not(.due-card) .mini-button")]
       .map((button) => button.textContent)
       .find((text) => text.startsWith("Open @")) || "";
     document.querySelector("#activityDetailsBtn").click();
@@ -483,7 +486,8 @@ try {
           todayActive,
           todayHasDueReview,
           todayHasRecentCapture,
-          todayOpenLinkText,
+          todayDueOpenLinkText,
+          todayRecentOpenLinkText,
           noteInsertions,
           noteHasSource,
           searchBeforeOpen,
@@ -649,7 +653,8 @@ try {
   assert.equal(result.todayActive, true);
   assert.equal(result.todayHasDueReview, true);
   assert.equal(result.todayHasRecentCapture, true);
-  assert.equal(result.todayOpenLinkText, "Open @ 08:12");
+  assert.equal(result.todayDueOpenLinkText, "Open @ 08:12");
+  assert.equal(result.todayRecentOpenLinkText, "Open @ 08:12");
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.ok(result.searchBeforeOpen.count >= 1);

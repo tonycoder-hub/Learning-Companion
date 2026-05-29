@@ -1489,6 +1489,8 @@ function renderToday() {
     dom.todayList.append(emptyState("No cards due right now"));
   } else {
     pack.dueItems.forEach((item) => {
+      const sourceSession = workspace.sessions.find((session) => session.id === item.sessionId);
+      const sourceCapture = sourceSession?.captures.find((capture) => capture.id === item.card.sourceCaptureId);
       const card = document.createElement("article");
       card.className = "item-card due-card";
       card.append(
@@ -1497,6 +1499,15 @@ function renderToday() {
       );
       const footer = document.createElement("div");
       footer.className = "item-footer";
+      const sourceHref = buildSourceJumpUrl(sourceCapture?.sourceUrl || sourceSession?.sourceUrl, sourceCapture?.timestamp || "");
+      if (sourceHref) {
+        const open = textEl("button", "mini-button", sourceCapture?.timestamp ? `Open @ ${sourceCapture.timestamp}` : "Open source");
+        open.type = "button";
+        open.addEventListener("click", () => {
+          window.open(sourceHref, "_blank", "noopener,noreferrer");
+        });
+        footer.append(open);
+      }
       const review = textEl("button", "mini-button primary", "Review");
       review.type = "button";
       review.addEventListener("click", () => startReviewAtItem(item));
