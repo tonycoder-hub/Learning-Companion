@@ -21,11 +21,14 @@ import {
 } from "./feishu-mirror-uploader.mjs";
 import { buildCaptureResumeReceipt } from "./capture-resume-receipt.mjs";
 import { buildMirrorIntegrityReport } from "./mirror-integrity-check.mjs";
+import { buildMorningDeterminismReport } from "./morning-determinism-check.mjs";
 
-const OUT_DIR = "dist/morning-demo";
+const OUT_DIR = process.env.MORNING_DEMO_OUT_DIR || "dist/morning-demo";
 const MIRROR_DIR = join(OUT_DIR, "mirror-folder");
 const FEISHU_UPLOAD_DIR = join(OUT_DIR, "feishu-upload");
 const PATCH_DIR = join(OUT_DIR, "patches");
+const MORNING_GENERATED_AT = "2026-05-29T07:20:00.000+08:00";
+const CAPTURE_RESUME_GENERATED_AT = "2026-05-29T07:25:00.000+08:00";
 const SAMPLE_WORKSPACE_FILE = "sample-workspace.json";
 const SAMPLE_MIRROR_JSON_FILE = "sample-feishu-mirror.json";
 const SAMPLE_HARMONY_READER_FILE = "sample-harmony-reader-view.json";
@@ -38,6 +41,7 @@ const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
 const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
 const MIRROR_INTEGRITY_FILE = "MIRROR_INTEGRITY.json";
+const DETERMINISM_FILE = "DETERMINISM.json";
 
 const EVIDENCE_TIER_DEFINITIONS = Object.freeze({
   EXECUTED: {
@@ -268,8 +272,12 @@ await rm(OUT_DIR, { recursive: true, force: true });
 await mkdir(MIRROR_DIR, { recursive: true });
 await mkdir(PATCH_DIR, { recursive: true });
 
-const mirrorBundle = buildMirrorBundle(demoWorkspace);
-const mirrorZip = buildMirrorZip(demoWorkspace);
+const mirrorBundle = buildMirrorBundle(demoWorkspace, {
+  exportedAt: MORNING_GENERATED_AT
+});
+const mirrorZip = buildMirrorZip(demoWorkspace, {
+  exportedAt: MORNING_GENERATED_AT
+});
 const feishuUploadPlan = buildFeishuUploadPlan(mirrorBundle, {
   rootName: "Learning Companion Morning Demo",
   generatedAt: mirrorBundle.exportedAt
@@ -292,7 +300,7 @@ const feishuUploadReport = buildFeishuUploadDryRunReport(feishuUploadPlan, join(
 });
 await writeJson(join(FEISHU_UPLOAD_DIR, "feishu-upload-report.json"), feishuUploadReport);
 const captureResumeReceipt = buildCaptureResumeReceipt({
-  generatedAt: "2026-05-29T07:25:00.000+08:00"
+  generatedAt: CAPTURE_RESUME_GENERATED_AT
 });
 await writeJson(join(OUT_DIR, CAPTURE_RESUME_RECEIPT_FILE), captureResumeReceipt);
 assert.equal(feishuUploadResult.fileCount, mirrorBundle.files.length);
@@ -317,6 +325,15 @@ const mirrorIntegrityReport = buildMirrorIntegrityReport(MIRROR_DIR, {
 await writeJson(join(OUT_DIR, MIRROR_INTEGRITY_FILE), mirrorIntegrityReport);
 assert.equal(mirrorIntegrityReport.ok, true);
 assert.equal(mirrorIntegrityReport.summary.brokenLinks, 0);
+let determinismReport = null;
+if (process.env.MORNING_SKIP_DETERMINISM !== "1") {
+  determinismReport = buildMorningDeterminismReport({
+    checkedAt: mirrorBundle.exportedAt
+  });
+  await writeJson(join(OUT_DIR, DETERMINISM_FILE), determinismReport);
+  assert.equal(determinismReport.ok, true);
+  assert.equal(determinismReport.summary.differences, 0);
+}
 
 const macManualQaMarkdown = buildMacManualQaMarkdown({
   sampleMirrorZipFile,
@@ -333,6 +350,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  determinismReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
@@ -345,6 +363,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  determinismReport,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
   macManualQaStatus
@@ -363,6 +382,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  determinismReport,
   harmonyReaderView,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
@@ -386,7 +406,9 @@ const evidenceTiers = buildEvidenceTierManifest(preSummaryManifest, {
 });
 await writeJson(join(OUT_DIR, EVIDENCE_TIERS_FILE), evidenceTiers);
 const outputManifest = await collectOutputManifest(OUT_DIR);
-const credentialSweep = await scanForCredentialLikeText(OUT_DIR);
+const credentialSweep = await scanForCredentialLikeText(OUT_DIR, {
+  rootLabel: "morning-demo"
+});
 assert.equal(credentialSweep.ok, true, `credential-like text found in ${credentialSweep.matches.map((item) => item.path).join(", ")}`);
 await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   ok: true,
@@ -408,7 +430,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     "off-Mac generated patch imported on Mac"
   ],
   disclaimer: "Fixture-only generated sample data. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
-  generatedAt: new Date().toISOString(),
+  generatedAt: mirrorBundle.exportedAt,
   provenance: {
     gitSha: getGitSha(),
     nodeVersion: process.version,
@@ -434,6 +456,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   },
   captureResumeReceipt: CAPTURE_RESUME_RECEIPT_FILE,
   mirrorIntegrity: MIRROR_INTEGRITY_FILE,
+  determinism: determinismReport ? DETERMINISM_FILE : null,
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   macManualQaStatus,
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
@@ -456,6 +479,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     captureResumeTodayHashChanged: captureResumeReceipt.roundTrip.todayHashChanged,
     mirrorIntegrityOk: mirrorIntegrityReport.ok,
     mirrorIntegrityBrokenLinks: mirrorIntegrityReport.summary.brokenLinks,
+    morningDeterministic: determinismReport ? determinismReport.ok : "skipped",
     harmonyReaderTopics: harmonyReaderView.topics.length,
     dashboardLinksExist: true,
     credentialSweepOk: credentialSweep.ok
@@ -483,6 +507,7 @@ function buildStageMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  determinismReport,
   harmonyReaderView,
   unsupportedInboxPatchRejected,
   macManualQaStatus
@@ -503,6 +528,7 @@ function buildStageMarkdown({
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}. | Native selected-text GUI permissions, real browser selection. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
+    `| Morning determinism | ${determinismReport ? "executed-byte-compare" : "SKIPPED(child-run)"} | ${determinismReport ? `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.` : "Skipped inside determinism child run."} | Runtime environment outside this repo. |`,
     `| HarmonyOS | schema-prototype | Reader view has ${harmonyReaderView.topics.length} topics and ${harmonyReaderView.dueReview.length} due cards; import/patch boundary is covered by smoke. | Real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
@@ -599,6 +625,7 @@ function buildMorningReviewMarkdown({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  determinismReport,
   harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
@@ -642,6 +669,7 @@ function buildMorningReviewMarkdown({
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, not sent)`,
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today)`,
     `- Mirror integrity report: \`${MIRROR_INTEGRITY_FILE}\` (${mirrorIntegrityReport.summary.internalLinks} internal links checked, ${mirrorIntegrityReport.summary.brokenLinks} broken)`,
+    determinismReport ? `- Determinism report: \`${DETERMINISM_FILE}\` (${determinismReport.summary.comparedFiles} files compared across two isolated runs)` : "",
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
     `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, schema prototype)`,
     `- Sample workspace restore: \`${SAMPLE_WORKSPACE_FILE}\``,
@@ -669,6 +697,7 @@ function buildMorningReviewMarkdown({
     `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes; ${feishuUploadReport.boundary.statement}`,
     `- Capture to resume sample: ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added, Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}, all inputs visible in Today: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}.`,
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
+    determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
@@ -702,6 +731,7 @@ function buildReviewStartHereHtml({
   feishuUploadReport,
   captureResumeReceipt,
   mirrorIntegrityReport,
+  determinismReport,
   harmonyReaderView,
   inboxReceipt,
   duplicateInboxReceipt,
@@ -724,6 +754,7 @@ function buildReviewStartHereHtml({
     ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests remain not-sent.`],
     ["Capture Resume Receipt", CAPTURE_RESUME_RECEIPT_FILE, `${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through model path and surfaced in Today.`],
     ["Mirror Integrity Report", MIRROR_INTEGRITY_FILE, `${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken.`],
+    ...(determinismReport ? [["Determinism Report", DETERMINISM_FILE, `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.`]] : []),
     ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
     ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics; not device-verified.`],
     ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
@@ -742,12 +773,14 @@ function buildReviewStartHereHtml({
     ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.boundary.statement}`],
     ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; all inputs visible: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}`],
     ["Mirror integrity", mirrorIntegrityReport.ok ? "ok" : "broken", `${mirrorIntegrityReport.summary.internalLinks} internal links; ${mirrorIntegrityReport.summary.brokenLinks} broken`],
+    ...(determinismReport ? [["Morning determinism", determinismReport.ok ? "ok" : "diff", `${determinismReport.summary.comparedFiles} files; ${determinismReport.summary.differences} differences`]] : []),
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards`]
   ];
   const stageRows = [
     ["Mac shell", "internal-build", "SwiftPM build and native bridge smoke", "signed/notarized app"],
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today`, "native GUI selection"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
+    ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
     ["HarmonyOS", "schema-prototype", `${harmonyReaderView.topics.length} topic reader view`, "real device roundtrip"],
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
@@ -915,6 +948,9 @@ function getEvidenceTierForPath(path) {
   if (normalized === MIRROR_INTEGRITY_FILE) {
     return evidenceTier("EXECUTED", "Static mirror folder was walked and every internal HTML/Markdown link was resolved on disk.");
   }
+  if (normalized === DETERMINISM_FILE) {
+    return evidenceTier("EXECUTED", "Morning generator was run twice in isolated temp directories and output bytes were compared.");
+  }
   if (normalized === "SUMMARY.json") {
     return evidenceTier("EXECUTED", "Generated after local checks and credential sweep; records hashes, gates, and evidence-tier counts.");
   }
@@ -971,7 +1007,7 @@ async function collectOutputManifest(root) {
   return entries.sort((a, b) => a.path.localeCompare(b.path));
 }
 
-async function scanForCredentialLikeText(root) {
+async function scanForCredentialLikeText(root, options = {}) {
   const patterns = [
     { name: "authorization-header", regex: /\bAuthorization\s*:/i },
     { name: "cookie-header", regex: /\b(Set-)?Cookie\s*:/i },
@@ -995,7 +1031,7 @@ async function scanForCredentialLikeText(root) {
   return {
     ok: matches.length === 0,
     scope: {
-      root,
+      root: options.rootLabel || root,
       ruleset: "credential-like-text.v1",
       skippedBinaryExtensions: [".zip"]
     },

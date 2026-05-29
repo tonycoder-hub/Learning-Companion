@@ -30,6 +30,10 @@ echo "== Morning demo pack =="
 npm run demo:morning
 echo
 
+echo "== Morning determinism =="
+npm run morning:determinism
+echo
+
 echo "== Mirror integrity =="
 npm run mirror:integrity
 echo

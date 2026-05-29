@@ -599,7 +599,7 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const materialType = captureInput.materialType || sourceSession?.materialType;
   const capture = {
-    id: makeId("capture"),
+    id: cleanText(captureInput.id, 128) || makeId("capture"),
     quote,
     thought,
     timestamp: cleanText(captureInput.timestamp, 32),
@@ -1710,8 +1710,8 @@ export function buildFeishuPayload(session, now = new Date()) {
   };
 }
 
-export function buildMirrorBundle(workspace) {
-  const exportedAt = nowIso();
+export function buildMirrorBundle(workspace, options = {}) {
+  const exportedAt = optionIso(options.exportedAt) || nowIso();
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
@@ -1838,8 +1838,8 @@ export function buildMirrorBundle(workspace) {
   };
 }
 
-export function buildMirrorZip(workspace) {
-  const bundle = buildMirrorBundle(workspace);
+export function buildMirrorZip(workspace, options = {}) {
+  const bundle = buildMirrorBundle(workspace, options);
   const files = bundle.files.map((file) => ({
     path: file.path,
     content: file.content

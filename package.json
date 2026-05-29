@@ -8,6 +8,7 @@
     "check:morning": "bash scripts/morning-check.sh",
     "demo:capture-resume": "node scripts/demo-capture-resume.mjs",
     "demo:morning": "node scripts/build-morning-demo.mjs",
+    "morning:determinism": "node scripts/morning-determinism-check.mjs",
     "mac:build": "swift build --package-path apps/companion-mac",
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",
     "smoke": "node scripts/smoke-web.mjs",

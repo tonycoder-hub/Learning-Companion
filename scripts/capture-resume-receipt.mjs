@@ -57,6 +57,7 @@ export function buildCaptureResumeReceipt(options = {}) {
       eventCount: captureEvents.length,
       eventsSha256: sha256Json(captureEvents),
       events: captureEvents.map((event) => ({
+        id: event.id,
         quoteSha256: sha256Text(event.quote),
         thought: event.thought,
         timestamp: event.timestamp,
@@ -136,8 +137,9 @@ function buildSeedWorkspace(baseTime) {
 function buildCaptureEvents(baseTime) {
   const capturedAt = (minutesBefore) => new Date(baseTime.getTime() - minutesBefore * 60_000).toISOString();
   return [
-    {
-      quote: "A covering index can answer the query without touching the base table.",
+      {
+        id: "capture_resume_covering_index",
+        quote: "A covering index can answer the query without touching the base table.",
       thought: "Covering indexes trade write overhead for read locality.",
       timestamp: "03:12",
       capturedAt: capturedAt(3),
@@ -147,8 +149,9 @@ function buildCaptureEvents(baseTime) {
       sourceProvenance: "snapshot",
       tags: ["index", "read-path"]
     },
-    {
-      quote: "The planner estimates selectivity before choosing the access path.",
+      {
+        id: "capture_resume_selectivity",
+        quote: "The planner estimates selectivity before choosing the access path.",
       thought: "Selectivity is the bridge between statistics and query shape.",
       timestamp: "09:44",
       capturedAt: capturedAt(2),
@@ -158,8 +161,9 @@ function buildCaptureEvents(baseTime) {
       sourceProvenance: "snapshot",
       tags: ["planner", "statistics"]
     },
-    {
-      quote: "Partial indexes are powerful when the predicate matches the workload.",
+      {
+        id: "capture_resume_partial_index",
+        quote: "Partial indexes are powerful when the predicate matches the workload.",
       thought: "Partial index usefulness depends on stable query predicates.",
       timestamp: "16:05",
       capturedAt: capturedAt(1),
