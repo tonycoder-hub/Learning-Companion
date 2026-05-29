@@ -2471,7 +2471,10 @@ function buildFocusBriefWarnings(session, capturesSinceLastSynthesis, synthesisD
     questionCount > 0 ? {
       kind: "open_questions",
       label: formatCount(questionCount, "open question"),
-      detail: "Captured questions are parked for synthesis or review before closing the loop."
+      detail: "Captured questions are parked for synthesis or review before closing the loop.",
+      actionLabel: "Open questions",
+      targetTab: "today",
+      targetSection: "open_questions"
     } : null,
     synthesisDue ? {
       kind: "needs_synthesis",

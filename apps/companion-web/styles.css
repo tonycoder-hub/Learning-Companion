@@ -531,6 +531,18 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.focus-signal.signal-button {
+  appearance: none;
+  min-height: 28px;
+  font-weight: 700;
+}
+
+.focus-signal.signal-button:hover,
+.focus-signal.signal-button:focus {
+  border-color: rgba(47, 111, 94, 0.45);
+  box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.12);
+}
+
 .focus-signal.warn {
   border-color: rgba(167, 96, 23, 0.28);
   background: var(--amber-soft);

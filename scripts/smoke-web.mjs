@@ -104,6 +104,9 @@ assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 2/);
 assert.match(appJs, /workspaceBackupFingerprint/);
 assert.match(appJs, /workspaceStorageNotice/);
 assert.match(appJs, /Export requested - verify downloaded file/);
+assert.match(appJs, /openFocusBriefWarning/);
+assert.match(appJs, /data-today-section/);
+assert.match(appJs, /signal-button/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v2/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
@@ -455,6 +458,10 @@ assert.equal(captureHasOpenQuestion(questionSession.captures[0]), true);
 assert.equal(getSynthesisStats(questionSession).questions, 1);
 assert.equal(questionBrief.stats.questions, 1);
 assert.equal(questionBrief.warnings.some((warning) => warning.kind === "open_questions"), true);
+const questionWarning = questionBrief.warnings.find((warning) => warning.kind === "open_questions");
+assert.equal(questionWarning.actionLabel, "Open questions");
+assert.equal(questionWarning.targetTab, "today");
+assert.equal(questionWarning.targetSection, "open_questions");
 assert.match(generateSynthesisDraft(questionSession), /Why does ownership make aliasing safe？/);
 
 let questionLifecycleWorkspace = sanitizeWorkspace({

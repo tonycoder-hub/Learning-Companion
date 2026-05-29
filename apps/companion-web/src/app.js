@@ -1170,7 +1170,14 @@ function renderFocusBrief() {
   if (brief.warnings.length) {
     brief.warnings.forEach((warning) => {
       const signalClass = warning.kind === "open_questions" ? "focus-signal" : "focus-signal warn";
-      const signal = textEl("span", signalClass, warning.label);
+      const signal = warning.targetTab
+        ? textEl("button", `${signalClass} signal-button`, warning.label)
+        : textEl("span", signalClass, warning.label);
+      if (signal.tagName === "BUTTON") {
+        signal.type = "button";
+        signal.setAttribute("aria-label", warning.actionLabel || warning.label);
+        signal.addEventListener("click", () => openFocusBriefWarning(warning));
+      }
       signal.title = warning.detail;
       dom.focusBriefSignals.append(signal);
     });
@@ -1222,6 +1229,23 @@ function focusBriefButtonLabel(kind) {
     continue: "Open",
     open_source: "Source"
   }[kind] || "Go";
+}
+
+function openFocusBriefWarning(warning) {
+  if (!warning?.targetTab) return;
+  activeTab = warning.targetTab;
+  if (uiPrefs.sidecarLayout) {
+    uiPrefs = { ...uiPrefs, sidecarLayout: false };
+    saveUiPrefs();
+    renderShellMode();
+  }
+  renderInspector();
+  const section = warning.targetSection
+    ? document.querySelector(`[data-today-section="${CSS.escape(warning.targetSection)}"]`)
+    : null;
+  section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  pulseNode(section);
+  renderActivity(getActiveSession(workspace));
 }
 
 function runFocusBriefAction() {
@@ -1824,7 +1848,9 @@ function renderToday() {
     if (pack.dueOverflow) dom.todayList.append(emptyState(`+${pack.dueOverflow} more due cards in workspace.json`));
   }
 
-  dom.todayList.append(textEl("div", "today-section-title", "Open Questions"));
+  const openQuestionTitle = textEl("div", "today-section-title", "Open Questions");
+  openQuestionTitle.dataset.todaySection = "open_questions";
+  dom.todayList.append(openQuestionTitle);
   if (!pack.questionItems.length) {
     dom.todayList.append(emptyState("No open questions captured"));
   } else {

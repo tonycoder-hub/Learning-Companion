@@ -197,6 +197,7 @@ assert.match(stage, /Live video-site playback QA is not proven/);
 assert.match(reviewStartHere, /live video-site playback QA is not proven/i);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
 assert.match(manualQa, /verify the downloaded JSON file yourself/);
+assert.match(manualQa, /Focus Brief question signal/);
 assert.match(manualQa, /Open question handoff/);
 assert.match(manualQa, /Question close loop/);
 assert.match(manualQa, /Make card creates a review card/);
