@@ -1780,6 +1780,7 @@ function renderToday() {
   clearChildren(dom.todayList);
   dom.todaySummary.append(
     todayStat(String(stats.due), "due"),
+    todayStat(String(stats.questions), "questions"),
     todayStat(String(stats.captures), "captures"),
     todayStat(String(stats.cards), "cards")
   );
@@ -1819,6 +1820,45 @@ function renderToday() {
       dom.todayList.append(card);
     });
     if (pack.dueOverflow) dom.todayList.append(emptyState(`+${pack.dueOverflow} more due cards in workspace.json`));
+  }
+
+  dom.todayList.append(textEl("div", "today-section-title", "Open Questions"));
+  if (!pack.questionItems.length) {
+    dom.todayList.append(emptyState("No open questions captured"));
+  } else {
+    pack.questionItems.forEach(({ sessionId, sessionTitle, capture }) => {
+      const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+      const item = document.createElement("article");
+      item.className = "item-card question-card";
+      item.append(textEl("div", "item-meta", [
+        sessionTitle,
+        capture.timestamp || "",
+        new Date(capture.createdAt).toLocaleString()
+      ].filter(Boolean).join(" · ")));
+      const thought = document.createElement("div");
+      thought.className = "capture-thought markdown-lite";
+      renderMarkdown(thought, capture.thought || capture.quote || "Untitled question");
+      item.append(thought);
+      const footer = document.createElement("div");
+      footer.className = "item-footer";
+      footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+      const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
+      if (sourceHref) {
+        const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+        open.type = "button";
+        open.addEventListener("click", () => {
+          window.open(sourceHref, "_blank", "noopener,noreferrer");
+        });
+        footer.append(open);
+      }
+      const view = textEl("button", "mini-button", "View");
+      view.type = "button";
+      view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
+      footer.append(view);
+      item.append(footer);
+      dom.todayList.append(item);
+    });
+    if (pack.questionOverflow) dom.todayList.append(emptyState(`+${pack.questionOverflow} more open questions in workspace.json`));
   }
 
   dom.todayList.append(textEl("div", "today-section-title", "Recent Captures"));

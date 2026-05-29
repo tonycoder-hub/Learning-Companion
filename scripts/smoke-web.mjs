@@ -692,8 +692,10 @@ assert.equal(staleSynthesisBrief.nextAction.kind, "synthesize");
 const frozenToday = new Date("2099-01-02T00:00:00.000Z");
 const todayPack = buildTodayPack(multiReviewWorkspace, frozenToday, { dueLimit: 1, recentLimit: 1 });
 assert.equal(todayPack.stats.due, 2);
+assert.equal(todayPack.stats.questions, 0);
 assert.equal(todayPack.dueItems.length, 1);
 assert.equal(todayPack.dueOverflow, 1);
+assert.equal(todayPack.questionItems.length, 0);
 assert.equal(todayPack.recentCaptures.length, 1);
 assert.equal(todayPack.focusBrief.nextAction.kind, "review");
 assert.equal(todayPack.focusBrief.sessionId, multiReviewWorkspace.activeSessionId);
@@ -711,8 +713,56 @@ assert.match(todayMarkdown, /Resume Here/);
 assert.match(todayMarkdown, /Next: Review/);
 assert.match(todayMarkdown, /\]\(sessions\/.+\.md\)/);
 assert.match(todayMarkdown, /Due Review/);
+assert.match(todayMarkdown, /Open Questions/);
+assert.match(todayMarkdown, /No open questions captured yet/);
 assert.match(todayMarkdown, /Recent Captures/);
 assert.match(todayMarkdown, /Recall why greedy selection works/);
+
+const questionTodayWorkspace = addCapture(multiReviewWorkspace, algorithmsSession.id, {
+  quote: "A stale heap item can survive after a better path is found.",
+  thought: "Which invariant breaks if the heap is stale?",
+  timestamp: "14:05",
+  tags: "question graph"
+}, { now: "2099-01-02T00:05:00.000Z" });
+const questionTodayPack = buildTodayPack(questionTodayWorkspace, frozenToday, {
+  dueLimit: 1,
+  questionLimit: 1,
+  recentLimit: 1
+});
+assert.equal(questionTodayPack.stats.questions, 1);
+assert.equal(questionTodayPack.questionItems.length, 1);
+assert.equal(questionTodayPack.questionItems[0].sessionTitle, "Algorithms course");
+assert.match(questionTodayPack.questionItems[0].sessionPath, /^sessions\/.+\.md$/);
+assert.equal(questionTodayPack.questionOverflow, 0);
+const questionTodayMarkdown = generateTodayMarkdown(questionTodayWorkspace, frozenToday);
+assert.match(questionTodayMarkdown, /Open question rule: latest 6 open question captures by capturedAt/);
+assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 2 cards \/ 2 due cards/);
+assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
+assert.match(questionTodayMarkdown, /Which invariant breaks if the heap is stale\?/);
+assert.match(questionTodayMarkdown, /#question #graph/);
+
+let overflowQuestionWorkspace = multiReviewWorkspace;
+Array.from({ length: 7 }, (_, index) => index).forEach((index) => {
+  overflowQuestionWorkspace = addCapture(overflowQuestionWorkspace, algorithmsSession.id, {
+    thought: `Overflow question ${index}?`,
+    tags: "question overflow"
+  }, { now: `2099-01-02T00:0${index}:00.000Z` });
+});
+const overflowQuestionPack = buildTodayPack(overflowQuestionWorkspace, frozenToday, {
+  dueLimit: 1,
+  questionLimit: 2,
+  recentLimit: 1
+});
+assert.equal(overflowQuestionPack.stats.questions, 7);
+assert.equal(overflowQuestionPack.questionItems.length, 2);
+assert.equal(overflowQuestionPack.questionItems[0].capture.thought, "Overflow question 6?");
+assert.equal(overflowQuestionPack.questionItems[1].capture.thought, "Overflow question 5?");
+assert.equal(overflowQuestionPack.questionOverflow, 5);
+const overflowQuestionMarkdown = generateTodayMarkdown(overflowQuestionWorkspace, frozenToday);
+const overflowOpenQuestions = overflowQuestionMarkdown.split("## Open Questions")[1].split("## Recent Captures")[0];
+assert.match(overflowQuestionMarkdown, /Overflow question 6\?/);
+assert.doesNotMatch(overflowOpenQuestions, /Overflow question 0\?/);
+assert.match(overflowQuestionMarkdown, /\+1 more open questions in workspace\.json/);
 
 const reviewHtml = generateReviewHtml(multiReviewWorkspace, frozenToday);
 assert.match(reviewHtml, /Learning Companion Review Pack/);

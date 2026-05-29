@@ -1008,10 +1008,33 @@ export function getRecentCaptureItems(workspace, limit = 6) {
     .slice(0, Math.max(0, limit));
 }
 
+export function getOpenQuestionItems(workspace, limit = 6) {
+  return workspace.sessions
+    .flatMap((session) => session.captures
+      .filter((capture) => captureHasQuestion(capture))
+      .map((capture) => ({
+        sessionId: session.id,
+        sessionTitle: session.title,
+        capture
+      })))
+    .sort((a, b) => {
+      const byTime = new Date(b.capture.capturedAt || b.capture.createdAt).getTime()
+        - new Date(a.capture.capturedAt || a.capture.createdAt).getTime();
+      if (byTime !== 0) return byTime;
+      const bySession = a.sessionTitle.localeCompare(b.sessionTitle);
+      if (bySession !== 0) return bySession;
+      return a.capture.id.localeCompare(b.capture.id);
+    })
+    .slice(0, Math.max(0, limit));
+}
+
 export function getStudyPackStats(workspace, now = new Date()) {
   return {
     sessions: workspace.sessions.length,
     captures: workspace.sessions.reduce((sum, session) => sum + session.captures.length, 0),
+    questions: workspace.sessions.reduce((sum, session) => (
+      sum + session.captures.filter((capture) => captureHasQuestion(capture)).length
+    ), 0),
     cards: workspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0),
     due: getDueReviewItems(workspace, now).length
   };
@@ -1130,6 +1153,7 @@ export function resolveCaptureDraftFocusOverride(brief, draft, now = new Date())
 export function buildTodayPack(workspace, now = new Date(), limits = {}) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const dueLimit = Math.max(1, Number(limits.dueLimit) || 20);
+  const questionLimit = Math.max(1, Number(limits.questionLimit) || 6);
   const recentLimit = Math.max(1, Number(limits.recentLimit) || 8);
   const sessionPaths = new Map(cleanWorkspace.sessions.map((session) => [session.id, getMirrorSessionPaths(session)]));
   const activeSession = getActiveSession(cleanWorkspace);
@@ -1150,6 +1174,10 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     ...item,
     sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
   }));
+  const questionAll = getOpenQuestionItems(cleanWorkspace, Number.MAX_SAFE_INTEGER).map((item) => ({
+    ...item,
+    sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
+  }));
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   return {
@@ -1160,6 +1188,7 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
       end: formatLocalIso(dayEnd)
     },
     recentDefinition: `latest ${recentLimit} captures by capturedAt`,
+    questionDefinition: `latest ${questionLimit} open question captures by capturedAt`,
     dueDefinition: "review cards with dueAt <= generatedAt",
     stats: getStudyPackStats(cleanWorkspace, now),
     focusBrief: {
@@ -1168,6 +1197,8 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     },
     dueItems: dueAll.slice(0, dueLimit),
     dueOverflow: Math.max(0, dueAll.length - dueLimit),
+    questionItems: questionAll.slice(0, questionLimit),
+    questionOverflow: Math.max(0, questionAll.length - questionLimit),
     recentCaptures: recentAll.slice(0, recentLimit),
     recentOverflow: Math.max(0, recentAll.length - recentLimit)
   };
@@ -1369,8 +1400,9 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     `Generated at: ${pack.generatedAt}`,
     `Local day window: [${pack.localDayWindow.start}, ${pack.localDayWindow.end})`,
     `Due rule: ${pack.dueDefinition}`,
+    `Open question rule: ${pack.questionDefinition}`,
     `Recent rule: ${pack.recentDefinition}`,
-    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
+    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "open question")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
     "",
     "## Resume Here",
     "",
@@ -1408,6 +1440,32 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
       lines.push(`  - Due: ${formatDate(card.dueAt)} · strength ${card.strength}`);
     });
     if (pack.dueOverflow) lines.push(`- +${pack.dueOverflow} more due cards in workspace.json`);
+  }
+
+  lines.push(
+    "",
+    "## Open Questions",
+    "",
+    "_Questions can also appear under Recent Captures; this section keeps unresolved study questions easy to scan._",
+    ""
+  );
+  if (!pack.questionItems.length) {
+    lines.push("_No open questions captured yet._");
+  } else {
+    pack.questionItems.forEach(({ sessionTitle, sessionPath, capture }) => {
+      const question = markdownInline(capture.thought || capture.quote || "Untitled question");
+      lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}`);
+      const source = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
+      if (source) {
+        lines.push(`  - Source: [${markdownInline(capture.sourceTitle || "Open source")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
+      } else if (capture.sourceTitle) {
+        lines.push(`  - Source: ${markdownInline(capture.sourceTitle)}`);
+      }
+      if (capture.tags.length) {
+        lines.push(`  - Tags: ${capture.tags.map((tag) => `#${markdownInline(tag)}`).join(" ")}`);
+      }
+    });
+    if (pack.questionOverflow) lines.push(`- +${pack.questionOverflow} more open questions in workspace.json`);
   }
 
   lines.push("", "## Recent Captures", "");

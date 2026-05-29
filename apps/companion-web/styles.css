@@ -874,7 +874,7 @@ textarea:focus {
 
 .today-summary {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 8px;
   margin-bottom: 10px;
 }
@@ -903,6 +903,11 @@ textarea:focus {
 .handoff-card {
   border-color: rgba(47, 111, 94, 0.24);
   background: var(--green-soft);
+}
+
+.question-card {
+  border-color: rgba(49, 95, 130, 0.24);
+  background: #f6fafb;
 }
 
 .handoff-header {

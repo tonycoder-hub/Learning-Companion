@@ -1593,28 +1593,39 @@ try {
     };
     document.querySelector("#newSessionBtn").click();
     const zeroFocusFacts = document.querySelector("#focusBriefFacts").textContent;
+    document.querySelector('[data-tab="today"]').click();
+    const emptyTodayText = document.querySelector("#todayList").textContent;
     setValue("#sessionTitle", "Question parking smoke");
     setValue("#sourceUrl", "https://example.com/question-parking");
     setValue("#thoughtInput", "Why does this theorem need the compactness assumption?");
     document.querySelector("#captureBtn").click();
     const questionSignal = Array.from(document.querySelectorAll("#focusBriefSignals .focus-signal"))
       .find((node) => /open question/.test(node.textContent));
+    document.querySelector('[data-tab="today"]').click();
     return {
       zeroFocusFacts,
+      emptyTodayText,
       stackText: document.querySelector("#captureStack").textContent,
       signals: document.querySelector("#focusBriefSignals").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
-      questionSignalClass: questionSignal ? questionSignal.className : ""
+      questionSignalClass: questionSignal ? questionSignal.className : "",
+      todaySummary: document.querySelector("#todaySummary").textContent,
+      todayText: document.querySelector("#todayList").textContent
     };
   })()`);
 
   assert.match(questionFlow.zeroFocusFacts, /Questions/);
   assert.match(questionFlow.zeroFocusFacts, /None/);
+  assert.match(questionFlow.emptyTodayText, /Open Questions/);
+  assert.match(questionFlow.emptyTodayText, /No open questions captured/);
   assert.match(questionFlow.stackText, /Question/);
   assert.match(questionFlow.stackText, /compactness assumption/);
   assert.match(questionFlow.signals, /1 open question/);
   assert.match(questionFlow.focusFacts, /Questions/);
   assert.doesNotMatch(questionFlow.questionSignalClass, /warn/);
+  assert.match(questionFlow.todaySummary, /questions/);
+  assert.match(questionFlow.todayText, /Open Questions/);
+  assert.match(questionFlow.todayText, /compactness assumption/);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
