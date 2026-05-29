@@ -48,6 +48,7 @@ import {
   isReviewProgressPatch,
   isReviewProgressPatchLike,
   promoteCapture,
+  resolveCaptureDraftFocusOverride,
   reviewIntervalDays,
   safeHref,
   sanitizeWorkspace,
@@ -321,6 +322,17 @@ assert.equal(dueFocusBrief.schema, "learning-companion.focus-brief.v1");
 assert.equal(dueFocusBrief.nextAction.kind, "review");
 assert.equal(dueFocusBrief.stats.dueCards, 1);
 assert.match(dueFocusBrief.source.href, /youtube\.com/);
+assert.deepEqual(resolveCaptureDraftFocusOverride(dueFocusBrief, {
+  quote: "A fresh draft should not outrank review.",
+  updatedAt: "2026-05-29T00:19:00.000Z"
+}, focusNow), {
+  schema: "learning-companion.capture-draft-focus.v1",
+  shouldOverride: false,
+  hasText: true,
+  isFresh: true,
+  blockedByReview: true,
+  maxAgeHours: 24
+});
 const synthesizeBrief = buildFocusBrief(createSession({
   id: "focus_synthesize",
   title: "Synthesis needed",
@@ -335,6 +347,22 @@ const synthesizeBrief = buildFocusBrief(createSession({
 assert.equal(synthesizeBrief.nextAction.kind, "synthesize");
 assert.equal(synthesizeBrief.stats.capturesSinceLastSynthesis, 3);
 assert.equal(synthesizeBrief.warnings.some((warning) => warning.kind === "needs_synthesis"), true);
+assert.equal(resolveCaptureDraftFocusOverride(synthesizeBrief, {
+  thought: "Fresh draft can outrank synthesis.",
+  updatedAt: "2026-05-29T00:19:00.000Z"
+}, focusNow).shouldOverride, true);
+assert.equal(resolveCaptureDraftFocusOverride(synthesizeBrief, {
+  thought: "Stale draft stays in Today only.",
+  updatedAt: "2026-05-27T00:19:00.000Z"
+}, focusNow).shouldOverride, false);
+assert.equal(resolveCaptureDraftFocusOverride(synthesizeBrief, {
+  timestamp: "08:12",
+  updatedAt: "2026-05-29T00:19:00.000Z"
+}, focusNow).shouldOverride, false);
+assert.equal(resolveCaptureDraftFocusOverride(synthesizeBrief, {
+  thought: "Future-dated drafts should not own focus.",
+  updatedAt: "2026-05-30T00:19:00.000Z"
+}, focusNow).shouldOverride, false);
 const oldCaptureBrief = buildFocusBrief(createSession({
   id: "focus_capture",
   title: "Capture next",

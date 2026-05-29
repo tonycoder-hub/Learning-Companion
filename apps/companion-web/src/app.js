@@ -34,6 +34,7 @@ import {
   isReviewProgressPatch,
   isReviewProgressPatchLike,
   promoteCapture,
+  resolveCaptureDraftFocusOverride,
   sanitizeWorkspace,
   searchWorkspace,
   selectSession,
@@ -46,7 +47,6 @@ const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 1;
 const CAPTURE_DRAFT_LIMIT = 50;
-const CAPTURE_DRAFT_FOCUS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -556,13 +556,6 @@ function hasCaptureTextDraft(draft) {
   return Boolean(draft?.quote?.trim() || draft?.thought?.trim());
 }
 
-function isFreshCaptureTextDraft(draft, now = new Date()) {
-  const updatedAt = new Date(draft?.updatedAt);
-  return hasCaptureTextDraft(draft)
-    && Number.isFinite(updatedAt.getTime())
-    && now.getTime() - updatedAt.getTime() <= CAPTURE_DRAFT_FOCUS_MAX_AGE_MS;
-}
-
 function getCaptureDraft(sessionId) {
   return normalizeCaptureDraft(uiPrefs.captureDrafts?.[sessionId]);
 }
@@ -592,7 +585,7 @@ function saveCurrentCaptureDraft() {
     timestamp: dom.timestampInput.value
   });
   const draft = getCaptureDraft(session.id);
-  if (isFreshCaptureTextDraft(draft)) {
+  if (resolveCaptureDraftFocusOverride(null, draft).isFresh) {
     setActivity(session, {
       title: "Capture draft waiting",
       detail: summarizeCaptureDraft(draft),
@@ -1130,7 +1123,7 @@ function renderCaptureDraftFocusBrief(session, draft, brief) {
 }
 
 function canDraftOwnFocusBrief(draft, brief) {
-  return isFreshCaptureTextDraft(draft) && brief.nextAction.kind !== "review";
+  return resolveCaptureDraftFocusOverride(brief, draft).shouldOverride;
 }
 
 function focusBriefFact(label, value) {

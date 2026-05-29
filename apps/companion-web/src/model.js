@@ -16,6 +16,7 @@ export const MAX_REVIEW_PROGRESS_EVENTS = 200;
 export const MAX_SEARCH_QUERY_LENGTH = 200;
 export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
+export const CAPTURE_DRAFT_FOCUS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "other"]);
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
@@ -865,6 +866,26 @@ export function buildFocusBrief(session, workspace = null, now = new Date()) {
       sourceHref,
       hasRecentCapture
     })
+  };
+}
+
+export function resolveCaptureDraftFocusOverride(brief, draft, now = new Date()) {
+  const date = Number.isFinite(now?.getTime?.()) ? now : new Date(now);
+  const updatedAt = new Date(draft?.updatedAt);
+  const hasText = Boolean(String(draft?.quote || "").trim() || String(draft?.thought || "").trim());
+  const ageMs = date.getTime() - updatedAt.getTime();
+  const isFresh = hasText
+    && Number.isFinite(updatedAt.getTime())
+    && ageMs >= 0
+    && ageMs <= CAPTURE_DRAFT_FOCUS_MAX_AGE_MS;
+  const blockedByReview = brief?.nextAction?.kind === "review";
+  return {
+    schema: "learning-companion.capture-draft-focus.v1",
+    shouldOverride: Boolean(isFresh && !blockedByReview),
+    hasText,
+    isFresh,
+    blockedByReview,
+    maxAgeHours: CAPTURE_DRAFT_FOCUS_MAX_AGE_MS / 60 / 60 / 1000
   };
 }
 
