@@ -18,10 +18,12 @@ const files = {
   determinism: "DETERMINISM.json",
   mirrorIntegrity: "MIRROR_INTEGRITY.json",
   harmonyScaffold: "HARMONY_SCAFFOLD_REPORT.json",
+  harmonyReaderView: "sample-harmony-reader-view.json",
   morningReview: "MORNING_REVIEW.md",
   demoScript: "DEMO_SCRIPT.md",
   stage: "STAGE.md",
   reviewStartHere: "review-start-here.html",
+  mirrorHome: "mirror-folder/index.html",
   manualQa: "MAC_MANUAL_QA.md",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
   feishuReport: "feishu-upload/feishu-upload-report.json"
@@ -37,10 +39,12 @@ const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
 const mirrorIntegrity = readJson(files.mirrorIntegrity);
 const harmonyScaffold = readJson(files.harmonyScaffold);
+const harmonyReaderView = readJson(files.harmonyReaderView);
 const morningReview = readText(files.morningReview);
 const demoScript = readText(files.demoScript);
 const stage = readText(files.stage);
 const reviewStartHere = readText(files.reviewStartHere);
+const mirrorHome = readText(files.mirrorHome);
 const sourceTimeLinksRaw = readText(files.sourceTimeLinks);
 const manualQa = readText(files.manualQa);
 const feishuPlan = readJson(files.feishuPlan);
@@ -59,6 +63,9 @@ assert.equal(summary.assertions.feishuUploadWouldSendNoNetwork, true);
 assert.equal(summary.assertions.deferredGatesPending >= 5, true);
 assert.equal(summary.assertions.patchIntakeNegativeExpectedFailures, summary.assertions.patchIntakeNegativeCases);
 assert.equal(summary.assertions.harmonyScaffoldOk, true);
+assert.equal(summary.assertions.harmonyReaderOpenQuestions, 1);
+assert.equal(summary.assertions.harmonyReaderOpenQuestionPreviewCount, 1);
+assert.equal(summary.assertions.harmonyReaderAnsweredQuestionFlags >= 1, true);
 
 assert.equal(evidence.schema, "learning-companion.evidence-tiers.v1");
 assert.equal(evidence.summary.artifactCount > 0, true);
@@ -149,6 +156,12 @@ assert.equal(harmonyScaffold.pages.includes("pages/Index"), true);
 assert.equal(harmonyScaffold.checks.every((check) => check.ok), true);
 assert.equal(Object.values(harmonyScaffold.schemaParity).every((item) => item.ok), true);
 
+assert.equal(harmonyReaderView.schema, "learning-companion.harmony-reader-view.v1");
+assert.equal(harmonyReaderView.workspace.openQuestionCount, summary.assertions.harmonyReaderOpenQuestions);
+assert.equal(harmonyReaderView.openQuestions.length, summary.assertions.harmonyReaderOpenQuestionPreviewCount);
+assert.equal(harmonyReaderView.openQuestions[0].thought, "How should I compare Rust traits with TypeScript interfaces?");
+assert.equal(harmonyReaderView.recentCaptures.some((capture) => capture.isQuestion && !capture.isOpenQuestion && capture.questionResolvedAt), true);
+
 assert.equal(feishuPlan.schema, "learning-companion.feishu-upload-plan.v1");
 assertEvidence(feishuPlan.evidence, "DRY_RUN", files.feishuPlan);
 assert.equal(feishuPlan.provider.auth.status, "not-included");
@@ -171,6 +184,12 @@ assert.match(morningReview, /No executed local browser smoke in this run/);
 assert.match(morningReview, /Live video-site playback QA is not proven/);
 assert.match(morningReview, /When the separate browser gate is allowed/);
 assert.match(morningReview, /stale seven-day export/);
+assert.match(morningReview, /1 open question/);
+assert.match(stage, /1 open question/);
+assert.match(reviewStartHere, /1 open question/);
+assert.match(mirrorHome, /Open Question Preview/);
+assert.match(mirrorHome, /1 open question/);
+assert.match(mirrorHome, /How should I compare Rust traits with TypeScript interfaces\?/);
 assert.match(demoScript, /Do not treat dry-run Feishu files/);
 assert.match(demoScript, /Source time receipt/);
 assert.match(demoScript, /live video-site playback QA is not proven/);
