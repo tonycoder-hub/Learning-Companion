@@ -114,7 +114,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, and `npm run check:morning:native`. `npm run smoke:browser` passed earlier tonight through the source timestamp jump change; the newer Today capture-draft resume assertions are syntax-checked and need a local-port approval rerun before being claimed as browser-smoke evidence.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the source timestamp extraction work and now covers the updated Today draft, Focus Brief priority, and canonical inbound source URL assertions.
 
 ## Review Notes Absorbed
 

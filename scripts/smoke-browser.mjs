@@ -408,6 +408,7 @@ try {
     };
     const todayDraftCard = document.querySelector("#todayList .draft-card");
     const todayDraftBeforeResume = {
+      listText: document.querySelector("#todayList")?.textContent || "",
       text: todayDraftCard?.textContent || "",
       resumeText: todayDraftCard?.querySelector("button")?.textContent || ""
     };
@@ -778,7 +779,7 @@ try {
   assert.doesNotMatch(result.draftFocusBrief.action, /Resume capture draft/);
   assert.equal(result.draftActivity.title, "Capture draft waiting");
   assert.match(result.draftActivity.detail, /Draft quote before session switch/);
-  assert.match(result.todayDraftBeforeResume.text, /Capture Drafts/);
+  assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);
   assert.match(result.todayDraftBeforeResume.text, /Not exported/);
@@ -835,7 +836,7 @@ try {
   assert.match(result.focusBriefAfterGood.kicker, /1 due/);
   assert.equal(result.focusBriefAfterSynthesis.signals.includes("Synthesis due"), false);
   assert.match(result.focusBriefAfterSynthesis.facts, /Current/);
-  assert.match(result.focusBriefAfterSynthesis.facts, /A recent capture exists/);
+  assert.match(result.focusBriefAfterSynthesis.facts, /Active topic has due review due now/);
   assert.equal(result.todayActive, true);
   assert.equal(result.todayHasDueReview, true);
   assert.equal(result.todayHasRecentCapture, true);
@@ -1055,6 +1056,7 @@ try {
       sessionSourceTitle: session.sourceTitle,
       sessionSourceUrl: session.sourceUrl,
       latestQuote: latest.quote || "",
+      latestTimestamp: latest.timestamp || "",
       latestSourceTitle: latest.sourceTitle || "",
       latestSourceUrl: latest.sourceUrl || "",
       decoyCaptures: decoy?.captures.length || 0,
@@ -1069,8 +1071,9 @@ try {
   assert.equal(matchedInbound.sessionSourceTitle, "RustConf ownership talk");
   assert.equal(matchedInbound.sessionSourceUrl, "https://www.youtube.com/watch?v=rust123");
   assert.equal(matchedInbound.latestQuote, "Matched source bookmarklet capture");
+  assert.equal(matchedInbound.latestTimestamp, "00:42");
   assert.equal(matchedInbound.latestSourceTitle, "Changed browser title");
-  assert.equal(matchedInbound.latestSourceUrl, "https://www.youtube.com/watch?v=rust123&t=42s&utm_source=clip");
+  assert.equal(matchedInbound.latestSourceUrl, "https://www.youtube.com/watch?v=rust123&utm_source=clip");
   assert.equal(matchedInbound.decoyCaptures, 0);
   assert.equal(matchedInbound.activityTitle, "Browser capture saved");
   assert.match(matchedInbound.activityDetail, /matched existing source URL/);
