@@ -71,7 +71,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch from both the browser file input and Mac native import menu.
-- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `MORNING_REVIEW.md`, `STAGE.md`, `MAC_MANUAL_QA.md`, `HARMONY_DEVECO_HANDOFF.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view, sample mobile inbox patch, sample review progress patch, `SOURCE_TIME_LINKS_RECEIPT.json`, `MORNING_REVIEW.md`, `STAGE.md`, `MAC_MANUAL_QA.md`, `HARMONY_DEVECO_HANDOFF.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
 - Morning review dashboard self-labels as cross-end fixture-ready, includes a stage matrix, and enumerates what is not proven: live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, and signed Mac packaging.
 - `STAGE.md` includes named gates for Mac manual QA, Feishu live write, Harmony device, Windows manual run, Mac signing, and patch intake fixture status.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
@@ -110,11 +110,11 @@ npm run check:morning:browser
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
-`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, patch-intake negative receipt, demo pack generation, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, perf self-test, and git status.
+`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, source-time link receipt, patch-intake negative receipt, demo pack generation, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, perf self-test, and git status.
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the source timestamp extraction work and now covers the updated Today draft, Focus Brief priority, and canonical inbound source URL assertions.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the source timestamp extraction work and now covers the updated Today draft, Focus Brief priority, and canonical inbound source URL assertions; the morning pack also records local source-time parser/jump evidence without claiming live video-site playback QA.
 
 ## Review Notes Absorbed
 

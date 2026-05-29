@@ -8,10 +8,13 @@ import {
   REVIEW_PROGRESS_PATCH_SCHEMA,
   applyMobileInboxPatch,
   applyReviewProgressPatch,
+  buildSourceJumpUrl,
   buildMirrorBundle,
   buildMirrorZip,
+  extractSourceTimestamp,
   getDueReviewItems,
-  sanitizeWorkspace
+  sanitizeWorkspace,
+  stripSourceTimestamp
 } from "../apps/companion-web/src/model.js";
 import { buildHarmonyReaderView } from "../apps/companion-harmony/src/schema-reader.mjs";
 import {
@@ -46,6 +49,7 @@ const HARMONY_SCAFFOLD_REPORT_FILE = "HARMONY_SCAFFOLD_REPORT.json";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
 const CAPTURE_RESUME_RECEIPT_FILE = "CAPTURE_RESUME_RECEIPT.json";
 const PATCH_INTAKE_NEGATIVE_RECEIPT_FILE = "PATCH_INTAKE_NEGATIVE_RECEIPT.json";
+const SOURCE_TIME_LINKS_RECEIPT_FILE = "SOURCE_TIME_LINKS_RECEIPT.json";
 const MIRROR_INTEGRITY_FILE = "MIRROR_INTEGRITY.json";
 const DETERMINISM_FILE = "DETERMINISM.json";
 const ADVERSARIAL_GATES_FILE = "ADVERSARIAL_GATES.json";
@@ -315,6 +319,10 @@ const captureResumeReceipt = buildCaptureResumeReceipt({
   generatedAt: CAPTURE_RESUME_GENERATED_AT
 });
 await writeJson(join(OUT_DIR, CAPTURE_RESUME_RECEIPT_FILE), captureResumeReceipt);
+const sourceTimeLinksReceipt = buildSourceTimeLinksReceipt({
+  generatedAt: "2026-05-29T07:28:00.000+08:00"
+});
+await writeJson(join(OUT_DIR, SOURCE_TIME_LINKS_RECEIPT_FILE), sourceTimeLinksReceipt);
 const patchIntakeNegativeReceipt = buildPatchIntakeNegativeReceipt({
   generatedAt: "2026-05-29T07:30:00.000+08:00"
 });
@@ -328,6 +336,8 @@ assert.equal(feishuUploadReport.wouldSend.requests.every((request) => /^[a-f0-9]
 assert.equal(captureResumeReceipt.roundTrip.ok, true);
 assert.equal(captureResumeReceipt.roundTrip.addedCaptureCount, 3);
 assert.equal(captureResumeReceipt.roundTrip.allInputsVisibleInToday, true);
+assert.equal(sourceTimeLinksReceipt.summary.ok, true);
+assert.equal(sourceTimeLinksReceipt.summary.passed, sourceTimeLinksReceipt.summary.cases);
 assert.equal(patchIntakeNegativeReceipt.summary.ok, true);
 assert.equal(patchIntakeNegativeReceipt.summary.expectedFailuresObserved, patchIntakeNegativeReceipt.summary.cases);
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
@@ -378,6 +388,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
@@ -395,6 +406,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
@@ -412,6 +424,7 @@ await writeText(
 );
 await writeText(join(OUT_DIR, DEMO_SCRIPT_FILE), buildDemoScriptMarkdown({
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   deferredGates,
   harmonyScaffoldReport,
   mirrorIntegrityReport,
@@ -425,6 +438,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
@@ -477,7 +491,8 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     "real HarmonyOS device roundtrip",
     "Windows manual import/export run",
     "signed or notarized Mac packaging",
-    "off-Mac generated patch imported on Mac"
+    "off-Mac generated patch imported on Mac",
+    "live video-site timestamp playback"
   ],
   disclaimer: "Fixture-only generated sample data. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
   generatedAt: mirrorBundle.exportedAt,
@@ -501,13 +516,14 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   feishuUploadPlan: "feishu-upload/feishu-upload-plan.json",
   feishuUploadReport: "feishu-upload/feishu-upload-report.json",
   feishuUploadFileCount: feishuUploadResult.fileCount,
-    feishuUploadWouldSend: {
-      status: feishuUploadReport.wouldSend.status,
-      requestCount: feishuUploadReport.wouldSend.requestCount,
-      operation: feishuUploadReport.wouldSend.operation,
-      targetTreeFiles: feishuUploadReport.targetTree.files.length
-    },
+  feishuUploadWouldSend: {
+    status: feishuUploadReport.wouldSend.status,
+    requestCount: feishuUploadReport.wouldSend.requestCount,
+    operation: feishuUploadReport.wouldSend.operation,
+    targetTreeFiles: feishuUploadReport.targetTree.files.length
+  },
   captureResumeReceipt: CAPTURE_RESUME_RECEIPT_FILE,
+  sourceTimeLinksReceipt: SOURCE_TIME_LINKS_RECEIPT_FILE,
   patchIntakeNegativeReceipt: PATCH_INTAKE_NEGATIVE_RECEIPT_FILE,
   mirrorIntegrity: MIRROR_INTEGRITY_FILE,
   adversarialGates: ADVERSARIAL_GATES_FILE,
@@ -535,6 +551,10 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     captureResumeTodayHashChanged: captureResumeReceipt.roundTrip.todayHashChanged,
     captureResumeFocusBriefNextAction: captureResumeReceipt.roundTrip.focusBriefNextAction,
     captureDraftDueReviewOverrideAllowed: captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride,
+    sourceTimeLinksOk: sourceTimeLinksReceipt.summary.ok,
+    sourceTimeLinksCases: sourceTimeLinksReceipt.summary.cases,
+    sourceTimeLinksPassed: sourceTimeLinksReceipt.summary.passed,
+    sourceTimeLinksLiveSiteVerified: sourceTimeLinksReceipt.summary.liveSiteVerified,
     patchIntakeNegativeExpectedFailures: patchIntakeNegativeReceipt.summary.expectedFailuresObserved,
     patchIntakeNegativeCases: patchIntakeNegativeReceipt.summary.cases,
     mirrorIntegrityOk: mirrorIntegrityReport.ok,
@@ -566,10 +586,173 @@ async function writeText(path, value) {
   await writeFile(path, value);
 }
 
+function buildSourceTimeLinksReceipt(options = {}) {
+  const caseSpecs = [
+    {
+      id: "youtube_param_precedence",
+      provider: "youtube",
+      inputUrl: "https://youtu.be/rust123?t=1m30s&start=492&time_continue=3723",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "01:30",
+      expectedStrippedUrl: "https://youtu.be/rust123",
+      expectedJumpUrl: "https://youtu.be/rust123?t=90s",
+      expectation: "YouTube t wins over start/time_continue; canonical jump writes t=<seconds>s."
+    },
+    {
+      id: "youtube_short_link_zero",
+      provider: "youtube",
+      inputUrl: "https://youtu.be/rust123?t=0",
+      jumpTimestamp: "00:00",
+      expectedExtractedTimestamp: "00:00",
+      expectedStrippedUrl: "https://youtu.be/rust123",
+      expectedJumpUrl: "https://youtu.be/rust123?t=0s",
+      expectation: "YouTube short links preserve an explicit zero timestamp instead of treating it as missing."
+    },
+    {
+      id: "youtube_duration_hours",
+      provider: "youtube",
+      inputUrl: "https://www.youtube.com/watch?v=rust123&t=1h2m3s",
+      jumpTimestamp: "1:02:03",
+      expectedExtractedTimestamp: "1:02:03",
+      expectedStrippedUrl: "https://www.youtube.com/watch?v=rust123",
+      expectedJumpUrl: "https://www.youtube.com/watch?v=rust123&t=3723s",
+      expectation: "YouTube duration timestamps with hours are parsed and emitted as seconds."
+    },
+    {
+      id: "youtube_malformed_time_stripped",
+      provider: "youtube",
+      inputUrl: "https://www.youtube.com/watch?v=rust123&t=banana",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "",
+      expectedStrippedUrl: "https://www.youtube.com/watch?v=rust123",
+      expectedJumpUrl: "https://www.youtube.com/watch?v=rust123&t=90s",
+      expectation: "Malformed YouTube time values are not imported as local timestamps, but known time keys are stripped before a fresh jump is built."
+    },
+    {
+      id: "bilibili_mobile_part_preserved",
+      provider: "bilibili",
+      inputUrl: "https://m.bilibili.com/video/BV123/?p=2&t=90",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "01:30",
+      expectedStrippedUrl: "https://m.bilibili.com/video/BV123/?p=2",
+      expectedJumpUrl: "https://m.bilibili.com/video/BV123/?p=2&t=90",
+      expectation: "Bilibili t is numeric seconds and the video part parameter survives strip/jump."
+    },
+    {
+      id: "bilibili_desktop_no_part",
+      provider: "bilibili",
+      inputUrl: "https://www.bilibili.com/video/BV123?t=90",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "01:30",
+      expectedStrippedUrl: "https://www.bilibili.com/video/BV123",
+      expectedJumpUrl: "https://www.bilibili.com/video/BV123?t=90",
+      expectation: "Desktop Bilibili links do not require a part parameter for time extraction or jump construction."
+    },
+    {
+      id: "vimeo_multikey_hash",
+      provider: "vimeo",
+      inputUrl: "https://player.vimeo.com/video/123456789?h=abc#t=90s&autoplay=1",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "01:30",
+      expectedStrippedUrl: "https://player.vimeo.com/video/123456789?h=abc#autoplay=1",
+      expectedJumpUrl: "https://player.vimeo.com/video/123456789?h=abc#autoplay=1&t=1m30s",
+      expectation: "Vimeo timestamp lives in hash parameter t; unrelated hash keys are preserved."
+    },
+    {
+      id: "vimeo_path_style",
+      provider: "vimeo",
+      inputUrl: "https://vimeo.com/123456789#t=1m30s",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "01:30",
+      expectedStrippedUrl: "https://vimeo.com/123456789",
+      expectedJumpUrl: "https://vimeo.com/123456789#t=1m30s",
+      expectation: "Vimeo path-style URLs support the same hash timestamp contract as player URLs."
+    },
+    {
+      id: "vimeo_non_key_hash_preserved",
+      provider: "vimeo",
+      inputUrl: "https://vimeo.com/123456789#chapter-one",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "",
+      expectedStrippedUrl: "https://vimeo.com/123456789#chapter-one",
+      expectedJumpUrl: "https://vimeo.com/123456789#chapter-one",
+      expectation: "A non-key Vimeo hash is treated as navigation state and is not overwritten."
+    },
+    {
+      id: "unsupported_short_link_preserved",
+      provider: "unsupported",
+      inputUrl: "https://b23.tv/abc?t=90",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "",
+      expectedStrippedUrl: "https://b23.tv/abc?t=90",
+      expectedJumpUrl: "https://b23.tv/abc?t=90",
+      expectation: "b23.tv is intentionally unsupported until redirect resolution exists."
+    },
+    {
+      id: "non_video_t_preserved",
+      provider: "non-video",
+      inputUrl: "https://example.com/video?t=1m30s",
+      jumpTimestamp: "01:30",
+      expectedExtractedTimestamp: "",
+      expectedStrippedUrl: "https://example.com/video?t=1m30s",
+      expectedJumpUrl: "https://example.com/video?t=1m30s",
+      expectation: "A t query parameter on an unknown host is not interpreted as media time."
+    }
+  ];
+  const cases = caseSpecs.map((spec) => {
+    const actualExtractedTimestamp = extractSourceTimestamp(spec.inputUrl);
+    const actualStrippedUrl = stripSourceTimestamp(spec.inputUrl);
+    const actualJumpUrl = buildSourceJumpUrl(actualStrippedUrl, spec.jumpTimestamp);
+    const checks = {
+      extractedTimestamp: actualExtractedTimestamp === spec.expectedExtractedTimestamp,
+      strippedUrl: actualStrippedUrl === spec.expectedStrippedUrl,
+      jumpUrl: actualJumpUrl === spec.expectedJumpUrl
+    };
+    return {
+      ...spec,
+      actualExtractedTimestamp,
+      actualStrippedUrl,
+      actualJumpUrl,
+      checks,
+      ok: Object.values(checks).every(Boolean)
+    };
+  });
+  const passed = cases.filter((item) => item.ok).length;
+  return {
+    schema: "learning-companion.source-time-links-receipt.v1",
+    generatedAt: options.generatedAt || new Date().toISOString(),
+    evidence: getEvidenceTierForPath(SOURCE_TIME_LINKS_RECEIPT_FILE),
+    scope: "local-parser-fixture",
+    liveSiteVerified: false,
+    providers: ["youtube", "bilibili", "vimeo"],
+    unsupportedHosts: ["b23.tv"],
+    functionsExercised: [
+      "extractSourceTimestamp",
+      "stripSourceTimestamp",
+      "buildSourceJumpUrl"
+    ],
+    precedence: {
+      youtubeTimeParameterOrder: ["t", "start", "time_continue"],
+      explicitEditorTimestampOverridesExtractedTimestampOnJump: true,
+      unknownHostsPreserveOriginalUrl: true
+    },
+    summary: {
+      ok: passed === cases.length,
+      cases: cases.length,
+      passed,
+      providersCovered: 3,
+      unsupportedPreserved: cases.find((item) => item.id === "unsupported_short_link_preserved")?.ok === true,
+      liveSiteVerified: false
+    },
+    cases
+  };
+}
+
 function buildStageMarkdown({
   mirrorBundle,
   feishuUploadReport,
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
@@ -595,6 +778,7 @@ function buildStageMarkdown({
     `| Mac shell | internal-build | Offline pack generated; run \`npm run check:morning:native\` for SwiftPM build and \`npm run check:morning:browser\` for browser smoke; manual QA ${macManualQaStatus.filled}/${macManualQaStatus.total} filled; mirror fingerprint ${mirrorBundle.manifest.bundleFingerprint}. | Signed/notarized app, AppKit panel manual QA. |`,
     `| Feishu | dry-run | Upload report verified ${feishuUploadReport.summary.verifiedFiles} local files; wouldSend is ${feishuUploadReport.wouldSend.status} with ${feishuUploadReport.wouldSend.requestCount} hashed virtual requests and ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement} | Live Drive write, auth, stale remote cleanup. |`,
     `| Capture to resume | executed-model-loop | ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through addCapture and visible in Today; Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}. | Native selected-text GUI permissions, real browser selection. |`,
+    `| Source time links | executed-local-parser | ${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} provider/edge cases for ${sourceTimeLinksReceipt.providers.join(", ")}; unsupported hosts preserved: ${sourceTimeLinksReceipt.summary.unsupportedPreserved}. | Live video-site playback QA is not proven. |`,
     `| Patch intake negatives | executed-negative-fixture | ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} malformed/oversized/duplicate/stale patch cases observed expected failures. | Real off-Mac patch origination. |`,
     `| Mirror integrity | executed-static-check | ${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken links. | Windows manual browser/file roundtrip. |`,
     `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
@@ -750,6 +934,7 @@ function buildMacManualQaMarkdown({
 
 function buildDemoScriptMarkdown({
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   deferredGates,
   harmonyScaffoldReport,
   mirrorIntegrityReport,
@@ -773,6 +958,7 @@ function buildDemoScriptMarkdown({
     "- Open `mirror-folder/index.html` and `mirror-folder/TODAY.md`.",
     "- Confirm Resume Here shows the next action, source, latest capture, and the reason behind the recommendation.",
     `- Model receipt: \`CAPTURE_RESUME_RECEIPT.json\` shows ${captureResumeReceipt.roundTrip.addedCaptureCount} captures, Focus Brief \`${captureResumeReceipt.roundTrip.focusBriefNextAction}\`, and due review blocking draft override: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.blockedByReview}.`,
+    `- Source time receipt: \`${SOURCE_TIME_LINKS_RECEIPT_FILE}\` shows ${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} local parser/jump cases for ${sourceTimeLinksReceipt.providers.join(", ")}; live video-site playback QA is not proven.`,
     "",
     "## 25-40s: Check Cross-End Boundaries",
     "",
@@ -801,6 +987,7 @@ function buildMorningReviewMarkdown({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
@@ -832,6 +1019,7 @@ function buildMorningReviewMarkdown({
     "0c. Use `dist/morning-demo/HARMONY_DEVECO_HANDOFF.md` as the phone-app scaffold contract.",
     "0d. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
     "0e. Read `dist/morning-demo/CAPTURE_RESUME_RECEIPT.json` if you want the exact model evidence that due review blocks a fresh Quick Capture draft from owning the Focus Brief.",
+    `0f. Read \`dist/morning-demo/${SOURCE_TIME_LINKS_RECEIPT_FILE}\` for the local source-time parser evidence; it does not prove real video-site playback.`,
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
@@ -857,6 +1045,7 @@ function buildMorningReviewMarkdown({
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, ${feishuUploadReport.targetTree.files.length} target-tree files, not sent)`,
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief next action ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft-vs-review arbiter checked)`,
+    `- Source time links receipt: \`${SOURCE_TIME_LINKS_RECEIPT_FILE}\` (${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} local parser/jump cases for ${sourceTimeLinksReceipt.providers.join(", ")}; live video-site playback QA is not proven; live-site verified: ${sourceTimeLinksReceipt.summary.liveSiteVerified})`,
     `- Patch intake negative receipt: \`${PATCH_INTAKE_NEGATIVE_RECEIPT_FILE}\` (${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed)`,
     `- Mirror integrity report: \`${MIRROR_INTEGRITY_FILE}\` (${mirrorIntegrityReport.summary.internalLinks} internal links checked, ${mirrorIntegrityReport.summary.brokenLinks} broken)`,
     `- Adversarial gates report: \`${ADVERSARIAL_GATES_FILE}\` (${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed)`,
@@ -872,6 +1061,7 @@ function buildMorningReviewMarkdown({
     "",
     "- Sidecar capture: can you capture quote/thought/time/source without losing focus?",
     "- Capture draft recovery: can you type a half-finished thought, switch sessions, and resume it from Today or the Focus Brief without confusing it for synced/exported data?",
+    "- Source time links: do supported provider links resume to the intended timestamp locally, and is the absence of live playback QA explicit enough?",
     "- Workspace Find: can you find a prior capture or card quickly?",
     "- Today pack: does it tell you what to resume?",
     "- Local durability: does the app ask for a workspace export after real learning changes without pretending the browser download is already durable?",
@@ -889,6 +1079,7 @@ function buildMorningReviewMarkdown({
     "- No signed/notarized Mac package; the shell remains an internal build.",
     "- No completed Mac GUI QA; `MAC_MANUAL_QA.md` rows stay `NT` until a real dogfood pass.",
     "- No executed local browser smoke in this run; `npm run check:morning:browser` remains a separate permissioned gate.",
+    "- Live video-site playback QA is not proven; source time links are local parser/jump fixtures only.",
     "",
     "## Safety Receipts Verified By Generator",
     "",
@@ -900,6 +1091,7 @@ function buildMorningReviewMarkdown({
     `- Feishu dry-run report sample: ${feishuUploadReport.summary.verifiedFiles} local files verified, ${feishuUploadReport.summary.wouldUpsert} would-upsert actions, ${feishuUploadReport.wouldSend.requestCount} no-network wouldSend envelopes, ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement}`,
     `- Capture to resume sample: ${captureResumeReceipt.roundTrip.addedCaptureCount} captures added, Today hash changed: ${captureResumeReceipt.roundTrip.todayHashChanged}, all inputs visible in Today: ${captureResumeReceipt.roundTrip.allInputsVisibleInToday}, Focus Brief next action: ${captureResumeReceipt.roundTrip.focusBriefNextAction}, draft-vs-review override allowed: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}.`,
     `- Draft focus precedence sample: due review > fresh draft resume > stale draft > timestamp-only; due review blocks draft override: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.blockedByReview}.`,
+    `- Source time links sample: ${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} parser/jump cases passed; providers ${sourceTimeLinksReceipt.providers.join(", ")}; unsupported hosts preserved: ${sourceTimeLinksReceipt.summary.unsupportedPreserved}; live-site verified: ${sourceTimeLinksReceipt.summary.liveSiteVerified}.`,
     `- Patch intake negative sample: ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed; malformed rejected: ${patchIntakeNegativeReceipt.summary.malformedRejected}, oversized rejected: ${patchIntakeNegativeReceipt.summary.oversizedRejected}, duplicate review skipped: ${patchIntakeNegativeReceipt.summary.duplicateReviewSkipped}, stale review conflict skipped: ${patchIntakeNegativeReceipt.summary.staleReviewConflictSkipped}.`,
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
@@ -918,6 +1110,7 @@ function buildMorningReviewMarkdown({
     "- localStorage is temporary; the app prompts after committed learning data changes or a stale seven-day export, but real file exports are still the user's durability checkpoint.",
     "- Mac shell is still a thin WKWebView wrapper, not a signed production app.",
     "- The sample ZIP has not been opened on Windows or HarmonyOS in this generator.",
+    "- Source time links have not been clicked against live YouTube, Bilibili, or Vimeo playback pages in this generator.",
     "",
     "## Current Evidence",
     "",
@@ -939,6 +1132,7 @@ function buildReviewStartHereHtml({
   feishuUploadResult,
   feishuUploadReport,
   captureResumeReceipt,
+  sourceTimeLinksReceipt,
   patchIntakeNegativeReceipt,
   mirrorIntegrityReport,
   adversarialGateReport,
@@ -969,6 +1163,7 @@ function buildReviewStartHereHtml({
     ["Feishu Upload Plan (local fixture, no live API)", "feishu-upload/feishu-upload-plan.json", `${feishuUploadPlan.files.length} local one-way upserts; no live credentials or Drive writes.`],
     ["Feishu Dry-Run Report (no network)", "feishu-upload/feishu-upload-report.json", `${feishuUploadReport.summary.verifiedFiles} local files verified; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests and ${feishuUploadReport.targetTree.files.length} target-tree files remain not-sent.`],
     ["Capture Resume Receipt", CAPTURE_RESUME_RECEIPT_FILE, `${captureResumeReceipt.roundTrip.addedCaptureCount} captures added through model path, surfaced in Today, moved Focus Brief to ${captureResumeReceipt.roundTrip.focusBriefNextAction}, and checked draft-vs-review precedence.`],
+    ["Source Time Links Receipt", SOURCE_TIME_LINKS_RECEIPT_FILE, `${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} local parser/jump cases for ${sourceTimeLinksReceipt.providers.join(", ")}; live video-site playback QA is not proven.`],
     ["Patch Intake Negative Receipt", PATCH_INTAKE_NEGATIVE_RECEIPT_FILE, `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} malformed/oversized/duplicate/stale cases observed expected failures.`],
     ["Mirror Integrity Report", MIRROR_INTEGRITY_FILE, `${mirrorIntegrityReport.summary.internalLinks} internal links checked; ${mirrorIntegrityReport.summary.brokenLinks} broken.`],
     ["Adversarial Gates Report", ADVERSARIAL_GATES_FILE, `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures observed expected failures.`],
@@ -990,6 +1185,7 @@ function buildReviewStartHereHtml({
     ["Feishu upload plan", `${feishuUploadPlan.files.length} upserts`, `auth ${feishuUploadPlan.provider.auth.status}`],
     ["Feishu dry-run report", `${feishuUploadReport.summary.verifiedFiles} verified`, `${feishuUploadReport.summary.wouldUpsert} would-upsert actions; ${feishuUploadReport.wouldSend.requestCount} wouldSend envelopes; ${feishuUploadReport.targetTree.files.length} target-tree files; ${feishuUploadReport.boundary.statement}`],
     ["Capture to resume", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures`, `Today changed: ${captureResumeReceipt.roundTrip.todayHashChanged}; Focus Brief: ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review: ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}`],
+    ["Source time links", `${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} passed`, `providers ${sourceTimeLinksReceipt.providers.join(", ")}; unsupported preserved ${sourceTimeLinksReceipt.summary.unsupportedPreserved}; live-site verified ${sourceTimeLinksReceipt.summary.liveSiteVerified}`],
     ["Patch intake negatives", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} observed`, "malformed, unsupported, oversized, duplicate, and stale patch inputs are rejected or skipped"],
     ["Mirror integrity", mirrorIntegrityReport.ok ? "ok" : "broken", `${mirrorIntegrityReport.summary.internalLinks} internal links; ${mirrorIntegrityReport.summary.brokenLinks} broken`],
     ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
@@ -1001,6 +1197,7 @@ function buildReviewStartHereHtml({
   const stageRows = [
     ["Mac shell", "internal-build", "offline pack plus separate native/browser gates", "signed/notarized app"],
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}`, "native GUI selection"],
+    ["Source time links", "executed-local-parser", `${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} provider/edge cases`, "live video-site playback QA is not proven"],
     ["Patch intake negatives", "executed-negative-fixture", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed`, "real off-Mac patch origination"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
@@ -1179,6 +1376,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === CAPTURE_RESUME_RECEIPT_FILE) {
     return evidenceTier("EXECUTED", "Pure model round-trip proves addCapture writes are visible in the generated Today resume pack.");
+  }
+  if (normalized === SOURCE_TIME_LINKS_RECEIPT_FILE) {
+    return evidenceTier("EXECUTED", "Local parser/jump fixtures prove supported video-provider timestamp URL behavior; live playback QA is not claimed.");
   }
   if (normalized === PATCH_INTAKE_NEGATIVE_RECEIPT_FILE) {
     return evidenceTier("EXECUTED", "Pure model/import negative fixtures prove malformed, unsupported, oversized, duplicate, and stale patch paths fail safely.");

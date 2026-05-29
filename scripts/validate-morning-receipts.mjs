@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -11,6 +12,7 @@ const files = {
   evidence: "EVIDENCE_TIERS.json",
   deferredGates: "DEFERRED_GATES.json",
   captureResume: "CAPTURE_RESUME_RECEIPT.json",
+  sourceTimeLinks: "SOURCE_TIME_LINKS_RECEIPT.json",
   patchIntakeNegative: "PATCH_INTAKE_NEGATIVE_RECEIPT.json",
   adversarial: "ADVERSARIAL_GATES.json",
   determinism: "DETERMINISM.json",
@@ -18,6 +20,8 @@ const files = {
   harmonyScaffold: "HARMONY_SCAFFOLD_REPORT.json",
   morningReview: "MORNING_REVIEW.md",
   demoScript: "DEMO_SCRIPT.md",
+  stage: "STAGE.md",
+  reviewStartHere: "review-start-here.html",
   manualQa: "MAC_MANUAL_QA.md",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
   feishuReport: "feishu-upload/feishu-upload-report.json"
@@ -27,6 +31,7 @@ const summary = readJson(files.summary);
 const evidence = readJson(files.evidence);
 const deferredGates = readJson(files.deferredGates);
 const captureResume = readJson(files.captureResume);
+const sourceTimeLinks = readJson(files.sourceTimeLinks);
 const patchIntakeNegative = readJson(files.patchIntakeNegative);
 const adversarial = readJson(files.adversarial);
 const determinism = readJson(files.determinism);
@@ -34,6 +39,9 @@ const mirrorIntegrity = readJson(files.mirrorIntegrity);
 const harmonyScaffold = readJson(files.harmonyScaffold);
 const morningReview = readText(files.morningReview);
 const demoScript = readText(files.demoScript);
+const stage = readText(files.stage);
+const reviewStartHere = readText(files.reviewStartHere);
+const sourceTimeLinksRaw = readText(files.sourceTimeLinks);
 const manualQa = readText(files.manualQa);
 const feishuPlan = readJson(files.feishuPlan);
 const feishuReport = readJson(files.feishuReport);
@@ -42,6 +50,9 @@ assert.equal(summary.ok, true);
 assertEvidence(summary.evidence, "EXECUTED", "SUMMARY.json");
 assert.equal(summary.assertions.captureResumeVisibleInToday, true);
 assert.equal(summary.assertions.captureDraftDueReviewOverrideAllowed, false);
+assert.equal(summary.assertions.sourceTimeLinksOk, true);
+assert.equal(summary.assertions.sourceTimeLinksPassed, summary.assertions.sourceTimeLinksCases);
+assert.equal(summary.assertions.sourceTimeLinksLiveSiteVerified, false);
 assert.equal(summary.assertions.mirrorIntegrityOk, true);
 assert.equal(summary.assertions.morningDeterministic, true);
 assert.equal(summary.assertions.feishuUploadWouldSendNoNetwork, true);
@@ -77,6 +88,32 @@ assert.equal(captureResume.draftFocus.cases.dueReviewBeatsFreshDraft.blockedByRe
 assert.equal(captureResume.draftFocus.cases.freshDraftBeatsSynthesis.shouldOverride, true);
 assert.equal(captureResume.draftFocus.cases.staleDraftDoesNotOverride.shouldOverride, false);
 assert.equal(captureResume.draftFocus.cases.timestampOnlyDoesNotOverride.shouldOverride, false);
+
+assert.equal(sourceTimeLinks.schema, "learning-companion.source-time-links-receipt.v1");
+assertEvidence(sourceTimeLinks.evidence, "EXECUTED", files.sourceTimeLinks);
+assert.equal(sourceTimeLinks.summary.ok, true);
+assert.equal(sourceTimeLinks.summary.passed, sourceTimeLinks.summary.cases);
+assert.equal(sourceTimeLinks.summary.liveSiteVerified, false);
+assert.deepEqual([...sourceTimeLinks.providers].sort(), ["bilibili", "vimeo", "youtube"]);
+assert.deepEqual([...sourceTimeLinks.unsupportedHosts].sort(), ["b23.tv"]);
+assert.deepEqual(sourceTimeLinks.cases.map((item) => item.id).sort(), [
+  "bilibili_desktop_no_part",
+  "bilibili_mobile_part_preserved",
+  "non_video_t_preserved",
+  "unsupported_short_link_preserved",
+  "vimeo_multikey_hash",
+  "vimeo_non_key_hash_preserved",
+  "vimeo_path_style",
+  "youtube_duration_hours",
+  "youtube_malformed_time_stripped",
+  "youtube_param_precedence",
+  "youtube_short_link_zero"
+]);
+assert.equal(sourceTimeLinks.cases.every((item) => item.ok), true);
+const sourceTimeManifestEntry = summary.outputManifest.find((entry) => entry.path === files.sourceTimeLinks);
+assert.equal(Boolean(sourceTimeManifestEntry), true, "summary output manifest missing source time links receipt");
+assert.equal(sourceTimeManifestEntry.sha256, sha256(sourceTimeLinksRaw));
+assert.equal(sourceTimeManifestEntry.bytes, Buffer.byteLength(sourceTimeLinksRaw));
 
 assert.equal(patchIntakeNegative.schema, "learning-companion.patch-intake-negative-receipt.v1");
 assertEvidence(patchIntakeNegative.evidence, "EXECUTED", files.patchIntakeNegative);
@@ -129,10 +166,16 @@ assert.equal(feishuReport.targetTree.files.every((file) => /^[a-f0-9]{64}$/.test
 assert.match(morningReview, /^## What Tony Will Not See Working Tonight$/m);
 assert.match(morningReview, /DEMO_SCRIPT\.md/);
 assert.match(morningReview, /CAPTURE_RESUME_RECEIPT\.json/);
+assert.match(morningReview, /SOURCE_TIME_LINKS_RECEIPT\.json/);
 assert.match(morningReview, /No executed local browser smoke in this run/);
+assert.match(morningReview, /Live video-site playback QA is not proven/);
 assert.match(morningReview, /When the separate browser gate is allowed/);
 assert.match(morningReview, /stale seven-day export/);
 assert.match(demoScript, /Do not treat dry-run Feishu files/);
+assert.match(demoScript, /Source time receipt/);
+assert.match(demoScript, /live video-site playback QA is not proven/);
+assert.match(stage, /Live video-site playback QA is not proven/);
+assert.match(reviewStartHere, /live video-site playback QA is not proven/i);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
 assert.match(manualQa, /verify the downloaded JSON file yourself/);
 
@@ -153,4 +196,8 @@ function readJson(path) {
 
 function readText(path) {
   return readFileSync(join(ROOT, path), "utf8");
+}
+
+function sha256(value) {
+  return createHash("sha256").update(value).digest("hex");
 }
