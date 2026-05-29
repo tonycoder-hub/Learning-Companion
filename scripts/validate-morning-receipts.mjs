@@ -204,6 +204,7 @@ assert.match(manualQa, /verify the downloaded JSON file yourself/);
 assert.match(manualQa, /Focus Brief question signal/);
 assert.match(manualQa, /Open question handoff/);
 assert.match(manualQa, /Question close loop/);
+assert.match(manualQa, /Answer starts an `Answer:` Quick Capture draft/);
 assert.match(manualQa, /Make card creates a review card/);
 
 console.log("morning_receipts_ok");

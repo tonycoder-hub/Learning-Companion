@@ -106,6 +106,7 @@ assert.match(appJs, /workspaceBackupFingerprint/);
 assert.match(appJs, /workspaceStorageNotice/);
 assert.match(appJs, /Export requested - verify downloaded file/);
 assert.match(appJs, /openFocusBriefWarning/);
+assert.match(appJs, /answerQuestionFromToday/);
 assert.match(appJs, /data-today-section/);
 assert.match(appJs, /signal-button/);
 assert.match(appJs, /const scrollTarget = section \|\| dom\.todayList/);

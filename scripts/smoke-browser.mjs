@@ -1625,6 +1625,21 @@ try {
       ? Array.from(questionCard.querySelectorAll("button")).map((button) => button.textContent)
       : [];
     Array.from(questionCard?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Answer")
+      ?.click();
+    const afterAnswerDraft = {
+      activity: document.querySelector("#activityTitle").textContent,
+      activeTitle: document.querySelector("#sessionTitle").value,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      quote: document.querySelector("#quoteInput").value,
+      thought: document.querySelector("#thoughtInput").value,
+      timestamp: document.querySelector("#timestampInput").value
+    };
+    document.querySelector('[data-tab="today"]').click();
+    const answerQuestionCard = Array.from(document.querySelectorAll("#todayList .question-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(answerQuestionCard?.querySelectorAll("button") || [])
       .find((button) => button.textContent === "Make card")
       ?.click();
     const afterQuestionCard = {
@@ -1680,6 +1695,7 @@ try {
         before: beforeQuestionSignalClick,
         after: afterQuestionSignalClick
       },
+      afterAnswerDraft,
       afterQuestionCard,
       promotedQuestionButton: {
         text: promotedCardButton?.textContent || "",
@@ -1713,7 +1729,17 @@ try {
   assert.equal(questionFlow.questionSignalClick.after.activeTab, "today");
   assert.equal(questionFlow.questionSignalClick.after.sectionPulsed, true);
   assert.equal(questionFlow.questionSignalClick.after.sectionText, "Open Questions");
+  assert.equal(questionFlow.questionButtons.includes("Answer"), true);
   assert.equal(questionFlow.questionButtons.includes("Make card"), true);
+  assert.deepEqual(questionFlow.afterAnswerDraft, {
+    activity: "Answer draft started",
+    activeTitle: "Question parking smoke",
+    activeTab: "captures",
+    activeElement: "thoughtInput",
+    quote: "Why does this theorem need the compactness assumption?",
+    thought: "Answer:",
+    timestamp: ""
+  });
   assert.equal(questionFlow.afterQuestionCard.activity, "Review card created");
   assert.equal(questionFlow.afterQuestionCard.activeTitle, "Question parking smoke");
   assert.equal(questionFlow.afterQuestionCard.cardMetric, "1");

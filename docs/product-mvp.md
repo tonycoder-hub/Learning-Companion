@@ -51,6 +51,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Captured questions stay visible as Focus Brief signals and Recent Stack chips before being folded into synthesis.
 - Focus Brief keeps review and synthesis as the primary next action, but its open-question signal is actionable and opens the Today question queue so questions are easy to close without hijacking reading flow.
 - Today study pack carries an Open Questions backlog across sessions for Feishu, Windows, and mobile handoff.
+- Open questions in Today can seed an Answer draft in the source topic so the question becomes a focused capture rather than a context switch.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
 - Captured questions can be marked resolved and reopened so the Open Questions backlog stays bounded without deleting the original evidence.
 - HarmonyOS reader handoff carries the same open-question counts and marks recent captures as open or answered so phone resume does not flatten unresolved questions into generic notes.

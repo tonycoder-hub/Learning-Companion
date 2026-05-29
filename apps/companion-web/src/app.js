@@ -1884,6 +1884,10 @@ function renderToday() {
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
+      const answer = textEl("button", "mini-button", "Answer");
+      answer.type = "button";
+      answer.addEventListener("click", () => answerQuestionFromToday(capture.id, sessionId));
+      footer.append(answer);
       const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
       card.type = "button";
       card.disabled = capture.promotedToReview;
@@ -2181,6 +2185,32 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
     targetId: getActiveSession(workspace).reviewCards[0]?.id
   });
   persistAndRender("Review card created");
+}
+
+function answerQuestionFromToday(captureId, sessionId) {
+  const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+  const capture = sourceSession?.captures.find((item) => item.id === captureId);
+  if (!sourceSession || !capture) {
+    showToast("Question no longer exists");
+    return;
+  }
+  workspace = selectSession(workspace, sourceSession.id);
+  workspace = updateSession(workspace, sourceSession.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setCaptureDraft(sourceSession.id, {
+    quote: capture.quote || capture.thought || "Question",
+    thought: "Answer:",
+    timestamp: capture.timestamp || ""
+  });
+  setActivity(getActiveSession(workspace), {
+    title: "Answer draft started",
+    detail: `${sourceSession.title} · ${summarizeCapture(capture)}`,
+    tab: "captures",
+    targetId: capture.id
+  });
+  persistAndRender("Answer draft started");
+  dom.thoughtInput.focus();
+  dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
 }
 
 function setQuestionResolved(captureId, sessionId = getActiveSession(workspace).id, resolved = true) {
