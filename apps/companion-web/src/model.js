@@ -2135,7 +2135,7 @@ function chooseFocusNextAction({ dueCards, workspaceDueCards, capturesSinceLastS
     return {
       kind: "review",
       label: `Review ${formatCount(workspaceDueCards, "workspace due card")}`,
-      detail: "Due cards exist outside the active topic.",
+      detail: "Due cards exist outside the active topic; queue is earliest due, then topic title.",
       reason: "Workspace review debt outranks adding new material.",
       focusMode: "review",
       tab: "review"

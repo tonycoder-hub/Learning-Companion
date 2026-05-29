@@ -278,6 +278,7 @@ assert.equal(workspaceDueBrief.stats.dueCards, 0);
 assert.equal(workspaceDueBrief.stats.workspaceDueCards, 1);
 assert.equal(workspaceDueBrief.nextAction.kind, "review");
 assert.match(workspaceDueBrief.nextAction.label, /workspace due card/);
+assert.equal(workspaceDueBrief.nextAction.detail, "Due cards exist outside the active topic; queue is earliest due, then topic title.");
 assert.equal(workspaceDueBrief.nextAction.reason, "Workspace review debt outranks adding new material.");
 
 const inboxPatch = {

@@ -167,7 +167,7 @@ Deferred:
 ## Known Risks
 
 - `localStorage` is still a temporary store; the app now prompts after committed learning data changes, but the user still needs to complete real file exports.
-- Focus Brief workspace-review tie-break currently inherits the due queue ordering; document or expose that policy before making it adaptive.
+- Focus Brief workspace-review tie-break is now exposed as earliest due, then topic title; adaptive ranking is still deferred until real usage shows the simple queue is too blunt.
 - Static `inbox.html` is designed for HarmonyOS/Windows manual capture, but real-device storage and download behavior are still unverified.
 - Mobile inbox patch is still manual transport; it is not real sync and depends on the user importing the patch on Mac.
 - Feishu uploader boundary is local-folder/plan only; it does not authenticate or write to Feishu Drive yet.
