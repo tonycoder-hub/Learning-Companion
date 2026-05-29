@@ -338,8 +338,27 @@ try {
     const nativeSidecarClassOn = document.querySelector(".app-shell").classList.contains("sidecar-layout");
     const nativeSidecarOff = window.learningCompanionNative.setSidecarLayout(false);
     const nativeSidecarClassOff = document.querySelector(".app-shell").classList.contains("sidecar-layout");
+    setValue("#quoteInput", "Draft quote before session switch.");
+    setValue("#thoughtInput", "Draft thought should survive.");
+    setValue("#timestampInput", "01:23");
     document.querySelector("#newSessionBtn").click();
+    const captureDraftNewSessionEmpty = document.querySelector("#quoteInput").value === ""
+      && document.querySelector("#thoughtInput").value === ""
+      && document.querySelector("#timestampInput").value === "";
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
+    [...document.querySelectorAll("#sessionList .session-row")]
+      .find((button) => button.textContent.includes("Learning Companion MVP"))
+      .click();
+    const uiPrefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const captureDraftAfterSwitch = {
+      quote: document.querySelector("#quoteInput").value,
+      thought: document.querySelector("#thoughtInput").value,
+      timestamp: document.querySelector("#timestampInput").value,
+      persisted: Object.values(uiPrefs.captureDrafts || {})
+        .some((draft) => draft.quote === "Draft quote before session switch."
+          && draft.thought === "Draft thought should survive."
+          && draft.timestamp === "01:23")
+    };
     const importInput = document.querySelector("#importWorkspaceInput");
     const transfer = new DataTransfer();
     transfer.items.add(new File([mirrorText], "learning-companion-feishu-mirror.json", { type: "application/json" }));
@@ -479,6 +498,8 @@ try {
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
+          captureDraftNewSessionEmpty,
+          captureDraftAfterSwitch,
           activityAfterCard,
           focusBriefAfterCard,
           focusBriefAfterGood,
@@ -623,6 +644,11 @@ try {
   assert.deepEqual(result.handoffButtons, ["Import Patch", "Export Mirror"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
+  assert.equal(result.captureDraftNewSessionEmpty, true);
+  assert.equal(result.captureDraftAfterSwitch.quote, "Draft quote before session switch.");
+  assert.equal(result.captureDraftAfterSwitch.thought, "Draft thought should survive.");
+  assert.equal(result.captureDraftAfterSwitch.timestamp, "01:23");
+  assert.equal(result.captureDraftAfterSwitch.persisted, true);
   assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "3");

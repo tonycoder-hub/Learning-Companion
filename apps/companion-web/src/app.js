@@ -1,5 +1,6 @@
 import {
   WORKSPACE_SCHEMA,
+  MAX_CAPTURE_TEXT_LENGTH,
   MAX_INBOX_PATCH_BYTES,
   MAX_MIRROR_BUNDLE_BYTES,
   MAX_REVIEW_PROGRESS_PATCH_BYTES,
@@ -45,6 +46,7 @@ import { renderMarkdown } from "./markdown.js";
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 1;
+const CAPTURE_DRAFT_LIMIT = 50;
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -318,6 +320,10 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
+[dom.quoteInput, dom.thoughtInput, dom.timestampInput].forEach((node) => {
+  node.addEventListener("input", saveCurrentCaptureDraft);
+  node.addEventListener("change", saveCurrentCaptureDraft);
+});
 dom.synthesisDraft.addEventListener("input", () => {
   dom.synthesisDraft.dataset.dirty = "true";
   renderSynthesisStatus();
@@ -470,7 +476,8 @@ function loadUiPrefs() {
     const parsed = JSON.parse(raw);
     return {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
-      sidecarLayout: Boolean(parsed.sidecarLayout)
+      sidecarLayout: Boolean(parsed.sidecarLayout),
+      captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts)
     };
   } catch {
     return defaultUiPrefs();
@@ -481,7 +488,8 @@ function saveUiPrefs() {
   try {
     localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
-      sidecarLayout: Boolean(uiPrefs.sidecarLayout)
+      sidecarLayout: Boolean(uiPrefs.sidecarLayout),
+      captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts)
     }));
   } catch {
     // Layout preference is non-critical; workspace persistence handles its own warning path.
@@ -491,8 +499,78 @@ function saveUiPrefs() {
 function defaultUiPrefs() {
   return {
     schemaVersion: UI_PREFS_SCHEMA_VERSION,
-    sidecarLayout: false
+    sidecarLayout: false,
+    captureDrafts: {}
   };
+}
+
+function normalizeCaptureDrafts(value) {
+  if (!value || typeof value !== "object") return {};
+  const entries = Object.entries(value)
+    .map(([sessionId, draft]) => [String(sessionId || "").slice(0, 128), normalizeCaptureDraft(draft)])
+    .filter(([sessionId, draft]) => sessionId && hasCaptureDraft(draft))
+    .sort((a, b) => new Date(b[1].updatedAt).getTime() - new Date(a[1].updatedAt).getTime())
+    .slice(0, CAPTURE_DRAFT_LIMIT);
+  return Object.fromEntries(entries);
+}
+
+function pruneCaptureDrafts(value) {
+  const activeIds = new Set(workspace.sessions.map((session) => session.id));
+  return Object.fromEntries(Object.entries(normalizeCaptureDrafts(value))
+    .filter(([sessionId]) => activeIds.has(sessionId)));
+}
+
+function normalizeCaptureDraft(value) {
+  const draft = value && typeof value === "object" ? value : {};
+  const updatedAt = Number.isFinite(new Date(draft.updatedAt).getTime())
+    ? new Date(draft.updatedAt).toISOString()
+    : new Date().toISOString();
+  return {
+    quote: String(draft.quote || "").slice(0, MAX_CAPTURE_TEXT_LENGTH),
+    thought: String(draft.thought || "").slice(0, MAX_CAPTURE_TEXT_LENGTH),
+    timestamp: String(draft.timestamp || "").slice(0, 32),
+    updatedAt
+  };
+}
+
+function hasCaptureDraft(draft) {
+  return Boolean(draft?.quote?.trim() || draft?.thought?.trim() || draft?.timestamp?.trim());
+}
+
+function getCaptureDraft(sessionId) {
+  return normalizeCaptureDraft(uiPrefs.captureDrafts?.[sessionId]);
+}
+
+function setCaptureDraft(sessionId, draftInput) {
+  const sessionKey = String(sessionId || "").slice(0, 128);
+  if (!sessionKey) return;
+  const draft = normalizeCaptureDraft({
+    ...draftInput,
+    updatedAt: new Date().toISOString()
+  });
+  const captureDrafts = { ...(uiPrefs.captureDrafts || {}) };
+  if (hasCaptureDraft(draft)) captureDrafts[sessionKey] = draft;
+  else delete captureDrafts[sessionKey];
+  uiPrefs = {
+    ...uiPrefs,
+    captureDrafts
+  };
+  saveUiPrefs();
+}
+
+function saveCurrentCaptureDraft() {
+  setCaptureDraft(getActiveSession(workspace).id, {
+    quote: dom.quoteInput.value,
+    thought: dom.thoughtInput.value,
+    timestamp: dom.timestampInput.value
+  });
+}
+
+function renderCaptureDraft(session) {
+  const draft = getCaptureDraft(session.id);
+  dom.quoteInput.value = draft.quote;
+  dom.thoughtInput.value = draft.thought;
+  dom.timestampInput.value = draft.timestamp;
 }
 
 function applyUrlCapture() {
@@ -533,6 +611,7 @@ function applyUrlCapture() {
       sourceUrl: sourceUrl || "",
       sourceProvenance: "inbound"
     });
+    setCaptureDraft(target.session.id, {});
     const updated = getActiveSession(workspace);
     setActivity(updated, {
       title: "Browser capture saved",
@@ -542,9 +621,12 @@ function applyUrlCapture() {
     });
     showToast("Browser capture saved");
   } else {
-    dom.quoteInput.value = quote || "";
-    dom.thoughtInput.value = thought || "";
-    dom.timestampInput.value = timestamp || "";
+    setCaptureDraft(target.session.id, {
+      quote: quote || "",
+      thought: thought || "",
+      timestamp: timestamp || ""
+    });
+    renderCaptureDraft(getActiveSession(workspace));
     const updated = getActiveSession(workspace);
     setActivity(updated, {
       title: quote || thought ? "Browser clip staged" : "Browser source updated",
@@ -701,6 +783,9 @@ function capture(promoteToReview) {
   });
   const updated = getActiveSession(workspace);
   const isCloze = promoteToReview === "cloze";
+  setCaptureDraft(session.id, {
+    timestamp: dom.timestampInput.value
+  });
   setActivity(updated, {
     title: isCloze ? "Cloze card saved" : promoteToReview ? "Capture and card saved" : "Capture saved",
     detail: summarizeCapture(updated.captures[0]),
@@ -850,6 +935,7 @@ function render() {
   dom.materialType.value = session.materialType;
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
+  renderCaptureDraft(session);
   renderFocusMode(session.focusMode);
   renderShellMode();
   renderActivity(session);
