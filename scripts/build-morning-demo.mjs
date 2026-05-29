@@ -849,7 +849,7 @@ function buildMorningReviewMarkdown({
     "- This is still manual transport, not real Feishu OpenAPI sync.",
     "- The Feishu upload plan is local-folder materialization only; it does not authenticate or write to Drive.",
     "- HarmonyOS browser behavior needs a real device roundtrip.",
-    "- localStorage is temporary; export often.",
+    "- localStorage is temporary; the app prompts after committed learning data changes, but real file exports are still the user's durability checkpoint.",
     "- Mac shell is still a thin WKWebView wrapper, not a signed production app.",
     "- The sample ZIP has not been opened on Windows or HarmonyOS in this generator.",
     "",

@@ -51,7 +51,7 @@ import { renderMarkdown } from "./markdown.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
-const UI_PREFS_SCHEMA_VERSION = 1;
+const UI_PREFS_SCHEMA_VERSION = 2;
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -526,7 +526,8 @@ function loadUiPrefs() {
     return {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       sidecarLayout: Boolean(parsed.sidecarLayout),
-      captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts)
+      captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts),
+      workspaceBackup: normalizeWorkspaceBackup(parsed.workspaceBackup)
     };
   } catch {
     return defaultUiPrefs();
@@ -538,7 +539,8 @@ function saveUiPrefs() {
     localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       sidecarLayout: Boolean(uiPrefs.sidecarLayout),
-      captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts)
+      captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts),
+      workspaceBackup: normalizeWorkspaceBackup(uiPrefs.workspaceBackup)
     }));
   } catch {
     // Layout preference is non-critical; workspace persistence handles its own warning path.
@@ -549,8 +551,21 @@ function defaultUiPrefs() {
   return {
     schemaVersion: UI_PREFS_SCHEMA_VERSION,
     sidecarLayout: false,
-    captureDrafts: {}
+    captureDrafts: {},
+    workspaceBackup: null
   };
+}
+
+function normalizeWorkspaceBackup(value) {
+  if (!value || typeof value !== "object") return null;
+  const fingerprint = cleanBackupText(value.fingerprint, 24);
+  const exportedAt = cleanBackupText(value.exportedAt, 32);
+  if (!fingerprint || !exportedAt) return null;
+  return { fingerprint, exportedAt };
+}
+
+function cleanBackupText(value, limit) {
+  return String(value || "").replace(/[^a-zA-Z0-9:._-]/g, "").slice(0, limit);
 }
 
 function normalizeCaptureDrafts(value) {
@@ -993,9 +1008,7 @@ function persist() {
   storageWarning = null;
   try {
     localStorage.setItem(STORAGE_KEY, serialized);
-    if (bytes > 3_500_000) {
-      storageWarning = `Workspace is ${(bytes / 1024 / 1024).toFixed(1)} MB`;
-    }
+    storageWarning = storageHealthWarning(bytes);
   } catch {
     storageWarning = "Storage full. Export now.";
     dom.saveState.textContent = "Export needed";
@@ -1289,6 +1302,25 @@ function renderStorageNotice() {
   const shouldShow = Boolean(storageWarning);
   dom.storageNotice.hidden = !shouldShow;
   dom.storageNoticeText.textContent = storageWarning || "";
+}
+
+function storageHealthWarning(bytes) {
+  if (bytes > 3_500_000) {
+    return `Workspace is ${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  }
+  if (hasBackupWorthyWorkspace(workspace) && uiPrefs.workspaceBackup?.fingerprint !== workspaceBackupFingerprint(workspace)) {
+    return "Local changes not exported";
+  }
+  return null;
+}
+
+function hasBackupWorthyWorkspace(value) {
+  return Boolean(
+    value?.sessions?.length > 1 ||
+    value?.importedPatches?.length ||
+    value?.importedReviewPatches?.length ||
+    value?.sessions?.some((session) => session.captures.length || session.reviewCards.length)
+  );
 }
 
 function renderImportReceipt() {
@@ -2121,11 +2153,40 @@ function renderExport() {
 }
 
 function exportWorkspace() {
-  downloadText("learning-companion-workspace.json", workspaceJson(), "application/json");
+  const serialized = workspaceJson();
+  downloadText("learning-companion-workspace.json", serialized, "application/json");
+  uiPrefs = {
+    ...uiPrefs,
+    workspaceBackup: {
+      fingerprint: workspaceBackupFingerprint(workspace),
+      exportedAt: new Date().toISOString()
+    }
+  };
+  saveUiPrefs();
+  storageWarning = null;
+  renderStorageNotice();
+  showToast("Workspace export prepared");
 }
 
 function workspaceJson() {
   return JSON.stringify(workspace, null, 2);
+}
+
+function workspaceFingerprint(serialized) {
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function workspaceBackupFingerprint(value) {
+  const stableWorkspace = {
+    ...value,
+    updatedAt: ""
+  };
+  return workspaceFingerprint(JSON.stringify(stableWorkspace));
 }
 
 function buildReviewPackMarkdown(workspaceData) {

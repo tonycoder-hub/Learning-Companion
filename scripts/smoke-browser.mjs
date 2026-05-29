@@ -150,7 +150,7 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
-  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 1);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 2);
   assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
   assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");
@@ -169,6 +169,17 @@ try {
     setValue("#thoughtInput", "- Connect this with compiler-enforced lifetimes.");
     setValue("#timestampInput", "08:12");
     document.querySelector("#captureCardBtn").click();
+    const backupNoticeAfterCapture = {
+      hidden: document.querySelector("#storageNotice").hidden,
+      text: document.querySelector("#storageNoticeText").textContent
+    };
+    document.querySelector("#storageExportNowBtn").click();
+    const backupPrefsAfterExport = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").workspaceBackup || {};
+    const backupNoticeAfterExport = {
+      hidden: document.querySelector("#storageNotice").hidden,
+      fingerprint: backupPrefsAfterExport.fingerprint || "",
+      exportedAt: backupPrefsAfterExport.exportedAt || ""
+    };
     const captureDraftStatusAfterCard = {
       text: document.querySelector("#captureDraftStatus").textContent,
       clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
@@ -613,6 +624,8 @@ try {
           captureDraftPrunedAfterImport,
           activityAfterCard,
           captureDraftStatusAfterCard,
+          backupNoticeAfterCapture,
+          backupNoticeAfterExport,
           sourceJumpOpened,
           focusBriefAfterCard,
           focusBriefAfterGood,
@@ -840,6 +853,10 @@ try {
   assert.deepEqual(result.searchAfterSecondEscape, { value: "", hidden: true, expanded: "false" });
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
+  assert.deepEqual(result.backupNoticeAfterCapture, { hidden: false, text: "Local changes not exported" });
+  assert.equal(result.backupNoticeAfterExport.hidden, true);
+  assert.match(result.backupNoticeAfterExport.fingerprint, /^[a-f0-9]{8}$/);
+  assert.match(result.backupNoticeAfterExport.exportedAt, /^20/);
   assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });
   assert.equal(result.sourceJumpOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");

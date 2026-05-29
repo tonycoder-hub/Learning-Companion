@@ -66,6 +66,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for the active session.
 - Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs.
+- Storage notice prompts for a local workspace export after committed learning data changes until a fresh backup marker is recorded.
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
@@ -121,7 +122,7 @@ Accepted from Mira:
 
 - Harden URL inbound and reject unsafe schemes.
 - Add schema/version contract.
-- Add localStorage size warning/export prompt.
+- Add localStorage size and stale-backup warning/export prompt.
 - Make the review loop real enough to test.
 - Move user/page-sourced text away from `innerHTML`.
 - Add browser-level smoke coverage.
@@ -165,7 +166,7 @@ Deferred:
 
 ## Known Risks
 
-- `localStorage` is still a temporary store; export often.
+- `localStorage` is still a temporary store; the app now prompts after committed learning data changes, but the user still needs to complete real file exports.
 - Focus Brief workspace-review tie-break currently inherits the due queue ordering; document or expose that policy before making it adaptive.
 - Static `inbox.html` is designed for HarmonyOS/Windows manual capture, but real-device storage and download behavior are still unverified.
 - Mobile inbox patch is still manual transport; it is not real sync and depends on the user importing the patch on Mac.

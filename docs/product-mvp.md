@@ -59,6 +59,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Desk-native review pane for focused sidecar review without relying on the inspector.
 - Feishu export preview: Markdown, JSON payload, and full mirror bundle.
 - Export panel exposes full workspace copy/save with JSON collapsed by default so backup is not hidden behind the sidebar icon.
+- Local storage backup notice appears after committed learning data changes until the workspace export action records a fresh local backup marker.
 - Direct `TODAY.md` copy/save for a quick mobile or Feishu handoff.
 - Feishu mirror ZIP export for manual Drive upload or extraction.
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point.
