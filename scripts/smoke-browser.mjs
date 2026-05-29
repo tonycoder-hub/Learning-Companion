@@ -341,10 +341,18 @@ try {
     setValue("#quoteInput", "Draft quote before session switch.");
     setValue("#thoughtInput", "Draft thought should survive.");
     setValue("#timestampInput", "01:23");
+    const captureDraftStatusBeforeSwitch = {
+      text: document.querySelector("#captureDraftStatus").textContent,
+      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
+    };
     document.querySelector("#newSessionBtn").click();
     const captureDraftNewSessionEmpty = document.querySelector("#quoteInput").value === ""
       && document.querySelector("#thoughtInput").value === ""
       && document.querySelector("#timestampInput").value === "";
+    const captureDraftStatusInNewSession = {
+      text: document.querySelector("#captureDraftStatus").textContent,
+      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
+    };
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
     [...document.querySelectorAll("#sessionList .session-row")]
       .find((button) => button.textContent.includes("Learning Companion MVP"))
@@ -358,6 +366,23 @@ try {
         .some((draft) => draft.quote === "Draft quote before session switch."
           && draft.thought === "Draft thought should survive."
           && draft.timestamp === "01:23")
+    };
+    const captureDraftStatusAfterSwitch = {
+      text: document.querySelector("#captureDraftStatus").textContent,
+      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
+    };
+    document.querySelector("#clearCaptureDraftBtn").click();
+    const uiPrefsAfterClear = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const captureDraftAfterClear = {
+      quote: document.querySelector("#quoteInput").value,
+      thought: document.querySelector("#thoughtInput").value,
+      timestamp: document.querySelector("#timestampInput").value,
+      status: document.querySelector("#captureDraftStatus").textContent,
+      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden,
+      persisted: Object.values(uiPrefsAfterClear.captureDrafts || {})
+        .some((draft) => draft.quote === "Draft quote before session switch."
+          || draft.thought === "Draft thought should survive."
+          || draft.timestamp === "01:23")
     };
     const importInput = document.querySelector("#importWorkspaceInput");
     const transfer = new DataTransfer();
@@ -498,8 +523,12 @@ try {
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
           notesMarkdown: restoredSession.notesMarkdown,
+          captureDraftStatusBeforeSwitch,
+          captureDraftStatusInNewSession,
           captureDraftNewSessionEmpty,
           captureDraftAfterSwitch,
+          captureDraftStatusAfterSwitch,
+          captureDraftAfterClear,
           activityAfterCard,
           focusBriefAfterCard,
           focusBriefAfterGood,
@@ -644,11 +673,22 @@ try {
   assert.deepEqual(result.handoffButtons, ["Import Patch", "Export Mirror"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
+  assert.deepEqual(result.captureDraftStatusBeforeSwitch, { text: "Draft saved", clearHidden: false });
+  assert.deepEqual(result.captureDraftStatusInNewSession, { text: "No draft", clearHidden: true });
   assert.equal(result.captureDraftNewSessionEmpty, true);
   assert.equal(result.captureDraftAfterSwitch.quote, "Draft quote before session switch.");
   assert.equal(result.captureDraftAfterSwitch.thought, "Draft thought should survive.");
   assert.equal(result.captureDraftAfterSwitch.timestamp, "01:23");
   assert.equal(result.captureDraftAfterSwitch.persisted, true);
+  assert.deepEqual(result.captureDraftStatusAfterSwitch, { text: "Draft saved", clearHidden: false });
+  assert.deepEqual(result.captureDraftAfterClear, {
+    quote: "",
+    thought: "",
+    timestamp: "",
+    status: "No draft",
+    clearHidden: true,
+    persisted: false
+  });
   assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "3");

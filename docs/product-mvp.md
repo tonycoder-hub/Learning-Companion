@@ -42,7 +42,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Session list for learning topics.
 - Workspace Find for jumping from source titles, notes, captures, and review cards back into the right session.
 - Source panel for URL, title, material type, and video timestamp.
-- Quick capture for quote + note + tags.
+- Quick capture for quote + note + tags, with per-session draft recovery while switching learning contexts.
 - Capture-level source snapshots and source/time jump links.
 - Browser inbound capture routes clips to an existing normalized source match before falling back to the active topic.
 - One-click capture insertion into Notes, without duplicate blocks.

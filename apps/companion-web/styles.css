@@ -668,6 +668,15 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.capture-actions {
+  flex-wrap: wrap;
+}
+
+.capture-draft-status {
+  min-width: 66px;
+  text-align: right;
+}
+
 .command-button {
   min-height: 34px;
   padding: 0 12px;

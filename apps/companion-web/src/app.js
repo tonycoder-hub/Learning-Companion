@@ -90,6 +90,8 @@ const dom = {
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
   capturePane: document.querySelector("#capturePane"),
+  captureDraftStatus: document.querySelector("#captureDraftStatus"),
+  clearCaptureDraftBtn: document.querySelector("#clearCaptureDraftBtn"),
   captureBtn: document.querySelector("#captureBtn"),
   captureCardBtn: document.querySelector("#captureCardBtn"),
   captureClozeBtn: document.querySelector("#captureClozeBtn"),
@@ -320,6 +322,7 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
+dom.clearCaptureDraftBtn.addEventListener("click", clearCurrentCaptureDraft);
 [dom.quoteInput, dom.thoughtInput, dom.timestampInput].forEach((node) => {
   node.addEventListener("input", saveCurrentCaptureDraft);
   node.addEventListener("change", saveCurrentCaptureDraft);
@@ -564,6 +567,13 @@ function saveCurrentCaptureDraft() {
     thought: dom.thoughtInput.value,
     timestamp: dom.timestampInput.value
   });
+  renderCaptureDraftStatus(getActiveSession(workspace));
+}
+
+function clearCurrentCaptureDraft() {
+  setCaptureDraft(getActiveSession(workspace).id, {});
+  renderCaptureDraft(getActiveSession(workspace));
+  dom.quoteInput.focus();
 }
 
 function renderCaptureDraft(session) {
@@ -571,6 +581,13 @@ function renderCaptureDraft(session) {
   dom.quoteInput.value = draft.quote;
   dom.thoughtInput.value = draft.thought;
   dom.timestampInput.value = draft.timestamp;
+  renderCaptureDraftStatus(session, draft);
+}
+
+function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) {
+  const hasDraft = hasCaptureDraft(draft);
+  dom.captureDraftStatus.textContent = hasDraft ? "Draft saved" : "No draft";
+  dom.clearCaptureDraftBtn.hidden = !hasDraft;
 }
 
 function applyUrlCapture() {
