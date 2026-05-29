@@ -186,7 +186,9 @@ textarea {
 }
 
 .search-result:hover,
-.search-result:focus {
+.search-result:focus,
+.search-result.active,
+.search-result[aria-selected="true"] {
   border-color: rgba(47, 111, 94, 0.35);
   background: var(--green-soft);
 }

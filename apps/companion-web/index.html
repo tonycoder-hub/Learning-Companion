@@ -24,9 +24,9 @@
         </header>
 
         <div class="search-wrap">
-          <input id="searchInput" type="search" placeholder="Search sessions, notes, captures" autocomplete="off">
+          <input id="searchInput" type="search" placeholder="Search sessions, notes, captures" autocomplete="off" role="combobox" aria-controls="searchResults" aria-expanded="false" aria-autocomplete="list">
         </div>
-        <div id="searchResults" class="search-results" hidden></div>
+        <div id="searchResults" class="search-results" role="listbox" hidden></div>
 
         <div class="toolbar-row">
           <button id="newSessionBtn" class="icon-button primary" type="button" title="New session" aria-label="New session">+</button>

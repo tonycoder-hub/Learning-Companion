@@ -157,6 +157,7 @@ let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
 let activeReviewKey = "";
+let activeSearchIndex = -1;
 let lastActivity = null;
 let lastImportReceipt = null;
 const revealedReviewCards = new Set();
@@ -279,8 +280,36 @@ dom.searchInput.addEventListener("input", () => {
   if (dom.searchInput.value.length > MAX_SEARCH_QUERY_LENGTH) {
     dom.searchInput.value = dom.searchInput.value.slice(0, MAX_SEARCH_QUERY_LENGTH);
   }
+  activeSearchIndex = dom.searchInput.value.trim() ? 0 : -1;
   renderSessions();
   renderSearchResults();
+});
+
+dom.searchInput.addEventListener("keydown", (event) => {
+  if (!["ArrowDown", "ArrowUp", "Enter", "Escape"].includes(event.key)) return;
+  const results = currentSearchResults();
+  if (event.key === "Escape") {
+    if (!dom.searchInput.value) return;
+    event.preventDefault();
+    dom.searchInput.value = "";
+    activeSearchIndex = -1;
+    renderSessions();
+    renderSearchResults();
+    return;
+  }
+  if (!results.length) return;
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    event.preventDefault();
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+    const nextIndex = activeSearchIndex < 0 ? 0 : activeSearchIndex + direction;
+    activeSearchIndex = (nextIndex + results.length) % results.length;
+    renderSearchResults();
+    return;
+  }
+  if (event.key === "Enter") {
+    event.preventDefault();
+    openSearchResult(results[Math.max(0, activeSearchIndex)]);
+  }
 });
 
 ["input", "change"].forEach((eventName) => {
@@ -1546,9 +1575,12 @@ function renderSearchResults() {
   if (!dom.searchResults) return;
   const query = dom.searchInput.value.trim();
   dom.searchResults.hidden = !query;
+  dom.searchInput.setAttribute("aria-expanded", query ? "true" : "false");
+  dom.searchInput.removeAttribute("aria-activedescendant");
   clearChildren(dom.searchResults);
   if (!query) return;
-  const results = searchWorkspace(workspace, query, 7);
+  const results = currentSearchResults();
+  activeSearchIndex = results.length ? Math.max(0, Math.min(activeSearchIndex, results.length - 1)) : -1;
   const heading = document.createElement("div");
   heading.className = "search-results-heading";
   heading.append(textEl("strong", "", "Find"), textEl("span", "", results.length ? `${results.length} matches` : "No matches"));
@@ -1557,10 +1589,14 @@ function renderSearchResults() {
     dom.searchResults.append(textEl("p", "search-empty", "Try source titles, quote text, notes, tags, or card prompts."));
     return;
   }
-  results.forEach((result) => {
+  results.forEach((result, index) => {
     const button = document.createElement("button");
+    const resultId = `search-result-${index}`;
     button.type = "button";
-    button.className = "search-result";
+    button.id = resultId;
+    button.className = `search-result${index === activeSearchIndex ? " active" : ""}`;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", index === activeSearchIndex ? "true" : "false");
     button.append(
       textEl("span", "search-result-type", searchTypeLabel(result.type)),
       textEl("strong", "search-result-title", result.title),
@@ -1570,9 +1606,17 @@ function renderSearchResults() {
     button.addEventListener("click", () => openSearchResult(result));
     dom.searchResults.append(button);
   });
+  if (activeSearchIndex >= 0) {
+    dom.searchInput.setAttribute("aria-activedescendant", `search-result-${activeSearchIndex}`);
+  }
+}
+
+function currentSearchResults() {
+  return searchWorkspace(workspace, dom.searchInput.value.trim(), 7);
 }
 
 function openSearchResult(result) {
+  if (!result) return;
   const targetSession = workspace.sessions.find((session) => session.id === result.sessionId);
   if (!targetSession) {
     showToast("Search result no longer exists");

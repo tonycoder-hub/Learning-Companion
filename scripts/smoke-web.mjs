@@ -72,12 +72,19 @@ import {
 
 const manifest = JSON.parse(readFileSync("apps/companion-web/manifest.webmanifest", "utf8"));
 const indexHtml = readFileSync("apps/companion-web/index.html", "utf8");
+const appJs = readFileSync("apps/companion-web/src/app.js", "utf8");
 const serviceWorker = readFileSync("apps/companion-web/service-worker.js", "utf8");
 assert.equal(manifest.display, "standalone");
 assert.equal(manifest.start_url, "./");
 assert.equal(manifest.icons[0].src, "./assets/icon.svg");
 assert.match(indexHtml, /Capture \(Cmd\/Ctrl\+Enter\)/);
 assert.match(indexHtml, /Cmd\/Ctrl\+Shift\+Enter/);
+assert.match(indexHtml, /role="combobox"/);
+assert.match(indexHtml, /aria-controls="searchResults"/);
+assert.match(indexHtml, /role="listbox"/);
+assert.match(appJs, /ArrowDown/);
+assert.match(appJs, /aria-activedescendant/);
+assert.match(appJs, /openSearchResult\(results\[Math\.max\(0, activeSearchIndex\)\]\)/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v2/);
 assert.match(serviceWorker, /STATIC_ASSETS/);

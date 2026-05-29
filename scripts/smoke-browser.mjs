@@ -224,13 +224,31 @@ try {
       count: searchResults.length,
       type: firstSearchResult?.querySelector(".search-result-type")?.textContent || "",
       title: firstSearchResult?.querySelector(".search-result-title")?.textContent || "",
-      excerpt: firstSearchResult?.querySelector(".search-result-excerpt")?.textContent || ""
+      excerpt: firstSearchResult?.querySelector(".search-result-excerpt")?.textContent || "",
+      expanded: document.querySelector("#searchInput").getAttribute("aria-expanded") || "",
+      activeDescendant: document.querySelector("#searchInput").getAttribute("aria-activedescendant") || "",
+      activeSelected: firstSearchResult?.getAttribute("aria-selected") || ""
     };
-    firstSearchResult?.click();
+    document.querySelector("#searchInput").dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true
+    }));
     const searchAfterOpen = {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activity: document.querySelector("#activityTitle").textContent,
       targetPulsed: Boolean(document.querySelector("#captureList .item-card.pulse"))
+    };
+    setValue("#searchInput", "lifetime");
+    document.querySelector("#searchInput").dispatchEvent(new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true
+    }));
+    const searchAfterEscape = {
+      value: document.querySelector("#searchInput").value,
+      hidden: document.querySelector("#searchResults").hidden,
+      expanded: document.querySelector("#searchInput").getAttribute("aria-expanded") || ""
     };
     setValue("#quoteInput", "Spaced repetition improves durable recall. <script>alert(1)</script> <b>bold</b>");
     const quote = document.querySelector("#quoteInput");
@@ -598,6 +616,7 @@ try {
           noteHasSource,
           searchBeforeOpen,
           searchAfterOpen,
+          searchAfterEscape,
           activityOpenedReviewTab,
           activityTargetPulsed,
           activityAfterSynthesis,
@@ -800,9 +819,13 @@ try {
   assert.ok(result.searchBeforeOpen.count >= 1);
   assert.equal(result.searchBeforeOpen.type, "Capture");
   assert.match(result.searchBeforeOpen.excerpt, /lifetime/);
+  assert.equal(result.searchBeforeOpen.expanded, "true");
+  assert.equal(result.searchBeforeOpen.activeDescendant, "search-result-0");
+  assert.equal(result.searchBeforeOpen.activeSelected, "true");
   assert.equal(result.searchAfterOpen.activeTab, "captures");
   assert.equal(result.searchAfterOpen.activity, "Search result opened");
   assert.equal(result.searchAfterOpen.targetPulsed, true);
+  assert.deepEqual(result.searchAfterEscape, { value: "", hidden: true, expanded: "false" });
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });
