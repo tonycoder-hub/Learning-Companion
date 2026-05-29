@@ -2001,7 +2001,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const questionList = pack.questionItems.length
     ? [
         ...pack.questionItems.map(({ sessionTitle, sessionPath, capture }) => {
-          const sessionLabel = sessionPath
+          const sessionLabel = isSafeMirrorSessionPath(sessionPath)
             ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
             : htmlText(sessionTitle);
           return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel}</span></li>`;

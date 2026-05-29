@@ -833,6 +833,24 @@ assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);
 assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
+let overflowMirrorQuestionWorkspace = addCapture(questionTodayWorkspace, algorithmsSession.id, {
+  quote: "HTML-like study input should stay inert in the mirror home.",
+  thought: "What about <script>alert(\"x\")</script> & \"quotes\"?",
+  tags: "question html"
+}, { now: "2099-01-02T00:20:00.000Z" });
+for (let index = 0; index < 6; index += 1) {
+  overflowMirrorQuestionWorkspace = addCapture(overflowMirrorQuestionWorkspace, algorithmsSession.id, {
+    quote: `Overflow mirror question ${index + 1}.`,
+    thought: `What overflow mirror question ${index + 1}?`,
+    tags: "question overflow"
+  }, { now: `2099-01-02T00:1${index}:00.000Z` });
+}
+const overflowMirrorIndexHtml = generateMirrorIndexHtml(overflowMirrorQuestionWorkspace, frozenToday);
+assert.match(overflowMirrorIndexHtml, /Open Question Preview/);
+assert.match(overflowMirrorIndexHtml, /2 more open questions in <a href="TODAY\.md">TODAY\.md<\/a>/);
+assert.doesNotMatch(overflowMirrorIndexHtml, /<script>alert/);
+assert.doesNotMatch(overflowMirrorIndexHtml, /"quotes"/);
+assert.match(overflowMirrorIndexHtml, /What about &lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt; &amp; &quot;quotes&quot;\?/);
 assert.match(questionTodayMarkdown, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionTodayMarkdown, /#question #graph/);
 
