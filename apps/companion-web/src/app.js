@@ -1513,6 +1513,7 @@ function renderToday() {
     return;
   }
   pack.recentCaptures.forEach(({ sessionId, sessionTitle, capture }) => {
+    const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
     const item = document.createElement("article");
     item.className = "item-card";
     item.append(textEl("div", "item-meta", [
@@ -1530,6 +1531,15 @@ function renderToday() {
     const footer = document.createElement("div");
     footer.className = "item-footer";
     footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+    const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
+    if (sourceHref) {
+      const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+      open.type = "button";
+      open.addEventListener("click", () => {
+        window.open(sourceHref, "_blank", "noopener,noreferrer");
+      });
+      footer.append(open);
+    }
     const view = textEl("button", "mini-button", "View");
     view.type = "button";
     view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));

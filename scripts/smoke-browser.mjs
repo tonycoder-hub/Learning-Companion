@@ -188,6 +188,9 @@ try {
     const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
     const todayHasDueReview = todayText.includes("Due Review") && todayText.includes("Ownership lets Rust");
     const todayHasRecentCapture = todayText.includes("Recent Captures") && todayText.includes("compiler-enforced lifetimes");
+    const todayOpenLinkText = [...document.querySelectorAll("#todayTab .mini-button")]
+      .map((button) => button.textContent)
+      .find((text) => text.startsWith("Open @")) || "";
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
     const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
@@ -480,6 +483,7 @@ try {
           todayActive,
           todayHasDueReview,
           todayHasRecentCapture,
+          todayOpenLinkText,
           noteInsertions,
           noteHasSource,
           searchBeforeOpen,
@@ -645,6 +649,7 @@ try {
   assert.equal(result.todayActive, true);
   assert.equal(result.todayHasDueReview, true);
   assert.equal(result.todayHasRecentCapture, true);
+  assert.equal(result.todayOpenLinkText, "Open @ 08:12");
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.ok(result.searchBeforeOpen.count >= 1);
