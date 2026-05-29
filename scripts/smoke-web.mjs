@@ -32,6 +32,7 @@ import {
   createSession,
   deleteCapture,
   deleteReviewCard,
+  extractSourceTimestamp,
   filterSessions,
   formatBytes,
   formatLocalIso,
@@ -62,6 +63,8 @@ import {
   safeHref,
   sanitizeWorkspace,
   searchWorkspace,
+  secondsToTimestamp,
+  stripSourceTimestamp,
   timestampToSeconds,
   updateSession,
   workspaceBackupFingerprint,
@@ -161,8 +164,25 @@ assert.equal(cleanText("x".repeat(MAX_CAPTURE_TEXT_LENGTH + 10)).length, MAX_CAP
 assert.equal(buildSourceJumpUrl("javascript:alert(1)", "01:00"), "");
 assert.equal(buildSourceJumpUrl("https://example.com/video", "01:00"), "https://example.com/video");
 assert.equal(buildSourceJumpUrl("https://youtu.be/rust123?start=12", "01:00"), "https://youtu.be/rust123?t=60s");
+assert.equal(buildSourceJumpUrl("https://youtu.be/rust123", "1m30s"), "https://youtu.be/rust123?t=90s");
 assert.equal(timestampToSeconds("abc"), null);
 assert.equal(timestampToSeconds("1:2:3:4"), null);
+assert.equal(timestampToSeconds("1m30s"), 90);
+assert.equal(timestampToSeconds("1h02m03s"), 3723);
+assert.equal(secondsToTimestamp(90), "01:30");
+assert.equal(secondsToTimestamp(3601), "1:00:01");
+assert.equal(extractSourceTimestamp("https://youtu.be/rust123?t=1m30s"), "01:30");
+assert.equal(extractSourceTimestamp("https://youtu.be/rust123?t=90"), "01:30");
+assert.equal(extractSourceTimestamp("https://www.youtube.com/watch?v=rust123&start=492"), "08:12");
+assert.equal(extractSourceTimestamp("https://www.youtube.com/watch?v=rust123&time_continue=3723"), "1:02:03");
+assert.equal(extractSourceTimestamp("https://example.com/video?t=1m30s"), "");
+assert.equal(stripSourceTimestamp("https://youtu.be/rust123?t=1m30s"), "https://youtu.be/rust123");
+assert.equal(stripSourceTimestamp("https://www.youtube.com/watch?v=rust123&start=492"), "https://www.youtube.com/watch?v=rust123");
+assert.equal(
+  stripSourceTimestamp("https://www.youtube.com/watch?v=rust123&list=PL1&index=2&t=90#notes"),
+  "https://www.youtube.com/watch?v=rust123&list=PL1&index=2#notes"
+);
+assert.equal(stripSourceTimestamp("https://example.com/video?t=1m30s"), "https://example.com/video?t=1m30s");
 
 workspace = addSession(workspace, "Rust ownership course");
 let session = getActiveSession(workspace);

@@ -130,9 +130,22 @@ export function timestampToSeconds(value) {
   const raw = cleanText(value, 32);
   if (!raw) return null;
   if (/^\d+$/.test(raw)) return Number(raw);
+  const duration = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/i);
+  if (duration && (duration[1] || duration[2] || duration[3])) {
+    return (Number(duration[1]) || 0) * 3600 + (Number(duration[2]) || 0) * 60 + (Number(duration[3]) || 0);
+  }
   const parts = raw.split(":").map((part) => part.trim());
   if (!parts.length || parts.length > 3 || parts.some((part) => !/^\d+$/.test(part))) return null;
   return parts.reduce((sum, part) => (sum * 60) + Number(part), 0);
+}
+
+export function secondsToTimestamp(value) {
+  const seconds = Math.max(0, Math.floor(Number(value) || 0));
+  const pad = (part) => String(part).padStart(2, "0");
+  if (seconds >= 3600) {
+    return `${Math.floor(seconds / 3600)}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
+  }
+  return `${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
 }
 
 export function buildSourceJumpUrl(sourceUrl, timestamp = "") {
@@ -155,6 +168,36 @@ export function buildSourceJumpUrl(sourceUrl, timestamp = "") {
 
 function isYouTubeHost(hostname) {
   return /(^|\.)youtube\.com$/i.test(hostname) || /^youtu\.be$/i.test(hostname);
+}
+
+export function extractSourceTimestamp(sourceUrl) {
+  const href = cleanUrl(sourceUrl);
+  if (!href) return "";
+  try {
+    const url = new URL(href);
+    if (!isYouTubeHost(url.hostname)) return "";
+    for (const key of ["t", "start", "time_continue"]) {
+      const seconds = timestampToSeconds(url.searchParams.get(key) || "");
+      if (seconds !== null) return secondsToTimestamp(seconds);
+    }
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+export function stripSourceTimestamp(sourceUrl) {
+  const href = cleanUrl(sourceUrl);
+  if (!href) return "";
+  try {
+    const url = new URL(href);
+    if (isYouTubeHost(url.hostname)) {
+      ["t", "start", "time_continue"].forEach((key) => url.searchParams.delete(key));
+    }
+    return url.href;
+  } catch {
+    return href;
+  }
 }
 
 function normalizeSourceProvenance(value) {

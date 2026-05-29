@@ -21,6 +21,7 @@ import {
   cleanUrl,
   deleteCapture,
   deleteReviewCard,
+  extractSourceTimestamp,
   filterSessions,
   formatBytes,
   generateMarkdown,
@@ -47,6 +48,7 @@ import {
   searchWorkspace,
   summarizeCaptureDraft,
   selectSession,
+  stripSourceTimestamp,
   updateSession,
   workspaceBackupFingerprint,
   workspaceStorageNotice,
@@ -677,25 +679,26 @@ function applyUrlCapture() {
   const thought = params.get("thought");
   const sourceUrl = params.get("sourceUrl") || params.get("url");
   const sourceTitle = params.get("sourceTitle") || params.get("title");
-  const timestamp = params.get("t") || params.get("time");
+  const cleanSourceUrl = stripSourceTimestamp(sourceUrl) || sourceUrl;
+  const timestamp = params.get("t") || params.get("time") || extractSourceTimestamp(sourceUrl);
   const autoCapture = params.get("capture") === "1" || params.get("autoCapture") === "1";
   if (!quote && !thought && !sourceUrl && !sourceTitle) return;
 
-  const target = resolveInboundCaptureTarget(workspace, { sourceUrl, sourceTitle });
+  const target = resolveInboundCaptureTarget(workspace, { sourceUrl: cleanSourceUrl, sourceTitle });
   const preserveSessionSource = target.resolution !== "active-fallback";
   const activeFallbackSourceUpdated = target.resolution === "active-fallback" && (
-    (sourceUrl && cleanUrl(sourceUrl) !== cleanUrl(target.session.sourceUrl)) ||
+    (cleanSourceUrl && cleanUrl(cleanSourceUrl) !== cleanUrl(target.session.sourceUrl)) ||
     (sourceTitle && normalizeInboundSourceTitle(sourceTitle) !== normalizeInboundSourceTitle(target.session.sourceTitle))
   );
   workspace = selectSession(workspace, target.session.id);
   workspace = updateSession(workspace, target.session.id, {
     sourceUrl: preserveSessionSource
-      ? target.session.sourceUrl || sourceUrl
-      : sourceUrl || target.session.sourceUrl,
+      ? target.session.sourceUrl || cleanSourceUrl
+      : cleanSourceUrl || target.session.sourceUrl,
     sourceTitle: preserveSessionSource
       ? target.session.sourceTitle || sourceTitle
       : sourceTitle || target.session.sourceTitle,
-    materialType: inferInboundMaterialType(sourceUrl, timestamp, target.session.materialType),
+    materialType: inferInboundMaterialType(cleanSourceUrl, timestamp, target.session.materialType),
     focusMode: "capture"
   });
   activeTab = "captures";
@@ -706,7 +709,7 @@ function applyUrlCapture() {
       timestamp: timestamp || "",
       tags: target.session.tags,
       sourceTitle: sourceTitle || "",
-      sourceUrl: sourceUrl || "",
+      sourceUrl: cleanSourceUrl || "",
       sourceProvenance: "inbound"
     });
     setCaptureDraft(target.session.id, {});
@@ -841,12 +844,32 @@ function formatInboundResolution(resolution, sourceUpdated = false) {
   }[resolution] || "current topic";
 }
 
-function updateSessionFromFields() {
+function updateSessionFromFields(event) {
   const session = getActiveSession(workspace);
+  let sourceUrl = dom.sourceUrl.value;
+  if (event?.target === dom.sourceUrl) {
+    const extractedTimestamp = extractSourceTimestamp(sourceUrl);
+    if (extractedTimestamp && !dom.timestampInput.value.trim()) {
+      dom.timestampInput.value = extractedTimestamp;
+      setCaptureDraft(session.id, {
+        quote: dom.quoteInput.value,
+        thought: dom.thoughtInput.value,
+        timestamp: extractedTimestamp
+      });
+      renderCaptureDraftStatus(session);
+    }
+    const strippedSourceUrl = stripSourceTimestamp(sourceUrl);
+    if (strippedSourceUrl) {
+      sourceUrl = strippedSourceUrl;
+      if (event.type === "change" && strippedSourceUrl !== cleanUrl(dom.sourceUrl.value)) {
+        dom.sourceUrl.value = strippedSourceUrl;
+      }
+    }
+  }
   workspace = updateSession(workspace, session.id, {
     title: dom.sessionTitle.value,
     sourceTitle: dom.sourceTitle.value,
-    sourceUrl: dom.sourceUrl.value,
+    sourceUrl,
     materialType: dom.materialType.value,
     tags: dom.sessionTags.value
   });
@@ -907,24 +930,25 @@ function captureTextFromNative(text, options = {}) {
   }
   const sourceTitle = String(options.sourceTitle || "");
   const sourceUrl = String(options.sourceUrl || "");
-  const timestamp = String(options.timestamp || "");
+  const cleanSourceUrl = stripSourceTimestamp(sourceUrl) || sourceUrl;
+  const timestamp = String(options.timestamp || extractSourceTimestamp(sourceUrl));
   const captureSource = normalizeNativeCaptureSource(options.captureSource);
-  const target = resolveInboundCaptureTarget(workspace, { sourceUrl, sourceTitle });
+  const target = resolveInboundCaptureTarget(workspace, { sourceUrl: cleanSourceUrl, sourceTitle });
   const preserveSessionSource = target.resolution !== "active-fallback";
   const activeFallbackSourceUpdated = target.resolution === "active-fallback" && (
-    (sourceUrl && cleanUrl(sourceUrl) !== cleanUrl(target.session.sourceUrl)) ||
+    (cleanSourceUrl && cleanUrl(cleanSourceUrl) !== cleanUrl(target.session.sourceUrl)) ||
     (sourceTitle && normalizeInboundSourceTitle(sourceTitle) !== normalizeInboundSourceTitle(target.session.sourceTitle))
   );
   const promoteToReview = Boolean(options.promoteToReview);
   workspace = selectSession(workspace, target.session.id);
   workspace = updateSession(workspace, target.session.id, {
     sourceUrl: preserveSessionSource
-      ? target.session.sourceUrl || sourceUrl
-      : sourceUrl || target.session.sourceUrl,
+      ? target.session.sourceUrl || cleanSourceUrl
+      : cleanSourceUrl || target.session.sourceUrl,
     sourceTitle: preserveSessionSource
       ? target.session.sourceTitle || sourceTitle
       : sourceTitle || target.session.sourceTitle,
-    materialType: inferInboundMaterialType(sourceUrl, timestamp, target.session.materialType),
+    materialType: inferInboundMaterialType(cleanSourceUrl, timestamp, target.session.materialType),
     focusMode: "capture"
   });
   workspace = addCapture(workspace, target.session.id, {
@@ -933,7 +957,7 @@ function captureTextFromNative(text, options = {}) {
     timestamp,
     tags: target.session.tags,
     sourceTitle,
-    sourceUrl,
+    sourceUrl: cleanSourceUrl,
     sourceProvenance: sourceTitle || sourceUrl ? "inbound" : "snapshot"
   }, {
     promoteToReview
@@ -944,7 +968,7 @@ function captureTextFromNative(text, options = {}) {
   const activityTitle = nativeCaptureActivityTitle(captureSource, promoteToReview);
   setActivity(updated, {
     title: activityTitle,
-    detail: sourceTitle || sourceUrl
+    detail: sourceTitle || cleanSourceUrl
       ? `${summarizeCapture(capture)} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`
       : summarizeCapture(capture),
     tab: activeTab,
@@ -958,7 +982,7 @@ function captureTextFromNative(text, options = {}) {
     reviewCardId: promoteToReview ? updated.reviewCards[0]?.id || "" : "",
     captures: updated.captures.length,
     activeTab,
-    sourceAttached: Boolean(sourceTitle || sourceUrl),
+    sourceAttached: Boolean(sourceTitle || cleanSourceUrl),
     resolution: target.resolution,
     captureSource
   };
