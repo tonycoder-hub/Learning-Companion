@@ -96,6 +96,7 @@ assert.equal(harmonyScaffold.ok, true);
 assert.equal(harmonyScaffold.app.bundleName, "com.tonycoder.learningcompanion");
 assert.equal(harmonyScaffold.pages.includes("pages/Index"), true);
 assert.equal(harmonyScaffold.checks.every((check) => check.ok), true);
+assert.equal(Object.values(harmonyScaffold.schemaParity).every((item) => item.ok), true);
 
 assert.equal(feishuPlan.schema, "learning-companion.feishu-upload-plan.v1");
 assertEvidence(feishuPlan.evidence, "DRY_RUN", files.feishuPlan);

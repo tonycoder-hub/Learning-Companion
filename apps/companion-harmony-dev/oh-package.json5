@@ -1,0 +1,11 @@
+{
+  "modelVersion": "5.0.0",
+  "name": "learning-companion-harmony",
+  "version": "0.1.0",
+  "description": "Learning Companion HarmonyOS scaffold",
+  "main": "",
+  "author": "Tony Coder",
+  "license": "UNLICENSED",
+  "dependencies": {},
+  "devDependencies": {}
+}

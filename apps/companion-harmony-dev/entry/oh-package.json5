@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "0.1.0",
+  "description": "Learning Companion entry module",
+  "main": "",
+  "author": "Tony Coder",
+  "license": "UNLICENSED",
+  "dependencies": {}
+}

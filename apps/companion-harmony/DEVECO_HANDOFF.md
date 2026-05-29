@@ -16,18 +16,25 @@ The first device milestone is read-only: import a workspace or mirror bundle, re
 
 ```text
 apps/companion-harmony-dev/
+  build-profile.json5
+  hvigorfile.ts
+  oh-package.json5
   AppScope/app.json5
+  AppScope/resources/base/element/string.json
+  AppScope/resources/base/media/app_icon.svg
+  entry/build-profile.json5
+  entry/hvigorfile.ts
+  entry/oh-package.json5
   entry/src/main/module.json5
   entry/src/main/ets/entryability/EntryAbility.ets
   entry/src/main/ets/pages/Index.ets
   entry/src/main/ets/pages/TopicDetail.ets
   entry/src/main/ets/pages/ReviewQueue.ets
   entry/src/main/ets/pages/ImportReceipt.ets
-  entry/src/main/ets/model/workspace.ts
-  entry/src/main/ets/model/harmonyReaderView.ts
-  entry/src/main/ets/services/importPortableData.ts
-  entry/src/main/ets/services/buildHarmonyReaderView.ts
-  entry/src/main/ets/services/exportPatch.ts
+  entry/src/main/ets/model/workspace.ets
+  entry/src/main/ets/model/harmonyReaderView.ets
+  entry/src/main/ets/services/importPortableData.ets
+  entry/src/main/ets/services/exportPatch.ets
 ```
 
 The scaffold is intentionally separate from the executable JavaScript prototype in `apps/companion-harmony/src/`. The JS prototype remains the authoritative smoke-tested implementation until DevEco compilation passes.
@@ -62,8 +69,9 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 
 ## ArkTS Port Notes
 
-- Port `src/schema-reader.mjs` into `buildHarmonyReaderView.ts`.
-- Port `src/import-boundary.mjs` into `importPortableData.ts` and `exportPatch.ts`.
+- Port `src/schema-reader.mjs` into `buildHarmonyReaderView.ets`.
+- Port `src/import-boundary.mjs` into `importPortableData.ets` and `exportPatch.ets`.
+- Keep schema constants byte-for-byte aligned with the JS prototype; `npm run smoke:harmony` checks this by text extraction.
 - Keep model functions pure and deterministic.
 - Prefer explicit schema interfaces over dynamic object mutation.
 - Keep unsafe URLs sanitized or display-only; opening external URLs should be an explicit user action.
