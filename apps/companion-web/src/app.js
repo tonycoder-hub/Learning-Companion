@@ -34,7 +34,6 @@ import {
   isReviewProgressPatch,
   isReviewProgressPatchLike,
   promoteCapture,
-  safeHref,
   sanitizeWorkspace,
   searchWorkspace,
   selectSession,
@@ -307,8 +306,8 @@ dom.notesPreviewBtn.addEventListener("click", () => {
 
 dom.openSourceBtn.addEventListener("click", () => {
   const session = getActiveSession(workspace);
-  const href = safeHref(session.sourceUrl);
-  if (href !== "#") window.open(href, "_blank", "noopener,noreferrer");
+  const href = buildSourceJumpUrl(session.sourceUrl, dom.timestampInput.value);
+  if (href) window.open(href, "_blank", "noopener,noreferrer");
 });
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);

@@ -173,6 +173,14 @@ try {
       text: document.querySelector("#captureDraftStatus").textContent,
       clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
     };
+    let sourceJumpOpened = "";
+    const nativeWindowOpen = window.open;
+    window.open = (href) => {
+      sourceJumpOpened = href;
+      return null;
+    };
+    document.querySelector("#openSourceBtn").click();
+    window.open = nativeWindowOpen;
     const focusBriefAfterCard = {
       action: document.querySelector("#focusBriefAction").textContent,
       facts: document.querySelector("#focusBriefFacts").textContent,
@@ -549,6 +557,7 @@ try {
           captureDraftPrunedAfterImport,
           activityAfterCard,
           captureDraftStatusAfterCard,
+          sourceJumpOpened,
           focusBriefAfterCard,
           focusBriefAfterGood,
           focusBriefAfterSynthesis,
@@ -753,6 +762,7 @@ try {
   assert.equal(result.activityOpenedReviewTab, "review");
   assert.equal(result.activityTargetPulsed, true);
   assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });
+  assert.equal(result.sourceJumpOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /Spaced repetition improves/);

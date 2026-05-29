@@ -41,7 +41,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Deterministic Focus Brief in the desk with next action, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Workspace Find searches source titles, notes, captures, tags, and review cards, then jumps back to the matching session and surface.
 - Today tab includes a Patch Intake panel with inbox/review patch counts, latest import receipt, and direct import/export handoff actions.
-- Sessions, source context, timestamp, tags.
+- Sessions, source context, timestamp, tags, and source-open jumps that honor the current video time when present.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought with per-session draft persistence, visible draft status, and a clear-draft action.
 - One-click capture insertion into Notes with idempotent capture blocks.
