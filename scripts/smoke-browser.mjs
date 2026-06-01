@@ -227,6 +227,15 @@ try {
     const todayRecentOpenLinkText = [...document.querySelectorAll("#todayTab .item-card:not(.due-card) .mini-button")]
       .map((button) => button.textContent)
       .find((text) => text.startsWith("Open @")) || "";
+    const todayMapButtons = [...document.querySelectorAll("#todayTab .today-map-button")]
+      .map((button) => ({
+        target: button.dataset.todayMapTarget,
+        text: button.textContent.trim(),
+        aria: button.getAttribute("aria-label")
+      }));
+    const todayMapRecentButton = document.querySelector('#todayTab .today-map-button[data-today-map-target="recent_captures"]');
+    todayMapRecentButton?.click();
+    const todayMapRecentPulsed = document.querySelector('[data-today-section="recent_captures"]')?.classList.contains("pulse") === true;
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
     const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
@@ -648,6 +657,8 @@ try {
           todayHasRecentCapture,
           todayDueOpenLinkText,
           todayRecentOpenLinkText,
+          todayMapButtons,
+          todayMapRecentPulsed,
           noteInsertions,
           noteHasSource,
           searchBeforeOpen,
@@ -862,6 +873,11 @@ try {
   assert.equal(result.todayHasRecentCapture, true);
   assert.equal(result.todayDueOpenLinkText, "Open @ 08:12");
   assert.equal(result.todayRecentOpenLinkText, "Open @ 08:12");
+  assert.equal(result.todayMapButtons.some((button) => button.target === "due_review" && /Due/.test(button.text)), true);
+  assert.equal(result.todayMapButtons.some((button) => button.target === "open_questions" && /Questions/.test(button.text)), true);
+  assert.equal(result.todayMapButtons.some((button) => button.target === "answers_today" && /Answers/.test(button.text)), true);
+  assert.equal(result.todayMapButtons.some((button) => button.target === "recent_captures" && /Recent/.test(button.text)), true);
+  assert.equal(result.todayMapRecentPulsed, true);
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.ok(result.searchBeforeOpen.count >= 1);

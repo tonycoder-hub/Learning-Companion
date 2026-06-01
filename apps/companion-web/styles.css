@@ -909,6 +909,77 @@ textarea:focus {
   font-size: 20px;
 }
 
+.today-map {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f7f3ea;
+}
+
+.today-map-button {
+  display: grid;
+  justify-items: start;
+  gap: 2px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 8px;
+  border: 1px solid rgba(74, 62, 46, 0.16);
+  border-radius: 8px;
+  background: #fffdfa;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.today-map-button strong {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.today-map-button span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.today-map-button:hover,
+.today-map-button:focus-visible {
+  border-color: rgba(47, 111, 94, 0.46);
+  outline: none;
+  background: #f6fbf8;
+}
+
+.today-map-button.is-urgent {
+  border-color: rgba(137, 59, 37, 0.32);
+  background: #fff6ef;
+}
+
+.today-map-button.is-focus {
+  border-color: rgba(49, 95, 130, 0.32);
+  background: #f4f9fc;
+}
+
+.today-map-button.is-green {
+  border-color: rgba(47, 111, 94, 0.3);
+  background: var(--green-soft);
+}
+
+.today-map-button.is-warm {
+  border-color: rgba(126, 86, 48, 0.3);
+  background: #fff9ed;
+}
+
+.today-map-button.is-muted {
+  opacity: 0.72;
+}
+
 .today-section-title {
   margin: 4px 0 2px;
   font-size: 12px;
