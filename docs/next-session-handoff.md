@@ -19,6 +19,8 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `74d5b20 feat: warn on capture draft source drift`
+- `0463b81 docs: record zero time nudge handoff`
 - `41b1ab7 feat: clarify zero time nudge feedback`
 - `9198d20 docs: refresh sidecar continuation handoff`
 - `571f1d6 test: pin time nudge mobile layout`
@@ -192,9 +194,18 @@ Latest local work also clarifies source time staging:
 - Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, Quick Capture context source/time, context Open href, typed-but-unblurred Time reads, mouse and keyboard time nudges, empty/invalid Time fallback to latest capture time, `00:00` no-op feedback, empty-source disabled behavior, draft status, source-open title, stripped URL after blur/change, and a 390px sidecar/mobile layout where the Time row does not overflow and both nudge buttons stay at least 44px wide.
 - The morning manual QA pack now has a `Source time staging` row; this remains Mac/web local URL-parser evidence, not Harmony/Windows reader UI parity and not live playback QA against external video sites.
 
+Latest local work adds Quick Capture draft source drift protection:
+
+- Device-local capture drafts now store a local source title/URL snapshot in UI prefs, still outside canonical workspace JSON and mirror exports.
+- The snapshot is treated as the draft origin and stays stable until the draft is captured or cleared; later typing does not silently re-anchor it.
+- If the current session source no longer matches the draft origin, the capture status changes to `Source changed`, receives a warn class, and exposes a status/title hint for accessibility.
+- Source comparison reuses the existing URL matching normalization, so source-time query noise and title-only refreshes do not create warnings when the canonical URL is the same.
+- Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, and post-capture snapshot reset.
+- Mira returned `PASS_WITH_NOTES`; accepted fixes included stable first-source snapshot semantics, URL/title normalization, status accessibility, source restore coverage, title-only refresh coverage, and post-capture reset coverage. Deferred notes: real YouTube/Feishu-doc manual switching remains a manual QA item, not proven by local smoke.
+
 ## Verified Locally
 
-These passed after the Time nudge mobile layout hardening:
+These passed after the source drift protection update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
