@@ -394,6 +394,13 @@ dom.clearCaptureDraftBtn.addEventListener("click", clearCurrentCaptureDraft);
   node.addEventListener("input", saveCurrentCaptureDraft);
   node.addEventListener("change", saveCurrentCaptureDraft);
 });
+dom.timestampInput.addEventListener("keydown", (event) => {
+  if (event.isComposing) return;
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    nudgeCaptureTime(event.key === "ArrowUp" ? 15 : -15);
+  }
+});
 dom.synthesisDraft.addEventListener("input", () => {
   dom.synthesisDraft.dataset.dirty = "true";
   renderSynthesisStatus();

@@ -304,7 +304,36 @@ try {
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent
     };
-    const sourceTimestampNudge = { afterTimeBack, afterTimeForward };
+    document.querySelector("#timestampInput").focus();
+    const keyBackEvent = new KeyboardEvent("keydown", {
+      key: "ArrowDown",
+      bubbles: true,
+      cancelable: true
+    });
+    const keyBackDispatchResult = document.querySelector("#timestampInput").dispatchEvent(keyBackEvent);
+    const afterKeyboardBack = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      defaultPrevented: keyBackEvent.defaultPrevented,
+      dispatchResult: keyBackDispatchResult,
+      activeId: document.activeElement?.id || ""
+    };
+    const keyForwardEvent = new KeyboardEvent("keydown", {
+      key: "ArrowUp",
+      bubbles: true,
+      cancelable: true
+    });
+    const keyForwardDispatchResult = document.querySelector("#timestampInput").dispatchEvent(keyForwardEvent);
+    const afterKeyboardForward = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      defaultPrevented: keyForwardEvent.defaultPrevented,
+      dispatchResult: keyForwardDispatchResult,
+      activeId: document.activeElement?.id || ""
+    };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -1015,6 +1044,22 @@ try {
     contextTime: "@ 12:30",
     activityTitle: "Time adjusted",
     activityDetail: "Capture time set to 12:30."
+  });
+  assert.deepEqual(result.sourceTimestampNudge.afterKeyboardBack, {
+    timestamp: "12:15",
+    contextTime: "@ 12:15",
+    activityTitle: "Time adjusted",
+    defaultPrevented: true,
+    dispatchResult: false,
+    activeId: "timestampInput"
+  });
+  assert.deepEqual(result.sourceTimestampNudge.afterKeyboardForward, {
+    timestamp: "12:30",
+    contextTime: "@ 12:30",
+    activityTitle: "Time adjusted",
+    defaultPrevented: true,
+    dispatchResult: false,
+    activeId: "timestampInput"
   });
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);

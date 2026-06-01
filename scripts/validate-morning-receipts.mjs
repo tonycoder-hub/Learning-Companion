@@ -227,6 +227,8 @@ assert.match(manualQa, /quote-only draft focuses Thought/);
 assert.match(manualQa, /Source time staging/);
 assert.match(manualQa, /filled and pulsed/);
 assert.match(manualQa, /source\/time context/);
+assert.match(manualQa, /ArrowDown/);
+assert.match(manualQa, /ArrowUp/);
 assert.match(manualQa, /Time adjusted/);
 assert.match(manualQa, /Source time staged/);
 assert.match(manualQa, /Today section map/);
