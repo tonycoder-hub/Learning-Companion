@@ -38,6 +38,7 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `62dbffb test: surface closed answers in morning demo`
 - `cd1e6c3 feat: add question loop summary`
 - `94432b9 feat: surface answer captures in harmony reader`
+- `dc8cb2e feat: add today section map`
 
 Recent committed work makes answer resolution visible in import receipts:
 
@@ -110,9 +111,17 @@ Latest local work ports `Answers Today` into the Harmony reader contract:
 - Smoke coverage pins workspace/mirror parity, inbox-import answer timing, old local answer edits that should not appear today, and the count/list/overflow invariant.
 - This remains JSON contract/scaffold evidence only; DevEco compile, device rendering, file picker import, Feishu sync, and live login are still not proven.
 
+Latest local work adds a Today section map for density:
+
+- Today now shows a compact section map after the summary stats and before Patch Intake.
+- The map shows Due, Questions, Parked, Answers, Closed, Recent, and Drafts only when drafts exist.
+- Each chip has a stable `data-today-map-target`, count, accessible jump label, and clicks to the matching `data-today-section` with a pulse.
+- Browser smoke clicks the Recent chip and verifies the Recent Captures section pulses.
+- Visual QA covered 1440x900 and 390x844 viewports with no horizontal overflow or button text overflow.
+
 ## Verified Locally
 
-These passed after the Harmony `Answers Today` reader update:
+These passed after the Today section map update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
@@ -202,10 +211,15 @@ Latest absorbed Mira notes for Harmony `Answers Today`:
 - Pin negative coverage for an old local answer edited today that should not reappear in `Answers Today`.
 - Pin the invariant `answerCaptureCountToday === answersToday.length + answersTodayOverflow` for the current limit.
 
+Latest Mira note for Today section map:
+
+- A targeted Mira review was attempted for the map/density UX but timed out at the SSH broker layer after roughly 630s (`error_code: TIMEOUT`, `error_stage: ssh`).
+- No Mira verdict was available for this increment. Local code review accepted the small readability fix from `Active Q` to `Questions`; no broader information-architecture rewrite was made.
+
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is visual QA/density polishing for the now-heavy Today surface, or making the Harmony scaffold import/file-picker story more concrete without claiming device validation.
+   - Consider whether the next useful increment is making the Harmony scaffold import/file-picker story more concrete without claiming device validation, or adding a small "start here" empty-state seed for first-run study flow.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
