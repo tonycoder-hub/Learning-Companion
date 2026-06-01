@@ -31,6 +31,11 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `3e2af15 feat: resolve questions from answer patches`
 - `68ed5f3 test: harden answer patch resolution`
 - `43b3f9a feat: show answer resolution in import receipts`
+- `9fca328 feat: show questions closed today`
+- `11bb044 feat: build review cards from answered questions`
+- `ba2dd9f feat: show answer summaries for closed questions`
+- `c6e09bf feat: refresh answered question review cards`
+- `62dbffb test: surface closed answers in morning demo`
 
 Recent committed work makes answer resolution visible in import receipts:
 
@@ -47,7 +52,7 @@ Latest local work keeps resolved questions visible in Today:
 - Closed cards provide View/Reopen and stay excluded from active/open question counts.
 - Smoke coverage now includes answer-import closure, Reopen removing a closed card and restoring the open question, same-day re-resolve latest-wins semantics, overflow, and Today/TODAY.md window agreement.
 
-Current uncommitted work turns answered questions into stronger review cards:
+Recent committed work turns answered questions into stronger review cards:
 
 - `promoteCapture()` now detects same-session answer captures linked by `answersQuestionCaptureId`.
 - When promoting an answered question, the card prompt uses the original question and the card answer uses the latest linked answer capture.
@@ -56,9 +61,17 @@ Current uncommitted work turns answered questions into stronger review cards:
 - Smoke coverage includes promoted-before-answered, multiple linked answers, quote-only answer captures, and equal-timestamp answer tie-breaking.
 - Closed Today/TODAY.md now also show the linked answer summary, with leading `Answer:` stripped to avoid duplicated labels.
 
+Current uncommitted work adds a Question Loop summary:
+
+- `buildTodayPack()` now emits `questionLoop`, a derived summary of active, parked, closed-today, answer-linked closed-today, and question-sourced review-card counts.
+- Today UI shows `Question Loop` as a flow card after `Question Queue Health`, with Today, Backlog, and Lifetime lines so day-window and lifetime metrics are not mixed.
+- `TODAY.md` includes a `## Question Loop` section with a one-line timescale legend for Feishu/Windows/mobile handoff.
+- Mira reviewed the first version as `PASS_WITH_NOTES`; accepted fixes renamed ambiguous `answered` copy to `answer-linked closure`, separated stock/backlog from flow, and pinned same-session answer-link behavior.
+- Smoke coverage includes quiet, active, reopened, closed, overflow, and cross-session-answer edge cases.
+
 ## Verified Locally
 
-These passed after the `Closed Today` update:
+These passed after the `Question Loop` update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
@@ -113,6 +126,14 @@ Latest absorbed Mira notes for answered-question review cards:
 - Normalize `Q:` / `Question:` prompt prefixes.
 - Cover quote-only answer captures, not only thought+quote answers.
 - Defer `evidenceCaptureId` and weak-card quality gating as explicit follow-ups instead of smuggling in a schema change.
+
+Latest absorbed Mira notes for `Question Loop`:
+
+- Keep `Question Queue Health` as stock/backlog and make `Question Loop` a flow/transition card.
+- Rename ambiguous `answered` wording to `answer-linked closure`.
+- Separate Today metrics from Lifetime review-card totals in both UI and Markdown.
+- Add a Markdown legend because Feishu/Windows/mobile handoff loses hover/tooltips.
+- Pin same-session answer-link semantics; cross-session answers do not count as answer-linked closures.
 
 ## Next Local Work
 

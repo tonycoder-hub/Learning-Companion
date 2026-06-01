@@ -664,9 +664,17 @@ const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("
   resolvedQuestionLimit: 2
 });
 assert.equal(answeredTodayPack.stats.resolvedQuestionsToday, 1);
+assert.equal(answeredTodayPack.stats.questionReviewCards, 0);
+assert.equal(answeredTodayPack.stats.questionReviewCardsToday, 0);
 assert.equal(answeredTodayPack.resolvedQuestionItems.length, 1);
 assert.equal(answeredTodayPack.resolvedQuestionItems[0].capture.id, questionCaptureId);
 assert.equal(answeredTodayPack.resolvedQuestionItems[0].answerCapture.inboxCaptureId, "inbox_answer_capture_001");
+assert.equal(answeredTodayPack.questionLoop.resolvedQuestionsToday, 1);
+assert.equal(answeredTodayPack.questionLoop.answerLinkedResolvedToday, 1);
+assert.equal(answeredTodayPack.questionLoop.questionReviewCards, 0);
+assert.equal(answeredTodayPack.questionLoop.questionReviewCardsToday, 0);
+assert.equal(answeredTodayPack.questionLoop.targetSection, "closed_questions");
+assert.match(answeredTodayPack.questionLoop.todayDetail, /1 answer-linked closure/);
 assert.equal(getResolvedQuestionItems(answerInboxResult.workspace, 10, {
   since: new Date("2026-05-29T00:00:00.000Z"),
   until: new Date("2026-05-30T00:00:00.000Z")
@@ -687,6 +695,8 @@ const reopenedAfterAnswerPack = buildTodayPack(reopenedAfterAnswerWorkspace, new
 assert.equal(reopenedAfterAnswerPack.stats.resolvedQuestionsToday, 0);
 assert.equal(reopenedAfterAnswerPack.resolvedQuestionItems.length, 0);
 assert.equal(reopenedAfterAnswerPack.stats.questions, 1);
+assert.equal(reopenedAfterAnswerPack.questionLoop.activeQuestions, 1);
+assert.equal(reopenedAfterAnswerPack.questionLoop.targetSection, "open_questions");
 assert.equal(reopenedAfterAnswerPack.questionItems[0].capture.id, questionCaptureId);
 const reansweredQuestionResult = applyMobileInboxPatch(reopenedAfterAnswerWorkspace, {
   ...answerInboxPatch,
@@ -1178,7 +1188,12 @@ assert.equal(todayPack.stats.due, 2);
 assert.equal(todayPack.stats.questions, 0);
 assert.equal(todayPack.stats.parkedQuestions, 0);
 assert.equal(todayPack.stats.resolvedQuestionsToday, 0);
+assert.equal(todayPack.stats.questionReviewCards, 0);
+assert.equal(todayPack.stats.questionReviewCardsToday, 0);
 assert.equal(todayPack.questionHealth.status, "clear");
+assert.equal(todayPack.questionLoop.label, "Question loop quiet");
+assert.equal(todayPack.questionLoop.questionReviewCards, 0);
+assert.match(todayPack.questionLoop.todayDetail, /0 answer-linked closures/);
 assert.equal(todayPack.dueItems.length, 1);
 assert.equal(todayPack.dueOverflow, 1);
 assert.equal(todayPack.questionItems.length, 0);
@@ -1203,6 +1218,9 @@ assert.match(todayMarkdown, /\]\(sessions\/.+\.md\)/);
 assert.match(todayMarkdown, /Due Review/);
 assert.match(todayMarkdown, /Question Queue Health/);
 assert.match(todayMarkdown, /Question queue clear/);
+assert.match(todayMarkdown, /Question Loop/);
+assert.match(todayMarkdown, /Question loop quiet/);
+assert.match(todayMarkdown, /Today metrics use the local day window/);
 assert.match(todayMarkdown, /Open Questions/);
 assert.match(todayMarkdown, /No open questions captured yet/);
 assert.match(todayMarkdown, /Parked Questions/);
@@ -1233,6 +1251,8 @@ assert.equal(questionTodayPack.stats.questions, 1);
 assert.equal(questionTodayPack.stats.parkedQuestions, 0);
 assert.equal(questionTodayPack.questionHealth.status, "active");
 assert.equal(questionTodayPack.questionHealth.targetSection, "open_questions");
+assert.equal(questionTodayPack.questionLoop.activeQuestions, 1);
+assert.equal(questionTodayPack.questionLoop.targetSection, "open_questions");
 assert.equal(questionTodayPack.questionItems.length, 1);
 assert.equal(questionTodayPack.questionItems[0].sessionTitle, "Algorithms course");
 assert.match(questionTodayPack.questionItems[0].sessionPath, /^sessions\/.+\.md$/);
@@ -1243,6 +1263,9 @@ assert.match(questionTodayMarkdown, /Parked question rule: latest 6 parked quest
 assert.match(questionTodayMarkdown, /Closed today rule: latest 4 question captures resolved in 2099-01-02 local/);
 assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 0 closed today \/ 2 cards \/ 2 due cards/);
 assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
+assert.match(questionTodayMarkdown, /Question Loop/);
+assert.match(questionTodayMarkdown, /Question loop has active work/);
+assert.match(questionTodayMarkdown, /Backlog: 1 unresolved question/);
 const overflowResolvedCaptures = Array.from({ length: 6 }, (_, index) => ({
   id: `resolved_overflow_${index}`,
   quote: "",
@@ -1275,10 +1298,49 @@ const overflowResolvedPack = buildTodayPack(overflowResolvedWorkspace, frozenTod
   resolvedQuestionLimit: 2
 });
 assert.equal(overflowResolvedPack.stats.resolvedQuestionsToday, 6);
+assert.equal(overflowResolvedPack.questionLoop.resolvedQuestionsToday, 6);
+assert.equal(overflowResolvedPack.questionLoop.targetSection, "closed_questions");
 assert.equal(overflowResolvedPack.resolvedQuestionItems.length, 2);
 assert.equal(overflowResolvedPack.resolvedQuestionItems[0].capture.thought, "Resolved overflow question 5?");
 assert.equal(overflowResolvedPack.resolvedQuestionOverflow, 4);
 assert.match(generateTodayMarkdown(overflowResolvedWorkspace, frozenToday), /\+2 more questions closed today in workspace\.json/);
+const priorSessionAnswerWorkspace = workspaceFromPortableData({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  clientId: "client_prior_session_answer",
+  activeSessionId: "prior_question_topic",
+  sessions: [{
+    id: "prior_question_topic",
+    title: "Prior question topic",
+    captures: [{
+      id: "prior_session_question",
+      thought: "Why does answer location matter?",
+      tags: ["question"],
+      capturedAt: "2099-01-02T09:00:00.000Z",
+      createdAt: "2099-01-02T09:00:00.000Z",
+      updatedAt: "2099-01-02T10:00:00.000Z",
+      questionResolvedAt: "2099-01-02T10:00:00.000Z"
+    }],
+    reviewCards: []
+  }, {
+    id: "prior_answer_topic",
+    title: "Prior answer topic",
+    captures: [{
+      id: "prior_session_answer",
+      thought: "Answer: same-session linking prevents accidental cross-topic closure.",
+      tags: ["answer"],
+      answersQuestionCaptureId: "prior_session_question",
+      capturedAt: "2099-01-02T10:01:00.000Z",
+      createdAt: "2099-01-02T10:01:00.000Z",
+      updatedAt: "2099-01-02T10:01:00.000Z"
+    }],
+    reviewCards: []
+  }]
+});
+const priorSessionAnswerPack = buildTodayPack(priorSessionAnswerWorkspace, frozenToday);
+assert.equal(priorSessionAnswerPack.questionLoop.resolvedQuestionsToday, 1);
+assert.equal(priorSessionAnswerPack.questionLoop.answerLinkedResolvedToday, 0);
+assert.equal(priorSessionAnswerPack.resolvedQuestionItems[0].answerCapture, null);
 const questionMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);

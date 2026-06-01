@@ -1905,6 +1905,7 @@ try {
   assert.match(questionFlow.zeroFocusFacts, /None/);
   assert.match(questionFlow.emptyTodayText, /Open Questions/);
   assert.match(questionFlow.emptyTodayText, /Question Queue Health/);
+  assert.match(questionFlow.emptyTodayText, /Question Loop/);
   assert.match(questionFlow.emptyTodayText, /No open questions captured/);
   assert.match(questionFlow.stackText, /Question/);
   assert.match(questionFlow.stackText, /compactness assumption/);
@@ -1914,6 +1915,7 @@ try {
   assert.match(questionFlow.todaySummary, /questions/);
   assert.match(questionFlow.todayText, /Open Questions/);
   assert.match(questionFlow.todayText, /Question Queue Health/);
+  assert.match(questionFlow.todayText, /Question Loop/);
   assert.match(questionFlow.todayText, /compactness assumption/);
   assert.deepEqual(questionFlow.questionSignalClick.before, {
     shellCompact: true,
@@ -1978,6 +1980,8 @@ try {
     { text: "Refresh card", disabled: false }
   );
   assert.match(questionFlow.afterAnswerImport.todayText, /Closed Today/);
+  assert.match(questionFlow.afterAnswerImport.todayText, /Question Loop/);
+  assert.match(questionFlow.afterAnswerImport.todayText, /1 answer-linked closure/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Answer: without compactness the proof cannot pass/);
   assert.doesNotMatch(questionFlow.afterAnswerImport.todayText, /Answer: Answer:/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Reopen/);

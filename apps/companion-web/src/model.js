@@ -1347,6 +1347,13 @@ export function getStudyPackStats(workspace, now = new Date()) {
       since: todayWindow.start,
       until: todayWindow.end
     }).length,
+    questionReviewCards: getQuestionReviewCardItems(workspace).length,
+    questionReviewCardsToday: getQuestionReviewCardItems(workspace).filter((item) => {
+      const createdTime = boundedTime(item.card.createdAt);
+      return Number.isFinite(createdTime)
+        && createdTime >= todayWindow.start.getTime()
+        && createdTime < todayWindow.end.getTime();
+    }).length,
     cards: workspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0),
     due: getDueReviewItems(workspace, now).length
   };
@@ -1505,6 +1512,10 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
   }));
   const stats = getStudyPackStats(cleanWorkspace, now);
+  const questionReviewAll = getQuestionReviewCardItems(cleanWorkspace).map((item) => ({
+    ...item,
+    sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
+  }));
   return {
     generatedAt: formatLocalIso(now),
     reviewCutoff: formatLocalIso(now),
@@ -1521,6 +1532,7 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     dueDefinition: "review cards with dueAt <= generatedAt",
     stats,
     questionHealth: buildQuestionQueueHealth(stats),
+    questionLoop: buildQuestionLoopSummary(stats, resolvedQuestionAll, questionReviewAll),
     focusBrief: {
       ...buildFocusBrief(activeSession, cleanWorkspace, now),
       sessionPath: sessionPaths.get(activeSession.id)?.markdownPath || ""
@@ -1578,6 +1590,68 @@ function buildQuestionQueueHealth(stats) {
     unresolvedQuestions,
     targetSection: ""
   };
+}
+
+function buildQuestionLoopSummary(stats, resolvedQuestionItems = [], questionReviewItems = []) {
+  const activeQuestions = Number(stats.questions) || 0;
+  const parkedQuestions = Number(stats.parkedQuestions) || 0;
+  const resolvedToday = Number(stats.resolvedQuestionsToday) || 0;
+  const answeredToday = resolvedQuestionItems.filter((item) => item.answerCapture).length;
+  const questionReviewCards = Number(stats.questionReviewCards) || questionReviewItems.length || 0;
+  const questionReviewCardsToday = Number(stats.questionReviewCardsToday) || 0;
+  const unresolvedQuestions = activeQuestions + parkedQuestions;
+  // Active questions are the first jump target because they are already in the focus queue;
+  // parked questions are next, and closed questions are only a review trail when no work is open.
+  const targetSection = activeQuestions
+    ? "open_questions"
+    : parkedQuestions ? "parked_questions" : resolvedToday ? "closed_questions" : "";
+  const label = activeQuestions
+    ? "Question loop has active work"
+    : parkedQuestions
+      ? "Question loop has parked follow-up"
+      : resolvedToday || questionReviewCardsToday
+        ? "Question loop moved today"
+        : "Question loop quiet";
+  const todayDetail = [
+    `${resolvedToday} closed today`,
+    `${formatCount(answeredToday, "answer-linked closure")}`,
+    `${formatCount(questionReviewCardsToday, "question card made today")}`
+  ].join(" · ");
+  const backlogDetail = [
+    `${formatCount(unresolvedQuestions, "unresolved question")}`,
+    `${activeQuestions} active`,
+    `${parkedQuestions} parked`
+  ].join(" · ");
+  const lifetimeDetail = `${formatCount(questionReviewCards, "total question review card")}`;
+  return {
+    schema: "learning-companion.question-loop-summary.v1",
+    activeQuestions,
+    parkedQuestions,
+    unresolvedQuestions,
+    resolvedQuestionsToday: resolvedToday,
+    answerLinkedResolvedToday: answeredToday,
+    questionReviewCards,
+    questionReviewCardsToday,
+    label,
+    todayDetail,
+    backlogDetail,
+    lifetimeDetail,
+    targetSection
+  };
+}
+
+function getQuestionReviewCardItems(workspace) {
+  return workspace.sessions.flatMap((session) => {
+    const capturesById = new Map(session.captures.map((capture) => [capture.id, capture]));
+    return session.reviewCards
+      .filter((card) => captureHasQuestion(capturesById.get(card.sourceCaptureId)))
+      .map((card) => ({
+        sessionId: session.id,
+        sessionTitle: session.title,
+        card,
+        sourceCapture: capturesById.get(card.sourceCaptureId)
+      }));
+  });
 }
 
 export function filterSessions(workspace, query) {
@@ -1826,6 +1900,18 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     "",
     `- ${markdownInline(pack.questionHealth.label)} - ${markdownInline(pack.questionHealth.detail)}`,
     `- Active: ${pack.questionHealth.activeQuestions} · Parked: ${pack.questionHealth.parkedQuestions} · Unresolved: ${pack.questionHealth.unresolvedQuestions}`,
+    ""
+  );
+
+  lines.push(
+    "",
+    "## Question Loop",
+    "",
+    "_Today metrics use the local day window; lifetime card totals span the workspace history._",
+    `- ${markdownInline(pack.questionLoop.label)}`,
+    `- Today: ${markdownInline(pack.questionLoop.todayDetail)}`,
+    `- Backlog: ${markdownInline(pack.questionLoop.backlogDetail)}`,
+    `- Lifetime: ${markdownInline(pack.questionLoop.lifetimeDetail)}`,
     ""
   );
 

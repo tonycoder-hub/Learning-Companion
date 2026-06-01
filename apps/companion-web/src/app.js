@@ -1905,6 +1905,30 @@ function renderToday() {
   }
   dom.todayList.append(health);
 
+  dom.todayList.append(textEl("div", "today-section-title", "Question Loop"));
+  const loop = document.createElement("article");
+  loop.className = "item-card question-loop-card";
+  loop.append(
+    textEl("p", "card-prompt", pack.questionLoop.label),
+    textEl("p", "item-meta", `Today: ${pack.questionLoop.todayDetail}`),
+    textEl("p", "item-meta", `Backlog: ${pack.questionLoop.backlogDetail}`),
+    textEl("p", "item-meta", `Lifetime: ${pack.questionLoop.lifetimeDetail}`)
+  );
+  if (pack.questionLoop.targetSection) {
+    const jump = textEl("button", "mini-button", "Inspect loop");
+    jump.type = "button";
+    jump.addEventListener("click", () => {
+      const section = document.querySelector(`[data-today-section="${CSS.escape(pack.questionLoop.targetSection)}"]`);
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (section) pulseNode(section);
+    });
+    const footer = document.createElement("div");
+    footer.className = "item-footer";
+    footer.append(jump);
+    loop.append(footer);
+  }
+  dom.todayList.append(loop);
+
   const openQuestionTitle = textEl("div", "today-section-title", "Open Questions");
   openQuestionTitle.dataset.todaySection = "open_questions";
   dom.todayList.append(openQuestionTitle);

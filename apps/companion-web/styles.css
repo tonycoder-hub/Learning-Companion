@@ -933,6 +933,11 @@ textarea:focus {
   background: var(--green-soft);
 }
 
+.question-loop-card {
+  border-color: rgba(126, 86, 48, 0.24);
+  background: #fffaf0;
+}
+
 .handoff-header {
   display: flex;
   align-items: baseline;
