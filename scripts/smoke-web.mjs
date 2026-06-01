@@ -64,6 +64,7 @@ import {
   isReviewProgressPatchLike,
   normalizeCaptureDraft,
   promoteCapture,
+  refreshAnsweredQuestionReviewCard,
   resolveCaptureDraftFocusOverride,
   resolveTodayWindow,
   reviewIntervalDays,
@@ -648,6 +649,17 @@ assert.equal(refreshedPrePromotedSession.reviewCards.length, 1);
 assert.equal(refreshedPrePromotedSession.reviewCards[0].id, prePromotedQuestionCardId);
 assert.doesNotMatch(refreshedPrePromotedSession.reviewCards[0].prompt, /Answer the question:/);
 assert.equal(refreshedPrePromotedSession.captures.find((capture) => capture.id === questionCaptureId).promotedToReview, true);
+const answerRefreshedPrePromotedQuestion = refreshAnsweredQuestionReviewCard(
+  answeredPrePromotedQuestion.workspace,
+  questionSession.id,
+  questionCaptureId
+);
+const answerRefreshedPrePromotedSession = getActiveSession(answerRefreshedPrePromotedQuestion);
+assert.equal(answerRefreshedPrePromotedSession.reviewCards.length, 1);
+assert.equal(answerRefreshedPrePromotedSession.reviewCards[0].id, prePromotedQuestionCardId);
+assert.match(answerRefreshedPrePromotedSession.reviewCards[0].prompt, /Answer the question: Why does ownership make aliasing safe/);
+assert.match(answerRefreshedPrePromotedSession.reviewCards[0].answer, /compiler rejects overlapping mutable aliases/);
+assert.equal(answerRefreshedPrePromotedSession.reviewCards[0].dueAt, getActiveSession(prePromotedQuestionWorkspace).reviewCards[0].dueAt);
 const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"), {
   resolvedQuestionLimit: 2
 });

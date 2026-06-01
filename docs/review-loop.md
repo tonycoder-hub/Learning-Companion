@@ -48,7 +48,7 @@ When a mobile/portable inbox answer patch resolves a captured question, the orig
 
 The lookup is intentionally same-session. A later cross-topic answer is treated as a separate import concern rather than silently changing review-card content.
 
-If the question was already promoted before the answer arrived, the existing card is left alone and the UI shows `Card` disabled. There is no automatic supersede yet; that keeps card edits and review history stable until a deliberate "refresh card from answer" affordance exists.
+If the question was already promoted before the answer arrived, the existing card is left alone until the user chooses `Refresh card` from Closed Today. Refreshing preserves the card id, due date, strength, and review history while updating the prompt/answer from the linked answer capture.
 
 ## Why This Matters
 

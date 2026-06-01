@@ -46,6 +46,7 @@ import {
   isReviewProgressPatchLike,
   normalizeCaptureDraft,
   promoteCapture,
+  refreshAnsweredQuestionReviewCard,
   resolveCaptureDraftFocusOverride,
   sanitizeWorkspace,
   searchWorkspace,
@@ -1925,7 +1926,7 @@ function renderToday() {
       item.append(thought);
       const footer = document.createElement("div");
       footer.className = "item-footer";
-      footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+      footer.append(textEl("span", "", formatCaptureTags(capture)));
       const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
       if (sourceHref) {
         const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
@@ -1982,7 +1983,7 @@ function renderToday() {
       item.append(thought);
       const footer = document.createElement("div");
       footer.className = "item-footer";
-      footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+      footer.append(textEl("span", "", formatCaptureTags(capture)));
       const view = textEl("button", "mini-button", "View");
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
@@ -2033,7 +2034,7 @@ function renderToday() {
       }
       const footer = document.createElement("div");
       footer.className = "item-footer";
-      footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+      footer.append(textEl("span", "", formatCaptureTags(capture)));
       const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
       if (sourceHref) {
         const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
@@ -2047,10 +2048,16 @@ function renderToday() {
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
-      const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
+      const card = textEl("button", "mini-button", closedQuestionCardLabel(capture, answerCapture));
       card.type = "button";
-      card.disabled = capture.promotedToReview;
-      card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
+      card.disabled = capture.promotedToReview && !answerCapture;
+      card.addEventListener("click", () => {
+        if (capture.promotedToReview && answerCapture) {
+          refreshAnsweredQuestionCard(capture.id, sessionId);
+          return;
+        }
+        promoteCaptureToReview(capture.id, sessionId);
+      });
       footer.append(card);
       const reopen = textEl("button", "mini-button primary", "Reopen");
       reopen.type = "button";
@@ -2085,7 +2092,7 @@ function renderToday() {
     }
     const footer = document.createElement("div");
     footer.className = "item-footer";
-    footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+    footer.append(textEl("span", "", formatCaptureTags(capture)));
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
     if (sourceHref) {
       const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
@@ -2238,6 +2245,12 @@ function formatAnswerCaptureSummary(capture) {
     .trim() || "Linked answer capture";
 }
 
+function formatCaptureTags(capture) {
+  return (Array.isArray(capture?.tags) ? capture.tags : [])
+    .map((tag) => `#${tag}`)
+    .join(" ");
+}
+
 function todayStat(value, label) {
   const node = document.createElement("div");
   node.className = "today-stat";
@@ -2358,6 +2371,40 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
   persistAndRender("Review card created");
 }
 
+function refreshAnsweredQuestionCard(captureId, sessionId) {
+  const targetSession = workspace.sessions.find((session) => session.id === sessionId);
+  const capture = targetSession?.captures.find((item) => item.id === captureId);
+  if (!targetSession || !capture) {
+    showToast("Question no longer exists");
+    return;
+  }
+  const before = targetSession.reviewCards.find((card) => card.sourceCaptureId === captureId);
+  workspace = refreshAnsweredQuestionReviewCard(workspace, targetSession.id, captureId);
+  const nextSession = workspace.sessions.find((session) => session.id === targetSession.id);
+  const after = nextSession?.reviewCards.find((card) => card.id === before?.id);
+  const changed = before && after && (
+    after.prompt !== before.prompt || after.answer !== before.answer || after.updatedAt !== before.updatedAt
+  );
+  if (!changed) {
+    showToast("No linked answer is available for that card yet");
+    return;
+  }
+  workspace = selectSession(workspace, targetSession.id);
+  activeTab = "review";
+  setActivity(getActiveSession(workspace), {
+    title: "Review card refreshed",
+    detail: summarizeCapture(capture),
+    tab: "review",
+    targetId: after.id
+  });
+  persistAndRender("Review card refreshed");
+}
+
+function closedQuestionCardLabel(capture, answerCapture) {
+  if (!capture.promotedToReview) return "Make card";
+  return answerCapture ? "Refresh card" : "Card";
+}
+
 function answerQuestionFromToday(captureId, sessionId) {
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const capture = sourceSession?.captures.find((item) => item.id === captureId);
@@ -2453,7 +2500,7 @@ function renderCaptures() {
 
     const footer = document.createElement("div");
     footer.className = "item-footer";
-    footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+    footer.append(textEl("span", "", formatCaptureTags(capture)));
     const actions = document.createElement("div");
     actions.className = "item-actions";
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);

@@ -52,7 +52,7 @@ Current uncommitted work turns answered questions into stronger review cards:
 - `promoteCapture()` now detects same-session answer captures linked by `answersQuestionCaptureId`.
 - When promoting an answered question, the card prompt uses the original question and the card answer uses the latest linked answer capture.
 - Leading `Q:` / `Question:` is stripped before wrapping the prompt.
-- If a question was promoted before an answer arrived, the old card remains stable and Closed Today shows disabled `Card`; there is no silent supersede yet.
+- If a question was promoted before an answer arrived, the old card remains stable until the user taps `Refresh card` from Closed Today; refresh preserves card id/due date/strength and updates prompt/answer from the linked answer.
 - Smoke coverage includes promoted-before-answered, multiple linked answers, quote-only answer captures, and equal-timestamp answer tie-breaking.
 - Closed Today/TODAY.md now also show the linked answer summary, with leading `Answer:` stripped to avoid duplicated labels.
 
@@ -119,7 +119,6 @@ Latest absorbed Mira notes for answered-question review cards:
 1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
    - Consider an "answers imported today" micro-surface if the user needs to inspect answer captures separately from resolved questions.
-   - Consider a deliberate "refresh card from answer" affordance for questions that were promoted before the answer arrived.
    - Consider `evidenceCaptureId` or equivalent provenance so future review cards can jump to both the original question and the answer evidence.
    - Consider weak-card gating for answer captures that are too short or empty to become useful review cards.
 

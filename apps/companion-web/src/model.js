@@ -992,6 +992,38 @@ export function promoteCapture(workspace, sessionId, captureId) {
   };
 }
 
+export function refreshAnsweredQuestionReviewCard(workspace, sessionId, captureId) {
+  const timestamp = nowIso();
+  let changed = false;
+  const sessions = workspace.sessions.map((session) => {
+    if (session.id !== sessionId) return session;
+    const capture = session.captures.find((item) => item.id === captureId);
+    const card = session.reviewCards.find((item) => item.sourceCaptureId === captureId);
+    if (!capture || !card) return session;
+    const overrides = reviewOverridesFromAnsweredQuestion(session, capture);
+    if (!overrides.prompt || !overrides.answer) return session;
+    changed = true;
+    return {
+      ...session,
+      reviewCards: session.reviewCards.map((item) => item.id === card.id
+        ? {
+            ...item,
+            prompt: overrides.prompt,
+            answer: overrides.answer,
+            updatedAt: timestamp
+          }
+        : item),
+      updatedAt: timestamp
+    };
+  });
+  if (!changed) return workspace;
+  return {
+    ...workspace,
+    updatedAt: timestamp,
+    sessions
+  };
+}
+
 function reviewOverridesFromAnsweredQuestion(session, capture) {
   if (!captureHasQuestion(capture)) return {};
   const answer = latestAnswerForQuestion(session, capture.id);
