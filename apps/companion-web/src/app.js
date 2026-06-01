@@ -67,6 +67,7 @@ import { renderMarkdown } from "./markdown.js";
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 2;
+const CAPTURE_DELETE_UNDO_MS = 10000;
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -102,6 +103,7 @@ const dom = {
   sizeMetric: document.querySelector("#sizeMetric"),
   activityTitle: document.querySelector("#activityTitle"),
   activityDetail: document.querySelector("#activityDetail"),
+  activityUndoBtn: document.querySelector("#activityUndoBtn"),
   activityDetailsBtn: document.querySelector("#activityDetailsBtn"),
   focusBriefKicker: document.querySelector("#focusBriefKicker"),
   focusBriefAction: document.querySelector("#focusBriefAction"),
@@ -184,6 +186,8 @@ let activeSearchIndex = -1;
 let searchResultsCollapsed = false;
 let lastActivity = null;
 let lastImportReceipt = null;
+let pendingCaptureUndo = null;
+let pendingCaptureUndoTimer = null;
 const revealedReviewCards = new Set();
 
 pruneCurrentCaptureDrafts();
@@ -380,6 +384,7 @@ dom.timeForwardBtn.addEventListener("click", () => nudgeCaptureTime(15));
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
 dom.activityDetailsBtn.addEventListener("click", showActivityDetails);
+dom.activityUndoBtn.addEventListener("click", restorePendingCaptureDelete);
 dom.focusBriefActionBtn.addEventListener("click", runFocusBriefAction);
 
 window.addEventListener("pagehide", persist);
@@ -1131,6 +1136,7 @@ function buildCloze() {
 }
 
 function scheduleSave() {
+  clearPendingCaptureUndo({ renderActivityStrip: true });
   dom.saveState.textContent = "Saving";
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
@@ -1139,7 +1145,8 @@ function scheduleSave() {
   }, 250);
 }
 
-function persistAndRender(message) {
+function persistAndRender(message, options = {}) {
+  if (!options.keepCaptureUndo) clearPendingCaptureUndo();
   persist();
   render();
   if (message) showToast(message);
@@ -1294,6 +1301,7 @@ function setActivity(session, activity) {
 
 function renderActivity(session) {
   const activity = getActivity(session);
+  const canUndoCaptureDelete = pendingCaptureUndo?.sessionId === session.id;
   const baseAction = activity.tab === "review"
     ? "Review"
     : activity.tab === "export" ? "Export" : "Details";
@@ -1303,6 +1311,9 @@ function renderActivity(session) {
     : `Open ${baseAction.toLowerCase()}`;
   dom.activityTitle.textContent = activity.title;
   dom.activityDetail.textContent = activity.detail;
+  dom.activityUndoBtn.hidden = !canUndoCaptureDelete;
+  dom.activityUndoBtn.title = canUndoCaptureDelete ? `Undo delete: ${pendingCaptureUndo.summary}` : "";
+  dom.activityUndoBtn.setAttribute("aria-label", canUndoCaptureDelete ? `Undo capture delete: ${pendingCaptureUndo.summary}` : "Undo capture delete");
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
@@ -3043,6 +3054,7 @@ function deleteCaptureWithConfirmation(sessionId, captureId) {
     ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
     : "";
   if (!window.confirm(`Delete this capture${linkedCopy}?\n\n${summarizeCapture(capture)}\n\nExisting note blocks will stay in Notes.`)) return;
+  stageCaptureDeleteUndo(session.id, capture.id, summarizeCapture(capture));
   clearReviewStateForDeletedCapture(session.id, linkedCards);
   workspace = deleteCapture(workspace, session.id, capture.id);
   setActivity(session, {
@@ -3051,7 +3063,7 @@ function deleteCaptureWithConfirmation(sessionId, captureId) {
     tab: "captures",
     targetId: ""
   });
-  persistAndRender("Capture deleted");
+  persistAndRender("Capture deleted", { keepCaptureUndo: true });
 }
 
 function clearReviewStateForDeletedCapture(sessionId, linkedCards) {
@@ -3060,6 +3072,52 @@ function clearReviewStateForDeletedCapture(sessionId, linkedCards) {
     if (activeReviewKey === key) activeReviewKey = "";
     revealedReviewCards.delete(key);
   });
+}
+
+function stageCaptureDeleteUndo(sessionId, captureId, summary) {
+  clearPendingCaptureUndo();
+  pendingCaptureUndo = {
+    workspace,
+    activeReviewKey,
+    revealedReviewKeys: [...revealedReviewCards],
+    sessionId,
+    captureId,
+    summary
+  };
+  pendingCaptureUndoTimer = setTimeout(() => {
+    pendingCaptureUndo = null;
+    pendingCaptureUndoTimer = null;
+    renderActivity(getActiveSession(workspace));
+  }, CAPTURE_DELETE_UNDO_MS);
+}
+
+function clearPendingCaptureUndo(options = {}) {
+  if (pendingCaptureUndoTimer) clearTimeout(pendingCaptureUndoTimer);
+  pendingCaptureUndoTimer = null;
+  pendingCaptureUndo = null;
+  if (options.renderActivityStrip) renderActivity(getActiveSession(workspace));
+}
+
+function restorePendingCaptureDelete() {
+  if (!pendingCaptureUndo) {
+    showToast("Nothing to undo");
+    renderActivity(getActiveSession(workspace));
+    return;
+  }
+  const undo = pendingCaptureUndo;
+  clearPendingCaptureUndo();
+  workspace = undo.workspace;
+  activeReviewKey = undo.activeReviewKey;
+  revealedReviewCards.clear();
+  undo.revealedReviewKeys.forEach((key) => revealedReviewCards.add(key));
+  const session = workspace.sessions.find((item) => item.id === undo.sessionId) || getActiveSession(workspace);
+  setActivity(session, {
+    title: "Capture delete undone",
+    detail: undo.summary,
+    tab: "captures",
+    targetId: undo.captureId
+  });
+  persistAndRender("Capture restored");
 }
 
 function renderReviewCards() {

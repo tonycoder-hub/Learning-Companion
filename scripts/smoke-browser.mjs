@@ -2079,7 +2079,28 @@ try {
       stackText: document.querySelector("#captureStack").textContent,
       activity: document.querySelector("#activityTitle").textContent,
       stackOnlyDeleteLabel,
-      confirmPrompt: stackOnlyDeletePrompt
+      confirmPrompt: stackOnlyDeletePrompt,
+      undoVisible: !document.querySelector("#activityUndoBtn").hidden,
+      undoLabel: document.querySelector("#activityUndoBtn").textContent
+    };
+    document.querySelector("#activityUndoBtn").click();
+    const afterStackUndo = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      stackText: document.querySelector("#captureStack").textContent,
+      activity: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      undoHidden: document.querySelector("#activityUndoBtn").hidden
+    };
+    window.confirm = () => true;
+    [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+      .find((button) => button.textContent === "Delete")
+      ?.click();
+    const afterStackRedoDelete = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      stackText: document.querySelector("#captureStack").textContent,
+      activity: document.querySelector("#activityTitle").textContent
     };
     document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Review reveal preserve");
@@ -2119,6 +2140,8 @@ try {
       makeCardEnabled: Boolean(makeCardEnabled),
       afterCaptureDelete,
       afterStackDelete,
+      afterStackUndo,
+      afterStackRedoDelete,
       unrelatedReviewState,
       afterStackCancelDelete,
       afterCancelDelete,
@@ -2165,6 +2188,18 @@ try {
   assert.equal(deleteFlow.afterStackDelete.stackOnlyDeleteLabel, "Delete");
   assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Delete directly from the sidecar stack/);
   assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Existing note blocks/);
+  assert.equal(deleteFlow.afterStackDelete.undoVisible, true);
+  assert.equal(deleteFlow.afterStackDelete.undoLabel, "Undo");
+  assert.equal(deleteFlow.afterStackUndo.captures, "1");
+  assert.equal(deleteFlow.afterStackUndo.cards, "0");
+  assert.match(deleteFlow.afterStackUndo.stackText, /Delete directly from the sidecar stack/);
+  assert.equal(deleteFlow.afterStackUndo.activity, "Capture delete undone");
+  assert.match(deleteFlow.afterStackUndo.activityDetail, /Delete directly from the sidecar stack/);
+  assert.equal(deleteFlow.afterStackUndo.undoHidden, true);
+  assert.equal(deleteFlow.afterStackRedoDelete.captures, "0");
+  assert.equal(deleteFlow.afterStackRedoDelete.cards, "0");
+  assert.doesNotMatch(deleteFlow.afterStackRedoDelete.stackText, /Stack-only mistaken capture/);
+  assert.equal(deleteFlow.afterStackRedoDelete.activity, "Capture deleted");
   assert.deepEqual(deleteFlow.unrelatedReviewState, {
     beforeUnrelatedDeleteReveal: true,
     afterUnrelatedDeleteReveal: true

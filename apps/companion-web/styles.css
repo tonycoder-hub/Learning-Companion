@@ -444,6 +444,13 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.activity-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .activity-copy strong {
   font-size: 13px;
 }
