@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `0118db8 feat: locate quick capture destination`
 - `03e360f feat: show quick capture destination`
 - `77707f2 fix: show capture undo expiry`
 - `db712b1 feat: undo capture deletion from sidecar`
@@ -236,7 +237,8 @@ Latest local work clarifies the Quick Capture destination:
 
 - The Quick Capture context strip now starts with `To <session title>`, so the sidecar tells the user where a quote/thought will be saved before they type.
 - The destination chip updates with session title changes and session switches, sitting beside the existing source, timestamp, and Open controls.
-- Browser smoke pins the destination for the main fixture session and for a brand-new empty session, and the existing mobile-width capture-context no-overflow check covers the wider strip.
+- Clicking the destination chip exits sidecar layout, opens the Captures surface, focuses/pulses the active session row, and records `Capture destination shown` in the activity strip.
+- Browser smoke pins the destination for the main fixture session and for a brand-new empty session, the sidecar destination-locate path, and the existing mobile-width capture-context no-overflow check covers the wider strip.
 
 ## Verified Locally
 
