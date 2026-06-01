@@ -197,6 +197,8 @@ assert.match(stage, /1 parked question/);
 assert.match(reviewStartHere, /1 open question/);
 assert.match(reviewStartHere, /1 parked question/);
 assert.match(reviewStartHere, /What To Inspect First/);
+assert.match(reviewStartHere, /Mac Capture Sidecar/);
+assert.match(reviewStartHere, /source\/time context strip/);
 assert.match(reviewStartHere, /First-Run Start Here/);
 assert.match(reviewStartHere, /Capture first point/);
 assert.match(reviewStartHere, /Today Section Map/);

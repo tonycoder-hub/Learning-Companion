@@ -555,6 +555,8 @@ assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
 assert.match(reviewReportHtml, /open question/);
 assert.match(reviewReportHtml, /parked question/);
 assert.match(reviewReportHtml, /What To Inspect First/);
+assert.match(reviewReportHtml, /Mac Capture Sidecar/);
+assert.match(reviewReportHtml, /source\/time context strip/);
 assert.match(reviewReportHtml, /First-Run Start Here/);
 assert.match(reviewReportHtml, /Capture first point/);
 assert.match(reviewReportHtml, /Today section map/);
@@ -1344,42 +1346,47 @@ function buildReviewStartHereHtml({
   ];
   const inspectRows = [
     [
-      "1. First-Run Start Here",
+      "1. Mac Capture Sidecar",
+      "In Quick Capture, check the app-focused shortcut, source/time context strip, timestamped URL staging, and -15/+15 Time nudges before inspecting broader review loops.",
+      MAC_MANUAL_QA_FILE
+    ],
+    [
+      "2. First-Run Start Here",
       "Open an empty workspace and confirm the Start Here card offers Capture first point, Write first question, and Browser clipper actions before any study trail exists.",
       MAC_MANUAL_QA_FILE
     ],
     [
-      "2. Today Section Map",
+      "3. Today Section Map",
       "With the sample workspace imported, use the Today section map to jump to due cards, questions, parked items, answers, closed items, and recent captures without losing the sidecar/mobile layout.",
       MAC_MANUAL_QA_FILE
     ],
     [
-      "3. Focus Loop",
+      "4. Focus Loop",
       `Import the sample workspace, then confirm Focus Brief points to review before capture while Today keeps ${openQuestionLabel} and ${parkedQuestionLabel} visible.`,
       SAMPLE_WORKSPACE_FILE
     ],
     [
-      "4. Question Closure",
+      "5. Question Closure",
       "Use the Focus Brief open-question signal, then Make card, Resolve, and Reopen from Today/Captures.",
       MAC_MANUAL_QA_FILE
     ],
     [
-      "5. Question Queue Health",
+      "6. Question Queue Health",
       `Inspect Today and TODAY.md: active plus parked should read as ${unresolvedQuestionLabel}, without making parked items hijack focus.`,
       "mirror-folder/TODAY.md"
     ],
     [
-      "6. Harmony Reader Session",
+      "7. Harmony Reader Session",
       "Open the Harmony handoff and scaffold report: accepted imports should feed ReaderSessionState.currentView, rejected imports should become rejected-kept-current, and Index/TopicDetail/ReviewQueue should share that session contract.",
       HARMONY_DEVECO_HANDOFF_FILE
     ],
     [
-      "7. Cross-End Mirror",
+      "8. Cross-End Mirror",
       "Open the static mirror home, then try the portable review and inbox pages as the Windows/Harmony/Feishu folder proxy.",
       "mirror-folder/index.html"
     ],
     [
-      "8. Evidence Boundary",
+      "9. Evidence Boundary",
       `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
       DEFERRED_GATES_FILE
     ]
