@@ -1991,14 +1991,19 @@ try {
         .map((button) => button.textContent)
         .find((text) => text.startsWith("Delete")) || ""
     };
-    window.confirm = () => false;
+    let stackCancelPrompt = "";
+    window.confirm = (message) => {
+      stackCancelPrompt = message;
+      return false;
+    };
     [...document.querySelectorAll("#captureStack .capture-stack-row button")]
       .find((button) => button.textContent.startsWith("Delete"))
       ?.click();
     const afterStackCancelDelete = {
       captures: document.querySelector("#captureMetric").textContent,
       cards: document.querySelector("#cardMetric").textContent,
-      stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length
+      stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
+      confirmPrompt: stackCancelPrompt
     };
     document.querySelector("#sidecarLayoutBtn").click();
     const stackAllBefore = {
@@ -2060,6 +2065,11 @@ try {
     const stackOnlyDeleteLabel = [...document.querySelectorAll("#captureStack .capture-stack-row button")]
       .map((button) => button.textContent)
       .find((text) => text.startsWith("Delete")) || "";
+    let stackOnlyDeletePrompt = "";
+    window.confirm = (message) => {
+      stackOnlyDeletePrompt = message;
+      return true;
+    };
     [...document.querySelectorAll("#captureStack .capture-stack-row button")]
       .find((button) => button.textContent === "Delete")
       ?.click();
@@ -2068,7 +2078,40 @@ try {
       cards: document.querySelector("#cardMetric").textContent,
       stackText: document.querySelector("#captureStack").textContent,
       activity: document.querySelector("#activityTitle").textContent,
-      stackOnlyDeleteLabel
+      stackOnlyDeleteLabel,
+      confirmPrompt: stackOnlyDeletePrompt
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Review reveal preserve");
+    setValue("#quoteInput", "Preserve this revealed answer.");
+    setValue("#thoughtInput", "Preserve this review prompt while deleting another capture.");
+    document.querySelector("#captureCardBtn").click();
+    document.querySelector('[data-tab="review"]').click();
+    const preserveCard = [...document.querySelectorAll("#reviewList .review-card")]
+      .find((card) => card.textContent.includes("Preserve this review prompt"));
+    preserveCard.querySelector("[data-reveal-card]")?.click();
+    const beforeUnrelatedDeleteReveal = [...document.querySelectorAll("#reviewList .review-card")]
+      .some((card) => card.textContent.includes("Preserve this review prompt") && card.textContent.includes("Preserve this revealed answer."));
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Unrelated stack delete");
+    setValue("#quoteInput", "Unrelated capture to delete.");
+    setValue("#thoughtInput", "This delete must not hide the revealed review answer.");
+    document.querySelector("#captureBtn").click();
+    window.confirm = () => true;
+    [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+      .find((button) => button.textContent === "Delete")
+      ?.click();
+    document.querySelector('[data-tab="review"]').click();
+    const afterUnrelatedDeleteReveal = [...document.querySelectorAll("#reviewList .review-card")]
+      .some((card) => card.textContent.includes("Preserve this review prompt") && card.textContent.includes("Preserve this revealed answer."));
+    const preserveCardAfter = [...document.querySelectorAll("#reviewList .review-card")]
+      .find((card) => card.textContent.includes("Preserve this review prompt"));
+    [...preserveCardAfter.querySelectorAll("button")]
+      .find((button) => button.textContent === "Delete")
+      ?.click();
+    const unrelatedReviewState = {
+      beforeUnrelatedDeleteReveal,
+      afterUnrelatedDeleteReveal
     };
     return {
       before,
@@ -2076,6 +2119,7 @@ try {
       makeCardEnabled: Boolean(makeCardEnabled),
       afterCaptureDelete,
       afterStackDelete,
+      unrelatedReviewState,
       afterStackCancelDelete,
       afterCancelDelete,
       stackAllBefore,
@@ -2089,7 +2133,12 @@ try {
   assert.equal(deleteFlow.before.stackRows, 1);
   assert.equal(deleteFlow.before.stackReviewEnabled, true);
   assert.equal(deleteFlow.before.stackDeleteLabel, "Delete + 1 card");
-  assert.deepEqual(deleteFlow.afterStackCancelDelete, { captures: "1", cards: "1", stackRows: 1 });
+  assert.equal(deleteFlow.afterStackCancelDelete.captures, "1");
+  assert.equal(deleteFlow.afterStackCancelDelete.cards, "1");
+  assert.equal(deleteFlow.afterStackCancelDelete.stackRows, 1);
+  assert.match(deleteFlow.afterStackCancelDelete.confirmPrompt, /Temporary card should be removable/);
+  assert.match(deleteFlow.afterStackCancelDelete.confirmPrompt, /1 linked review card/);
+  assert.match(deleteFlow.afterStackCancelDelete.confirmPrompt, /Existing note blocks/);
   assert.deepEqual(deleteFlow.stackAllBefore, { shellCompact: true, inspectorDisplay: "none" });
   assert.equal(deleteFlow.stackAllAfter.shellCompact, false);
   assert.equal(deleteFlow.stackAllAfter.activeTab, "captures");
@@ -2109,12 +2158,16 @@ try {
   assert.doesNotMatch(deleteFlow.afterCaptureDelete.stackText, /Temporary capture for deletion/);
   assert.equal(deleteFlow.afterCaptureDelete.notesHasCapture, true);
   assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
-  assert.deepEqual(deleteFlow.afterStackDelete, {
-    captures: "0",
-    cards: "0",
-    stackText: "Recent StackSidecar memoryAllSaved captures will stay visible here while you read.",
-    activity: "Capture deleted",
-    stackOnlyDeleteLabel: "Delete"
+  assert.equal(deleteFlow.afterStackDelete.captures, "0");
+  assert.equal(deleteFlow.afterStackDelete.cards, "0");
+  assert.equal(deleteFlow.afterStackDelete.stackText, "Recent StackSidecar memoryAllSaved captures will stay visible here while you read.");
+  assert.equal(deleteFlow.afterStackDelete.activity, "Capture deleted");
+  assert.equal(deleteFlow.afterStackDelete.stackOnlyDeleteLabel, "Delete");
+  assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Delete directly from the sidecar stack/);
+  assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Existing note blocks/);
+  assert.deepEqual(deleteFlow.unrelatedReviewState, {
+    beforeUnrelatedDeleteReveal: true,
+    afterUnrelatedDeleteReveal: true
   });
 
   const questionFlow = await cdp.evaluate(`(() => {
