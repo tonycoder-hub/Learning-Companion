@@ -48,6 +48,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Captured question-thoughts are surfaced as Focus Brief signals and Recent Stack chips, then carried into synthesis as Open Questions.
 - Today and `TODAY.md` include an Open Questions backlog across sessions so handoff does not hide unresolved study questions inside recent captures.
 - Today Open Questions can create review cards directly while selecting the correct source session.
+- Today Open Questions can be parked and resumed, keeping unresolved low-priority follow-up out of the active focus queue without losing the original capture.
 - Captured questions can be marked resolved or reopened, and resolved questions stop counting in Focus Brief, synthesis, Today, HarmonyOS reader backlog, and handoff exports without losing the original capture.
 - One-click capture insertion into Notes with idempotent capture blocks.
 - Confirmed delete for mistaken captures and review cards.

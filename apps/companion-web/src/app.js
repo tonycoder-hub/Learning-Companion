@@ -19,6 +19,7 @@ import {
   buildTodayPack,
   captureDraftStatusText,
   captureHasOpenQuestion,
+  captureHasParkedQuestion,
   captureHasQuestion,
   cleanUrl,
   deleteCapture,
@@ -50,6 +51,7 @@ import {
   searchWorkspace,
   summarizeCaptureDraft,
   selectSession,
+  setCaptureQuestionParked,
   setCaptureQuestionResolved,
   stripSourceTimestamp,
   updateSession,
@@ -1801,13 +1803,14 @@ function renderInspector() {
 }
 
 function renderToday() {
-  const pack = buildTodayPack(workspace, new Date(), { dueLimit: 5, recentLimit: 5 });
+  const pack = buildTodayPack(workspace, new Date(), { dueLimit: 5, questionLimit: 5, parkedQuestionLimit: 4, recentLimit: 5 });
   const { stats } = pack;
   clearChildren(dom.todaySummary);
   clearChildren(dom.todayList);
   dom.todaySummary.append(
     todayStat(String(stats.due), "due"),
     todayStat(String(stats.questions), "questions"),
+    todayStat(String(stats.parkedQuestions || 0), "parked"),
     todayStat(String(stats.captures), "captures"),
     todayStat(String(stats.cards), "cards")
   );
@@ -1893,6 +1896,10 @@ function renderToday() {
       card.disabled = capture.promotedToReview;
       card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
       footer.append(card);
+      const park = textEl("button", "mini-button", "Park");
+      park.type = "button";
+      park.addEventListener("click", () => setQuestionParked(capture.id, sessionId, true));
+      footer.append(park);
       const resolve = textEl("button", "mini-button primary", "Resolve");
       resolve.type = "button";
       resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
@@ -1901,6 +1908,47 @@ function renderToday() {
       dom.todayList.append(item);
     });
     if (pack.questionOverflow) dom.todayList.append(emptyState(`+${pack.questionOverflow} more open questions in workspace.json`));
+  }
+
+  dom.todayList.append(textEl("div", "today-section-title", "Parked Questions"));
+  if (!pack.parkedQuestionItems.length) {
+    dom.todayList.append(emptyState("No parked questions"));
+  } else {
+    pack.parkedQuestionItems.forEach(({ sessionId, sessionTitle, capture }) => {
+      const item = document.createElement("article");
+      item.className = "item-card question-card parked-question-card";
+      item.append(textEl("div", "item-meta", [
+        sessionTitle,
+        capture.questionParkedAt ? `Parked since ${new Date(capture.questionParkedAt).toLocaleString()}` : "",
+        capture.timestamp || ""
+      ].filter(Boolean).join(" · ")));
+      const thought = document.createElement("div");
+      thought.className = "capture-thought markdown-lite";
+      renderMarkdown(thought, capture.thought || capture.quote || "Untitled question");
+      item.append(thought);
+      const footer = document.createElement("div");
+      footer.className = "item-footer";
+      footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+      const view = textEl("button", "mini-button", "View");
+      view.type = "button";
+      view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
+      footer.append(view);
+      const answer = textEl("button", "mini-button", "Answer");
+      answer.type = "button";
+      answer.addEventListener("click", () => answerQuestionFromToday(capture.id, sessionId));
+      footer.append(answer);
+      const resume = textEl("button", "mini-button primary", "Resume");
+      resume.type = "button";
+      resume.addEventListener("click", () => setQuestionParked(capture.id, sessionId, false));
+      footer.append(resume);
+      const resolve = textEl("button", "mini-button", "Resolve");
+      resolve.type = "button";
+      resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
+      footer.append(resolve);
+      item.append(footer);
+      dom.todayList.append(item);
+    });
+    if (pack.parkedQuestionOverflow) dom.todayList.append(emptyState(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`));
   }
 
   dom.todayList.append(textEl("div", "today-section-title", "Recent Captures"));
@@ -2011,6 +2059,7 @@ function renderCaptureStack(session) {
     row.dataset.stackCaptureId = capture.id;
     const isQuestion = captureHasQuestion(capture);
     const isOpenQuestion = captureHasOpenQuestion(capture);
+    const isParkedQuestion = captureHasParkedQuestion(capture);
     row.append(
       textEl("div", "capture-stack-meta", [
         capture.timestamp || "No time",
@@ -2020,7 +2069,11 @@ function renderCaptureStack(session) {
       textEl("p", "capture-stack-text", summarizeCapture(capture))
     );
     if (isQuestion) {
-      row.append(textEl("span", isOpenQuestion ? "capture-stack-chip" : "capture-stack-chip resolved", isOpenQuestion ? "Question" : "Answered"));
+      row.append(textEl(
+        "span",
+        isOpenQuestion ? "capture-stack-chip" : "capture-stack-chip resolved",
+        isOpenQuestion ? "Question" : isParkedQuestion ? "Parked" : "Answered"
+      ));
     }
     const actions = document.createElement("div");
     actions.className = "capture-stack-actions";
@@ -2195,6 +2248,9 @@ function answerQuestionFromToday(captureId, sessionId) {
     return;
   }
   workspace = selectSession(workspace, sourceSession.id);
+  if (captureHasParkedQuestion(capture)) {
+    workspace = setCaptureQuestionParked(workspace, sourceSession.id, capture.id, false);
+  }
   workspace = updateSession(workspace, sourceSession.id, { focusMode: "capture" });
   activeTab = "captures";
   setCaptureDraft(sourceSession.id, {
@@ -2211,6 +2267,26 @@ function answerQuestionFromToday(captureId, sessionId) {
   persistAndRender("Answer draft started");
   dom.thoughtInput.focus();
   dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
+}
+
+function setQuestionParked(captureId, sessionId = getActiveSession(workspace).id, parked = true) {
+  const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+  const capture = sourceSession?.captures.find((item) => item.id === captureId);
+  if (!sourceSession || !capture) {
+    showToast("Capture no longer exists");
+    return;
+  }
+  if (!captureHasQuestion(capture) || capture.questionResolvedAt) return;
+  if (Boolean(capture.questionParkedAt) === parked) return;
+  workspace = setCaptureQuestionParked(workspace, sourceSession.id, capture.id, parked);
+  const targetIsActive = sourceSession.id === getActiveSession(workspace).id;
+  setActivity(getActiveSession(workspace), {
+    title: parked ? "Question parked" : "Question resumed",
+    detail: `${sourceSession.title} · ${summarizeCapture(capture)}`,
+    tab: targetIsActive ? "captures" : "today",
+    targetId: targetIsActive ? capture.id : ""
+  });
+  persistAndRender(parked ? "Question parked" : "Question resumed");
 }
 
 function setQuestionResolved(captureId, sessionId = getActiveSession(workspace).id, resolved = true) {
@@ -2291,8 +2367,12 @@ function renderCaptures() {
       resolveButton.className = "mini-button";
       resolveButton.type = "button";
       const isOpenQuestion = captureHasOpenQuestion(capture);
-      resolveButton.textContent = isOpenQuestion ? "Resolve" : "Reopen";
-      resolveButton.addEventListener("click", () => setQuestionResolved(capture.id, session.id, isOpenQuestion));
+      const isParkedQuestion = captureHasParkedQuestion(capture);
+      resolveButton.textContent = isOpenQuestion ? "Resolve" : isParkedQuestion ? "Resume" : "Reopen";
+      resolveButton.addEventListener("click", () => {
+        if (isParkedQuestion) setQuestionParked(capture.id, session.id, false);
+        else setQuestionResolved(capture.id, session.id, isOpenQuestion);
+      });
       actions.append(resolveButton);
     }
     const linkedReviewCount = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id).length;

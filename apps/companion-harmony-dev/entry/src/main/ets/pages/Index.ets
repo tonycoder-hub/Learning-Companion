@@ -42,6 +42,20 @@ struct Index {
         }, (question) => question.captureId)
       }
 
+      if (this.readerView.parkedQuestions.length > 0) {
+        Text('Parked Questions')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+        Text(`Showing ${Math.min(this.readerView.parkedQuestions.length, 3)} of ${this.readerView.workspace.parkedQuestionCount}`)
+          .fontSize(12)
+          .fontColor('#666154')
+        ForEach(this.readerView.parkedQuestions.slice(0, 3), (question) => {
+          Text(`${question.sessionTitle}: ${question.thought}`)
+            .fontSize(12)
+            .fontColor('#7a5f2b')
+        }, (question) => question.captureId)
+      }
+
       ForEach(this.readerView.topics, (topic) => {
         Row() {
           Column() {
@@ -81,6 +95,8 @@ function sampleReaderView(): HarmonyReaderView {
     reviewCardCount: 0,
     dueReviewCount: 0,
     openQuestionCount: 0,
+    parkedQuestionCount: 0,
+    unresolvedQuestionCount: 0,
     nextAction: {
       kind: 'capture',
       label: 'Capture next',
@@ -94,6 +110,8 @@ function sampleReaderView(): HarmonyReaderView {
   view.activeTopic = view.topics[0];
   view.workspace.sessionCount = view.topics.length;
   view.workspace.openQuestionCount = 0;
+  view.workspace.parkedQuestionCount = 0;
+  view.workspace.unresolvedQuestionCount = 0;
   view.workspace.activeTopicId = view.activeTopic.id;
   return view;
 }

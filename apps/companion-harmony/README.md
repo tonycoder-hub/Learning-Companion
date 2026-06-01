@@ -7,9 +7,9 @@ The first implemented piece is a schema reader that consumes the same portable d
 - `learning-companion.workspace.v1`
 - `learning-companion.mirror-bundle.staging.v1`
 
-It emits `learning-companion.harmony-reader-view.v1`, a compact read-only view model for a future HarmonyOS app: topics, active topic, due review cards, open questions, recent captures with question status, and each topic's Focus Brief next action. `src/import-boundary.mjs` adds a pure import/patch boundary that is shaped for later ArkTS porting.
+It emits `learning-companion.harmony-reader-view.v1`, a compact read-only view model for a future HarmonyOS app: topics, active topic, due review cards, active open questions, parked unresolved questions, recent captures with question status, and each topic's Focus Brief next action. `src/import-boundary.mjs` adds a pure import/patch boundary that is shaped for later ArkTS porting.
 
-The reader-view contract is still prototype-stage v1. Additive fields such as `openQuestions` and `workspace.openQuestionCount` are allowed while consumers are scaffolded and should be ignored by older readers; any removal or rename should bump the derived reader-view schema instead of silently changing v1.
+The reader-view contract is still prototype-stage v1. Additive fields such as `openQuestions`, `parkedQuestions`, `workspace.openQuestionCount`, and `workspace.unresolvedQuestionCount` are allowed while consumers are scaffolded and should be ignored by older readers; any removal or rename should bump the derived reader-view schema instead of silently changing v1.
 
 ## Run The Prototype Smoke
 

@@ -1,9 +1,11 @@
 import {
   buildFocusBrief,
   captureHasOpenQuestion,
+  captureHasParkedQuestion,
   captureHasQuestion,
   getDueReviewItems,
   getOpenQuestionItems,
+  getParkedQuestionItems,
   getRecentCaptureItems,
   workspaceFromPortableData
 } from "../../companion-web/src/model.js";
@@ -14,9 +16,13 @@ export function buildHarmonyReaderView(portableData, options = {}) {
   const now = normalizeDate(options.now);
   const workspace = workspaceFromPortableData(portableData);
   const openQuestionItems = getOpenQuestionItems(workspace, 12);
+  const parkedQuestionItems = getParkedQuestionItems(workspace, 12);
   const openQuestionCount = countOpenQuestions(workspace);
+  const parkedQuestionCount = countParkedQuestions(workspace);
+  const unresolvedQuestionCount = openQuestionCount + parkedQuestionCount;
   const topics = workspace.sessions.map((session) => {
     const focusBrief = buildFocusBrief(session, workspace, now);
+    const topicParkedQuestionCount = session.captures.filter((capture) => captureHasParkedQuestion(capture)).length;
     return {
       id: session.id,
       title: session.title,
@@ -28,6 +34,8 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       reviewCardCount: session.reviewCards.length,
       dueReviewCount: focusBrief.stats.dueCards,
       openQuestionCount: focusBrief.stats.questions,
+      parkedQuestionCount: topicParkedQuestionCount,
+      unresolvedQuestionCount: focusBrief.stats.questions + topicParkedQuestionCount,
       nextAction: focusBrief.nextAction,
       latestCapture: focusBrief.latestCapture
         ? {
@@ -58,6 +66,8 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       clientId: workspace.clientId,
       sessionCount: workspace.sessions.length,
       openQuestionCount,
+      parkedQuestionCount,
+      unresolvedQuestionCount,
       activeTopicId: activeTopic?.id || ""
     },
     activeTopic,
@@ -82,7 +92,9 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       sourceUrl: item.capture.sourceUrl,
       isQuestion: captureHasQuestion(item.capture),
       isOpenQuestion: captureHasOpenQuestion(item.capture),
-      questionResolvedAt: item.capture.questionResolvedAt || ""
+      isParkedQuestion: captureHasParkedQuestion(item.capture),
+      questionResolvedAt: item.capture.questionResolvedAt || "",
+      questionParkedAt: item.capture.questionParkedAt || ""
     })),
     openQuestions: openQuestionItems.map((item) => ({
       sessionId: item.sessionId,
@@ -91,6 +103,17 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       quote: item.capture.quote,
       thought: item.capture.thought,
       capturedAt: item.capture.capturedAt || item.capture.createdAt,
+      sourceTitle: item.capture.sourceTitle,
+      sourceUrl: item.capture.sourceUrl
+    })),
+    parkedQuestions: parkedQuestionItems.map((item) => ({
+      sessionId: item.sessionId,
+      sessionTitle: item.sessionTitle,
+      captureId: item.capture.id,
+      quote: item.capture.quote,
+      thought: item.capture.thought,
+      capturedAt: item.capture.capturedAt || item.capture.createdAt,
+      questionParkedAt: item.capture.questionParkedAt || "",
       sourceTitle: item.capture.sourceTitle,
       sourceUrl: item.capture.sourceUrl
     })),
@@ -105,6 +128,12 @@ export function buildHarmonyReaderView(portableData, options = {}) {
 function countOpenQuestions(workspace) {
   return workspace.sessions.reduce((sum, session) => (
     sum + session.captures.filter((capture) => captureHasOpenQuestion(capture)).length
+  ), 0);
+}
+
+function countParkedQuestions(workspace) {
+  return workspace.sessions.reduce((sum, session) => (
+    sum + session.captures.filter((capture) => captureHasParkedQuestion(capture)).length
   ), 0);
 }
 

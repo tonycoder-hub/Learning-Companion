@@ -39,13 +39,13 @@ apps/companion-harmony-dev/
 
 The scaffold is intentionally separate from the executable JavaScript prototype in `apps/companion-harmony/src/`. The JS prototype remains the authoritative smoke-tested implementation until DevEco compilation passes.
 
-`learning-companion.harmony-reader-view.v1` is additive during the prototype stage: new fields may be added for scaffold consumers, but removing or renaming fields requires a derived schema bump. Current open-question fields are JSON contract evidence only, not device evidence.
+`learning-companion.harmony-reader-view.v1` is additive during the prototype stage: new fields may be added for scaffold consumers, but removing or renaming fields requires a derived schema bump. Current open-question and parked-question fields are JSON contract evidence only, not device evidence.
 
 ## Screens
 
 | Screen | Purpose | Data |
 | --- | --- | --- |
-| Index | Resume Here, open questions, topic list, import button, latest intake status. | `activeTopic`, `openQuestions`, `topics`, `workspace` summary. |
+| Index | Resume Here, active open questions, parked questions, topic list, import button, latest intake status. | `activeTopic`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
 | TopicDetail | Source title/URL, latest capture, notes preview, capture count. | One topic from `topics`. |
 | ReviewQueue | Read-only due cards with answer reveal. | `dueReview`. |
 | ImportReceipt | Shows imported workspace/mirror metadata and limitations. | `source`, `workspace`, `limitations`. |

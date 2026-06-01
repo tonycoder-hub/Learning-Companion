@@ -27,6 +27,7 @@ import {
   buildTodayPack,
   captureDraftStatusText,
   captureHasOpenQuestion,
+  captureHasParkedQuestion,
   captureHasQuestion,
   cleanText,
   cleanUrl,
@@ -50,6 +51,7 @@ import {
   getSynthesisSourceStamp,
   getDueReviewCards,
   getDueReviewItems,
+  getParkedQuestionItems,
   getActiveSession,
   gradeCard,
   hasCaptureDraft,
@@ -66,6 +68,7 @@ import {
   sanitizeWorkspace,
   searchWorkspace,
   secondsToTimestamp,
+  setCaptureQuestionParked,
   setCaptureQuestionResolved,
   stripSourceTimestamp,
   timestampToSeconds,
@@ -498,6 +501,78 @@ let questionLifecycleWorkspace = sanitizeWorkspace({
   sessions: [questionSession]
 });
 const questionCaptureId = questionSession.captures[0].id;
+let parkedQuestionWorkspace = setCaptureQuestionParked(
+  questionLifecycleWorkspace,
+  questionSession.id,
+  questionCaptureId
+);
+let parkedQuestionSession = getActiveSession(parkedQuestionWorkspace);
+const parkedQuestionCapture = parkedQuestionSession.captures[0];
+assert.match(parkedQuestionCapture.questionParkedAt, /^\d{4}-\d{2}-\d{2}T/);
+assert.equal(parkedQuestionCapture.questionResolvedAt, null);
+assert.equal(captureHasOpenQuestion(parkedQuestionCapture), false);
+assert.equal(captureHasParkedQuestion(parkedQuestionCapture), true);
+assert.equal(getParkedQuestionItems(parkedQuestionWorkspace, 10).length, 1);
+assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).stats.questions, 0);
+assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).stats.parkedQuestions, 1);
+assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).questionItems.length, 0);
+assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).parkedQuestionItems.length, 1);
+assert.match(generateTodayMarkdown(parkedQuestionWorkspace, focusNow), /Parked Questions/);
+assert.match(generateTodayMarkdown(parkedQuestionWorkspace, focusNow), /Why does ownership make aliasing safe/);
+assert.equal(buildFocusBrief(parkedQuestionSession, parkedQuestionWorkspace, focusNow).stats.questions, 0);
+assert.equal(buildFocusBrief(parkedQuestionSession, parkedQuestionWorkspace, focusNow).warnings.some((warning) => warning.kind === "open_questions"), false);
+const parkedQuestionSynthesisOpenQuestions = generateSynthesisDraft(parkedQuestionSession).split("### Open Questions")[1].split("### Review Targets")[0];
+assert.doesNotMatch(parkedQuestionSynthesisOpenQuestions, /Why does ownership make aliasing safe/);
+const roundTripParkedWorkspace = workspaceFromPortableData(JSON.parse(JSON.stringify(parkedQuestionWorkspace)));
+assert.equal(captureHasParkedQuestion(getActiveSession(roundTripParkedWorkspace).captures[0]), true);
+const resolvedFromParkedWorkspace = setCaptureQuestionResolved(
+  parkedQuestionWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  true
+);
+const resolvedFromParkedCapture = getActiveSession(resolvedFromParkedWorkspace).captures[0];
+assert.equal(captureHasParkedQuestion(resolvedFromParkedCapture), false);
+assert.equal(resolvedFromParkedCapture.questionParkedAt, null);
+assert.notEqual(resolvedFromParkedCapture.questionResolvedAt, null);
+const reopenedFromParkedCapture = getActiveSession(setCaptureQuestionResolved(
+  resolvedFromParkedWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  false
+)).captures[0];
+assert.equal(captureHasOpenQuestion(reopenedFromParkedCapture), true);
+assert.equal(reopenedFromParkedCapture.questionParkedAt, null);
+const illegalResolvedParkedWorkspace = workspaceFromPortableData(JSON.parse(JSON.stringify({
+  ...parkedQuestionWorkspace,
+  sessions: parkedQuestionWorkspace.sessions.map((sessionItem) => ({
+    ...sessionItem,
+    captures: sessionItem.captures.map((captureItem) => captureItem.id === questionCaptureId
+      ? {
+          ...captureItem,
+          questionResolvedAt: "2026-05-29T00:30:00.000Z",
+          questionParkedAt: "2026-05-29T00:29:00.000Z"
+        }
+      : captureItem)
+  }))
+})));
+const illegalNormalizedCapture = getActiveSession(illegalResolvedParkedWorkspace).captures[0];
+assert.equal(illegalNormalizedCapture.questionResolvedAt, "2026-05-29T00:30:00.000Z");
+assert.equal(illegalNormalizedCapture.questionParkedAt, null);
+assert.equal(setCaptureQuestionParked(
+  illegalResolvedParkedWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  true
+), illegalResolvedParkedWorkspace);
+parkedQuestionWorkspace = setCaptureQuestionParked(
+  parkedQuestionWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  false
+);
+assert.equal(getActiveSession(parkedQuestionWorkspace).captures[0].questionParkedAt, null);
+assert.equal(captureHasOpenQuestion(getActiveSession(parkedQuestionWorkspace).captures[0]), true);
 questionLifecycleWorkspace = setCaptureQuestionResolved(
   questionLifecycleWorkspace,
   questionSession.id,
@@ -577,6 +652,7 @@ const legacyQuestionWorkspace = sanitizeWorkspace({
   }]
 });
 assert.equal(getActiveSession(legacyQuestionWorkspace).captures[0].questionResolvedAt, null);
+assert.equal(getActiveSession(legacyQuestionWorkspace).captures[0].questionParkedAt, null);
 assert.equal(captureHasOpenQuestion(getActiveSession(legacyQuestionWorkspace).captures[0]), true);
 
 const statementSession = createSession({
@@ -818,9 +894,11 @@ const frozenToday = new Date("2099-01-02T00:00:00.000Z");
 const todayPack = buildTodayPack(multiReviewWorkspace, frozenToday, { dueLimit: 1, recentLimit: 1 });
 assert.equal(todayPack.stats.due, 2);
 assert.equal(todayPack.stats.questions, 0);
+assert.equal(todayPack.stats.parkedQuestions, 0);
 assert.equal(todayPack.dueItems.length, 1);
 assert.equal(todayPack.dueOverflow, 1);
 assert.equal(todayPack.questionItems.length, 0);
+assert.equal(todayPack.parkedQuestionItems.length, 0);
 assert.equal(todayPack.recentCaptures.length, 1);
 assert.equal(todayPack.focusBrief.nextAction.kind, "review");
 assert.equal(todayPack.focusBrief.sessionId, multiReviewWorkspace.activeSessionId);
@@ -840,6 +918,8 @@ assert.match(todayMarkdown, /\]\(sessions\/.+\.md\)/);
 assert.match(todayMarkdown, /Due Review/);
 assert.match(todayMarkdown, /Open Questions/);
 assert.match(todayMarkdown, /No open questions captured yet/);
+assert.match(todayMarkdown, /Parked Questions/);
+assert.match(todayMarkdown, /No parked questions/);
 assert.match(todayMarkdown, /Recent Captures/);
 assert.match(todayMarkdown, /Recall why greedy selection works/);
 
@@ -855,13 +935,15 @@ const questionTodayPack = buildTodayPack(questionTodayWorkspace, frozenToday, {
   recentLimit: 1
 });
 assert.equal(questionTodayPack.stats.questions, 1);
+assert.equal(questionTodayPack.stats.parkedQuestions, 0);
 assert.equal(questionTodayPack.questionItems.length, 1);
 assert.equal(questionTodayPack.questionItems[0].sessionTitle, "Algorithms course");
 assert.match(questionTodayPack.questionItems[0].sessionPath, /^sessions\/.+\.md$/);
 assert.equal(questionTodayPack.questionOverflow, 0);
 const questionTodayMarkdown = generateTodayMarkdown(questionTodayWorkspace, frozenToday);
 assert.match(questionTodayMarkdown, /Open question rule: latest 6 open question captures by capturedAt/);
-assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 2 cards \/ 2 due cards/);
+assert.match(questionTodayMarkdown, /Parked question rule: latest 6 parked question captures by parkedAt/);
+assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 2 cards \/ 2 due cards/);
 assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
 const questionMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(questionMirrorIndexHtml, /Open Question Preview/);

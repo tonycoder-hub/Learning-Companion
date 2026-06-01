@@ -7,6 +7,7 @@ import {
   getActiveSession,
   promoteCapture,
   sanitizeWorkspace,
+  setCaptureQuestionParked,
   setCaptureQuestionResolved,
   updateSession
 } from "../apps/companion-web/src/model.js";
@@ -59,6 +60,18 @@ const resolvedQuestionCaptureId = getActiveSession(workspace).captures.find((cap
   capture.thought === "How do I keep answered phone questions out of the open list?"
 )).id;
 workspace = setCaptureQuestionResolved(workspace, active.id, resolvedQuestionCaptureId, true);
+workspace = addCapture(workspace, active.id, {
+  quote: "Parked questions should wait without crowding the active phone backlog.",
+  thought: "Which HarmonyOS question can wait until the next study block?",
+  timestamp: "00:06:02",
+  tags: "harmony reader question parked",
+  sourceTitle: "Mac study video",
+  sourceUrl: "https://example.com/study?t=362"
+}, { now: new Date("2026-05-29T08:23:00.000+08:00") });
+const parkedQuestionCaptureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.thought === "Which HarmonyOS question can wait until the next study block?"
+)).id;
+workspace = setCaptureQuestionParked(workspace, active.id, parkedQuestionCaptureId, true);
 for (let index = 0; index < 13; index += 1) {
   workspace = addCapture(workspace, active.id, {
     quote: `Extra phone backlog question ${index + 1}.`,
@@ -86,30 +99,50 @@ assert.equal(workspaceView.activeTopic.title, getActiveSession(workspace).title)
 assert.equal(workspaceView.activeTopic.nextAction.reason, "Active topic has due review due now.");
 assert.equal(workspaceView.activeTopic.nextAction.detail, "Reveal and grade before adding more material.");
 assert.equal(workspaceView.activeTopic.openQuestionCount, 14);
+assert.equal(workspaceView.activeTopic.parkedQuestionCount, 1);
+assert.equal(workspaceView.activeTopic.unresolvedQuestionCount, 15);
 assert.equal(workspaceView.workspace.openQuestionCount, 14);
+assert.equal(workspaceView.workspace.parkedQuestionCount, 1);
+assert.equal(workspaceView.workspace.unresolvedQuestionCount, 15);
 assert.equal(workspaceView.topics.length, workspace.sessions.length);
 assert.equal(workspaceView.topics.some((topic) => topic.captureCount > 0), true);
 assert.equal(workspaceView.dueReview.length, 1);
 assert.equal(workspaceView.dueReview[0].answer.includes("HarmonyOS reader"), true);
 assert.equal(workspaceView.openQuestions.length, 12);
 assert.equal(workspaceView.openQuestions.some((item) => item.captureId === openQuestionCaptureId), true);
+assert.equal(workspaceView.openQuestions.some((item) => item.captureId === parkedQuestionCaptureId), false);
 assert.equal(workspaceView.openQuestions.every((item) => item.thought.endsWith("?")), true);
+assert.equal(workspaceView.parkedQuestions.length, 1);
+assert.equal(workspaceView.parkedQuestions[0].captureId, parkedQuestionCaptureId);
+assert.equal(workspaceView.parkedQuestions[0].questionParkedAt.length > 0, true);
 const recentOpenQuestion = workspaceView.recentCaptures.find((item) => item.captureId === openQuestionCaptureId);
 assert.equal(recentOpenQuestion.isQuestion, true);
 assert.equal(recentOpenQuestion.isOpenQuestion, true);
 assert.equal(recentOpenQuestion.questionResolvedAt, "");
+assert.equal(recentOpenQuestion.isParkedQuestion, false);
+assert.equal(recentOpenQuestion.questionParkedAt, "");
+const recentParkedQuestion = workspaceView.recentCaptures.find((item) => item.captureId === parkedQuestionCaptureId);
+assert.equal(recentParkedQuestion.isQuestion, true);
+assert.equal(recentParkedQuestion.isOpenQuestion, false);
+assert.equal(recentParkedQuestion.isParkedQuestion, true);
+assert.equal(recentParkedQuestion.questionResolvedAt, "");
+assert.equal(recentParkedQuestion.questionParkedAt.length > 0, true);
 const recentResolvedQuestion = workspaceView.recentCaptures.find((item) => item.captureId === resolvedQuestionCaptureId);
 assert.equal(recentResolvedQuestion.isQuestion, true);
 assert.equal(recentResolvedQuestion.isOpenQuestion, false);
+assert.equal(recentResolvedQuestion.isParkedQuestion, false);
 assert.equal(typeof recentResolvedQuestion.questionResolvedAt, "string");
 assert.notEqual(recentResolvedQuestion.questionResolvedAt, "");
 const recentLearningCapture = workspaceView.recentCaptures.find((item) => item.captureId === captureId);
 assert.equal(recentLearningCapture.quote, "HarmonyOS reader should preserve a fresh learning capture.");
 assert.equal(recentLearningCapture.isQuestion, false);
 assert.equal(recentLearningCapture.isOpenQuestion, false);
+assert.equal(recentLearningCapture.isParkedQuestion, false);
 assert.equal(typeof recentLearningCapture.isQuestion, "boolean");
 assert.equal(typeof recentLearningCapture.isOpenQuestion, "boolean");
+assert.equal(typeof recentLearningCapture.isParkedQuestion, "boolean");
 assert.equal(recentLearningCapture.questionResolvedAt, "");
+assert.equal(recentLearningCapture.questionParkedAt, "");
 assert.equal(workspaceView.limitations.some((item) => item.includes("Prototype reader only")), true);
 
 const mirror = buildMirrorBundle(workspace);
@@ -121,8 +154,13 @@ assert.deepEqual(
 assert.equal(mirrorView.activeTopic.id, workspaceView.activeTopic.id);
 assert.equal(mirrorView.dueReview[0].cardId, workspaceView.dueReview[0].cardId);
 assert.equal(mirrorView.workspace.openQuestionCount, workspaceView.workspace.openQuestionCount);
+assert.equal(mirrorView.workspace.parkedQuestionCount, workspaceView.workspace.parkedQuestionCount);
+assert.equal(mirrorView.workspace.unresolvedQuestionCount, workspaceView.workspace.unresolvedQuestionCount);
 assert.equal(mirrorView.activeTopic.openQuestionCount, workspaceView.activeTopic.openQuestionCount);
+assert.equal(mirrorView.activeTopic.parkedQuestionCount, workspaceView.activeTopic.parkedQuestionCount);
+assert.equal(mirrorView.activeTopic.unresolvedQuestionCount, workspaceView.activeTopic.unresolvedQuestionCount);
 assert.deepEqual(mirrorView.openQuestions, workspaceView.openQuestions);
+assert.deepEqual(mirrorView.parkedQuestions, workspaceView.parkedQuestions);
 
 const workspaceImport = importPortableForHarmony(workspace, { now });
 assert.equal(workspaceImport.ok, true);

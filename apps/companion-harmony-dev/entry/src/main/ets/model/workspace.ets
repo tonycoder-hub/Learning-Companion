@@ -29,6 +29,8 @@ export interface TopicSummary {
   reviewCardCount: number;
   dueReviewCount: number;
   openQuestionCount: number;
+  parkedQuestionCount: number;
+  unresolvedQuestionCount: number;
   nextAction: FocusNextAction;
   latestCapture?: CapturePreview;
 }
@@ -62,7 +64,9 @@ export interface RecentCapture {
   sourceUrl: string;
   isQuestion: boolean;
   isOpenQuestion: boolean;
+  isParkedQuestion: boolean;
   questionResolvedAt: string;
+  questionParkedAt: string;
 }
 
 export interface OpenQuestion {
@@ -76,6 +80,10 @@ export interface OpenQuestion {
   sourceUrl: string;
 }
 
+export interface ParkedQuestion extends OpenQuestion {
+  questionParkedAt: string;
+}
+
 export interface HarmonyReaderView {
   schema: typeof HARMONY_READER_VIEW_SCHEMA;
   generatedAt: string;
@@ -86,6 +94,8 @@ export interface HarmonyReaderView {
     clientId: string;
     sessionCount: number;
     openQuestionCount: number;
+    parkedQuestionCount: number;
+    unresolvedQuestionCount: number;
     activeTopicId: string;
   };
   activeTopic?: TopicSummary;
@@ -93,6 +103,7 @@ export interface HarmonyReaderView {
   dueReview: DueReviewCard[];
   recentCaptures: RecentCapture[];
   openQuestions: OpenQuestion[];
+  parkedQuestions: ParkedQuestion[];
   limitations: string[];
 }
 

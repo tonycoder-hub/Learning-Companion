@@ -1709,6 +1709,21 @@ try {
       ? Array.from(questionCard.querySelectorAll("button")).map((button) => button.textContent)
       : [];
     Array.from(questionCard?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Park")
+      ?.click();
+    const afterPark = {
+      activity: document.querySelector("#activityTitle").textContent,
+      focusFacts: document.querySelector("#focusBriefFacts").textContent,
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card)"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length,
+      parkedQuestionCards: Array.from(document.querySelectorAll("#todayList .parked-question-card"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length,
+      todayText: document.querySelector("#todayList").textContent,
+      parkedButtons: Array.from(document.querySelectorAll("#todayList .parked-question-card button")).map((button) => button.textContent)
+    };
+    const parkedQuestionCard = Array.from(document.querySelectorAll("#todayList .parked-question-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(parkedQuestionCard?.querySelectorAll("button") || [])
       .find((button) => button.textContent === "Answer")
       ?.click();
     const afterAnswerDraft = {
@@ -1779,6 +1794,7 @@ try {
         before: beforeQuestionSignalClick,
         after: afterQuestionSignalClick
       },
+      afterPark,
       afterAnswerDraft,
       afterQuestionCard,
       promotedQuestionButton: {
@@ -1815,6 +1831,17 @@ try {
   assert.equal(questionFlow.questionSignalClick.after.sectionText, "Open Questions");
   assert.equal(questionFlow.questionButtons.includes("Answer"), true);
   assert.equal(questionFlow.questionButtons.includes("Make card"), true);
+  assert.equal(questionFlow.questionButtons.includes("Park"), true);
+  assert.equal(questionFlow.afterPark.activity, "Question parked");
+  assert.match(questionFlow.afterPark.focusFacts, /Questions/);
+  assert.match(questionFlow.afterPark.focusFacts, /None/);
+  assert.equal(questionFlow.afterPark.openQuestionCards, 0);
+  assert.equal(questionFlow.afterPark.parkedQuestionCards, 1);
+  assert.match(questionFlow.afterPark.todayText, /Parked Questions/);
+  assert.match(questionFlow.afterPark.todayText, /Parked since/);
+  assert.match(questionFlow.afterPark.todayText, /compactness assumption/);
+  assert.equal(questionFlow.afterPark.parkedButtons.includes("Answer"), true);
+  assert.equal(questionFlow.afterPark.parkedButtons.includes("Resume"), true);
   assert.deepEqual(questionFlow.afterAnswerDraft, {
     activity: "Answer draft started",
     activeTitle: "Question parking smoke",

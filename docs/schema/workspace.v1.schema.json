@@ -135,6 +135,13 @@
             { "type": "null" }
           ]
         },
+        "questionParkedAt": {
+          "description": "Optional timestamp marking a captured question as temporarily parked. Missing or null means the question is not parked. A timestamp means the question remains unresolved but is excluded from the active open-question focus queue. It is cleared when the question is resumed or resolved; if questionResolvedAt is set, import normalization treats questionParkedAt as null.",
+          "anyOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        },
         "tags": {
           "type": "array",
           "items": { "type": "string", "maxLength": 64 },

@@ -278,6 +278,8 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
   const materialType = hasOwnMaterialType ? capture.materialType : sourceFallback.materialType;
   const hasCaptureSource = Boolean(capture.sourceTitle || capture.sourceUrl || capture.materialType);
   const hasInheritedSource = Boolean(sourceFallback.sourceTitle || sourceFallback.sourceUrl || sourceFallback.materialType);
+  const questionResolvedAt = capture.questionResolvedAt ? cleanText(capture.questionResolvedAt, 64) : null;
+  const questionParkedAt = !questionResolvedAt && capture.questionParkedAt ? cleanText(capture.questionParkedAt, 64) : null;
   return {
     id: capture.id || makeId("capture"),
     quote: cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH),
@@ -295,7 +297,8 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
     originClientId: capture.originClientId || originClientId,
     inboxPatchId: cleanText(capture.inboxPatchId, 128),
     inboxCaptureId: cleanText(capture.inboxCaptureId, 128),
-    questionResolvedAt: capture.questionResolvedAt ? cleanText(capture.questionResolvedAt, 64) : null,
+    questionResolvedAt,
+    questionParkedAt,
     promotedToReview: Boolean(capture.promotedToReview)
   };
 }
@@ -826,6 +829,7 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
     updatedAt: timestamp,
     originClientId: workspace.clientId,
     questionResolvedAt: null,
+    questionParkedAt: null,
     promotedToReview: Boolean(options.promoteToReview)
   };
 
@@ -907,6 +911,42 @@ export function setCaptureQuestionResolved(workspace, sessionId, captureId, reso
       return {
         ...capture,
         questionResolvedAt: resolved ? timestamp : null,
+        questionParkedAt: null,
+        updatedAt: timestamp
+      };
+    });
+    if (!sessionChanged) return session;
+    changed = true;
+    return {
+      ...session,
+      captures,
+      updatedAt: timestamp
+    };
+  });
+  return changed
+    ? {
+        ...workspace,
+        updatedAt: timestamp,
+        sessions
+      }
+    : workspace;
+}
+
+export function setCaptureQuestionParked(workspace, sessionId, captureId, parked = true) {
+  const timestamp = nowIso();
+  let changed = false;
+  const sessions = workspace.sessions.map((session) => {
+    if (session.id !== sessionId) return session;
+    let sessionChanged = false;
+    const captures = session.captures.map((capture) => {
+      if (capture.id !== captureId || !captureHasQuestion(capture)) return capture;
+      if (capture.questionResolvedAt && parked) return capture;
+      if (Boolean(capture.questionParkedAt) === Boolean(parked)) return capture;
+      sessionChanged = true;
+      return {
+        ...capture,
+        questionResolvedAt: parked ? null : capture.questionResolvedAt || null,
+        questionParkedAt: parked ? timestamp : null,
         updatedAt: timestamp
       };
     });
@@ -1063,12 +1103,38 @@ export function getOpenQuestionItems(workspace, limit = 6) {
     .slice(0, Math.max(0, limit));
 }
 
+export function getParkedQuestionItems(workspace, limit = 6) {
+  return workspace.sessions
+    .flatMap((session) => session.captures
+      .filter((capture) => captureHasParkedQuestion(capture))
+      .map((capture) => ({
+        sessionId: session.id,
+        sessionTitle: session.title,
+        capture
+      })))
+    .sort((a, b) => {
+      const byParked = new Date(b.capture.questionParkedAt || b.capture.updatedAt).getTime()
+        - new Date(a.capture.questionParkedAt || a.capture.updatedAt).getTime();
+      if (byParked !== 0) return byParked;
+      const byTime = new Date(b.capture.capturedAt || b.capture.createdAt).getTime()
+        - new Date(a.capture.capturedAt || a.capture.createdAt).getTime();
+      if (byTime !== 0) return byTime;
+      const bySession = a.sessionTitle.localeCompare(b.sessionTitle);
+      if (bySession !== 0) return bySession;
+      return a.capture.id.localeCompare(b.capture.id);
+    })
+    .slice(0, Math.max(0, limit));
+}
+
 export function getStudyPackStats(workspace, now = new Date()) {
   return {
     sessions: workspace.sessions.length,
     captures: workspace.sessions.reduce((sum, session) => sum + session.captures.length, 0),
     questions: workspace.sessions.reduce((sum, session) => (
       sum + session.captures.filter((capture) => captureHasOpenQuestion(capture)).length
+    ), 0),
+    parkedQuestions: workspace.sessions.reduce((sum, session) => (
+      sum + session.captures.filter((capture) => captureHasParkedQuestion(capture)).length
     ), 0),
     cards: workspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0),
     due: getDueReviewItems(workspace, now).length
@@ -1189,6 +1255,7 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const dueLimit = Math.max(1, Number(limits.dueLimit) || 20);
   const questionLimit = Math.max(1, Number(limits.questionLimit) || 6);
+  const parkedQuestionLimit = Math.max(1, Number(limits.parkedQuestionLimit) || 6);
   const recentLimit = Math.max(1, Number(limits.recentLimit) || 8);
   const sessionPaths = new Map(cleanWorkspace.sessions.map((session) => [session.id, getMirrorSessionPaths(session)]));
   const activeSession = getActiveSession(cleanWorkspace);
@@ -1213,6 +1280,10 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     ...item,
     sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
   }));
+  const parkedQuestionAll = getParkedQuestionItems(cleanWorkspace, Number.MAX_SAFE_INTEGER).map((item) => ({
+    ...item,
+    sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
+  }));
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   return {
@@ -1224,6 +1295,7 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     },
     recentDefinition: `latest ${recentLimit} captures by capturedAt`,
     questionDefinition: `latest ${questionLimit} open question captures by capturedAt`,
+    parkedQuestionDefinition: `latest ${parkedQuestionLimit} parked question captures by parkedAt`,
     dueDefinition: "review cards with dueAt <= generatedAt",
     stats: getStudyPackStats(cleanWorkspace, now),
     focusBrief: {
@@ -1234,6 +1306,8 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     dueOverflow: Math.max(0, dueAll.length - dueLimit),
     questionItems: questionAll.slice(0, questionLimit),
     questionOverflow: Math.max(0, questionAll.length - questionLimit),
+    parkedQuestionItems: parkedQuestionAll.slice(0, parkedQuestionLimit),
+    parkedQuestionOverflow: Math.max(0, parkedQuestionAll.length - parkedQuestionLimit),
     recentCaptures: recentAll.slice(0, recentLimit),
     recentOverflow: Math.max(0, recentAll.length - recentLimit)
   };
@@ -1436,8 +1510,9 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     `Local day window: [${pack.localDayWindow.start}, ${pack.localDayWindow.end})`,
     `Due rule: ${pack.dueDefinition}`,
     `Open question rule: ${pack.questionDefinition}`,
+    `Parked question rule: ${pack.parkedQuestionDefinition}`,
     `Recent rule: ${pack.recentDefinition}`,
-    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "open question")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
+    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "open question")} / ${formatCount(stats.parkedQuestions || 0, "parked question")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
     "",
     "## Resume Here",
     "",
@@ -1501,6 +1576,24 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
       }
     });
     if (pack.questionOverflow) lines.push(`- +${pack.questionOverflow} more open questions in workspace.json`);
+  }
+
+  lines.push(
+    "",
+    "## Parked Questions",
+    "",
+    "_Parked questions are unresolved, but they are intentionally out of the active focus queue._",
+    ""
+  );
+  if (!pack.parkedQuestionItems.length) {
+    lines.push("_No parked questions._");
+  } else {
+    pack.parkedQuestionItems.forEach(({ sessionTitle, sessionPath, capture }) => {
+      const question = markdownInline(capture.thought || capture.quote || "Untitled question");
+      const parkedAt = capture.questionParkedAt ? ` · parked ${formatDate(capture.questionParkedAt)}` : "";
+      lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}${parkedAt}`);
+    });
+    if (pack.parkedQuestionOverflow) lines.push(`- +${pack.parkedQuestionOverflow} more parked questions in workspace.json`);
   }
 
   lines.push("", "## Recent Captures", "");
@@ -2154,7 +2247,11 @@ export function captureHasQuestion(capture) {
 }
 
 export function captureHasOpenQuestion(capture) {
-  return captureHasQuestion(capture) && !capture?.questionResolvedAt;
+  return captureHasQuestion(capture) && !capture?.questionResolvedAt && !capture?.questionParkedAt;
+}
+
+export function captureHasParkedQuestion(capture) {
+  return captureHasQuestion(capture) && !capture?.questionResolvedAt && Boolean(capture?.questionParkedAt);
 }
 
 export function getSynthesisSourceStamp(session) {
@@ -2167,6 +2264,7 @@ export function getSynthesisSourceStamp(session) {
       thought: capture.thought,
       timestamp: capture.timestamp,
       questionResolvedAt: capture.questionResolvedAt || null,
+      questionParkedAt: capture.questionParkedAt || null,
       updatedAt: capture.updatedAt
     })).sort((a, b) => String(a.id || "").localeCompare(String(b.id || ""))),
     reviewCards: (Array.isArray(session?.reviewCards) ? session.reviewCards : []).map((card) => ({

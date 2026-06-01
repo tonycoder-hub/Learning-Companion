@@ -25,20 +25,22 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `1badbf9 feat: add morning inspection path`
 - `24caecf feat: seed answers from open questions`
 - `1760d58 feat: link mirror questions to inbox answers`
+- `de3d3cd test: harden mirror answer prefill`
 
-Current uncommitted work hardens `1760d58` after Mira review:
+Current uncommitted work adds a parked-question queue after Mira review:
 
-- Mirror open-question links now say `Draft answer in inbox`.
-- `inbox.html` shows a visible fallback notice when a query `topicId` does not match a known topic.
-- Query prefill treats `sourceUrl` as explicit when provided, so an invalid URL does not silently inherit the topic source URL.
-- Static and browser smoke cover hostile quote/query input, missing topics, source URL sanitization, and append-only patch output.
-- `docs/mirror-bundle-contract.md` records the query-prefill trust boundary and static-page CSP.
+- `questionParkedAt` is an unresolved-but-not-active state, distinct from `questionResolvedAt`.
+- Today Open Questions can `Park`; Today Parked Questions can `Answer`, `Resume`, or `Resolve`.
+- Parked questions are excluded from Focus Brief and synthesis active open-question counts, but remain visible in Today / `TODAY.md`.
+- Harmony reader view gets additive `parkedQuestions`, `parkedQuestionCount`, `unresolvedQuestionCount`, `isParkedQuestion`, and `questionParkedAt`.
+- Model normalization clears illegal `resolved + parked` combinations.
 
 ## Verified Locally
 
-These passed after the current hardening:
+These passed after the current parked-question work:
 
 - `npm run smoke`
+- `npm run smoke:harmony`
 - `npm run smoke:browser`
 - `npm run check:morning`
 - `git diff --check`
@@ -69,14 +71,21 @@ Latest absorbed Mira notes for mirror question answer links:
 - Add hostile escaping and round-trip tests beyond only `sourceUrl`.
 - Document CSP and query-prefill boundaries.
 
+Latest absorbed Mira notes for parked question loop:
+
+- Normalize illegal `resolved + parked` state to resolved-only.
+- Add Harmony unresolved-question count so active-only open questions do not hide parked unresolved questions.
+- Let parked questions show when they were parked and provide a direct Answer path.
+- Pin transition coverage for Park, Answer-from-parked, Resolve, Reopen, and Resume.
+
 ## Next Local Work
 
-1. Commit the current mirror-answer hardening once status is clean enough:
-   - Suggested message: `test: harden mirror answer prefill`.
+1. Commit the current parked-question queue once status is clean enough:
+   - Suggested message: `feat: add parked question queue`.
 
 2. Continue the study loop:
-   - Make the Today/Open Questions queue feel more like a closure surface: answer, card, resolve, reopen, or park.
    - Add a small receipt or inspection cue showing whether newly drafted answers are ready for Mac-side import.
+   - Consider a "question inbox health" cue: active, parked, answered, and due-review conversion.
 
 3. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
