@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `f32d1e1 feat: show quick capture intent`
 - `0118db8 feat: locate quick capture destination`
 - `03e360f feat: show quick capture destination`
 - `77707f2 fix: show capture undo expiry`
@@ -240,9 +241,15 @@ Latest local work clarifies the Quick Capture destination:
 - Clicking the destination chip exits sidecar layout, opens the Captures surface, focuses/pulses the active session row, and records `Capture destination shown` in the activity strip.
 - Browser smoke pins the destination for the main fixture session and for a brand-new empty session, the sidecar destination-locate path, and the existing mobile-width capture-context no-overflow check covers the wider strip.
 
+Latest local work clarifies Quick Capture intent:
+
+- The Quick Capture context strip now includes an intent chip beside destination/source/time: `Ready`, `Quote`, `Thought`, `Capture`, `Question`, `Answer draft`, or `Answer`.
+- The chip uses existing model semantics where possible: question detection uses `captureHasQuestion()`, and answer detection uses `captureHasAnswer()`; a short `Answer:` prefix is explicitly labeled `Answer draft` rather than pretending it will close a question.
+- Browser smoke pins the empty ready state, question intent, short answer draft, review-ready answer intent, and the empty new-session intent.
+
 ## Verified Locally
 
-These passed after the Quick Capture destination update:
+These passed after the Quick Capture intent update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
