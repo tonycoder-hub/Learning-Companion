@@ -289,6 +289,22 @@ try {
       contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
       contextOpened: typedTimestampContextOpened
     };
+    document.querySelector("#timeBackBtn").click();
+    const afterTimeBack = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      pulsed: document.querySelector("#timestampInput").classList.contains("pulse")
+    };
+    document.querySelector("#timeForwardBtn").click();
+    const afterTimeForward = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -367,6 +383,23 @@ try {
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
     const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
+    setValue("#timestampInput", "");
+    document.querySelector("#timeBackBtn").click();
+    const emptyFallbackNudge = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      backLabel: document.querySelector("#timeBackBtn").getAttribute("aria-label"),
+      forwardLabel: document.querySelector("#timeForwardBtn").getAttribute("aria-label")
+    };
+    setValue("#timestampInput", "abc");
+    document.querySelector("#timeForwardBtn").click();
+    const invalidFallbackNudge = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent
+    };
+    setValue("#timestampInput", "08:12");
     const noteButton = [...document.querySelectorAll("#captureList .mini-button")]
       .find((button) => button.textContent === "Note");
     noteButton.click();
@@ -778,6 +811,7 @@ try {
           draftActivity,
           sourceTimestampStage,
           sourceTimestampTyped,
+          sourceTimestampNudge,
           todayDraftBeforeResume,
           todayDraftAfterResume,
           captureDraftStatusBeforeSwitch,
@@ -805,6 +839,8 @@ try {
           todayRecentOpenLinkText,
           todayMapButtons,
           todayMapRecentPulsed,
+          emptyFallbackNudge,
+          invalidFallbackNudge,
           noteInsertions,
           noteHasSource,
           searchBeforeOpen,
@@ -967,6 +1003,19 @@ try {
   assert.equal(result.sourceTimestampTyped.contextTime, "@ 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpened, "https://www.youtube.com/watch?v=rust123&t=750s");
+  assert.deepEqual(result.sourceTimestampNudge.afterTimeBack, {
+    timestamp: "12:15",
+    contextTime: "@ 12:15",
+    activityTitle: "Time adjusted",
+    activityDetail: "Capture time set to 12:15.",
+    pulsed: true
+  });
+  assert.deepEqual(result.sourceTimestampNudge.afterTimeForward, {
+    timestamp: "12:30",
+    contextTime: "@ 12:30",
+    activityTitle: "Time adjusted",
+    activityDetail: "Capture time set to 12:30."
+  });
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);
@@ -1049,6 +1098,18 @@ try {
   assert.equal(result.todayMapButtons.some((button) => button.target === "answers_today" && /Answers/.test(button.text)), true);
   assert.equal(result.todayMapButtons.some((button) => button.target === "recent_captures" && /Recent/.test(button.text)), true);
   assert.equal(result.todayMapRecentPulsed, true);
+  assert.deepEqual(result.emptyFallbackNudge, {
+    timestamp: "07:57",
+    contextTime: "@ 07:57",
+    activityTitle: "Time adjusted",
+    backLabel: "Back 15 seconds",
+    forwardLabel: "Forward 15 seconds"
+  });
+  assert.deepEqual(result.invalidFallbackNudge, {
+    timestamp: "08:27",
+    contextTime: "@ 08:27",
+    activityTitle: "Time adjusted"
+  });
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.ok(result.searchBeforeOpen.count >= 1);

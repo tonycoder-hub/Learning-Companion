@@ -50,11 +50,13 @@ import {
   resolveCaptureDraftFocusOverride,
   sanitizeWorkspace,
   searchWorkspace,
+  secondsToTimestamp,
   summarizeCaptureDraft,
   selectSession,
   setCaptureQuestionParked,
   setCaptureQuestionResolved,
   stripSourceTimestamp,
+  timestampToSeconds,
   updateSession,
   workspaceBackupFingerprint,
   workspaceStorageNotice,
@@ -90,6 +92,8 @@ const dom = {
   openSourceBtn: document.querySelector("#openSourceBtn"),
   materialType: document.querySelector("#materialType"),
   timestampInput: document.querySelector("#timestampInput"),
+  timeBackBtn: document.querySelector("#timeBackBtn"),
+  timeForwardBtn: document.querySelector("#timeForwardBtn"),
   sessionTags: document.querySelector("#sessionTags"),
   sidecarLayoutBtn: document.querySelector("#sidecarLayoutBtn"),
   captureMetric: document.querySelector("#captureMetric"),
@@ -370,6 +374,8 @@ dom.notesPreviewBtn.addEventListener("click", () => {
 
 dom.openSourceBtn.addEventListener("click", openCurrentSource);
 dom.captureContextOpenBtn.addEventListener("click", openCurrentSource);
+dom.timeBackBtn.addEventListener("click", () => nudgeCaptureTime(-15));
+dom.timeForwardBtn.addEventListener("click", () => nudgeCaptureTime(15));
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
 dom.activityDetailsBtn.addEventListener("click", showActivityDetails);
@@ -1110,6 +1116,27 @@ function openCurrentSource() {
   const session = getActiveSession(workspace);
   const resume = buildResumeSource(session, dom.timestampInput.value);
   if (resume.href) window.open(resume.href, "_blank", "noopener,noreferrer");
+}
+
+function nudgeCaptureTime(deltaSeconds) {
+  const session = getActiveSession(workspace);
+  // Precedence: typed Time field, latest captured source time, then zero; nudges never go below 00:00.
+  const currentSeconds = timestampToSeconds(dom.timestampInput.value);
+  const fallbackSeconds = timestampToSeconds(buildResumeSource(session, "").timestamp);
+  const baseSeconds = currentSeconds ?? fallbackSeconds ?? 0;
+  const nextTimestamp = secondsToTimestamp(Math.max(0, baseSeconds + deltaSeconds));
+  dom.timestampInput.value = nextTimestamp;
+  saveCurrentCaptureDraft();
+  setActivity(session, {
+    title: "Time adjusted",
+    detail: `Capture time set to ${nextTimestamp}.`,
+    tab: "captures",
+    targetId: ""
+  });
+  renderActivity(session);
+  renderCaptureContext(session);
+  renderOpenSourceButton(session);
+  pulseNode(dom.timestampInput);
 }
 
 function renderOpenSourceButton(session) {

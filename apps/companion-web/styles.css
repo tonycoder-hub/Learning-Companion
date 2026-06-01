@@ -568,6 +568,19 @@ textarea:focus {
   min-width: 0;
 }
 
+.time-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px 48px;
+  gap: 6px;
+  min-width: 0;
+}
+
+.time-nudge {
+  min-width: 0;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
 .segmented {
   display: inline-grid;
   grid-template-columns: repeat(3, minmax(92px, 1fr));
