@@ -37,6 +37,7 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 - Renamed the Today handoff card from `Patch Intake` to `Return Files`, and changed the import button to `Import File`.
 - Added the explicit Return Files manual transfer path with device labels: export mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON back on Mac. The card now calls Feishu a file-sharing route, not sync.
 - `Export Mirror (Step 1)` now opens the Export tab at the Mirror Folder section, focuses Save Mirror, and records a Step 1 activity receipt instead of dropping the user into an undifferentiated export panel.
+- Saving Mirror JSON or ZIP now records a handoff receipt that tells the user to move the file to Feishu Drive, phone, or Windows and use `inbox.html` or `review.html` to create a return JSON.
 - Browser smoke now pins the `Next Move` priority and the new `Return Files` copy.
 
 ## Current Journey Assessment
@@ -65,7 +66,7 @@ Feishu:
 ## Next Product Moves
 
 1. Fill Mac manual QA rows for capture, source context, native saves, import, and relaunch.
-2. Add an explicit post-save receipt when the user actually saves Mirror JSON or ZIP, including where to move the file next.
+2. Add the same post-save receipt coverage for Mac-shell native NSSavePanel manual QA.
 3. Verify the static mirror on a real Windows browser and record limitations.
 4. Compile the Harmony scaffold in DevEco before calling the phone path usable.
 5. Retry Mira once the SSH broker is healthy, but do not block local progress on that path.

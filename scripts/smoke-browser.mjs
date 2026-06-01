@@ -1485,6 +1485,21 @@ try {
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
 
+  const mirrorSaveReceipt = await cdp.evaluate(`(() => new Promise((resolve) => {
+    document.querySelector('[data-tab="export"]').click();
+    document.querySelector("#downloadMirrorBtn").click();
+    setTimeout(() => resolve({
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      toast: document.querySelector("#toast").textContent
+    }), 20);
+  }))()`);
+  assert.deepEqual(mirrorSaveReceipt, {
+    activityTitle: "Mirror JSON handoff ready",
+    activityDetail: "Step 1 done: move the Mirror JSON to Feishu Drive, phone, or Windows; then use inbox.html or review.html to create a return JSON.",
+    toast: "Mirror download requested"
+  });
+
   const exceptionsBeforeReviewRuntime = exceptions.length;
   virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review.html` });

@@ -561,12 +561,14 @@ dom.downloadTodayBtn.addEventListener("click", async () => {
 dom.downloadMirrorBtn.addEventListener("click", async () => {
   if (await saveTextFile("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json")) {
     showToast(saveCompleteMessage("Mirror"));
+    recordReturnFileExportReceipt("Mirror JSON");
   }
 });
 dom.downloadMirrorZipBtn.addEventListener("click", async () => {
   const zip = buildMirrorZip(workspace);
   if (await saveBytesFile(zip.filename, zip.data, zip.mediaType)) {
     showToast(saveCompleteMessage("Mirror ZIP"));
+    recordReturnFileExportReceipt("Mirror ZIP");
   }
 });
 
@@ -3521,6 +3523,17 @@ function markWorkspaceExported() {
     : "Backup requested - verify downloaded file";
   renderStorageNotice();
   showToast(storageWarning);
+}
+
+function recordReturnFileExportReceipt(kind) {
+  const session = getActiveSession(workspace);
+  setActivity(session, {
+    title: `${kind} handoff ready`,
+    detail: `Step 1 done: move the ${kind} to Feishu Drive, phone, or Windows; then use inbox.html or review.html to create a return JSON.`,
+    tab: "export",
+    targetId: ""
+  });
+  renderActivity(session);
 }
 
 function workspaceJson() {
