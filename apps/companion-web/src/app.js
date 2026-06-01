@@ -666,11 +666,14 @@ function setCaptureDraft(sessionId, draftInput) {
 
 function saveCurrentCaptureDraft() {
   const session = getActiveSession(workspace);
+  const existingDraft = getCaptureDraft(session.id);
   const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value);
+  const answersQuestionCaptureId = answerDraftTargetForThought(existingDraft.answersQuestionCaptureId, dom.thoughtInput.value);
   setCaptureDraft(session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
     timestamp: dom.timestampInput.value,
+    answersQuestionCaptureId,
     ...snapshot
   });
   const draft = getCaptureDraft(session.id);
@@ -1013,11 +1016,14 @@ function capture(promoteToReview) {
     dom.quoteInput.focus();
     return;
   }
+  const draft = getCaptureDraft(session.id);
+  const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, dom.thoughtInput.value, { requireBody: true });
   workspace = addCapture(workspace, session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
     timestamp: dom.timestampInput.value,
-    tags: dom.sessionTags.value
+    tags: dom.sessionTags.value,
+    answersQuestionCaptureId
   }, {
     promoteToReview: Boolean(promoteToReview),
     reviewPrompt: cloze?.prompt,
@@ -1025,20 +1031,21 @@ function capture(promoteToReview) {
   });
   const updated = getActiveSession(workspace);
   const isCloze = promoteToReview === "cloze";
+  const isLinkedAnswer = Boolean(answersQuestionCaptureId);
   setCaptureDraft(session.id, {
     timestamp: dom.timestampInput.value,
     sourceTitle: updated.sourceTitle,
     sourceUrl: updated.sourceUrl
   });
   setActivity(updated, {
-    title: isCloze ? "Cloze card saved" : promoteToReview ? "Capture and card saved" : "Capture saved",
+    title: isCloze ? "Cloze card saved" : promoteToReview ? "Capture and card saved" : isLinkedAnswer ? "Answer saved" : "Capture saved",
     detail: summarizeCapture(updated.captures[0]),
     tab: promoteToReview ? "review" : "captures",
     targetId: promoteToReview ? updated.reviewCards[0]?.id : updated.captures[0]?.id
   });
   dom.quoteInput.value = "";
   dom.thoughtInput.value = "";
-  persistAndRender(promoteToReview ? "Capture + card saved" : "Capture saved");
+  persistAndRender(promoteToReview ? "Capture + card saved" : isLinkedAnswer ? "Answer saved" : "Capture saved");
   dom.quoteInput.focus();
 }
 
@@ -1269,28 +1276,36 @@ function renderCaptureContext(session) {
 function captureDraftIntent(session) {
   const quote = dom.quoteInput.value.trim();
   const thought = dom.thoughtInput.value.trim();
+  const draft = getCaptureDraft(session.id);
+  const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, thought);
   const draftCapture = {
     quote,
     thought,
-    tags: dom.sessionTags.value || session.tags
+    tags: dom.sessionTags.value || session.tags,
+    answersQuestionCaptureId
   };
   const answerPrefix = /^(?:a|answer)\s*[:：]/i.test(thought);
+  const answerBody = thought.replace(/^(?:a|answer)\s*[:：]\s*/i, "").trim() || (!thought ? quote : "");
   if (!quote && !thought) {
     return {
       label: "Ready",
       title: "Add a quote or thought to capture."
     };
   }
-  if (answerPrefix && !captureHasAnswer(draftCapture)) {
+  if (answerPrefix && answerBody.length < 12) {
     return {
-      label: "Answer draft",
-      title: "This looks like an answer draft; add enough detail before saving as answer evidence."
+      label: answersQuestionCaptureId ? "Answer draft" : "Answer draft",
+      title: answersQuestionCaptureId
+        ? "This will answer the linked question once you add enough detail."
+        : "This looks like an answer draft; add enough detail before saving as answer evidence."
     };
   }
   if (captureHasAnswer(draftCapture)) {
     return {
       label: "Answer",
-      title: "This capture can appear in Answers Today."
+      title: answersQuestionCaptureId
+        ? "This capture will answer the linked question."
+        : "This capture can appear in Answers Today."
     };
   }
   if (captureHasQuestion(draftCapture)) {
@@ -1315,6 +1330,14 @@ function captureDraftIntent(session) {
     label: "Capture",
     title: "This will save as a capture with quote and thought."
   };
+}
+
+function answerDraftTargetForThought(targetId, thought, options = {}) {
+  if (!targetId) return "";
+  const text = String(thought || "").trim();
+  if (!/^(?:a|answer)\s*[:：]/i.test(text)) return "";
+  if (options.requireBody && text.replace(/^(?:a|answer)\s*[:：]\s*/i, "").trim().length < 12) return "";
+  return targetId;
 }
 
 function readableSourceHost(value) {
@@ -2980,7 +3003,8 @@ function answerQuestionFromToday(captureId, sessionId) {
   setCaptureDraft(sourceSession.id, {
     quote: capture.quote || capture.thought || "Question",
     thought: "Answer:",
-    timestamp: capture.timestamp || ""
+    timestamp: capture.timestamp || "",
+    answersQuestionCaptureId: capture.id
   });
   setActivity(getActiveSession(workspace), {
     title: "Answer draft started",

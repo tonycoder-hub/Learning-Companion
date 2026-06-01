@@ -2335,8 +2335,30 @@ try {
       activeElement: document.activeElement?.id || "",
       quote: document.querySelector("#quoteInput").value,
       thought: document.querySelector("#thoughtInput").value,
-      timestamp: document.querySelector("#timestampInput").value
+      timestamp: document.querySelector("#timestampInput").value,
+      intent: document.querySelector("#captureContextIntent").textContent,
+      draftTarget: (() => {
+        const exported = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+        const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+        return prefs.captureDrafts?.[exported.activeSessionId]?.answersQuestionCaptureId || "";
+      })()
     };
+    const beforeLocalAnswerSave = window.learningCompanionNative.exportWorkspaceJson();
+    setValue("#thoughtInput", "Answer: compactness lets the proof extract a finite subcover from the open cover.");
+    const localAnswerIntent = document.querySelector("#captureContextIntent").textContent;
+    document.querySelector("#captureBtn").click();
+    const localAnswerExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const localAnswerTopic = localAnswerExport.sessions.find((session) => session.title === "Question parking smoke");
+    const localAnswerQuestion = localAnswerTopic?.captures.find((capture) => /compactness assumption/.test(capture.thought || capture.quote));
+    const localAnswerCapture = localAnswerTopic?.captures.find((capture) => /finite subcover/.test(capture.thought || capture.quote));
+    const localAnswerSaved = {
+      intentBeforeSave: localAnswerIntent,
+      activity: document.querySelector("#activityTitle").textContent,
+      linked: localAnswerCapture?.answersQuestionCaptureId === localAnswerQuestion?.id,
+      questionResolved: Boolean(localAnswerQuestion?.questionResolvedAt),
+      questionParked: Boolean(localAnswerQuestion?.questionParkedAt)
+    };
+    window.learningCompanionNative.importWorkspaceJson(beforeLocalAnswerSave);
     document.querySelector('[data-tab="today"]').click();
     const answerQuestionCard = Array.from(document.querySelectorAll("#todayList .question-card"))
       .find((node) => /compactness assumption/.test(node.textContent));
@@ -2492,6 +2514,7 @@ try {
       },
       afterPark,
       afterAnswerDraft,
+      localAnswerSaved,
       afterQuestionCard,
       promotedQuestionButton: {
         text: promotedCardButton?.textContent || "",
@@ -2558,6 +2581,15 @@ try {
   assert.equal(questionFlow.afterAnswerDraft.quote, "Why does this theorem need the compactness assumption?");
   assert.equal(questionFlow.afterAnswerDraft.thought, "Answer:");
   assert.equal(questionFlow.afterAnswerDraft.timestamp, "");
+  assert.equal(questionFlow.afterAnswerDraft.intent, "Answer draft");
+  assert.match(questionFlow.afterAnswerDraft.draftTarget, /^capture_/);
+  assert.deepEqual(questionFlow.localAnswerSaved, {
+    intentBeforeSave: "Answer",
+    activity: "Answer saved",
+    linked: true,
+    questionResolved: true,
+    questionParked: false
+  });
   assert.equal(questionFlow.afterQuestionCard.activity, "Review card created");
   assert.match(questionFlow.afterQuestionCard.detail, /Loop: 1 active · 0 parked · 0 closed today · 1 card today/);
   assert.equal(questionFlow.afterQuestionCard.activeTitle, "Question parking smoke");

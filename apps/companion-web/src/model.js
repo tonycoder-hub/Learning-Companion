@@ -105,6 +105,7 @@ export function normalizeCaptureDraft(value, now = new Date()) {
     timestamp: cleanText(draft.timestamp, 32),
     sourceTitle: cleanText(draft.sourceTitle, MAX_TITLE_LENGTH).replace(/\s+/g, " "),
     sourceUrl: cleanText(draft.sourceUrl, MAX_URL_LENGTH),
+    answersQuestionCaptureId: cleanAnswerTargetId(draft.answersQuestionCaptureId),
     updatedAt
   };
 }
@@ -914,7 +915,7 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   const timestamp = optionIso(options.now) || nowIso();
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const materialType = captureInput.materialType || sourceSession?.materialType;
-  const capture = {
+  const savedCapture = {
     id: cleanText(captureInput.id, 128) || makeId("capture"),
     quote,
     thought,
@@ -936,21 +937,34 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
 
   let createdCard = null;
   if (options.promoteToReview) {
-    createdCard = createReviewCardFromCapture(capture, workspace.clientId, {
+    createdCard = createReviewCardFromCapture(savedCapture, workspace.clientId, {
       prompt: options.reviewPrompt,
       answer: options.reviewAnswer,
       now: options.now
     });
   }
+  const resolvedQuestionCaptureId = answerTextIsReviewReady(answerCaptureText(savedCapture))
+    ? savedCapture.answersQuestionCaptureId
+    : "";
 
   return {
     ...workspace,
     updatedAt: timestamp,
     sessions: workspace.sessions.map((session) => {
       if (session.id !== sessionId) return session;
+      const captures = session.captures.map((capture) => (
+        capture.id === resolvedQuestionCaptureId && captureHasQuestion(capture)
+          ? {
+              ...capture,
+              questionResolvedAt: timestamp,
+              questionParkedAt: null,
+              updatedAt: timestamp
+            }
+          : capture
+      ));
       return {
         ...session,
-        captures: [capture, ...session.captures],
+        captures: [savedCapture, ...captures],
         reviewCards: createdCard ? [createdCard, ...session.reviewCards] : session.reviewCards,
         updatedAt: timestamp
       };

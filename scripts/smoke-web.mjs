@@ -151,6 +151,7 @@ const normalizedDraft = normalizeCaptureDraft({
   timestamp: " 08:12 ",
   sourceTitle: "  Source doc ",
   sourceUrl: " https://example.com/lesson ",
+  answersQuestionCaptureId: "capture_answer_target",
   updatedAt: "2026-05-29T00:01:00.000Z"
 });
 assert.deepEqual(normalizedDraft, {
@@ -159,6 +160,7 @@ assert.deepEqual(normalizedDraft, {
   timestamp: "08:12",
   sourceTitle: "Source doc",
   sourceUrl: "https://example.com/lesson",
+  answersQuestionCaptureId: "capture_answer_target",
   updatedAt: "2026-05-29T00:01:00.000Z"
 });
 assert.equal(hasCaptureDraft(normalizedDraft), true);
@@ -176,6 +178,7 @@ assert.deepEqual(
 );
 assert.equal(normalizeCaptureDraft({ sourceTitle: "\u0000 Source\nTitle " }).sourceTitle, "Source Title");
 assert.equal(normalizeCaptureDraft({ sourceUrl: ` ${"x".repeat(2200)} ` }).sourceUrl.length, 2048);
+assert.equal(normalizeCaptureDraft({ answersQuestionCaptureId: "bad answer target!" }).answersQuestionCaptureId, "");
 assert.equal(normalizeCaptureDraft({ quote: "x" }, new Date("2026-05-29T00:02:00.000Z")).updatedAt, "2026-05-29T00:02:00.000Z");
 
 const draftSessions = [
@@ -602,6 +605,28 @@ parkedQuestionWorkspace = setCaptureQuestionParked(
 );
 assert.equal(getActiveSession(parkedQuestionWorkspace).captures[0].questionParkedAt, null);
 assert.equal(captureHasOpenQuestion(getActiveSession(parkedQuestionWorkspace).captures[0]), true);
+const localWeakAnswerWorkspace = addCapture(questionLifecycleWorkspace, questionSession.id, {
+  id: "local_weak_answer_capture",
+  quote: "Weak answer body.",
+  thought: "Answer: ok",
+  answersQuestionCaptureId: questionCaptureId
+}, { now: "2026-05-29T00:30:30.000Z" });
+const localWeakAnswerSession = getActiveSession(localWeakAnswerWorkspace);
+assert.equal(localWeakAnswerSession.captures[0].answersQuestionCaptureId, questionCaptureId);
+assert.equal(captureHasOpenQuestion(localWeakAnswerSession.captures.find((capture) => capture.id === questionCaptureId)), true);
+const localAnswerWorkspace = addCapture(questionLifecycleWorkspace, questionSession.id, {
+  id: "local_answer_capture",
+  quote: "Ownership makes aliasing safe by enforcing one mutable owner.",
+  thought: "Answer: the compiler rejects overlapping mutable aliases before runtime.",
+  answersQuestionCaptureId: questionCaptureId
+}, { now: "2026-05-29T00:31:30.000Z" });
+const localAnswerSession = getActiveSession(localAnswerWorkspace);
+const localAnsweredQuestion = localAnswerSession.captures.find((capture) => capture.id === questionCaptureId);
+assert.equal(localAnswerSession.captures[0].answersQuestionCaptureId, questionCaptureId);
+assert.equal(captureHasOpenQuestion(localAnsweredQuestion), false);
+assert.equal(captureHasResolvedQuestion(localAnsweredQuestion), true);
+assert.equal(localAnsweredQuestion.questionParkedAt, null);
+assert.match(localAnsweredQuestion.questionResolvedAt, /^2026-05-29T00:31:30/);
 const answerInboxPatch = {
   schema: MOBILE_INBOX_PATCH_SCHEMA,
   appVersion: WORKSPACE_SCHEMA_VERSION,
