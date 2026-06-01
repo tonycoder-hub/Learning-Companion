@@ -53,6 +53,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Today study pack carries an Open Questions backlog across sessions for Feishu, Windows, and mobile handoff.
 - Today includes Question Queue Health so active, parked, and total unresolved questions are visible before choosing the next study action.
 - Today includes a Question Loop summary so active backlog, same-day closures, answer-linked closures, and question-sourced review cards are visible as flow rather than scattered counters.
+- Today includes an Answers Today section so answer captures remain inspectable even when they are separate from the closed-question card.
 - Open questions in Today can seed an Answer draft in the source topic so the question becomes a focused capture rather than a context switch.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
 - Open questions can be parked as unresolved-but-not-active follow-up, then resumed or answered when the study block has attention for them.

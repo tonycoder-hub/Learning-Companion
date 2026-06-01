@@ -79,6 +79,15 @@ Latest local work adds answer evidence provenance for review cards:
 - Review UI shows `Answer evidence` only after the card is revealed, so the existence of a linked answer does not leak before recall.
 - Browser smoke pins the reveal-gated evidence button and the jump back to the answer capture.
 
+Latest local work also adds an `Answers Today` micro-surface:
+
+- `buildTodayPack()` now emits `answerItems`, `answerOverflow`, and `answerDefinition`.
+- `getStudyPackStats()` reports `answerCapturesToday`.
+- Today UI and `TODAY.md` show `Answers Today` before `Closed Today`, so answer captures can be inspected before closing out the loop.
+- Answer classification is explainable: linked question, tagged answer, or answer-prefix draft with enough body text.
+- Imported inbox answers use import/update time for the local day window, so a phone answer captured earlier still appears when it is imported today.
+- Overflow and `TODAY.md` output are pinned in smoke coverage.
+
 ## Verified Locally
 
 These passed after the `Question Loop` update:
@@ -153,11 +162,18 @@ Latest absorbed Mira notes for answer evidence provenance:
 - Add schema description/length for `evidenceCaptureId` and pin same-session plus tie-break behavior in tests/docs.
 - Do not blindly drop unresolved `evidenceCaptureId` during normalization; partial cross-device sync can make a valid evidence capture temporarily absent. The UI only renders the button when the capture is resolvable, and explicit deletion clears the pointer.
 
+Latest absorbed Mira notes for `Answers Today`:
+
+- Keep the surface, because unlinked/staged/cross-device answer captures do not fit inside Closed Today.
+- Make answer classification explainable and stricter than a plain `A:` prefix.
+- Put Answers Today before Closed Today so it reads as a pending inspection surface rather than only a historical trail.
+- Pin overflow and Markdown behavior.
+- Defer classifier corpus metrics, rule-versioning, and broader mirror UI surfaces; the offline mirror integrity gate and TODAY.md coverage are enough for this local increment.
+
 ## Next Local Work
 
 1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
-   - Consider an "answers imported today" micro-surface if the user needs to inspect answer captures separately from resolved questions.
    - Consider weak-card gating for answer captures that are too short or empty to become useful review cards.
 
 2. Keep the cross-end story honest:

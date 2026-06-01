@@ -47,6 +47,7 @@ import {
   generateReviewHtml,
   generateSynthesisDraft,
   generateTodayMarkdown,
+  getAnswerCaptureItems,
   getRecentCaptureItems,
   getSynthesisStats,
   getSynthesisSourceStamp,
@@ -680,11 +681,15 @@ const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("
   resolvedQuestionLimit: 2
 });
 assert.equal(answeredTodayPack.stats.resolvedQuestionsToday, 1);
+assert.equal(answeredTodayPack.stats.answerCapturesToday, 1);
 assert.equal(answeredTodayPack.stats.questionReviewCards, 0);
 assert.equal(answeredTodayPack.stats.questionReviewCardsToday, 0);
 assert.equal(answeredTodayPack.resolvedQuestionItems.length, 1);
 assert.equal(answeredTodayPack.resolvedQuestionItems[0].capture.id, questionCaptureId);
 assert.equal(answeredTodayPack.resolvedQuestionItems[0].answerCapture.inboxCaptureId, "inbox_answer_capture_001");
+assert.equal(answeredTodayPack.answerItems.length, 1);
+assert.equal(answeredTodayPack.answerItems[0].capture.inboxCaptureId, "inbox_answer_capture_001");
+assert.equal(answeredTodayPack.answerItems[0].questionCapture.id, questionCaptureId);
 assert.equal(answeredTodayPack.questionLoop.resolvedQuestionsToday, 1);
 assert.equal(answeredTodayPack.questionLoop.answerLinkedResolvedToday, 1);
 assert.equal(answeredTodayPack.questionLoop.questionReviewCards, 0);
@@ -695,11 +700,20 @@ assert.equal(getResolvedQuestionItems(answerInboxResult.workspace, 10, {
   since: new Date("2026-05-29T00:00:00.000Z"),
   until: new Date("2026-05-30T00:00:00.000Z")
 }).length, 1);
+assert.equal(getAnswerCaptureItems(answerInboxResult.workspace, 10, {
+  since: new Date("2026-05-29T00:00:00.000Z"),
+  until: new Date("2026-05-30T00:00:00.000Z")
+}).length, 1);
 const answeredTodayMarkdown = generateTodayMarkdown(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"));
 assert.match(answeredTodayMarkdown, /Closed Today/);
+assert.match(answeredTodayMarkdown, /Answers Today/);
+assert.match(answeredTodayMarkdown, /answers today/);
 assert.match(answeredTodayMarkdown, /1 closed today/);
 assert.match(answeredTodayMarkdown, /Why does ownership make aliasing safe/);
 assert.match(answeredTodayMarkdown, /Answer: the compiler rejects overlapping mutable aliases before runtime/);
+assert.match(answeredTodayMarkdown, /Reason: linked-question/);
+assert.match(answeredTodayMarkdown, /Answers: Why does ownership make aliasing safe/);
+assert.match(answeredTodayMarkdown, /## Answers Today[\s\S]+## Closed Today/);
 assert.doesNotMatch(answeredTodayMarkdown, /Answer: Answer:/);
 const reopenedAfterAnswerWorkspace = setCaptureQuestionResolved(
   answerInboxResult.workspace,
@@ -1225,6 +1239,7 @@ assert.equal(todayPack.stats.due, 2);
 assert.equal(todayPack.stats.questions, 0);
 assert.equal(todayPack.stats.parkedQuestions, 0);
 assert.equal(todayPack.stats.resolvedQuestionsToday, 0);
+assert.equal(todayPack.stats.answerCapturesToday, 0);
 assert.equal(todayPack.stats.questionReviewCards, 0);
 assert.equal(todayPack.stats.questionReviewCardsToday, 0);
 assert.equal(todayPack.questionHealth.status, "clear");
@@ -1298,7 +1313,8 @@ const questionTodayMarkdown = generateTodayMarkdown(questionTodayWorkspace, froz
 assert.match(questionTodayMarkdown, /Open question rule: latest 6 open question captures by capturedAt/);
 assert.match(questionTodayMarkdown, /Parked question rule: latest 6 parked question captures by parkedAt/);
 assert.match(questionTodayMarkdown, /Closed today rule: latest 4 question captures resolved in 2099-01-02 local/);
-assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 0 closed today \/ 2 cards \/ 2 due cards/);
+assert.match(questionTodayMarkdown, /Answer rule: latest 4 answer captures in 2099-01-02 local/);
+assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 0 closed today \/ 0 answers today \/ 2 cards \/ 2 due cards/);
 assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
 assert.match(questionTodayMarkdown, /Question Loop/);
 assert.match(questionTodayMarkdown, /Question loop has active work/);
@@ -1341,6 +1357,31 @@ assert.equal(overflowResolvedPack.resolvedQuestionItems.length, 2);
 assert.equal(overflowResolvedPack.resolvedQuestionItems[0].capture.thought, "Resolved overflow question 5?");
 assert.equal(overflowResolvedPack.resolvedQuestionOverflow, 4);
 assert.match(generateTodayMarkdown(overflowResolvedWorkspace, frozenToday), /\+2 more questions closed today in workspace\.json/);
+const overflowAnswerWorkspace = workspaceFromPortableData({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  clientId: "client_answer_overflow",
+  activeSessionId: "answer_overflow_topic",
+  sessions: [{
+    id: "answer_overflow_topic",
+    title: "Answer overflow topic",
+    captures: Array.from({ length: 6 }, (_, index) => ({
+      id: `answer_overflow_${index}`,
+      thought: `Answer: overflow answer ${index} has enough detail to classify.`,
+      tags: ["answer"],
+      capturedAt: `2099-01-02T00:0${index}:00.000Z`,
+      createdAt: `2099-01-02T00:0${index}:00.000Z`,
+      updatedAt: `2099-01-02T00:0${index}:00.000Z`
+    })),
+    reviewCards: []
+  }]
+});
+const overflowAnswerPack = buildTodayPack(overflowAnswerWorkspace, frozenToday, { answerLimit: 2 });
+assert.equal(overflowAnswerPack.stats.answerCapturesToday, 6);
+assert.equal(overflowAnswerPack.answerItems.length, 2);
+assert.equal(overflowAnswerPack.answerItems[0].answerReason, "tagged-answer");
+assert.equal(overflowAnswerPack.answerOverflow, 4);
+assert.match(generateTodayMarkdown(overflowAnswerWorkspace, frozenToday), /\+2 more answers captured today in workspace\.json/);
 const priorSessionAnswerWorkspace = workspaceFromPortableData({
   schema: WORKSPACE_SCHEMA,
   schemaVersion: WORKSPACE_SCHEMA_VERSION,

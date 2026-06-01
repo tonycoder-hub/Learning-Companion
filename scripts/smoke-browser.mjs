@@ -2004,6 +2004,8 @@ try {
     { text: "Refresh card", disabled: false }
   );
   assert.match(questionFlow.afterAnswerImport.todayText, /Closed Today/);
+  assert.match(questionFlow.afterAnswerImport.todayText, /Answers Today/);
+  assert.match(questionFlow.afterAnswerImport.todayText, /linked answer/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Question Loop/);
   assert.match(questionFlow.afterAnswerImport.todayText, /1 answer-linked closure/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Answer: without compactness the proof cannot pass/);

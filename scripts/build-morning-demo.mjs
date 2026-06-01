@@ -361,6 +361,7 @@ const mirrorBundle = buildMirrorBundle(demoWorkspace, {
 });
 const todayMarkdownFile = mirrorBundle.files.find((file) => file.path === "TODAY.md")?.content || "";
 assert.match(todayMarkdownFile, /Closed Today/);
+assert.match(todayMarkdownFile, /Answers Today/);
 assert.match(todayMarkdownFile, /Answer: ownership is a compile-time discipline, while GC is a runtime reclamation strategy/);
 const mirrorZip = buildMirrorZip(demoWorkspace, {
   exportedAt: MORNING_GENERATED_AT

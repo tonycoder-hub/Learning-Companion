@@ -2033,6 +2033,50 @@ function renderToday() {
     if (pack.parkedQuestionOverflow) dom.todayList.append(emptyState(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`));
   }
 
+  dom.todayList.append(textEl("div", "today-section-title", "Answers Today"));
+  dom.todayList.append(textEl("p", "item-meta", `Answer captures in ${pack.localDayWindow.label}`));
+  if (!pack.answerItems.length) {
+    dom.todayList.append(emptyState("No answers captured today"));
+  } else {
+    pack.answerItems.forEach(({ sessionId, sessionTitle, capture, questionCapture, answerReason }) => {
+      const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+      const item = document.createElement("article");
+      item.className = "item-card answer-card";
+      item.append(textEl("div", "item-meta", [
+        sessionTitle,
+        formatAnswerReason(answerReason),
+        capture.timestamp || "",
+        new Date(capture.capturedAt || capture.createdAt).toLocaleString()
+      ].filter(Boolean).join(" · ")));
+      const answer = document.createElement("div");
+      answer.className = "capture-thought markdown-lite";
+      renderMarkdown(answer, `Answer: ${formatAnswerCaptureSummary(capture)}`);
+      item.append(answer);
+      if (questionCapture) {
+        item.append(textEl("p", "item-meta", `Answers: ${questionCapture.thought || questionCapture.quote || "linked question"}`));
+      }
+      const footer = document.createElement("div");
+      footer.className = "item-footer";
+      footer.append(textEl("span", "", formatCaptureTags(capture)));
+      const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
+      if (sourceHref) {
+        const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+        open.type = "button";
+        open.addEventListener("click", () => {
+          window.open(sourceHref, "_blank", "noopener,noreferrer");
+        });
+        footer.append(open);
+      }
+      const view = textEl("button", "mini-button", "View");
+      view.type = "button";
+      view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
+      footer.append(view);
+      item.append(footer);
+      dom.todayList.append(item);
+    });
+    if (pack.answerOverflow) dom.todayList.append(emptyState(`+${pack.answerOverflow} more answers captured today in workspace.json`));
+  }
+
   const closedQuestionTitle = textEl("div", "today-section-title", "Closed Today");
   closedQuestionTitle.dataset.todaySection = "closed_questions";
   dom.todayList.append(closedQuestionTitle);
@@ -2270,6 +2314,14 @@ function formatAnswerCaptureSummary(capture) {
     .replace(/[\u0000-\u001F\u007F]/g, "")
     .replace(/^(?:a|answer)\s*[:：]\s*/i, "")
     .trim() || "Linked answer capture";
+}
+
+function formatAnswerReason(reason) {
+  return {
+    "linked-question": "linked answer",
+    "tagged-answer": "tagged answer",
+    "answer-prefix": "answer draft"
+  }[reason] || "";
 }
 
 function formatCaptureTags(capture) {
