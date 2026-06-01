@@ -2985,16 +2985,32 @@ function renderReturnFilesPanel() {
   footer.className = "item-footer";
   const importPatch = textEl("button", "mini-button primary", "Import File (Step 3)");
   importPatch.type = "button";
+  importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
   const exportMirror = textEl("button", "mini-button", "Export Mirror (Step 1)");
   exportMirror.type = "button";
-  exportMirror.addEventListener("click", () => {
-    activeTab = "export";
-    renderInspector();
-  });
+  exportMirror.dataset.returnFilesStep = "export";
+  exportMirror.addEventListener("click", openReturnFilesMirrorExport);
   footer.append(exportMirror, importPatch);
   panel.append(header, detail, steps, boundary, footer);
   return panel;
+}
+
+function openReturnFilesMirrorExport() {
+  const session = getActiveSession(workspace);
+  activeTab = "export";
+  setActivity(session, {
+    title: "Mirror export ready",
+    detail: "Step 1: save Mirror JSON or ZIP, then move it through Feishu Drive, USB, email, or another file share.",
+    tab: "export",
+    targetId: ""
+  });
+  renderInspector();
+  renderActivity(session);
+  const section = document.querySelector("#mirrorExportSection");
+  section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (section) pulseNode(section);
+  dom.downloadMirrorBtn.focus();
 }
 
 function startReviewAtItem(item) {

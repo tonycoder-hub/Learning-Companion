@@ -931,6 +931,16 @@ try {
           const afterInboxSession = afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId);
           document.querySelector('[data-tab="today"]').click();
           const handoffPanel = document.querySelector(".handoff-card");
+          const handoffText = handoffPanel.textContent;
+          const handoffButtons = [...handoffPanel.querySelectorAll("button")].map((button) => button.textContent);
+          handoffPanel.querySelector('[data-return-files-step="export"]')?.click();
+          const handoffExportOpened = {
+            activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+            activeElement: document.activeElement?.id || "",
+            mirrorSectionPulsed: document.querySelector("#mirrorExportSection")?.classList.contains("pulse") === true,
+            activityTitle: document.querySelector("#activityTitle").textContent,
+            activityDetail: document.querySelector("#activityDetail").textContent
+          };
           resolve({
           titleAfterNewSession,
           restoredTitle: restoredSession.title,
@@ -959,8 +969,9 @@ try {
           inboxLatestProvenance: afterInboxSession.captures[0].sourceProvenance,
           inboxSanitizedSourceUrls: afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId).captures[0].sourceUrl === "" ? 1 : 0,
           inboxImportedPatch: afterInboxImport.importedPatches.includes("browser_patch_001"),
-          handoffText: handoffPanel.textContent,
-          handoffButtons: [...handoffPanel.querySelectorAll("button")].map((button) => button.textContent),
+          handoffText,
+          handoffButtons,
+          handoffExportOpened,
           inboxNotesPreserved: afterInboxSession.notesMarkdown === restoredSession.notesMarkdown,
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
           previewText: document.querySelector("#notesPreview").textContent,
@@ -1144,6 +1155,13 @@ try {
   assert.match(result.handoffText, /Back on this Mac: transfer that JSON here and import it/);
   assert.match(result.handoffText, /Manual files only/);
   assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import File (Step 3)"]);
+  assert.deepEqual(result.handoffExportOpened, {
+    activeTab: "export",
+    activeElement: "downloadMirrorBtn",
+    mirrorSectionPulsed: true,
+    activityTitle: "Mirror export ready",
+    activityDetail: "Step 1: save Mirror JSON or ZIP, then move it through Feishu Drive, USB, email, or another file share."
+  });
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
   assert.match(result.draftFocusBrief.action, /Review/);
