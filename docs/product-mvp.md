@@ -80,12 +80,12 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Feishu mirror ZIP export for manual Drive upload or extraction.
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point, while `index.html` gives a shorter open-question preview for folder-first review.
 - Today and mirror exports include the active session's Focus Brief so cross-device handoff starts at "resume here," including the latest captured timestamp when the source supports jumps.
-- Mirror bundle includes static `index.html` as a folder home page for Today, Review, Restore, and sessions.
+- Mirror bundle includes static `index.html` as a folder home page for Today, Review, Restore, and sessions, with a Manual Return note that says the mirror is not live sync.
 - Mirror home open-question previews link into `inbox.html` with a prefilled Answer draft so phone/Windows/Feishu folder review can return an append-only answer patch.
 - Answer patches that carry a same-topic `answersQuestionCaptureId` resolve the original open or parked question during Mac import while keeping the new answer capture as evidence.
 - Answer import receipts report when an existing question review card is ready to refresh from the new answer evidence.
-- Mirror bundle includes static `review.html` for due-card review on phone or Windows, with append-only progress patch export.
-- Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and append-only patch export.
+- Mirror bundle includes static `review.html` for due-card review on phone or Windows, with append-only return JSON export for Mac import.
+- Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and append-only return JSON export for Mac import.
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.

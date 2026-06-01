@@ -1066,6 +1066,7 @@ try {
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
           mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
+          mirrorIndexHtml: restoredMirror.files.find((file) => file.path === "index.html")?.content || "",
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("data-reveal") && file.content.includes("Content-Security-Policy")),
@@ -1471,12 +1472,18 @@ try {
   assert.equal(result.mirrorCanonical, "workspace.json");
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasIndex, true);
+  assert.match(result.mirrorIndexHtml, /Manual Return/);
+  assert.match(result.mirrorIndexHtml, /Today &gt; Return Files/);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);
   assert.equal(result.mirrorHasReviewHtml, true);
   assert.match(result.mirrorReviewHtml, /learning-companion\.review-progress-patch\.v1/);
+  assert.match(result.mirrorReviewHtml, /Return to Mac/);
+  assert.match(result.mirrorReviewHtml, /Save Return JSON/);
   assert.equal(result.mirrorHasInboxHtml, true);
   assert.match(result.mirrorInboxHtml, /Learning Companion Inbox/);
+  assert.match(result.mirrorInboxHtml, /Return to Mac/);
+  assert.match(result.mirrorInboxHtml, /Save Return JSON/);
   assert.equal(result.mirrorTodayEscapesScript, true);
   assert.equal(result.mirrorReviewEscapesScript, true);
   assert.equal(result.mirrorHasMarkdown, true);
@@ -1573,7 +1580,7 @@ try {
   assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
-  assert.equal(inboxRuntime.status, "Capture added to patch draft.");
+  assert.equal(inboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
   assert.equal(inboxRuntime.draftCount, 1);
   assert.equal(inboxRuntime.previewSchema, "learning-companion.mobile-inbox-patch.v1");
   assert.equal(inboxRuntime.previewCaptureCount, 1);
@@ -1624,7 +1631,7 @@ try {
       answersQuestionCaptureId: capture?.answersQuestionCaptureId || ""
     };
   })()`);
-  assert.equal(inboxAnswerPatchRuntime.status, "Capture added to patch draft.");
+  assert.equal(inboxAnswerPatchRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
   assert.equal(inboxAnswerPatchRuntime.answersQuestionCaptureId, "capture_question_runtime");
 
   const hostileMirrorQuote = `Can inbox prefill keep <script>alert("x")</script> & #hash ?q=1 emoji 😀 RTL שלום ${"x".repeat(1024)}?`;
@@ -1667,7 +1674,7 @@ try {
   assert.equal(hostileInboxRuntime.preAdd.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.preAdd.quoteField, hostileMirrorQuote);
   assert.equal(hostileInboxRuntime.preAdd.sourceUrlField, "");
-  assert.equal(hostileInboxRuntime.status, "Capture added to patch draft.");
+  assert.equal(hostileInboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
   assert.equal(hostileInboxRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.quoteField, "");
   assert.equal(hostileInboxRuntime.captureQuote, hostileMirrorQuote);

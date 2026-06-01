@@ -38,6 +38,7 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 - Added the explicit Return Files manual transfer path with device labels: export mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON back on Mac. The card now calls Feishu a file-sharing route, not sync.
 - `Export Mirror (Step 1)` now opens the Export tab at the Mirror Folder section, focuses Save Mirror, and records a Step 1 activity receipt instead of dropping the user into an undifferentiated export panel.
 - Saving Mirror JSON or ZIP now records a handoff receipt that tells the user to move the file to Feishu Drive, phone, or Windows and use `inbox.html` or `review.html` to create a return JSON.
+- The exported `index.html`, `review.html`, and `inbox.html` now repeat the return-file contract on the device side: static mirror, no live sync, save a return JSON, move it back to Mac, import from Today > Return Files.
 - Browser smoke now pins the `Next Move` priority and the new `Return Files` copy.
 
 ## Current Journey Assessment

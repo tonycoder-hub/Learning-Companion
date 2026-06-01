@@ -81,3 +81,7 @@ Current MVP status is tracked in [docs/nightly-status.md](docs/nightly-status.md
 ## GitHub Hosting
 
 This repository is intended to use a dedicated GitHub SSH identity instead of the machine's global Git configuration. See [docs/github-permissions.md](docs/github-permissions.md).
+
+## License
+
+Learning Companion is released under the [MIT License](LICENSE). You can use, copy, modify, publish, distribute, sublicense, and share it freely.

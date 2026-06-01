@@ -2,6 +2,7 @@
   "name": "learning-companion",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 5173 --directory apps/companion-web",
