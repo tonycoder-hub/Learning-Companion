@@ -19,6 +19,8 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `0789ee2 test: keep browser smoke downloads temporary`
+- `4a4ff79 fix: align linked answer readiness`
 - `36d56ad feat: link local answer drafts to questions`
 - `f32d1e1 feat: show quick capture intent`
 - `0118db8 feat: locate quick capture destination`
@@ -253,17 +255,33 @@ Latest local work links local Answer drafts back to their questions:
 - `Answer` from an open or parked question now seeds a local Quick Capture draft with `answersQuestionCaptureId`, and autosave preserves that target while the thought still begins with `Answer:`.
 - Saving a sufficiently detailed local answer writes a linked answer capture and closes the original question in the target session, clearing parked state at the same time.
 - Weak local answers such as `Answer: ok` can still be saved as answer drafts but do not close the linked question or pretend to be review-ready evidence.
+- The UI now uses the model-layer `captureHasReviewReadyAnswer()` check for linked Answer intent and save readiness, so long-but-not-useful one-word answers still stay as `Answer draft` instead of showing `Answer saved`.
 - Browser smoke pins the full UI path by opening a question answer draft, saving a real linked answer, verifying the question closes, and restoring the pre-save workspace snapshot before the rest of the question-flow assertions continue.
 - Model smoke pins both weak-answer non-closure and strong-answer closure, plus capture-draft normalization for valid and invalid answer targets.
 
+Latest local test hygiene stops browser smoke exports from polluting Downloads:
+
+- `npm run smoke:browser` now creates a private `$TMPDIR/lc-browser-smoke-*/` root with separate Chrome profile and `downloads/` directory.
+- Chrome's CDP download behavior is set to that temporary download path before the test clicks the app's Export button.
+- The script waits for Chrome to exit before deleting the current smoke root, and a startup janitor removes stale `lc-browser-smoke-*` roots older than 30 minutes.
+- This applies to automated smoke artifacts. Explicit user-facing browser `Save` buttons still use normal browser download behavior because a plain web page cannot write arbitrary files to `/tmp`; the Mac shell export path remains the place for native file destinations.
+
 ## Verified Locally
 
-These passed after the local Answer draft linkage update:
+These passed after the linked Answer readiness update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
-- `npm run check:morning` (includes Harmony, mirror, perf, and morning receipt gates)
 - `git diff --check`
+
+These passed after the browser smoke temp-download update:
+
+- `npm run smoke:browser`
+- `git diff --check`
+
+The last full offline headline gate before this handoff was:
+
+- `npm run check:morning` (includes Harmony, mirror, perf, and morning receipt gates)
 
 Approval-gated or environment-gated checks were intentionally skipped tonight:
 
