@@ -84,8 +84,8 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Mirror home open-question previews link into `inbox.html` with a prefilled Answer draft so phone/Windows/Feishu folder review can return an append-only answer patch.
 - Answer patches that carry a same-topic `answersQuestionCaptureId` resolve the original open or parked question during Mac import while keeping the new answer capture as evidence.
 - Answer import receipts report when an existing question review card is ready to refresh from the new answer evidence.
-- Mirror bundle includes static `review.html` for due-card review on phone or Windows, with append-only return JSON export for Mac import.
-- Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and append-only return JSON export for Mac import.
+- Mirror bundle includes static `review.html` for due-card review on phone or Windows, with timestamped append-only return JSON export for Mac import and an unsaved-progress leave warning.
+- Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and timestamped append-only return JSON export for Mac import, plus an unsaved-draft leave warning.
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.

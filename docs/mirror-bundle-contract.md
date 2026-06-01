@@ -13,8 +13,8 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 - `workspace.json` is canonical for restore.
 - `README.md` is derived documentation.
 - `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session, including why that next action was selected. `TODAY.md` carries the fuller Open Questions backlog; `index.html` includes a short Open Question Preview and a Manual Return note so Windows/Feishu folder browsing does not hide unresolved study questions or the Mac import step. Preview questions may link to `inbox.html` with query-prefilled answer drafts; this is a convenience link, not a workspace mutation.
-- `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` return JSON for the Mac app. Its query prefill supports `topicId`, `quote`, `thought`, `answerToCaptureId`, `timestamp`, `tags`, `sourceTitle`, and `sourceUrl`; every query value is treated as untrusted convenience input. Unknown `topicId` values fall back to the active topic with a visible notice, text-like fields are length-capped before patch output, `answerToCaptureId` can only resolve an existing question in the same target topic during Mac import, and `sourceUrl` is sanitized with the same http/https-only rule as normal captures.
-- `review.html` is a derived, local-only mobile/Windows review page that exports append-only `learning-companion.review-progress-patch.v1` return JSON for the Mac app.
+- `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` return JSON for the Mac app. Return filenames include a local timestamp and short patch id suffix to reduce overwrite mistakes during manual transfer. Its query prefill supports `topicId`, `quote`, `thought`, `answerToCaptureId`, `timestamp`, `tags`, `sourceTitle`, and `sourceUrl`; every query value is treated as untrusted convenience input. Unknown `topicId` values fall back to the active topic with a visible notice, text-like fields are length-capped before patch output, `answerToCaptureId` can only resolve an existing question in the same target topic during Mac import, and `sourceUrl` is sanitized with the same http/https-only rule as normal captures.
+- `review.html` is a derived, local-only mobile/Windows review page that exports append-only `learning-companion.review-progress-patch.v1` return JSON for the Mac app. Return filenames include a local timestamp and short patch id suffix to reduce overwrite mistakes during manual transfer.
 - `sessions/*.md` is derived human-readable material.
 - `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync; it includes the same deterministic focus brief for that session.
 
@@ -51,6 +51,8 @@ Manual ZIP export is allowed before the uploader exists. A future uploader shoul
 `inbox.html` uses a restrictive static-page CSP: `default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'`. The page has inline script because it is a portable offline file, but it does not import remote scripts, make network requests, or execute query text as HTML.
 
 Query-prefilled answer drafts are never an authority boundary. Values from the URL are assigned through form `.value` fields and status `textContent`; they are not written through `innerHTML`. The resulting patch is still append-only and goes through the normal mobile inbox importer, where target topics, source URLs, duplicate ids, schema shape, and payload size are validated again.
+
+`inbox.html` and `review.html` register a dirty-state `beforeunload` warning after local draft changes. Saving or copying the current return JSON clears that warning until the next local change.
 
 ## Mobile Inbox Patch
 

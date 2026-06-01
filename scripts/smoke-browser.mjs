@@ -1512,13 +1512,32 @@ try {
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review.html` });
   await sleep(300);
   const reviewRuntime = await cdp.evaluate(`(() => {
+    const beforeUnloadPrevented = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
     document.querySelector('[data-reveal]')?.click();
     document.querySelector('[data-grade="good"]')?.click();
     const preview = JSON.parse(document.querySelector("#progressPreview").textContent);
+    const readyStatus = document.querySelector("#progressStatus").textContent;
+    const dirtyBeforeSave = beforeUnloadPrevented();
+    let downloadName = "";
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { downloadName = this.download; };
+    try {
+      document.querySelector("#downloadProgressBtn").click();
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
     return {
       heading: document.querySelector("h1").textContent,
       answerVisible: !document.querySelector(".answer").hidden,
-      status: document.querySelector("#progressStatus").textContent,
+      status: readyStatus,
+      savedStatus: document.querySelector("#progressStatus").textContent,
+      downloadName,
+      dirtyBeforeSave,
+      dirtyAfterSave: beforeUnloadPrevented(),
       state: document.querySelector(".review-state").textContent,
       previewSchema: preview.schema,
       previewEventCount: preview.events.length,
@@ -1532,6 +1551,10 @@ try {
   assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
+  assert.match(reviewRuntime.savedStatus, /Return JSON saved/);
+  assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.equal(reviewRuntime.dirtyBeforeSave, true);
+  assert.equal(reviewRuntime.dirtyAfterSave, false);
   assert.equal(reviewRuntime.state, "Marked good");
   assert.equal(reviewRuntime.previewSchema, "learning-companion.review-progress-patch.v1");
   assert.equal(reviewRuntime.previewEventCount, 1);
@@ -1544,6 +1567,11 @@ try {
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html` });
   await sleep(300);
   const inboxRuntime = await cdp.evaluate(`(() => {
+    const beforeUnloadPrevented = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
       node.value = value;
@@ -1559,12 +1587,22 @@ try {
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
     const storageKey = Object.keys(localStorage).find((key) => key.startsWith("learning-companion.inbox."));
     const storedDrafts = storageKey ? JSON.parse(localStorage.getItem(storageKey) || "[]") : [];
+    const readyStatus = document.querySelector("#statusOutput").textContent;
+    const dirtyBeforeSave = beforeUnloadPrevented();
+    let downloadName = "";
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { downloadName = this.download; };
+    try {
+      document.querySelector("#downloadPatchBtn").click();
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
     return {
       heading: document.querySelector("h1").textContent,
       topicOptions: document.querySelectorAll("#topicSelect option").length,
       selectedTopicId: document.querySelector("#topicSelect").value,
       selectedTopicTitle: document.querySelector("#topicSelect option:checked")?.textContent || "",
-      status: document.querySelector("#statusOutput").textContent,
+      status: readyStatus,
       draftCount: document.querySelectorAll("#draftList .capture").length,
       previewSchema: preview.schema,
       previewTargetTitle: preview.target.topicTitle,
@@ -1572,7 +1610,11 @@ try {
       previewQuote: preview.captures[0]?.quote || "",
       previewThought: preview.captures[0]?.thought || "",
       previewSourceUrl: preview.captures[0]?.sourceUrl || "",
-      storedDraftCount: storedDrafts.length
+      storedDraftCount: storedDrafts.length,
+      savedStatus: document.querySelector("#statusOutput").textContent,
+      downloadName,
+      dirtyBeforeSave,
+      dirtyAfterSave: beforeUnloadPrevented()
     };
   })()`);
 
@@ -1581,6 +1623,10 @@ try {
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
   assert.equal(inboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
+  assert.match(inboxRuntime.savedStatus, /Return JSON saved/);
+  assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.equal(inboxRuntime.dirtyBeforeSave, true);
+  assert.equal(inboxRuntime.dirtyAfterSave, false);
   assert.equal(inboxRuntime.draftCount, 1);
   assert.equal(inboxRuntime.previewSchema, "learning-companion.mobile-inbox-patch.v1");
   assert.equal(inboxRuntime.previewCaptureCount, 1);
