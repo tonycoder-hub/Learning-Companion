@@ -28,18 +28,18 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `de3d3cd test: harden mirror answer prefill`
 - `e383e5f feat: add parked question queue`
 - `c4dadd8 feat: add question queue health cue`
+- `3e2af15 feat: resolve questions from answer patches`
 
-Current uncommitted work closes the off-device answer import loop:
+Current uncommitted work hardens the answer-patch resolver after Mira review:
 
-- Mirror answer links include `answerToCaptureId`.
-- `inbox.html` exports `answersQuestionCaptureId` in append-only answer patches.
-- Mac import resolves the original same-topic active or parked question when the answer patch is imported.
-- Missing, already-resolved, non-question, or cross-topic answer targets are skipped and counted in the mobile inbox receipt.
-- Morning demo sample mobile inbox patch now resolves 1 original question while preserving the new answer capture.
+- `answersQuestionCaptureId` now accepts only bounded ASCII capture ids.
+- Mobile inbox receipts include reason-tagged answer-target skips: `invalid`, `selfReference`, `patchReference`, `missing`, `nonQuestion`, and `alreadyClosed`.
+- Static smoke covers duplicate patch idempotency, missing/cross-topic targets, already-closed target, malformed target, self-reference, and same-patch reference.
+- The mirror-bundle contract documents the skip reason enum.
 
 ## Verified Locally
 
-These passed after the current answer-import work:
+These passed after the current answer-import hardening:
 
 - `npm run smoke`
 - `npm run smoke:harmony`
@@ -83,7 +83,7 @@ Latest absorbed Mira notes for parked question loop:
 ## Next Local Work
 
 1. Commit the current parked-question queue once status is clean enough:
-   - Suggested message: `feat: resolve questions from answer patches`.
+   - Suggested message: `test: harden answer patch resolution`.
 
 2. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.

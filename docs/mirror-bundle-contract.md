@@ -61,7 +61,8 @@ Query-prefilled answer drafts are never an authority boundary. Values from the U
 - The importer tracks patch ids in `workspace.importedPatches` and also skips duplicate capture ids.
 - `workspace.importedPatches` is pruned to the latest 200 patch ids to avoid unbounded workspace growth.
 - Patch import resolves target by topic id, then exact title, then current active topic with a visible receipt.
-- If an imported capture includes `answersQuestionCaptureId`, the importer resolves that existing question only when it belongs to the same target topic and is still active or parked. Missing, resolved, non-question, or cross-topic targets are skipped and counted in the receipt.
+- If an imported capture includes `answersQuestionCaptureId`, the importer resolves that existing question only when it belongs to the same target topic and is still active or parked. Missing, resolved, non-question, cross-topic, malformed, self-referential, or same-patch targets are skipped and counted in the receipt.
+- Answer-target skip reasons are reported as `answerTargetSkips.invalid`, `selfReference`, `patchReference`, `missing`, `nonQuestion`, and `alreadyClosed`.
 - Patch URLs are treated as untrusted and sanitized with the same http/https-only rule as normal captures.
 - The import receipt reports stripped source links when mobile patch URLs sanitize to empty.
 - Patch size is checked against raw imported file bytes and the parsed payload cap.

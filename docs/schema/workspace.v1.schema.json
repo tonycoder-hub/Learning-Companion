@@ -129,8 +129,9 @@
         "inboxPatchId": { "type": "string", "maxLength": 128 },
         "inboxCaptureId": { "type": "string", "maxLength": 128 },
         "answersQuestionCaptureId": {
-          "description": "Optional local capture id of the question this capture answers. Mobile inbox imports may use it to resolve an existing question in the same target topic after adding the answer capture.",
+          "description": "Optional local capture id of the question this capture answers. Mobile inbox imports may use it to resolve an existing question in the same target topic after adding the answer capture. Accepted ids are 1-128 ASCII letters, digits, dot, underscore, colon, or dash.",
           "type": "string",
+          "pattern": "^[A-Za-z0-9._:-]{0,128}$",
           "maxLength": 128
         },
         "questionResolvedAt": {

@@ -608,10 +608,33 @@ const answeredOriginalQuestion = answerInboxSession.captures.find((capture) => c
 const importedAnswerCapture = answerInboxSession.captures.find((capture) => capture.inboxCaptureId === "inbox_answer_capture_001");
 assert.equal(answerInboxResult.receipt.answeredQuestions, 1);
 assert.equal(answerInboxResult.receipt.skippedAnswerTargets, 0);
+assert.deepEqual(answerInboxResult.receipt.answerTargetSkips, {
+  invalid: 0,
+  selfReference: 0,
+  patchReference: 0,
+  missing: 0,
+  nonQuestion: 0,
+  alreadyClosed: 0
+});
 assert.equal(captureHasOpenQuestion(answeredOriginalQuestion), false);
 assert.equal(answeredOriginalQuestion.questionParkedAt, null);
 assert.match(answeredOriginalQuestion.questionResolvedAt, /^2026-05-29T00:32:00/);
 assert.equal(importedAnswerCapture.answersQuestionCaptureId, questionCaptureId);
+const duplicateAnswerInboxResult = applyMobileInboxPatch(answerInboxResult.workspace, answerInboxPatch, new Date("2026-05-29T00:32:30.000Z"));
+assert.equal(duplicateAnswerInboxResult.receipt.targetResolution, "duplicate-patch");
+assert.equal(duplicateAnswerInboxResult.receipt.answeredQuestions, 0);
+assert.equal(duplicateAnswerInboxResult.receipt.skippedAnswerTargets, 0);
+const alreadyClosedAnswerResult = applyMobileInboxPatch(answerInboxResult.workspace, {
+  ...answerInboxPatch,
+  patchId: "patch_answer_question_already_closed",
+  captures: [{
+    ...answerInboxPatch.captures[0],
+    id: "inbox_answer_capture_already_closed"
+  }]
+}, new Date("2026-05-29T00:32:45.000Z"));
+assert.equal(alreadyClosedAnswerResult.receipt.answeredQuestions, 0);
+assert.equal(alreadyClosedAnswerResult.receipt.skippedAnswerTargets, 1);
+assert.equal(alreadyClosedAnswerResult.receipt.answerTargetSkips.alreadyClosed, 1);
 const badAnswerTargetPatch = {
   ...answerInboxPatch,
   patchId: "patch_answer_question_missing",
@@ -624,7 +647,51 @@ const badAnswerTargetPatch = {
 const badAnswerTargetResult = applyMobileInboxPatch(questionLifecycleWorkspace, badAnswerTargetPatch, new Date("2026-05-29T00:33:00.000Z"));
 assert.equal(badAnswerTargetResult.receipt.answeredQuestions, 0);
 assert.equal(badAnswerTargetResult.receipt.skippedAnswerTargets, 1);
+assert.equal(badAnswerTargetResult.receipt.answerTargetSkips.missing, 1);
 assert.equal(captureHasOpenQuestion(getActiveSession(badAnswerTargetResult.workspace).captures.find((capture) => capture.id === questionCaptureId)), true);
+const answerTargetGuardPatch = {
+  ...answerInboxPatch,
+  patchId: "patch_answer_question_guards",
+  captures: [{
+    ...answerInboxPatch.captures[0],
+    id: "self_ref_capture",
+    answersQuestionCaptureId: "self_ref_capture"
+  }, {
+    ...answerInboxPatch.captures[0],
+    id: "batch_target_capture",
+    answersQuestionCaptureId: questionCaptureId
+  }, {
+    ...answerInboxPatch.captures[0],
+    id: "batch_ref_capture",
+    answersQuestionCaptureId: "batch_target_capture"
+  }, {
+    ...answerInboxPatch.captures[0],
+    id: "invalid_target_capture",
+    answersQuestionCaptureId: `${"x".repeat(129)}!`
+  }]
+};
+const answerTargetGuardResult = applyMobileInboxPatch(questionLifecycleWorkspace, answerTargetGuardPatch, new Date("2026-05-29T00:34:00.000Z"));
+assert.equal(answerTargetGuardResult.receipt.added, 4);
+assert.equal(answerTargetGuardResult.receipt.answeredQuestions, 1);
+assert.equal(answerTargetGuardResult.receipt.skippedAnswerTargets, 3);
+assert.equal(answerTargetGuardResult.receipt.answerTargetSkips.selfReference, 1);
+assert.equal(answerTargetGuardResult.receipt.answerTargetSkips.patchReference, 1);
+assert.equal(answerTargetGuardResult.receipt.answerTargetSkips.invalid, 1);
+const crossTopicWorkspace = addSession(questionLifecycleWorkspace, "Different question answer target");
+const crossTopicId = crossTopicWorkspace.sessions.find((item) => item.title === "Different question answer target").id;
+const crossTopicAnswerResult = applyMobileInboxPatch(crossTopicWorkspace, {
+  ...answerInboxPatch,
+  patchId: "patch_answer_question_cross_topic",
+  target: { topicId: crossTopicId, topicTitle: "Different question answer target" },
+  captures: [{
+    ...answerInboxPatch.captures[0],
+    id: "inbox_answer_capture_cross_topic"
+  }]
+}, new Date("2026-05-29T00:35:00.000Z"));
+assert.equal(crossTopicAnswerResult.receipt.answeredQuestions, 0);
+assert.equal(crossTopicAnswerResult.receipt.skippedAnswerTargets, 1);
+assert.equal(crossTopicAnswerResult.receipt.answerTargetSkips.missing, 1);
+assert.equal(captureHasOpenQuestion(crossTopicAnswerResult.workspace.sessions.find((item) => item.id === questionSession.id).captures.find((capture) => capture.id === questionCaptureId)), true);
 questionLifecycleWorkspace = setCaptureQuestionResolved(
   questionLifecycleWorkspace,
   questionSession.id,
