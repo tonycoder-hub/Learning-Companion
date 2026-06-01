@@ -440,7 +440,16 @@ try {
       rows: document.querySelectorAll("#captureStack .capture-stack-row").length,
       text: firstStackRow?.textContent || "",
       buttons: stackButtons.map((button) => button.textContent),
-      cardDisabled: stackButtons.find((button) => button.textContent === "Card")?.disabled === true
+      reviewDisabled: stackButtons.find((button) => button.textContent === "Review")?.disabled === true
+    };
+    stackButtons.find((button) => button.textContent === "Review")?.click();
+    const captureStackReviewOpen = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      focusMode: [...document.querySelectorAll("[data-focus-mode]")]
+        .find((button) => button.classList.contains("active"))?.dataset.focusMode || "",
+      deskReviewPrompt: document.querySelector("#deskReviewPrompt").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityAction: document.querySelector("#activityDetailsBtn").textContent
     };
     document.querySelector('[data-tab="today"]').click();
     const todayText = document.querySelector("#todayTab").textContent;
@@ -907,6 +916,7 @@ try {
           captureDraftPrunedAfterImport,
           activityAfterCard,
           captureStackAfterCard,
+          captureStackReviewOpen,
           captureDraftStatusAfterCard,
           backupNoticeAfterCapture,
           backupNoticeAfterExport,
@@ -1200,8 +1210,13 @@ try {
   assert.equal(result.captureStackAfterCard.rows, 1);
   assert.match(result.captureStackAfterCard.text, /08:12/);
   assert.match(result.captureStackAfterCard.text, /compiler-enforced lifetimes/);
-  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Note", "Card"]);
-  assert.equal(result.captureStackAfterCard.cardDisabled, true);
+  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Note", "Review"]);
+  assert.equal(result.captureStackAfterCard.reviewDisabled, false);
+  assert.equal(result.captureStackReviewOpen.activeTab, "review");
+  assert.equal(result.captureStackReviewOpen.focusMode, "review");
+  assert.match(result.captureStackReviewOpen.deskReviewPrompt, /compiler-enforced lifetimes/);
+  assert.equal(result.captureStackReviewOpen.activityTitle, "Review card opened");
+  assert.equal(result.captureStackReviewOpen.activityAction, "Review");
   assert.match(result.focusBriefAfterCard.action, /Review 1 due card/);
   assert.match(result.focusBriefAfterCard.facts, /compiler-enforced lifetimes/);
   assert.match(result.focusBriefAfterCard.facts, /Active topic has due review due now/);
@@ -1970,8 +1985,8 @@ try {
       captures: document.querySelector("#captureMetric").textContent,
       cards: document.querySelector("#cardMetric").textContent,
       stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
-      stackCardDisabled: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
-        .find((button) => button.textContent === "Card")?.disabled === true
+      stackReviewEnabled: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+        .find((button) => button.textContent === "Review")?.disabled === false
     };
     document.querySelector("#sidecarLayoutBtn").click();
     const stackAllBefore = {
@@ -2041,7 +2056,7 @@ try {
   assert.equal(deleteFlow.before.captures, "1");
   assert.equal(deleteFlow.before.cards, "1");
   assert.equal(deleteFlow.before.stackRows, 1);
-  assert.equal(deleteFlow.before.stackCardDisabled, true);
+  assert.equal(deleteFlow.before.stackReviewEnabled, true);
   assert.deepEqual(deleteFlow.stackAllBefore, { shellCompact: true, inspectorDisplay: "none" });
   assert.equal(deleteFlow.stackAllAfter.shellCompact, false);
   assert.equal(deleteFlow.stackAllAfter.activeTab, "captures");

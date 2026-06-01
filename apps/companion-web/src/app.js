@@ -2610,10 +2610,12 @@ function renderCaptureStack(session) {
     noteButton.type = "button";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
-    const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
+    const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Review" : "Make card");
     cardButton.type = "button";
-    cardButton.disabled = capture.promotedToReview;
-    cardButton.addEventListener("click", () => promoteCaptureToReview(capture.id));
+    cardButton.addEventListener("click", () => {
+      if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
+      else promoteCaptureToReview(capture.id);
+    });
     actions.append(cardButton);
     row.append(actions);
     list.append(row);
@@ -2795,6 +2797,28 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
     targetId: getActiveSession(workspace).reviewCards[0]?.id
   });
   persistAndRender("Review card created");
+}
+
+function openReviewCardFromCapture(captureId, sessionId = getActiveSession(workspace).id) {
+  const targetSession = workspace.sessions.find((session) => session.id === sessionId);
+  const card = targetSession?.reviewCards.find((item) => item.sourceCaptureId === captureId);
+  if (!targetSession || !card) {
+    showToast("Review card no longer exists");
+    return;
+  }
+  workspace = selectSession(workspace, targetSession.id);
+  workspace = updateSession(workspace, targetSession.id, { focusMode: "review" });
+  activeTab = "review";
+  activeReviewKey = reviewKey(targetSession.id, card.id);
+  revealedReviewCards.delete(activeReviewKey);
+  setActivity(getActiveSession(workspace), {
+    title: "Review card opened",
+    detail: `${targetSession.title} · ${card.prompt.slice(0, 120)}`,
+    tab: "review",
+    targetId: card.id
+  });
+  persistAndRender("Review card opened");
+  scrollActivityTarget({ tab: "review", targetId: card.id });
 }
 
 function refreshAnsweredQuestionCard(captureId, sessionId) {
