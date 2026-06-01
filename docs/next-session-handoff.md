@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `059acd4 feat: prefer save picker for exports`
 - `0789ee2 test: keep browser smoke downloads temporary`
 - `4a4ff79 fix: align linked answer readiness`
 - `36d56ad feat: link local answer drafts to questions`
@@ -259,12 +260,16 @@ Latest local work links local Answer drafts back to their questions:
 - Browser smoke pins the full UI path by opening a question answer draft, saving a real linked answer, verifying the question closes, and restoring the pre-save workspace snapshot before the rest of the question-flow assertions continue.
 - Model smoke pins both weak-answer non-closure and strong-answer closure, plus capture-draft normalization for valid and invalid answer targets.
 
-Latest local test hygiene stops browser smoke exports from polluting Downloads:
+Latest local export work separates real saves from temporary downloads:
 
+- Browser Save/Export buttons now prefer `window.showSaveFilePicker()` when the runtime supports it, so real Chromium users can choose the destination instead of silently filling Downloads.
+- Headless Chrome, webdriver automation, and browsers without the File System Access API still fall back to `<a download>`.
+- Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup requested - verify downloaded file`.
+- Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy for fallback saves.
 - `npm run smoke:browser` now creates a private `$TMPDIR/lc-browser-smoke-*/` root with separate Chrome profile and `downloads/` directory.
 - Chrome's CDP download behavior is set to that temporary download path before the test clicks the app's Export button.
 - The script waits for Chrome to exit before deleting the current smoke root, and a startup janitor removes stale `lc-browser-smoke-*` roots older than 30 minutes.
-- This applies to automated smoke artifacts. Explicit user-facing browser `Save` buttons still use normal browser download behavior because a plain web page cannot write arbitrary files to `/tmp`; the Mac shell export path remains the place for native file destinations.
+- A plain web page still cannot write arbitrary files to `/tmp`; `/tmp` routing is only for automated smoke fallback downloads. The Mac shell `File > Export Workspace...` remains the native NSSavePanel path.
 
 ## Verified Locally
 
@@ -276,6 +281,12 @@ These passed after the linked Answer readiness update:
 
 These passed after the browser smoke temp-download update:
 
+- `npm run smoke:browser`
+- `git diff --check`
+
+These passed after the save-picker export update:
+
+- `npm run smoke`
 - `npm run smoke:browser`
 - `git diff --check`
 

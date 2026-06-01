@@ -74,8 +74,8 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for the active session.
-- Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs.
-- Storage notice prompts for a local workspace export after committed learning data changes, warns when the last matching export is older than seven days, and asks the user to verify the downloaded JSON file rather than treating the click as durable backup proof.
+- Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs; browser Save prefers `showSaveFilePicker()` when available and falls back to download when the picker is unsupported or automation is running.
+- Storage notice prompts for a local workspace export after committed learning data changes, warns when the last matching export is older than seven days, and asks the user to verify the selected/downloaded JSON file rather than treating the click as durable backup proof.
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
@@ -124,7 +124,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, and smoke temp-download hygiene work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, the destination-locate action from sidecar layout, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, smoke temp-download hygiene, and save-picker export work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, picker-vs-fallback backup copy, the destination-locate action from sidecar layout, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
 
 ## Review Notes Absorbed
 
@@ -132,6 +132,7 @@ Latest Mira status:
 
 - A targeted Mira review for the capture-delete soft undo timed out at the SSH broker layer after roughly 630s (`error_code: TIMEOUT`, `error_stage: ssh`).
 - No Mira verdict was available for that increment. The change is currently supported by local code review plus `npm run smoke`, `npm run smoke:browser`, `npm run check:morning`, and `git diff --check`.
+- A targeted Mira review for the save-picker export boundary returned `SSH_FAILED` at the broker layer before review execution (`error_stage: ssh`, elapsed about 1s). No verdict was available, so the change is supported by local code review plus `npm run smoke`, `npm run smoke:browser`, and `git diff --check`.
 
 Accepted from Mira:
 
