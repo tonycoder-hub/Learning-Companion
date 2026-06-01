@@ -1286,6 +1286,7 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
   }));
   const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const stats = getStudyPackStats(cleanWorkspace, now);
   return {
     generatedAt: formatLocalIso(now),
     reviewCutoff: formatLocalIso(now),
@@ -1297,7 +1298,8 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     questionDefinition: `latest ${questionLimit} open question captures by capturedAt`,
     parkedQuestionDefinition: `latest ${parkedQuestionLimit} parked question captures by parkedAt`,
     dueDefinition: "review cards with dueAt <= generatedAt",
-    stats: getStudyPackStats(cleanWorkspace, now),
+    stats,
+    questionHealth: buildQuestionQueueHealth(stats),
     focusBrief: {
       ...buildFocusBrief(activeSession, cleanWorkspace, now),
       sessionPath: sessionPaths.get(activeSession.id)?.markdownPath || ""
@@ -1310,6 +1312,48 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     parkedQuestionOverflow: Math.max(0, parkedQuestionAll.length - parkedQuestionLimit),
     recentCaptures: recentAll.slice(0, recentLimit),
     recentOverflow: Math.max(0, recentAll.length - recentLimit)
+  };
+}
+
+function buildQuestionQueueHealth(stats) {
+  const activeQuestions = Number(stats.questions) || 0;
+  const parkedQuestions = Number(stats.parkedQuestions) || 0;
+  const unresolvedQuestions = activeQuestions + parkedQuestions;
+  if (activeQuestions > 0) {
+    return {
+      schema: "learning-companion.question-queue-health.v1",
+      status: "active",
+      label: `${formatCount(activeQuestions, "active question")} need closure`,
+      detail: parkedQuestions
+        ? `${formatCount(parkedQuestions, "parked question")} are waiting after the active queue.`
+        : "No parked questions are waiting behind the active queue.",
+      activeQuestions,
+      parkedQuestions,
+      unresolvedQuestions,
+      targetSection: "open_questions"
+    };
+  }
+  if (parkedQuestions > 0) {
+    return {
+      schema: "learning-companion.question-queue-health.v1",
+      status: "parked_only",
+      label: `${formatCount(parkedQuestions, "parked question")} waiting`,
+      detail: "No active questions are interrupting focus; inspect parked follow-up when attention returns.",
+      activeQuestions,
+      parkedQuestions,
+      unresolvedQuestions,
+      targetSection: "parked_questions"
+    };
+  }
+  return {
+    schema: "learning-companion.question-queue-health.v1",
+    status: "clear",
+    label: "Question queue clear",
+    detail: "No active or parked questions are waiting.",
+    activeQuestions,
+    parkedQuestions,
+    unresolvedQuestions,
+    targetSection: ""
   };
 }
 
@@ -1551,6 +1595,15 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     });
     if (pack.dueOverflow) lines.push(`- +${pack.dueOverflow} more due cards in workspace.json`);
   }
+
+  lines.push(
+    "",
+    "## Question Queue Health",
+    "",
+    `- ${markdownInline(pack.questionHealth.label)} - ${markdownInline(pack.questionHealth.detail)}`,
+    `- Active: ${pack.questionHealth.activeQuestions} · Parked: ${pack.questionHealth.parkedQuestions} · Unresolved: ${pack.questionHealth.unresolvedQuestions}`,
+    ""
+  );
 
   lines.push(
     "",

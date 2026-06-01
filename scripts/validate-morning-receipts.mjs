@@ -158,9 +158,13 @@ assert.equal(Object.values(harmonyScaffold.schemaParity).every((item) => item.ok
 
 assert.equal(harmonyReaderView.schema, "learning-companion.harmony-reader-view.v1");
 assert.equal(harmonyReaderView.workspace.openQuestionCount, summary.assertions.harmonyReaderOpenQuestions);
+assert.equal(harmonyReaderView.workspace.parkedQuestionCount, summary.assertions.harmonyReaderParkedQuestions);
+assert.equal(harmonyReaderView.workspace.unresolvedQuestionCount, summary.assertions.harmonyReaderOpenQuestions + summary.assertions.harmonyReaderParkedQuestions);
 assert.equal(harmonyReaderView.openQuestions.length, summary.assertions.harmonyReaderOpenQuestionPreviewCount);
 assert.equal(harmonyReaderView.openQuestions[0].thought, "How should I compare Rust traits with TypeScript interfaces?");
+assert.equal(harmonyReaderView.parkedQuestions[0].thought, "When should I compare trait objects with TypeScript structural typing?");
 assert.equal(harmonyReaderView.recentCaptures.some((capture) => capture.isQuestion && !capture.isOpenQuestion && capture.questionResolvedAt), true);
+assert.equal(harmonyReaderView.recentCaptures.some((capture) => capture.isQuestion && capture.isParkedQuestion && capture.questionParkedAt), true);
 
 assert.equal(feishuPlan.schema, "learning-companion.feishu-upload-plan.v1");
 assertEvidence(feishuPlan.evidence, "DRY_RUN", files.feishuPlan);
@@ -185,11 +189,16 @@ assert.match(morningReview, /Live video-site playback QA is not proven/);
 assert.match(morningReview, /When the separate browser gate is allowed/);
 assert.match(morningReview, /stale seven-day export/);
 assert.match(morningReview, /1 open question/);
+assert.match(morningReview, /1 parked question/);
+assert.match(morningReview, /2 unresolved questions/);
 assert.match(stage, /1 open question/);
+assert.match(stage, /1 parked question/);
 assert.match(reviewStartHere, /1 open question/);
+assert.match(reviewStartHere, /1 parked question/);
 assert.match(reviewStartHere, /What To Inspect First/);
 assert.match(reviewStartHere, /Focus Loop/);
 assert.match(reviewStartHere, /Question Closure/);
+assert.match(reviewStartHere, /Question Queue Health/);
 assert.match(reviewStartHere, /Evidence Boundary/);
 assert.match(mirrorHome, /Open Question Preview/);
 assert.match(mirrorHome, /1 open question/);
@@ -204,6 +213,7 @@ assert.match(manualQa, /verify the downloaded JSON file yourself/);
 assert.match(manualQa, /Focus Brief question signal/);
 assert.match(manualQa, /Open question handoff/);
 assert.match(manualQa, /Question close loop/);
+assert.match(manualQa, /Park moves it to Parked Questions/);
 assert.match(manualQa, /Answer starts an `Answer:` Quick Capture draft/);
 assert.match(manualQa, /Make card creates a review card/);
 

@@ -165,6 +165,24 @@ const demoWorkspace = sanitizeWorkspace({
           updatedAt: "2026-05-29T06:49:00.000+08:00",
           originClientId: "client_morning_demo",
           promotedToReview: false
+        },
+        {
+          id: "capture_trait_question_parked",
+          quote: "Trait objects can erase concrete types behind dynamic dispatch.",
+          thought: "When should I compare trait objects with TypeScript structural typing?",
+          timestamp: "16:10",
+          sourceTitle: "RustConf ownership talk",
+          sourceUrl: "https://www.youtube.com/watch?v=rust123",
+          materialType: "video",
+          sourceProvenance: "snapshot",
+          tags: ["rust", "question", "parked"],
+          questionResolvedAt: null,
+          questionParkedAt: "2026-05-29T06:52:00.000+08:00",
+          createdAt: "2026-05-29T06:51:00.000+08:00",
+          capturedAt: "2026-05-29T06:51:00.000+08:00",
+          updatedAt: "2026-05-29T06:52:00.000+08:00",
+          originClientId: "client_morning_demo",
+          promotedToReview: false
         }
       ],
       reviewCards: [
@@ -377,9 +395,15 @@ assert.equal(patchIntakeNegativeReceipt.summary.expectedFailuresObserved, patchI
 assert.equal(harmonyReaderView.workspace.sessionCount, demoWorkspace.sessions.length);
 assert.equal(harmonyReaderView.activeTopic.id, demoWorkspace.activeSessionId);
 assert.equal(harmonyReaderView.workspace.openQuestionCount, 1);
+assert.equal(harmonyReaderView.workspace.parkedQuestionCount, 1);
+assert.equal(harmonyReaderView.workspace.unresolvedQuestionCount, 2);
 assert.equal(harmonyReaderView.activeTopic.openQuestionCount, 1);
+assert.equal(harmonyReaderView.activeTopic.parkedQuestionCount, 1);
+assert.equal(harmonyReaderView.activeTopic.unresolvedQuestionCount, 2);
 assert.equal(harmonyReaderView.openQuestions.length, 1);
 assert.equal(harmonyReaderView.openQuestions[0].captureId, "capture_trait_question_open");
+assert.equal(harmonyReaderView.parkedQuestions.length, 1);
+assert.equal(harmonyReaderView.parkedQuestions[0].captureId, "capture_trait_question_parked");
 assert.equal(
   harmonyReaderView.recentCaptures.find((capture) => capture.captureId === "capture_gc_question_resolved")?.isOpenQuestion,
   false
@@ -505,9 +529,11 @@ assert.match(reviewReportHtml, /href="mirror-folder\/index\.html"/);
 assert.match(reviewReportHtml, /Fixture-only/);
 assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
 assert.match(reviewReportHtml, /open question/);
+assert.match(reviewReportHtml, /parked question/);
 assert.match(reviewReportHtml, /What To Inspect First/);
 assert.match(reviewReportHtml, /Focus Loop/);
 assert.match(reviewReportHtml, /Question Closure/);
+assert.match(reviewReportHtml, /Question Queue Health/);
 assert.match(reviewReportHtml, /Evidence Boundary/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
 
@@ -611,6 +637,8 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     morningDeterministic: determinismReport ? determinismReport.ok : "skipped",
     harmonyReaderTopics: harmonyReaderView.topics.length,
     harmonyReaderOpenQuestions: harmonyReaderView.workspace.openQuestionCount,
+    harmonyReaderParkedQuestions: harmonyReaderView.workspace.parkedQuestionCount || 0,
+    harmonyReaderUnresolvedQuestions: harmonyReaderView.workspace.unresolvedQuestionCount || harmonyReaderView.workspace.openQuestionCount,
     harmonyReaderOpenQuestionPreviewCount: harmonyReaderView.openQuestions.length,
     harmonyReaderAnsweredQuestionFlags: harmonyReaderView.recentCaptures.filter((capture) => capture.isQuestion && !capture.isOpenQuestion).length,
     harmonyScaffoldOk: harmonyScaffoldReport.ok,
@@ -821,6 +849,8 @@ function buildStageMarkdown({
     ? `NOT_RUN(0/${macManualQaStatus.total})`
     : `PARTIAL(${macManualQaStatus.filled}/${macManualQaStatus.total})`;
   const openQuestionLabel = formatCount(harmonyReaderView.workspace.openQuestionCount, "open question");
+  const parkedQuestionLabel = formatCount(harmonyReaderView.workspace.parkedQuestionCount || 0, "parked question");
+  const unresolvedQuestionLabel = formatCount(harmonyReaderView.workspace.unresolvedQuestionCount || harmonyReaderView.workspace.openQuestionCount, "unresolved question");
   return [
     "# Learning Companion Stage Matrix",
     "",
@@ -839,7 +869,7 @@ function buildStageMarkdown({
     `| Gate adversarial checks | executed-negative-fixture | ${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures proved expected failures. | Broader corruption matrix. |`,
     `| Deferred gates | pending-user-gate | ${deferredGates.summary.pending}/${deferredGates.summary.total} approval/device/signing gates are explicitly tracked in \`${DEFERRED_GATES_FILE}\`. | Completion evidence for those gates. |`,
     `| Morning determinism | ${determinismReport ? "executed-byte-compare" : "SKIPPED(child-run)"} | ${determinismReport ? `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.` : "Skipped inside determinism child run."} | Runtime environment outside this repo. |`,
-    `| HarmonyOS | schema-prototype + scaffold | Reader view has ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, and ${openQuestionLabel}; DevEco scaffold report checks ${harmonyScaffoldReport.fileCount} files. | SDK compile, real device import, storage, export, or UX. |`,
+    `| HarmonyOS | schema-prototype + scaffold | Reader view has ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, ${openQuestionLabel}, ${parkedQuestionLabel}, and ${unresolvedQuestionLabel}; DevEco scaffold report checks ${harmonyScaffoldReport.fileCount} files. | SDK compile, real device import, storage, export, or UX. |`,
     "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
     "",
@@ -969,7 +999,7 @@ function buildMacManualQaMarkdown({
     "| Focus Brief draft precedence | In a workspace with both a due review and a fresh Quick Capture draft, open Focus Brief. | Due review stays the primary next action; the draft remains recoverable from Today instead of being treated as synced/exported data. | NT |  |",
     "| Focus Brief question signal | In a topic with an open question and due review or synthesis, click the Focus Brief open-question signal. | The primary Focus Brief action stays Review or Build, while the signal opens Today at Open Questions and exits sidecar layout if needed. | NT |  |",
     "| Open question handoff | After importing `dist/morning-demo/sample-workspace.json`, open Today and the mirror home. | The Rust traits question appears in Today Open Questions and in `mirror-folder/index.html` as an Open Question Preview. | NT |  |",
-    "| Question close loop | In Today, use the open question's Answer, Make card, then Resolve and Reopen on a question capture. | Answer starts an `Answer:` Quick Capture draft in the source topic; Make card creates a review card in that topic; Resolve removes it from Open Questions; Reopen restores it. | NT |  |",
+    "| Question close loop | In Today, use the open question's Park, Answer, Make card, then Resolve and Reopen on a question capture. | Park moves it to Parked Questions without resolving; Answer starts an `Answer:` Quick Capture draft in the source topic; Make card creates a review card in that topic; Resolve removes it from Open Questions; Reopen restores it. | NT |  |",
     "| Source timestamp jump | Enter a current Time value on a session with a video source, then open the source. | Browser target includes the current timestamp when the source supports timestamp jumps. | NT |  |",
     "| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | If Accessibility exposes `AXSelectedText`, selected text is captured without overwriting pasteboard. | NT |  |",
     "| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | App does not import stale clipboard; status explains no selection/new clipboard. | NT |  |",
@@ -1060,6 +1090,8 @@ function buildMorningReviewMarkdown({
   unsupportedInboxPatchRejected
 }) {
   const openQuestionLabel = formatCount(harmonyReaderView.workspace.openQuestionCount, "open question");
+  const parkedQuestionLabel = formatCount(harmonyReaderView.workspace.parkedQuestionCount || 0, "parked question");
+  const unresolvedQuestionLabel = formatCount(harmonyReaderView.workspace.unresolvedQuestionCount || harmonyReaderView.workspace.openQuestionCount, "unresolved question");
   return [
     "# Learning Companion Morning Review",
     "",
@@ -1111,7 +1143,7 @@ function buildMorningReviewMarkdown({
     `- Deferred gates sample: ${deferredGates.gates.map((gate) => `${gate.id}=${gate.status}`).join(", ")}.`,
     determinismReport ? `- Determinism report: \`${DETERMINISM_FILE}\` (${determinismReport.summary.comparedFiles} files compared across two isolated runs)` : "",
     `- Feishu local files: \`feishu-upload/files/\` (${feishuUploadResult.fileCount} materialized fixture files)`,
-    `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, ${openQuestionLabel}, schema prototype)`,
+    `- HarmonyOS reader view: \`${SAMPLE_HARMONY_READER_FILE}\` (${harmonyReaderView.topics.length} topics, ${openQuestionLabel}, ${parkedQuestionLabel}, ${unresolvedQuestionLabel}, schema prototype)`,
     `- Sample workspace restore: \`${SAMPLE_WORKSPACE_FILE}\``,
     `- Sample phone capture patch: \`patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}\``,
     `- Sample review progress patch: \`patches/${SAMPLE_REVIEW_PROGRESS_PATCH_FILE}\``,
@@ -1126,7 +1158,7 @@ function buildMorningReviewMarkdown({
     "- Local durability: does the app ask for a workspace export after real learning changes without pretending the browser download is already durable?",
     "- Mirror folder: would this be readable in Feishu Drive or Windows?",
     "- Feishu upload plan: is the one-way folder writer boundary clear enough before real credentials?",
-    "- Harmony reader view: does the phone-facing view model contain the right active topic, open questions, review, and capture slices?",
+    "- Harmony reader view: does the phone-facing view model contain the right active topic, active open questions, parked questions, review, and capture slices?",
     "- Mobile inbox: can phone-side captures return to Mac without overwriting notes/cards?",
     "- Review progress: can phone-side review grades return without overwriting newer Mac state?",
     "",
@@ -1155,7 +1187,7 @@ function buildMorningReviewMarkdown({
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
     determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
-    `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, ${openQuestionLabel}.`,
+    `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, ${openQuestionLabel}, ${parkedQuestionLabel}, ${unresolvedQuestionLabel}.`,
     `- Harmony scaffold sample: ${harmonyScaffoldReport.fileCount} files checked, bundle ${harmonyScaffoldReport.app.bundleName}, pages ${harmonyScaffoldReport.pages.length}.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
@@ -1206,6 +1238,8 @@ function buildReviewStartHereHtml({
   unsupportedInboxPatchRejected
 }) {
   const openQuestionLabel = formatCount(harmonyReaderView.workspace.openQuestionCount, "open question");
+  const parkedQuestionLabel = formatCount(harmonyReaderView.workspace.parkedQuestionCount || 0, "parked question");
+  const unresolvedQuestionLabel = formatCount(harmonyReaderView.workspace.unresolvedQuestionCount || harmonyReaderView.workspace.openQuestionCount, "unresolved question");
   const artifactRows = [
     ["Morning review (fixture)", "MORNING_REVIEW.md", "Readable checklist and evidence summary."],
     ["60-second review script", DEMO_SCRIPT_FILE, "Bounded route through the verified demo surfaces and deferred gates."],
@@ -1229,7 +1263,7 @@ function buildReviewStartHereHtml({
     ["Adversarial Gates Report", ADVERSARIAL_GATES_FILE, `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} negative fixtures observed expected failures.`],
     ...(determinismReport ? [["Determinism Report", DETERMINISM_FILE, `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.`]] : []),
     ["Feishu Local Files (materialized fixture)", "feishu-upload/files/index.html", `${feishuUploadResult.fileCount} files materialized for Drive folder QA only.`],
-    ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics and ${openQuestionLabel}; not device-verified.`],
+    ["HarmonyOS Reader View (schema prototype)", SAMPLE_HARMONY_READER_FILE, `${harmonyReaderView.topics.length} phone-facing topics, ${openQuestionLabel}, ${parkedQuestionLabel}, and ${unresolvedQuestionLabel}; not device-verified.`],
     ["Mirror JSON", SAMPLE_MIRROR_JSON_FILE, `${mirrorBundle.manifest.fileCount} files in structured bundle form.`],
     ["Mirror ZIP", sampleMirrorZipFile, `${mirrorZip.fileCount} files, ${mirrorZip.bytes} bytes.`],
     ["Inbox patch", `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`, "Sample append-only phone capture patch."],
@@ -1252,7 +1286,7 @@ function buildReviewStartHereHtml({
     ["Deferred gates", `${deferredGates.summary.pending}/${deferredGates.summary.total} pending`, "approval/device/signing/live-write evidence still required"],
     ...(determinismReport ? [["Morning determinism", determinismReport.ok ? "ok" : "diff", `${determinismReport.summary.comparedFiles} files; ${determinismReport.summary.differences} differences`]] : []),
     ["Harmony scaffold", harmonyScaffoldReport.ok ? "ok" : "needs fix", `${harmonyScaffoldReport.fileCount} files; ${harmonyScaffoldReport.pages.length} pages`],
-    ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards; ${openQuestionLabel}`]
+    ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards; ${openQuestionLabel}; ${parkedQuestionLabel}; ${unresolvedQuestionLabel}`]
   ];
   const stageRows = [
     ["Mac shell", "internal-build", "offline pack plus separate native/browser gates", "signed/notarized app"],
@@ -1264,14 +1298,14 @@ function buildReviewStartHereHtml({
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
-    ["HarmonyOS", "schema-prototype + scaffold", `${harmonyReaderView.topics.length} topic reader view; ${openQuestionLabel}; ${harmonyScaffoldReport.fileCount} scaffold files`, "SDK compile and real device roundtrip"],
+    ["HarmonyOS", "schema-prototype + scaffold", `${harmonyReaderView.topics.length} topic reader view; ${openQuestionLabel}; ${parkedQuestionLabel}; ${harmonyScaffoldReport.fileCount} scaffold files`, "SDK compile and real device roundtrip"],
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
   const inspectRows = [
     [
       "1. Focus Loop",
-      `Import the sample workspace, then confirm Focus Brief points to review before capture while Today keeps ${openQuestionLabel} visible.`,
+      `Import the sample workspace, then confirm Focus Brief points to review before capture while Today keeps ${openQuestionLabel} and ${parkedQuestionLabel} visible.`,
       SAMPLE_WORKSPACE_FILE
     ],
     [
@@ -1280,12 +1314,17 @@ function buildReviewStartHereHtml({
       MAC_MANUAL_QA_FILE
     ],
     [
-      "3. Cross-End Mirror",
+      "3. Question Queue Health",
+      `Inspect Today and TODAY.md: active plus parked should read as ${unresolvedQuestionLabel}, without making parked items hijack focus.`,
+      "mirror-folder/TODAY.md"
+    ],
+    [
+      "4. Cross-End Mirror",
       "Open the static mirror home, then try the portable review and inbox pages as the Windows/Harmony/Feishu folder proxy.",
       "mirror-folder/index.html"
     ],
     [
-      "4. Evidence Boundary",
+      "5. Evidence Boundary",
       `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
       DEFERRED_GATES_FILE
     ]

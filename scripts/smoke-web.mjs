@@ -517,7 +517,10 @@ assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).stats.questions, 
 assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).stats.parkedQuestions, 1);
 assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).questionItems.length, 0);
 assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).parkedQuestionItems.length, 1);
+assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).questionHealth.status, "parked_only");
+assert.equal(buildTodayPack(parkedQuestionWorkspace, focusNow).questionHealth.unresolvedQuestions, 1);
 assert.match(generateTodayMarkdown(parkedQuestionWorkspace, focusNow), /Parked Questions/);
+assert.match(generateTodayMarkdown(parkedQuestionWorkspace, focusNow), /Question Queue Health/);
 assert.match(generateTodayMarkdown(parkedQuestionWorkspace, focusNow), /Why does ownership make aliasing safe/);
 assert.equal(buildFocusBrief(parkedQuestionSession, parkedQuestionWorkspace, focusNow).stats.questions, 0);
 assert.equal(buildFocusBrief(parkedQuestionSession, parkedQuestionWorkspace, focusNow).warnings.some((warning) => warning.kind === "open_questions"), false);
@@ -895,6 +898,7 @@ const todayPack = buildTodayPack(multiReviewWorkspace, frozenToday, { dueLimit: 
 assert.equal(todayPack.stats.due, 2);
 assert.equal(todayPack.stats.questions, 0);
 assert.equal(todayPack.stats.parkedQuestions, 0);
+assert.equal(todayPack.questionHealth.status, "clear");
 assert.equal(todayPack.dueItems.length, 1);
 assert.equal(todayPack.dueOverflow, 1);
 assert.equal(todayPack.questionItems.length, 0);
@@ -916,6 +920,8 @@ assert.match(todayMarkdown, /Resume Here/);
 assert.match(todayMarkdown, /Next: Review/);
 assert.match(todayMarkdown, /\]\(sessions\/.+\.md\)/);
 assert.match(todayMarkdown, /Due Review/);
+assert.match(todayMarkdown, /Question Queue Health/);
+assert.match(todayMarkdown, /Question queue clear/);
 assert.match(todayMarkdown, /Open Questions/);
 assert.match(todayMarkdown, /No open questions captured yet/);
 assert.match(todayMarkdown, /Parked Questions/);
@@ -936,6 +942,8 @@ const questionTodayPack = buildTodayPack(questionTodayWorkspace, frozenToday, {
 });
 assert.equal(questionTodayPack.stats.questions, 1);
 assert.equal(questionTodayPack.stats.parkedQuestions, 0);
+assert.equal(questionTodayPack.questionHealth.status, "active");
+assert.equal(questionTodayPack.questionHealth.targetSection, "open_questions");
 assert.equal(questionTodayPack.questionItems.length, 1);
 assert.equal(questionTodayPack.questionItems[0].sessionTitle, "Algorithms course");
 assert.match(questionTodayPack.questionItems[0].sessionPath, /^sessions\/.+\.md$/);

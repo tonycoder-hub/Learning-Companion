@@ -1810,6 +1810,7 @@ try {
   assert.match(questionFlow.zeroFocusFacts, /Questions/);
   assert.match(questionFlow.zeroFocusFacts, /None/);
   assert.match(questionFlow.emptyTodayText, /Open Questions/);
+  assert.match(questionFlow.emptyTodayText, /Question Queue Health/);
   assert.match(questionFlow.emptyTodayText, /No open questions captured/);
   assert.match(questionFlow.stackText, /Question/);
   assert.match(questionFlow.stackText, /compactness assumption/);
@@ -1818,6 +1819,7 @@ try {
   assert.doesNotMatch(questionFlow.questionSignalClass, /warn/);
   assert.match(questionFlow.todaySummary, /questions/);
   assert.match(questionFlow.todayText, /Open Questions/);
+  assert.match(questionFlow.todayText, /Question Queue Health/);
   assert.match(questionFlow.todayText, /compactness assumption/);
   assert.deepEqual(questionFlow.questionSignalClick.before, {
     shellCompact: true,
@@ -1839,6 +1841,7 @@ try {
   assert.equal(questionFlow.afterPark.parkedQuestionCards, 1);
   assert.match(questionFlow.afterPark.todayText, /Parked Questions/);
   assert.match(questionFlow.afterPark.todayText, /Parked since/);
+  assert.match(questionFlow.afterPark.todayText, /1 parked question waiting/);
   assert.match(questionFlow.afterPark.todayText, /compactness assumption/);
   assert.equal(questionFlow.afterPark.parkedButtons.includes("Answer"), true);
   assert.equal(questionFlow.afterPark.parkedButtons.includes("Resume"), true);

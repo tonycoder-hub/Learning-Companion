@@ -1852,6 +1852,33 @@ function renderToday() {
     if (pack.dueOverflow) dom.todayList.append(emptyState(`+${pack.dueOverflow} more due cards in workspace.json`));
   }
 
+  dom.todayList.append(textEl("div", "today-section-title", "Question Queue Health"));
+  const health = document.createElement("article");
+  health.className = "item-card question-health-card";
+  health.append(
+    textEl("div", "item-meta", [
+      `${pack.questionHealth.activeQuestions} active`,
+      `${pack.questionHealth.parkedQuestions} parked`,
+      `${pack.questionHealth.unresolvedQuestions} unresolved`
+    ].join(" · ")),
+    textEl("p", "card-prompt", pack.questionHealth.label),
+    textEl("p", "item-meta", pack.questionHealth.detail)
+  );
+  if (pack.questionHealth.targetSection) {
+    const jump = textEl("button", "mini-button primary", pack.questionHealth.status === "active" ? "Work active" : "Inspect parked");
+    jump.type = "button";
+    jump.addEventListener("click", () => {
+      const section = document.querySelector(`[data-today-section="${CSS.escape(pack.questionHealth.targetSection)}"]`);
+      section?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (section) pulseNode(section);
+    });
+    const footer = document.createElement("div");
+    footer.className = "item-footer";
+    footer.append(jump);
+    health.append(footer);
+  }
+  dom.todayList.append(health);
+
   const openQuestionTitle = textEl("div", "today-section-title", "Open Questions");
   openQuestionTitle.dataset.todaySection = "open_questions";
   dom.todayList.append(openQuestionTitle);
@@ -1910,7 +1937,9 @@ function renderToday() {
     if (pack.questionOverflow) dom.todayList.append(emptyState(`+${pack.questionOverflow} more open questions in workspace.json`));
   }
 
-  dom.todayList.append(textEl("div", "today-section-title", "Parked Questions"));
+  const parkedQuestionTitle = textEl("div", "today-section-title", "Parked Questions");
+  parkedQuestionTitle.dataset.todaySection = "parked_questions";
+  dom.todayList.append(parkedQuestionTitle);
   if (!pack.parkedQuestionItems.length) {
     dom.todayList.append(emptyState("No parked questions"));
   } else {
