@@ -34,6 +34,7 @@ apps/companion-harmony-dev/
   entry/src/main/ets/model/workspace.ets
   entry/src/main/ets/model/harmonyReaderView.ets
   entry/src/main/ets/services/importPortableData.ets
+  entry/src/main/ets/services/readerSessionState.ets
   entry/src/main/ets/services/exportPatch.ets
 ```
 
@@ -70,6 +71,14 @@ Concrete scaffold contract:
 5. On rejection, show `ImportReceipt` with `INVALID_JSON`, `INVALID_FILE_SIZE`, `UNSUPPORTED_FILE_TYPE`, `PORTABLE_FILE_TOO_LARGE`, `UNSUPPORTED_PORTABLE_DATA`, or `PATCH_IMPORT_NOT_SUPPORTED_ON_READER`.
 6. Keep mobile inbox and review-progress patch files on the export path; the phone reader must not import them as workspace state.
 
+Import state handoff:
+
+- `readerSessionState.ets` mirrors the JS prototype in `apps/companion-harmony/src/import-session.mjs`.
+- A successful import moves the reader session to `accepted-pending-persist`, replaces the current view, and records the import receipt.
+- A rejected import moves to `rejected-kept-current` when a prior view exists, so a bad file cannot blank the phone reader.
+- `persisted-by-device-adapter` is a future device-storage status, not evidence that this scaffold has written to HarmonyOS storage.
+- `lastImportReceipt` is intentionally single-slot: it records the most recent import attempt, while `currentView` records the last accepted reader view.
+
 The 5 MB cap is a conservative MVP guard: current fixture workspaces and mirror bundles are well under 1 MB, while 5 MB leaves headroom without encouraging large media-like payloads on lower-end phones. Revisit the cap when p95 mirror bundles exceed 2 MB or the app moves from read-only reader to richer offline storage.
 
 ArkTS `validatePortableFileCandidate()` is a scaffold mirror, not a DevEco-executed behavior test. Treat the JS validator in `apps/companion-harmony/src/import-boundary.mjs` as the source of truth for verdicts until the ArkTS code is compiled and covered on device.
@@ -101,6 +110,7 @@ ArkTS `validatePortableFileCandidate()` is a scaffold mirror, not a DevEco-execu
 | File candidate guard | Non-JSON files and files over 5 MB produce a visible rejection receipt before JSON parsing. |
 | Import workspace JSON | Topic count, active topic, due cards match `sample-harmony-reader-view.json`. |
 | Import mirror bundle | Same view model as workspace import. |
+| Failed import preservation | Importing an unsupported patch after a valid workspace leaves the previous reader view visible and records a rejection receipt. |
 | Open question backlog | Open questions and per-topic counts match the Mac Today backlog, while resolved questions only appear in recent captures as answered. |
 | Answers today | `answersToday` and `workspace.answerCaptureCountToday` match Mac Today for the same local day window. |
 | Offline relaunch | Last imported view model reopens without network. |

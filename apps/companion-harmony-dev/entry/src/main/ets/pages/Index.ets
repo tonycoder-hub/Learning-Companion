@@ -2,13 +2,15 @@ import router from '@ohos.router';
 import { createEmptyReaderView, summarizeReaderView } from '../model/harmonyReaderView';
 import { HarmonyReaderView } from '../model/workspace';
 import { describeImportPickerContract } from '../services/importPortableData';
+import { ReaderSessionState, createReaderSessionState, summarizeReaderSessionState } from '../services/readerSessionState';
 
 @Entry
 @Component
 struct Index {
-  @State private readerView: HarmonyReaderView = sampleReaderView();
+  @State private readerSession: ReaderSessionState = createReaderSessionState(sampleReaderView());
 
   build() {
+    const readerView = this.readerSession.currentView || sampleReaderView();
     Column({ space: 14 }) {
       Text('Learning Companion')
         .fontSize(28)
@@ -16,9 +18,15 @@ struct Index {
       Text('Resume Here')
         .fontSize(18)
         .fontWeight(FontWeight.Medium)
-      Text(summarizeReaderView(this.readerView))
+      Text(summarizeReaderView(readerView))
         .fontSize(15)
         .fontColor('#5f4b20')
+      Text(summarizeReaderSessionState(this.readerSession))
+        .fontSize(12)
+        .fontColor('#666154')
+      Text(this.readerSession.importStatus.message)
+        .fontSize(12)
+        .fontColor('#426254')
 
       Button('Import Workspace or Mirror JSON')
         .enabled(false)
@@ -32,49 +40,49 @@ struct Index {
       Button('Review Queue')
         .onClick(() => router.pushUrl({ url: 'pages/ReviewQueue' }))
 
-      if (this.readerView.answersToday.length > 0) {
+      if (readerView.answersToday.length > 0) {
         Text('Answers Today')
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-        Text(`Showing ${Math.min(this.readerView.answersToday.length, 3)} of ${this.readerView.workspace.answerCaptureCountToday} · ${this.readerView.localDayWindow.label}`)
+        Text(`Showing ${Math.min(readerView.answersToday.length, 3)} of ${readerView.workspace.answerCaptureCountToday} · ${readerView.localDayWindow.label}`)
           .fontSize(12)
           .fontColor('#666154')
-        ForEach(this.readerView.answersToday.slice(0, 3), (answer) => {
+        ForEach(readerView.answersToday.slice(0, 3), (answer) => {
           Text(`${answer.sessionTitle}: ${answer.thought}`)
             .fontSize(12)
             .fontColor('#426254')
         }, (answer) => answer.captureId)
       }
 
-      if (this.readerView.openQuestions.length > 0) {
+      if (readerView.openQuestions.length > 0) {
         Text('Open Questions')
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-        Text(`Showing ${Math.min(this.readerView.openQuestions.length, 3)} of ${this.readerView.workspace.openQuestionCount}`)
+        Text(`Showing ${Math.min(readerView.openQuestions.length, 3)} of ${readerView.workspace.openQuestionCount}`)
           .fontSize(12)
           .fontColor('#666154')
-        ForEach(this.readerView.openQuestions.slice(0, 3), (question) => {
+        ForEach(readerView.openQuestions.slice(0, 3), (question) => {
           Text(`${question.sessionTitle}: ${question.thought}`)
             .fontSize(12)
             .fontColor('#5f4b20')
         }, (question) => question.captureId)
       }
 
-      if (this.readerView.parkedQuestions.length > 0) {
+      if (readerView.parkedQuestions.length > 0) {
         Text('Parked Questions')
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-        Text(`Showing ${Math.min(this.readerView.parkedQuestions.length, 3)} of ${this.readerView.workspace.parkedQuestionCount}`)
+        Text(`Showing ${Math.min(readerView.parkedQuestions.length, 3)} of ${readerView.workspace.parkedQuestionCount}`)
           .fontSize(12)
           .fontColor('#666154')
-        ForEach(this.readerView.parkedQuestions.slice(0, 3), (question) => {
+        ForEach(readerView.parkedQuestions.slice(0, 3), (question) => {
           Text(`${question.sessionTitle}: ${question.thought}`)
             .fontSize(12)
             .fontColor('#7a5f2b')
         }, (question) => question.captureId)
       }
 
-      ForEach(this.readerView.topics, (topic) => {
+      ForEach(readerView.topics, (topic) => {
         Row() {
           Column() {
             Text(topic.title).fontSize(16).fontWeight(FontWeight.Medium)

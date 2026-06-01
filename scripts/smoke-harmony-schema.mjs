@@ -16,6 +16,12 @@ import {
   buildHarmonyReaderView
 } from "../apps/companion-harmony/src/schema-reader.mjs";
 import {
+  applyHarmonyImportResult,
+  createHarmonyReaderSessionState,
+  markHarmonyReaderSessionPersisted,
+  summarizeHarmonyReaderSessionState
+} from "../apps/companion-harmony/src/import-session.mjs";
+import {
   HARMONY_IMPORT_MAX_BYTES,
   HARMONY_IMPORT_RECEIPT_SCHEMA,
   buildHarmonyPatchEnvelope,
@@ -240,6 +246,31 @@ assert.equal(workspaceImport.receipt.readerViewSchema, HARMONY_READER_VIEW_SCHEM
 assert.equal(workspaceImport.view.activeTopic.id, workspace.activeSessionId);
 assert.equal(workspaceImport.receipt.answerCaptureCountToday, 2);
 
+const emptyReaderSession = createHarmonyReaderSessionState({ now });
+assert.equal(emptyReaderSession.importStatus.state, "empty");
+assert.equal(emptyReaderSession.currentView, null);
+const persistWithoutView = markHarmonyReaderSessionPersisted(emptyReaderSession, {
+  savedAt: "2026-05-29T00:29:00.000Z",
+  storageAdapter: "harmony-preferences",
+  key: "lastReaderView"
+});
+assert.equal(persistWithoutView, emptyReaderSession);
+assert.equal(persistWithoutView.storage.status, "empty");
+const acceptedReaderSession = applyHarmonyImportResult(emptyReaderSession, workspaceImport);
+assert.equal(acceptedReaderSession.importStatus.state, "accepted-pending-persist");
+assert.equal(acceptedReaderSession.importStatus.changedView, true);
+assert.equal(acceptedReaderSession.currentView.activeTopic.id, workspace.activeSessionId);
+assert.equal(acceptedReaderSession.storage.status, "pending-device-persistence");
+assert.match(summarizeHarmonyReaderSessionState(acceptedReaderSession), /answers today/);
+const persistedReaderSession = markHarmonyReaderSessionPersisted(acceptedReaderSession, {
+  savedAt: "2026-05-29T00:30:00.000Z",
+  storageAdapter: "harmony-preferences",
+  key: "lastReaderView"
+});
+assert.equal(persistedReaderSession.importStatus.state, "ready");
+assert.equal(persistedReaderSession.storage.status, "persisted-by-device-adapter");
+assert.equal(persistedReaderSession.storage.key, "lastReaderView");
+
 const mirrorImport = importPortableForHarmony(mirror, { now });
 assert.equal(mirrorImport.ok, true);
 assert.equal(mirrorImport.receipt.sourceKind, "mirror-bundle");
@@ -300,6 +331,25 @@ const rejectedPatchImport = importPortableForHarmony({
 }, { now });
 assert.equal(rejectedPatchImport.ok, false);
 assert.equal(rejectedPatchImport.receipt.errorCode, "PATCH_IMPORT_NOT_SUPPORTED_ON_READER");
+const rejectedEmptyReaderSession = applyHarmonyImportResult(emptyReaderSession, rejectedPatchImport);
+assert.equal(rejectedEmptyReaderSession.importStatus.state, "rejected-empty");
+assert.equal(rejectedEmptyReaderSession.importStatus.changedView, false);
+assert.equal(rejectedEmptyReaderSession.currentView, null);
+assert.equal(rejectedEmptyReaderSession.lastImportReceipt.errorCode, "PATCH_IMPORT_NOT_SUPPORTED_ON_READER");
+const previousView = persistedReaderSession.currentView;
+const previousViewSnapshot = JSON.parse(JSON.stringify(previousView));
+const rejectedReaderSession = applyHarmonyImportResult(persistedReaderSession, rejectedPatchImport);
+assert.equal(rejectedReaderSession.importStatus.state, "rejected-kept-current");
+assert.equal(rejectedReaderSession.importStatus.changedView, false);
+assert.equal(rejectedReaderSession.currentView, previousView);
+assert.deepEqual(rejectedReaderSession.currentView, previousViewSnapshot);
+assert.equal(rejectedReaderSession.currentView.activeTopic.id, workspace.activeSessionId);
+assert.equal(rejectedReaderSession.lastImportReceipt.errorCode, "PATCH_IMPORT_NOT_SUPPORTED_ON_READER");
+assert.equal(rejectedReaderSession.lastImportReceipt.ok, false);
+const secondAcceptedReaderSession = applyHarmonyImportResult(rejectedReaderSession, mirrorImport);
+assert.equal(secondAcceptedReaderSession.importStatus.state, "accepted-pending-persist");
+assert.equal(secondAcceptedReaderSession.lastImportReceipt.ok, true);
+assert.equal(secondAcceptedReaderSession.lastImportReceipt.sourceKind, "mirror-bundle");
 
 const inboxEnvelope = buildHarmonyPatchEnvelope("inbox", {
   now,

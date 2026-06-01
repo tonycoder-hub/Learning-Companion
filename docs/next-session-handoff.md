@@ -144,9 +144,19 @@ Latest local work makes the Harmony file-picker/import contract concrete:
 - Deferred Mira notes: BOM/CRLF fixture parsing and smoke-guard self-mutation tests are useful later, but not blockers for this local contract increment.
 - This remains scaffold/contract evidence only: no DevEco compile, no device picker, no device storage, and no Feishu-backed transport are claimed.
 
+Latest local work adds the Harmony import-to-reader session handoff:
+
+- `apps/companion-harmony/src/import-session.mjs` is now the executable JS source of truth for reader session state.
+- Accepted imports move to `accepted-pending-persist`, replace `currentView`, keep the import receipt, and mark storage as `pending-device-persistence`.
+- Rejected imports move to `rejected-kept-current` when a prior view exists, so selecting a bad patch/unsupported file cannot blank the phone reader.
+- `markHarmonyReaderSessionPersisted()` names the future device-storage transition without claiming that HarmonyOS storage has run.
+- ArkTS scaffold mirrors the same contract in `readerSessionState.ets`, and Index now surfaces the reader session summary/status rather than only a naked sample view.
+- Mira returned `PASS_WITH_NOTES`; accepted fixes added reject-from-empty coverage, reject identity/deep-equal guards, no-view persist guards, JS/ArkTS status-literal parity, and the single-slot receipt rule.
+- This is still scaffold evidence: no DevEco compile, no real picker, and no device persistence are claimed.
+
 ## Verified Locally
 
-These passed after the Harmony file-picker contract update:
+These passed after the Harmony import session update:
 
 - `npm run smoke:harmony`
 - `npm run check:morning`
@@ -251,7 +261,7 @@ Latest absorbed Mira notes for Harmony import/file-picker contract:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is rendering more of the imported `harmony-reader-view.v1` in the ArkTS scaffold, or adding a local persisted-view placeholder that still avoids device claims.
+   - Consider whether the next useful increment is rendering more of the accepted `harmony-reader-view.v1` session state in the ArkTS TopicDetail/ReviewQueue pages, or adding a local persisted-view adapter stub that still avoids device claims.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
 2. Keep the cross-end story honest:

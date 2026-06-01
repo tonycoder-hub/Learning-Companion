@@ -37,6 +37,7 @@ const REQUIRED_FILES = Object.freeze([
   "entry/src/main/ets/model/workspace.ets",
   "entry/src/main/ets/model/harmonyReaderView.ets",
   "entry/src/main/ets/services/importPortableData.ets",
+  "entry/src/main/ets/services/readerSessionState.ets",
   "entry/src/main/ets/services/exportPatch.ets"
 ]);
 
@@ -48,6 +49,17 @@ export function buildHarmonyScaffoldReport(options = {}) {
   const pages = JSON.parse(files.get("entry/src/main/resources/base/profile/main_pages.json")).src;
   const diskFiles = listFiles(root);
   const arktsSchemas = extractArktsSchemaConstants(files.get("entry/src/main/ets/model/workspace.ets"));
+  const jsReaderSessionText = readFileSync("apps/companion-harmony/src/import-session.mjs", "utf8");
+  const arktsReaderSessionText = files.get("entry/src/main/ets/services/readerSessionState.ets");
+  const readerSessionStatusLiterals = [
+    "empty",
+    "accepted-pending-persist",
+    "ready",
+    "rejected-kept-current",
+    "rejected-empty",
+    "pending-device-persistence",
+    "persisted-by-device-adapter"
+  ];
   const jsSchemas = {
     WORKSPACE_SCHEMA,
     MIRROR_BUNDLE_SCHEMA: extractJsMirrorBundleSchema(),
@@ -79,6 +91,9 @@ export function buildHarmonyScaffoldReport(options = {}) {
     check("import_picker_index_copy", /JSON <= 5 MB/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /workspace or mirror bundle/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
     check("import_receipt_picker_errors", /INVALID_FILE_SIZE/.test(files.get("entry/src/main/ets/pages/ImportReceipt.ets")) && /PORTABLE_FILE_TOO_LARGE/.test(files.get("entry/src/main/ets/pages/ImportReceipt.ets")) && /UNSUPPORTED_FILE_TYPE/.test(files.get("entry/src/main/ets/pages/ImportReceipt.ets"))),
     check("readme_import_picker_contract", /5 MB max/.test(files.get("README.md")) && /Non-JSON files/.test(files.get("README.md"))),
+    check("reader_session_state", /ReaderSessionState/.test(arktsReaderSessionText) && /accepted-pending-persist/.test(arktsReaderSessionText) && /rejected-kept-current/.test(arktsReaderSessionText) && /pending-device-persistence/.test(arktsReaderSessionText)),
+    check("reader_session_status_parity", readerSessionStatusLiterals.every((literal) => jsReaderSessionText.includes(literal) && arktsReaderSessionText.includes(literal))),
+    check("index_uses_reader_session", /createReaderSessionState/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /summarizeReaderSessionState/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /importStatus\.message/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
     check("inbox_patch_export", /buildInboxPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("review_patch_export", /buildReviewProgressPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("focus_action_open_source_kind", /'open_source'/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
