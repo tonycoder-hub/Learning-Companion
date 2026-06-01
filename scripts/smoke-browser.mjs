@@ -1082,6 +1082,54 @@ try {
   assert.equal(inboxAnswerRuntime.sourceTitle, "Mirror question preview");
   assert.equal(inboxAnswerRuntime.sourceUrl, "");
 
+  const hostileMirrorQuote = `Can inbox prefill keep <script>alert("x")</script> & #hash ?q=1 emoji 😀 RTL שלום ${"x".repeat(1024)}?`;
+  const hostileInboxParams = new URLSearchParams({
+    topicId: "missing_mirror_topic",
+    quote: hostileMirrorQuote,
+    thought: "Answer:",
+    timestamp: "13:37",
+    tags: "question, hostile, answer",
+    sourceTitle: "Mirror hostile question",
+    sourceUrl: "javascript:alert(1)"
+  });
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html?${hostileInboxParams}` });
+  await sleep(300);
+  const hostileInboxRuntime = await cdp.evaluate(`(() => {
+    const preAdd = {
+      status: document.querySelector("#statusOutput").textContent,
+      selectedTopicId: document.querySelector("#topicSelect").value,
+      quoteField: document.querySelector("#quoteInput").value,
+      sourceUrlField: document.querySelector("#sourceUrlInput").value
+    };
+    document.querySelector("#addCaptureBtn").click();
+    const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
+    const capture = preview.captures.find((item) => item.quote.includes("Can inbox prefill keep"));
+    return {
+      preAdd,
+      status: document.querySelector("#statusOutput").textContent,
+      selectedTopicId: document.querySelector("#topicSelect").value,
+      quoteField: document.querySelector("#quoteInput").value,
+      captureQuote: capture?.quote || "",
+      captureThought: capture?.thought || "",
+      captureTags: capture?.tags || "",
+      captureSourceTitle: capture?.sourceTitle || "",
+      captureSourceUrl: capture?.sourceUrl || ""
+    };
+  })()`);
+
+  assert.equal(hostileInboxRuntime.preAdd.status, "Answer draft loaded with active topic; original topic was not found.");
+  assert.equal(hostileInboxRuntime.preAdd.selectedTopicId, inboxRuntime.selectedTopicId);
+  assert.equal(hostileInboxRuntime.preAdd.quoteField, hostileMirrorQuote);
+  assert.equal(hostileInboxRuntime.preAdd.sourceUrlField, "");
+  assert.equal(hostileInboxRuntime.status, "Capture added to patch draft.");
+  assert.equal(hostileInboxRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
+  assert.equal(hostileInboxRuntime.quoteField, "");
+  assert.equal(hostileInboxRuntime.captureQuote, hostileMirrorQuote);
+  assert.equal(hostileInboxRuntime.captureThought, "Answer:");
+  assert.equal(hostileInboxRuntime.captureTags, "question, hostile, answer");
+  assert.equal(hostileInboxRuntime.captureSourceTitle, "Mirror hostile question");
+  assert.equal(hostileInboxRuntime.captureSourceUrl, "");
+
   await cdp.send("Page.navigate", { url: appUrl });
   await sleep(300);
   await cdp.evaluate(`(() => {

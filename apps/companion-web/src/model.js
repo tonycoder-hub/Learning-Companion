@@ -1868,6 +1868,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      sourceUrl: document.querySelector('#sourceUrlInput')",
     "    };",
     "    let drafts = loadDrafts();",
+    "    let sourceUrlExplicit = false;",
     "    seed.topics.forEach((topic) => {",
     "      const option = document.createElement('option');",
     "      option.value = topic.id;",
@@ -1879,6 +1880,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    topicSelect.addEventListener('change', render);",
     "    document.querySelector('#addCaptureBtn').addEventListener('click', addCapture);",
     "    document.querySelector('#clearFormBtn').addEventListener('click', clearForm);",
+    "    fields.sourceUrl.addEventListener('input', () => { sourceUrlExplicit = false; });",
     "    document.querySelector('#clearDraftsBtn').addEventListener('click', () => { drafts = []; saveDrafts(); render(); });",
     "    document.querySelector('#copyPatchBtn').addEventListener('click', async () => {",
     "      try { await navigator.clipboard.writeText(JSON.stringify(buildPatch(), null, 2)); setStatus('Patch copied.'); }",
@@ -1906,7 +1908,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "        tags: fields.tags.value,",
     "        sourceTitle: clean(fields.sourceTitle.value, 160),",
     "        sourceUrl: safeUrl(fields.sourceUrl.value),",
-    "        sourceUrlProvided: Boolean(fields.sourceUrl.value.trim()),",
+    "        sourceUrlProvided: sourceUrlExplicit || Boolean(fields.sourceUrl.value.trim()),",
     "        materialType: currentTopic().materialType || 'other',",
     "        capturedAt: new Date().toISOString()",
     "      });",
@@ -1955,19 +1957,25 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    function applyQueryPrefill() {",
     "      const params = new URLSearchParams(window.location.search);",
     "      const topicId = clean(params.get('topicId'), 128);",
-    "      if (seed.topics.some((topic) => topic.id === topicId)) topicSelect.value = topicId;",
+    "      let notice = '';",
+    "      if (topicId) {",
+    "        if (seed.topics.some((topic) => topic.id === topicId)) topicSelect.value = topicId;",
+    "        else notice = 'Answer draft loaded with active topic; original topic was not found.';",
+    "      }",
     "      fields.quote.value = clean(params.get('quote'), 12000);",
     "      fields.thought.value = clean(params.get('thought'), 12000);",
     "      fields.timestamp.value = clean(params.get('timestamp'), 32);",
     "      fields.tags.value = clean(params.get('tags'), 240);",
     "      fields.sourceTitle.value = clean(params.get('sourceTitle'), 160);",
-    "      fields.sourceUrl.value = safeUrl(params.get('sourceUrl'));",
-    "      if (fields.quote.value || fields.thought.value) setStatus('Answer draft loaded from mirror link.');",
+    "      const rawSourceUrl = params.get('sourceUrl');",
+    "      sourceUrlExplicit = rawSourceUrl !== null;",
+    "      fields.sourceUrl.value = safeUrl(rawSourceUrl);",
+    "      if (fields.quote.value || fields.thought.value) setStatus(notice || 'Answer draft loaded from mirror link.');",
     "    }",
     "    function currentTopic() { return seed.topics.find((topic) => topic.id === topicSelect.value) || seed.topics[0]; }",
     "    function loadDrafts() { try { return JSON.parse(localStorage.getItem(storageKey) || '[]').filter((item) => item && item.id); } catch { return []; } }",
     "    function saveDrafts() { localStorage.setItem(storageKey, JSON.stringify(drafts.slice(-50))); }",
-    "    function clearForm() { Object.values(fields).forEach((field) => { field.value = ''; }); }",
+    "    function clearForm() { Object.values(fields).forEach((field) => { field.value = ''; }); sourceUrlExplicit = false; }",
     "    function clean(value, max) { return String(value || '').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim().slice(0, max); }",
     "    function safeUrl(value) { const raw = clean(value, 2048); if (!raw) return ''; try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }",
     "    function makeId(prefix) { return `${prefix}_${randomIdPart()}`; }",
@@ -2018,7 +2026,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
             ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
             : htmlText(sessionTitle);
           const answerHref = buildInboxAnswerHref(sessionId, capture);
-          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel} · <a href="${htmlAttribute(answerHref)}">Answer in inbox</a></span></li>`;
+          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel} · <a href="${htmlAttribute(answerHref)}">Draft answer in inbox</a></span></li>`;
         }),
         pack.questionOverflow > 0 ? `<li>${htmlText(formatCount(pack.questionOverflow, "more open question"))} in <a href="TODAY.md">TODAY.md</a>.</li>` : ""
       ].filter(Boolean).join("\n")
@@ -2125,13 +2133,20 @@ export function getSynthesisStats(session) {
 
 function buildInboxAnswerHref(sessionId, capture) {
   const params = new URLSearchParams();
-  params.set("topicId", cleanText(sessionId, 128));
-  params.set("quote", cleanText(capture?.thought || capture?.quote || "Untitled question", MAX_CAPTURE_TEXT_LENGTH));
+  params.set("topicId", cleanQueryParam(sessionId, 128));
+  params.set("quote", cleanQueryParam(capture?.thought || capture?.quote || "Untitled question", MAX_CAPTURE_TEXT_LENGTH));
   params.set("thought", "Answer:");
-  if (capture?.timestamp) params.set("timestamp", cleanText(capture.timestamp, 32));
+  if (capture?.timestamp) params.set("timestamp", cleanQueryParam(capture.timestamp, 32));
   const tags = normalizeTags([...(capture?.tags || []), "answer"]).join(", ");
   if (tags) params.set("tags", tags);
   return `inbox.html?${params.toString()}`;
+}
+
+function cleanQueryParam(value, maxLength) {
+  return String(value || "")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, maxLength);
 }
 
 export function captureHasQuestion(capture) {
