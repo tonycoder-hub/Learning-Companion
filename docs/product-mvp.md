@@ -54,6 +54,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Today includes Question Queue Health so active, parked, and total unresolved questions are visible before choosing the next study action.
 - Today includes a Question Loop summary so active backlog, same-day closures, answer-linked closures, and question-sourced review cards are visible as flow rather than scattered counters.
 - Today includes a compact section map so the heavier study cockpit can jump directly to due cards, questions, answers, closed items, drafts, and recent captures.
+- Today includes a first-run Start Here card with direct capture, first-question, and browser-clipper actions when no study trail exists yet.
 - Today includes an Answers Today section so answer captures remain inspectable even when they are separate from the closed-question card.
 - Open questions in Today can seed an Answer draft in the source topic so the question becomes a focused capture rather than a context switch.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.

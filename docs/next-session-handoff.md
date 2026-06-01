@@ -39,6 +39,7 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `cd1e6c3 feat: add question loop summary`
 - `94432b9 feat: surface answer captures in harmony reader`
 - `dc8cb2e feat: add today section map`
+- `5f8d3d3 feat: add first-run start card`
 
 Recent committed work makes answer resolution visible in import receipts:
 
@@ -119,9 +120,16 @@ Latest local work adds a Today section map for density:
 - Browser smoke clicks the Recent chip and verifies the Recent Captures section pulses.
 - Visual QA covered 1440x900 and 390x844 viewports with no horizontal overflow or button text overflow.
 
+Latest local work adds a first-run Start Here card:
+
+- When the workspace has no captures, cards, due items, questions, answers, closed questions, or capture drafts, Today shows a compact `Start Here` action card.
+- Actions are concrete and local: `Capture first point` focuses Quick Capture, `Write first question` seeds a `Question: ` draft, and `Browser clipper` opens Export with the bookmarklet selected.
+- Browser smoke pins the card copy, button actions, Quick Capture focus, and capture pane pulse.
+- Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
+
 ## Verified Locally
 
-These passed after the Today section map update:
+These passed after the first-run Start Here update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
@@ -219,7 +227,7 @@ Latest Mira note for Today section map:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is making the Harmony scaffold import/file-picker story more concrete without claiming device validation, or adding a small "start here" empty-state seed for first-run study flow.
+   - Consider whether the next useful increment is making the Harmony scaffold import/file-picker story more concrete without claiming device validation, or tightening the generated morning review pack around the new first-run and Today map evidence.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
