@@ -863,10 +863,12 @@ function formatInboundResolution(resolution, sourceUpdated = false) {
 function updateSessionFromFields(event) {
   const session = getActiveSession(workspace);
   let sourceUrl = dom.sourceUrl.value;
+  let stagedSourceTimestamp = "";
   if (event?.target === dom.sourceUrl) {
     const extractedTimestamp = extractSourceTimestamp(sourceUrl);
     if (extractedTimestamp && !dom.timestampInput.value.trim()) {
       dom.timestampInput.value = extractedTimestamp;
+      stagedSourceTimestamp = extractedTimestamp;
       setCaptureDraft(session.id, {
         quote: dom.quoteInput.value,
         thought: dom.thoughtInput.value,
@@ -894,6 +896,16 @@ function updateSessionFromFields(event) {
   renderFocusBrief();
   renderSessions();
   renderInspector();
+  if (stagedSourceTimestamp) {
+    setActivity(getActiveSession(workspace), {
+      title: "Source time staged",
+      detail: `Timestamp ${stagedSourceTimestamp} saved as a capture draft. Open source will include that time.`,
+      tab: "captures",
+      targetId: ""
+    });
+    renderActivity(getActiveSession(workspace));
+    pulseNode(dom.timestampInput);
+  }
 }
 
 function capture(promoteToReview) {

@@ -243,6 +243,25 @@ try {
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
     setValue("#sourceTitle", "RustConf ownership talk");
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "");
+    setValue("#timestampInput", "");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123&t=8m12s");
+    const sourceTimestampWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const sourceTimestampSession = sourceTimestampWorkspace.sessions.find((item) => item.id === sourceTimestampWorkspace.activeSessionId);
+    const sourceTimestampStage = {
+      timestamp: document.querySelector("#timestampInput").value,
+      sourceUrlInputBeforeChange: document.querySelector("#sourceUrl").value,
+      sourceUrlStored: sourceTimestampSession.sourceUrl,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      openSourceTitle: document.querySelector("#openSourceBtn").title,
+      draftStatus: document.querySelector("#captureDraftStatus").textContent,
+      timestampPulsed: document.querySelector("#timestampInput").classList.contains("pulse")
+    };
+    document.querySelector("#sourceUrl").dispatchEvent(new Event("change", { bubbles: true }));
+    sourceTimestampStage.sourceUrlInputAfterChange = document.querySelector("#sourceUrl").value;
+    setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
     document.querySelector("#materialType").dispatchEvent(new Event("change", { bubbles: true }));
@@ -714,6 +733,7 @@ try {
           notesMarkdown: restoredSession.notesMarkdown,
           draftFocusBrief,
           draftActivity,
+          sourceTimestampStage,
           todayDraftBeforeResume,
           todayDraftAfterResume,
           captureDraftStatusBeforeSwitch,
@@ -884,6 +904,15 @@ try {
   assert.doesNotMatch(result.draftFocusBrief.action, /Resume capture draft/);
   assert.equal(result.draftActivity.title, "Capture draft waiting");
   assert.match(result.draftActivity.detail, /Draft quote before session switch/);
+  assert.equal(result.sourceTimestampStage.timestamp, "08:12");
+  assert.equal(result.sourceTimestampStage.sourceUrlInputBeforeChange, "https://www.youtube.com/watch?v=rust123&t=8m12s");
+  assert.equal(result.sourceTimestampStage.sourceUrlStored, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(result.sourceTimestampStage.sourceUrlInputAfterChange, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(result.sourceTimestampStage.activityTitle, "Source time staged");
+  assert.match(result.sourceTimestampStage.activityDetail, /Timestamp 08:12 saved as a capture draft/);
+  assert.equal(result.sourceTimestampStage.openSourceTitle, "Open source at 08:12");
+  assert.equal(result.sourceTimestampStage.draftStatus, "Time kept");
+  assert.equal(result.sourceTimestampStage.timestampPulsed, true);
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);

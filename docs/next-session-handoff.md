@@ -170,14 +170,20 @@ Latest local work improves Mac-first capture focus:
 - Browser smoke verifies the sidecar-preserving path, editable-field dispatch, `preventDefault`, repeat pulse feedback, and quote-only draft focus.
 - Product docs note the conflict boundary: this is not a system-wide hotkey and can conflict with browser DevTools or password/clipboard utilities that own the same chord.
 
+Latest local work also clarifies source time staging:
+
+- Pasting a supported timestamped video URL into the source URL field now makes the hidden extraction visible with `Source time staged` in the activity strip and a pulse on the Time field.
+- The extracted time is saved into the device-local capture draft, the source-open button reports the same local time target, and the stored session source URL strips only the time parameter so future source matching remains canonical.
+- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, draft status, source-open title, and stripped URL after blur/change.
+- The morning manual QA pack now has a `Source time staging` row; this remains local URL-parser evidence, not live playback QA against external video sites.
+
 ## Verified Locally
 
-These passed after the keyboard quick capture update:
+These passed after the source time staging update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
-- `npm run smoke:harmony`
-- `npm run check:morning`
+- `npm run check:morning` (includes Harmony, mirror, perf, and morning receipt gates)
 - `git diff --check`
 
 Approval-gated or environment-gated checks were intentionally skipped tonight:
