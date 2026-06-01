@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `ef36e17 feat: reanchor drifted capture drafts`
 - `74d5b20 feat: warn on capture draft source drift`
 - `0463b81 docs: record zero time nudge handoff`
 - `41b1ab7 feat: clarify zero time nudge feedback`
@@ -199,8 +200,9 @@ Latest local work adds Quick Capture draft source drift protection:
 - Device-local capture drafts now store a local source title/URL snapshot in UI prefs, still outside canonical workspace JSON and mirror exports.
 - The snapshot is treated as the draft origin and stays stable until the draft is captured or cleared; later typing does not silently re-anchor it.
 - If the current session source no longer matches the draft origin, the capture status changes to `Source changed`, receives a warn class, and exposes a status/title hint for accessibility.
+- `Use current` appears only while the draft source has drifted; it explicitly re-anchors the local draft to the current source and records `Draft source updated` in the activity strip.
 - Source comparison reuses the existing URL matching normalization, so source-time query noise and title-only refreshes do not create warnings when the canonical URL is the same.
-- Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, and post-capture snapshot reset.
+- Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, explicit re-anchor, clear-after-reanchor, and post-capture snapshot reset.
 - Mira returned `PASS_WITH_NOTES`; accepted fixes included stable first-source snapshot semantics, URL/title normalization, status accessibility, source restore coverage, title-only refresh coverage, and post-capture reset coverage. Deferred notes: real YouTube/Feishu-doc manual switching remains a manual QA item, not proven by local smoke.
 
 ## Verified Locally
