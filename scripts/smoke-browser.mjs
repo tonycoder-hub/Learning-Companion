@@ -2436,6 +2436,7 @@ try {
     const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
     document.querySelector('[data-focus-mode="capture"]').click();
     const captureContext = document.querySelector("#captureContext");
+    const timeRow = document.querySelector(".time-input-row");
     return {
       innerWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
@@ -2448,7 +2449,11 @@ try {
       todayActive,
       captureContextVisible: getComputedStyle(captureContext).display !== "none",
       captureContextWidth: Math.ceil(captureContext.getBoundingClientRect().width),
-      captureContextScrollWidth: captureContext.scrollWidth
+      captureContextScrollWidth: captureContext.scrollWidth,
+      timeRowWidth: Math.ceil(timeRow.getBoundingClientRect().width),
+      timeRowScrollWidth: timeRow.scrollWidth,
+      timeBackWidth: Math.ceil(document.querySelector("#timeBackBtn").getBoundingClientRect().width),
+      timeForwardWidth: Math.ceil(document.querySelector("#timeForwardBtn").getBoundingClientRect().width)
     };
   })()`);
 
@@ -2461,6 +2466,10 @@ try {
   assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextScrollWidth <= mobileLayout.captureContextWidth + 2);
+  assert.ok(mobileLayout.timeRowWidth <= mobileLayout.innerWidth - 24);
+  assert.ok(mobileLayout.timeRowScrollWidth <= mobileLayout.timeRowWidth + 2);
+  assert.ok(mobileLayout.timeBackWidth >= 44);
+  assert.ok(mobileLayout.timeForwardWidth >= 44);
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
   await cdp.close();
