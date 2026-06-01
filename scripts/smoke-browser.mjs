@@ -98,6 +98,37 @@ try {
   assert.equal(pwa.workerCachesStaticAssets, true);
   assert.notEqual(pwa.registration, "unsupported");
 
+  const firstRun = await cdp.evaluate(`(() => {
+    document.querySelector('[data-tab="today"]').click();
+    const card = document.querySelector(".start-here-card");
+    const before = {
+      text: card?.textContent || "",
+      buttons: [...(card?.querySelectorAll("button") || [])].map((button) => ({
+        action: button.dataset.startAction,
+        text: button.textContent
+      }))
+    };
+    card?.querySelector('[data-start-action="capture"]')?.click();
+    return {
+      ...before,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true,
+      activity: document.querySelector("#activityTitle")?.textContent || ""
+    };
+  })()`);
+  assert.match(firstRun.text, /Start Here/);
+  assert.match(firstRun.text, /Choose the first learning move/);
+  assert.deepEqual(firstRun.buttons, [
+    { action: "capture", text: "Capture first point" },
+    { action: "question", text: "Write first question" },
+    { action: "clipper", text: "Browser clipper" }
+  ]);
+  assert.equal(firstRun.activeTab, "captures");
+  assert.equal(firstRun.activeElement, "quoteInput");
+  assert.equal(firstRun.capturePanePulsed, true);
+  assert.equal(firstRun.activity, "Ready to capture");
+
   const sidecarLayout = await cdp.evaluate(`(() => {
     const shell = document.querySelector(".app-shell");
     const sidebar = document.querySelector(".sidebar");

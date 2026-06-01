@@ -911,7 +911,7 @@ textarea:focus {
 
 .today-map {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
   gap: 6px;
   padding: 8px;
   border: 1px solid var(--line);
@@ -978,6 +978,15 @@ textarea:focus {
 
 .today-map-button.is-muted {
   opacity: 0.72;
+}
+
+.start-here-card {
+  border-color: rgba(47, 111, 94, 0.26);
+  background: #f6fbf8;
+}
+
+.start-here-card .item-footer {
+  gap: 6px;
 }
 
 .today-section-title {

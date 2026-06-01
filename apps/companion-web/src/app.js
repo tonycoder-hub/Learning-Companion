@@ -1846,6 +1846,9 @@ function renderToday() {
   );
 
   dom.todayList.append(renderTodaySectionMap(pack, draftItems));
+  if (shouldShowStartHere(pack, draftItems)) {
+    dom.todayList.append(renderStartHereCard());
+  }
   dom.todayList.append(renderPatchIntakePanel());
   renderTodayDrafts(draftItems);
 
@@ -2212,6 +2215,43 @@ function renderTodaySectionMap(pack, draftItems = []) {
   return nav;
 }
 
+function shouldShowStartHere(pack, draftItems = []) {
+  return !draftItems.length
+    && !pack.stats.captures
+    && !pack.stats.cards
+    && !pack.stats.due
+    && !pack.stats.questions
+    && !pack.stats.parkedQuestions
+    && !pack.stats.resolvedQuestionsToday
+    && !pack.stats.answerCapturesToday;
+}
+
+function renderStartHereCard() {
+  const card = document.createElement("article");
+  card.className = "item-card start-here-card";
+  card.append(
+    textEl("div", "item-meta", "Start Here"),
+    textEl("p", "card-prompt", "Choose the first learning move.")
+  );
+  const footer = document.createElement("div");
+  footer.className = "item-footer";
+  const capture = textEl("button", "mini-button primary", "Capture first point");
+  capture.type = "button";
+  capture.dataset.startAction = "capture";
+  capture.addEventListener("click", focusQuickCaptureFromStart);
+  const question = textEl("button", "mini-button", "Write first question");
+  question.type = "button";
+  question.dataset.startAction = "question";
+  question.addEventListener("click", seedFirstQuestionDraft);
+  const clipper = textEl("button", "mini-button", "Browser clipper");
+  clipper.type = "button";
+  clipper.dataset.startAction = "clipper";
+  clipper.addEventListener("click", openBookmarkletHandoff);
+  footer.append(capture, question, clipper);
+  card.append(footer);
+  return card;
+}
+
 function todaySectionTitle(label, section) {
   const title = textEl("div", "today-section-title", label);
   if (section) title.dataset.todaySection = section;
@@ -2222,6 +2262,58 @@ function jumpToTodaySection(sectionName) {
   const section = document.querySelector(`[data-today-section="${CSS.escape(sectionName)}"]`);
   section?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (section) pulseNode(section);
+}
+
+function focusQuickCaptureFromStart() {
+  const session = getActiveSession(workspace);
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setActivity(getActiveSession(workspace), {
+    title: "Ready to capture",
+    detail: "First point waiting in Quick Capture.",
+    tab: "captures",
+    targetId: ""
+  });
+  persistAndRender();
+  dom.quoteInput.focus();
+  pulseNode(dom.capturePane);
+}
+
+function seedFirstQuestionDraft() {
+  const session = getActiveSession(workspace);
+  const draft = getCaptureDraft(session.id);
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  setCaptureDraft(session.id, {
+    quote: draft.quote,
+    thought: draft.thought || "Question: ",
+    timestamp: draft.timestamp
+  });
+  activeTab = "captures";
+  setActivity(getActiveSession(workspace), {
+    title: "Question draft started",
+    detail: "First question waiting in Quick Capture.",
+    tab: "captures",
+    targetId: ""
+  });
+  persistAndRender();
+  dom.thoughtInput.focus();
+  dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
+  pulseNode(dom.capturePane);
+}
+
+function openBookmarkletHandoff() {
+  const session = getActiveSession(workspace);
+  activeTab = "export";
+  setActivity(session, {
+    title: "Browser clipper ready",
+    detail: "Bookmarklet selected in Export.",
+    tab: "export",
+    targetId: ""
+  });
+  renderInspector();
+  renderActivity(session);
+  dom.bookmarkletExport.focus();
+  dom.bookmarkletExport.select();
 }
 
 function renderTodayDrafts(drafts = getCaptureDraftItems()) {
