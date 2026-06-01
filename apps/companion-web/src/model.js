@@ -1037,7 +1037,7 @@ export function refreshAnsweredQuestionReviewCard(workspace, sessionId, captureI
 
 function reviewOverridesFromAnsweredQuestion(session, capture) {
   if (!captureHasQuestion(capture)) return {};
-  const answer = latestAnswerForQuestion(session, capture.id);
+  const answer = latestReviewReadyAnswerForQuestion(session, capture.id);
   if (!answer) return {};
   const questionText = reviewQuestionText(capture);
   const answerText = answerCaptureText(answer);
@@ -1067,13 +1067,28 @@ function answerCaptureText(capture) {
 }
 
 function latestAnswerForQuestion(session, questionCaptureId) {
+  return sortedAnswersForQuestion(session, questionCaptureId)[0] || null;
+}
+
+function latestReviewReadyAnswerForQuestion(session, questionCaptureId) {
+  return sortedAnswersForQuestion(session, questionCaptureId)
+    .find((capture) => answerTextIsReviewReady(answerCaptureText(capture))) || null;
+}
+
+function sortedAnswersForQuestion(session, questionCaptureId) {
   return [...(session.captures || [])]
     .filter((capture) => cleanAnswerTargetId(capture.answersQuestionCaptureId) === questionCaptureId)
     .sort((a, b) => {
       const byTime = captureEventTime(b) - captureEventTime(a);
       if (byTime !== 0) return byTime;
       return String(b.id || "").localeCompare(String(a.id || ""));
-    })[0] || null;
+    });
+}
+
+function answerTextIsReviewReady(text) {
+  const clean = cleanText(text, MAX_CAPTURE_TEXT_LENGTH);
+  const wordCount = clean.split(/\s+/).filter(Boolean).length;
+  return clean.length >= 12 && (wordCount >= 3 || /[\u4e00-\u9fff]/.test(clean));
 }
 
 function captureEventTime(capture) {

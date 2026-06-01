@@ -774,6 +774,13 @@ const answeredQuestionCardFixture = workspaceFromPortableData({
       answersQuestionCaptureId: "q_prefixed_question",
       createdAt: "2099-01-02T12:00:00.000Z",
       updatedAt: "2099-01-02T12:00:00.000Z"
+    }, {
+      id: "answer_weak_latest",
+      thought: "Answer: ok",
+      answersQuestionCaptureId: "q_prefixed_question",
+      capturedAt: "2099-01-02T13:00:00.000Z",
+      createdAt: "2099-01-02T13:00:00.000Z",
+      updatedAt: "2099-01-02T13:00:00.000Z"
     }],
     reviewCards: []
   }]
@@ -783,9 +790,42 @@ const qPrefixedQuestionCard = getActiveSession(promotedQPrefixedQuestion).review
 assert.match(qPrefixedQuestionCard.prompt, /Answer the question: Which invariant survives stale heap entries\?/);
 assert.doesNotMatch(qPrefixedQuestionCard.prompt, /Answer the question: Q:/);
 assert.match(qPrefixedQuestionCard.answer, /Final invariant: distances are only committed when popped fresh/);
+assert.doesNotMatch(qPrefixedQuestionCard.answer, /Answer: ok/);
 assert.doesNotMatch(qPrefixedQuestionCard.answer, /discard entries whose distance/);
 assert.doesNotMatch(qPrefixedQuestionCard.answer, /Evidence:/);
 assert.equal(qPrefixedQuestionCard.evidenceCaptureId, "answer_created_only");
+const weakOnlyAnswerCardFixture = workspaceFromPortableData({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  clientId: "client_weak_answered_question",
+  activeSessionId: "weak_answered_card_topic",
+  sessions: [{
+    id: "weak_answered_card_topic",
+    title: "Weak answered card semantics",
+    captures: [{
+      id: "weak_answer_question",
+      quote: "The derivation needs a stable invariant.",
+      thought: "Question: What invariant should I keep?",
+      tags: ["question"],
+      capturedAt: "2099-01-02T10:00:00.000Z",
+      createdAt: "2099-01-02T10:00:00.000Z",
+      updatedAt: "2099-01-02T10:00:00.000Z",
+      questionResolvedAt: "2099-01-02T11:00:00.000Z"
+    }, {
+      id: "weak_answer_only",
+      thought: "Answer: ok",
+      answersQuestionCaptureId: "weak_answer_question",
+      capturedAt: "2099-01-02T11:00:00.000Z",
+      createdAt: "2099-01-02T11:00:00.000Z",
+      updatedAt: "2099-01-02T11:00:00.000Z"
+    }],
+    reviewCards: []
+  }]
+});
+const weakOnlyAnswerCard = getActiveSession(promoteCapture(weakOnlyAnswerCardFixture, "weak_answered_card_topic", "weak_answer_question")).reviewCards[0];
+assert.doesNotMatch(weakOnlyAnswerCard.prompt, /Answer the question:/);
+assert.doesNotMatch(weakOnlyAnswerCard.answer, /Answer: ok/);
+assert.equal(weakOnlyAnswerCard.evidenceCaptureId, "");
 const tiedAnswerCardFixture = workspaceFromPortableData({
   schema: WORKSPACE_SCHEMA,
   schemaVersion: WORKSPACE_SCHEMA_VERSION,
