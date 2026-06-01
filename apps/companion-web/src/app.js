@@ -254,28 +254,58 @@ async function readImportFile(file) {
 
 async function importReturnFiles(files) {
   const summary = emptyReturnFilesReceipt(files.length);
+  const returnFiles = [];
   for (const file of files) {
     try {
       const imported = await readImportFile(file);
       if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
         throw new Error("Multi-file import only accepts inbox or review return JSON.");
       }
-      const result = importPortableData(imported, { quiet: true });
-      addReturnFileImportResult(summary, file.name, result);
+      returnFiles.push({
+        fileName: file.name,
+        kind: isMobileInboxPatch(imported) ? "mobile-inbox-patch" : "review-progress-patch",
+        imported
+      });
     } catch (error) {
       addReturnFileImportError(summary, file.name, error.message || "Import failed");
+    }
+  }
+  returnFiles.sort(compareReturnFiles);
+  for (const item of returnFiles) {
+    try {
+      const result = importPortableData(item.imported, { quiet: true });
+      addReturnFileImportResult(summary, item.fileName, result);
+    } catch (error) {
+      addReturnFileImportError(summary, item.fileName, error.message || "Import failed");
     }
   }
   summary.importedAt = new Date().toISOString();
   lastImportReceipt = summary;
   setActivity(getActiveSession(workspace), {
-    title: "Return JSON imported",
+    title: returnFilesActivityTitle(summary),
     detail: formatReturnFilesReceipt(summary),
     tab: "today",
     targetId: ""
   });
   persistAndRender(`Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`);
   if (summary.failedFiles) showToast(`${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`);
+}
+
+function compareReturnFiles(a, b) {
+  const typeOrder = (item) => (item.kind === "mobile-inbox-patch" ? 0 : 1);
+  const left = [
+    typeOrder(a),
+    String(a.imported?.createdAt || ""),
+    String(a.imported?.patchId || ""),
+    String(a.fileName || "")
+  ];
+  const right = [
+    typeOrder(b),
+    String(b.imported?.createdAt || ""),
+    String(b.imported?.patchId || ""),
+    String(b.fileName || "")
+  ];
+  return left.join("\u0000").localeCompare(right.join("\u0000"));
 }
 
 function importPortableData(imported, options = {}) {
@@ -1972,6 +2002,13 @@ function formatReturnFilesReceipt(receipt) {
   return parts.join(" · ");
 }
 
+function returnFilesActivityTitle(receipt) {
+  const inbox = Number(receipt?.inbox?.files) || 0;
+  const review = Number(receipt?.review?.files) || 0;
+  if (!inbox && !review) return "Return JSON import issue";
+  return `Return JSON imported (${inbox} inbox, ${review} review)`;
+}
+
 function renderMetrics() {
   const session = getActiveSession(workspace);
   const due = getDueReviewItems(workspace).length;
@@ -3118,7 +3155,7 @@ function renderReturnFilesPanel() {
   const boundary = textEl("p", "handoff-boundary", "Manual files only. No live Feishu sync or verified HarmonyOS device app yet.");
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const importPatch = textEl("button", "mini-button primary", "Import Files (Step 3)");
+  const importPatch = textEl("button", "mini-button primary", "Import Return Files (Step 3)");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());

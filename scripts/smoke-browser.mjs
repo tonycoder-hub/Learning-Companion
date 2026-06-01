@@ -942,6 +942,7 @@ try {
           const batchTransfer = new DataTransfer();
           batchTransfer.items.add(new File([JSON.stringify(batchInboxPatch)], "learning-companion-inbox-patch-20260529-0902-002.json", { type: "application/json" }));
           batchTransfer.items.add(new File([JSON.stringify(reviewProgressPatch)], "learning-companion-review-progress-patch-20260529-0906-missing.json", { type: "application/json" }));
+          batchTransfer.items.add(new File([JSON.stringify(restoredWorkspace)], "workspace-return-mistake.json", { type: "application/json" }));
           importInput.files = batchTransfer.files;
           importInput.dispatchEvent(new Event("change", { bubbles: true }));
           setTimeout(() => {
@@ -1173,11 +1174,13 @@ try {
   assert.match(result.singleInboxReceiptText, /invalid: 1/);
   assert.match(result.singleInboxReceiptText, /topic id matched/);
   assert.match(result.batchReceiptText, /Return JSON imported/);
-  assert.match(result.batchReceiptText, /2\/2 files processed/);
+  assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /inbox: 1 added, 0 skipped/);
   assert.match(result.batchReceiptText, /review: 0 applied, 1 duplicate/);
-  assert.equal(result.batchActivityTitle, "Return JSON imported");
-  assert.match(result.batchActivityDetail, /2\/2 files processed/);
+  assert.match(result.batchReceiptText, /1 failed/);
+  assert.match(result.batchReceiptText, /workspace-return-mistake\.json/);
+  assert.equal(result.batchActivityTitle, "Return JSON imported (1 inbox, 1 review)");
+  assert.match(result.batchActivityDetail, /2\/3 files processed/);
   assert.equal(result.inboxLatestSourceUrl, "");
   assert.equal(result.inboxLatestProvenance, "inbox");
   assert.equal(result.inboxSanitizedSourceUrls, 1);
@@ -1186,14 +1189,15 @@ try {
   assert.equal(result.batchImportedReviewPatch, true);
   assert.match(result.handoffText, /Return Files/);
   assert.match(result.handoffText, /2 inbox · 1 review/);
-  assert.match(result.handoffText, /2\/2 files processed/);
+  assert.match(result.handoffText, /2\/3 files processed/);
   assert.match(result.handoffText, /review: 0 applied, 1 duplicate/);
+  assert.match(result.handoffText, /1 failed/);
   assert.match(result.handoffText, /On this Mac: export a mirror/);
   assert.match(result.handoffText, /Feishu Drive, USB, email, or any file share/);
   assert.match(result.handoffText, /On phone or Windows: open inbox\.html or review\.html and save inbox\/review return JSON files/);
   assert.match(result.handoffText, /Back on this Mac: transfer those JSON files here and import one or many at once/);
   assert.match(result.handoffText, /Manual files only/);
-  assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import Files (Step 3)"]);
+  assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import Return Files (Step 3)"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
     activeElement: "downloadMirrorBtn",

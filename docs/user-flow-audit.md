@@ -34,13 +34,13 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 
 - Added a `Next Move` card to Today for returning users. It chooses one primary action in this order: due review, capture draft, open question, parked question, recent capture, or capture setup.
 - Kept empty-workspace `Start Here` as the first-run path instead of showing `Next Move`.
-- Renamed the Today handoff card from `Patch Intake` to `Return Files`, and changed the import button to `Import Files`.
+- Renamed the Today handoff card from `Patch Intake` to `Return Files`, and changed the import button to `Import Return Files`.
 - Added the explicit Return Files manual transfer path with device labels: export mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON back on Mac. The card now calls Feishu a file-sharing route, not sync.
 - `Export Mirror (Step 1)` now opens the Export tab at the Mirror Folder section, focuses Save Mirror, and records a Step 1 activity receipt instead of dropping the user into an undifferentiated export panel.
 - Saving Mirror JSON or ZIP now records a handoff receipt that tells the user to move the file to Feishu Drive, phone, or Windows and use `inbox.html` or `review.html` to create a return JSON.
 - The exported `index.html`, `review.html`, and `inbox.html` now repeat the return-file contract on the device side: static mirror, no live sync, save a return JSON, move it back to Mac, import from Today > Return Files.
 - Mira's follow-up critique identified fixed return filenames and mobile tab loss as real manual-flow risks. The static Review and Inbox pages now save timestamped return JSON filenames and warn before leaving when local review/capture work has not been saved or copied.
-- The Mac import picker now accepts multiple return JSON files at once and shows a combined `Return JSON imported` receipt, so a phone review file and a Windows inbox file can close the loop together.
+- The Mac import picker now accepts multiple return JSON files at once and shows a combined `Return JSON imported` receipt, so a phone review file and a Windows inbox file can close the loop together. Batch import uses a stable inbox-before-review order and continues past wrong-type files with per-file errors.
 - Browser smoke now pins the `Next Move` priority and the new `Return Files` copy.
 
 ## Current Journey Assessment
