@@ -134,12 +134,21 @@ Latest local work tightens the generated morning review pack around those entry 
 - `MAC_MANUAL_QA.md` now has explicit `NT` rows for empty-workspace Start Here behavior and Today map chip jumps at sidecar/mobile widths.
 - `validate-morning-receipts.mjs` pins these strings so the morning evidence pack cannot silently drift back to a generic artifact checklist.
 
+Latest local work makes the Harmony file-picker/import contract concrete:
+
+- The JS Harmony import boundary now validates a foreground file candidate before parsing: `.json` only, 5 MB max, unsupported type and oversize error codes pinned.
+- The ArkTS scaffold mirrors that contract with `HARMONY_IMPORT_MAX_BYTES`, `validatePortableFileCandidate()`, and `describeImportPickerContract()`.
+- The scaffold Index and ImportReceipt pages now tell the future DevEco implementer exactly what to accept, reject, and display without claiming the real picker has run.
+- `DEVECO_HANDOFF.md` now spells out the foreground-only picker flow, accepted schemas, rejection receipts, and the rule that phone patch files stay on the export path.
+- A targeted Mira review returned `PASS_WITH_NOTES`; accepted fixes tightened empty/invalid file-size handling, uppercase `.JSON` behavior, `size` vs `byteLength` precedence, receipt error-code copy, 5 MB rationale, and the caveat that ArkTS parity is a scaffold mirror rather than a behavior test.
+- Deferred Mira notes: BOM/CRLF fixture parsing and smoke-guard self-mutation tests are useful later, but not blockers for this local contract increment.
+- This remains scaffold/contract evidence only: no DevEco compile, no device picker, no device storage, and no Feishu-backed transport are claimed.
+
 ## Verified Locally
 
-These passed after the morning review pack evidence update:
+These passed after the Harmony file-picker contract update:
 
-- `npm run demo:morning`
-- `npm run morning:receipts`
+- `npm run smoke:harmony`
 - `npm run check:morning`
 - `git diff --check`
 
@@ -230,11 +239,20 @@ Latest Mira note for Today section map:
 - A targeted Mira review was attempted for the map/density UX but timed out at the SSH broker layer after roughly 630s (`error_code: TIMEOUT`, `error_stage: ssh`).
 - No Mira verdict was available for this increment. Local code review accepted the small readability fix from `Active Q` to `Questions`; no broader information-architecture rewrite was made.
 
+Latest absorbed Mira notes for Harmony import/file-picker contract:
+
+- Keep the contract, but make zero-byte and invalid-size failures diagnostic before JSON parsing.
+- Pin case-insensitive `.json` extension behavior and `size` precedence over `byteLength`.
+- Include every returned candidate-validation code in ImportReceipt copy, including `INVALID_FILE_SIZE`.
+- State that ArkTS `validatePortableFileCandidate()` is scaffold parity only until DevEco/device tests execute it.
+- Add rationale and revisit trigger for the 5 MB limit; current cap is conservative for read-only MVP fixtures.
+- Defer BOM/CRLF and smoke self-mutation checks until a real picker or broader import corpus makes them worth the extra surface.
+
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is making the Harmony scaffold import/file-picker story more concrete without claiming device validation.
-   - Alternatively, run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
+   - Consider whether the next useful increment is rendering more of the imported `harmony-reader-view.v1` in the ArkTS scaffold, or adding a local persisted-view placeholder that still avoids device claims.
+   - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.

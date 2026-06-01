@@ -16,9 +16,11 @@ import {
   buildHarmonyReaderView
 } from "../apps/companion-harmony/src/schema-reader.mjs";
 import {
+  HARMONY_IMPORT_MAX_BYTES,
   HARMONY_IMPORT_RECEIPT_SCHEMA,
   buildHarmonyPatchEnvelope,
-  importPortableForHarmony
+  importPortableForHarmony,
+  validateHarmonyImportFileCandidate
 } from "../apps/companion-harmony/src/import-boundary.mjs";
 
 const now = new Date("2026-05-29T08:20:00.000+08:00");
@@ -242,6 +244,54 @@ const mirrorImport = importPortableForHarmony(mirror, { now });
 assert.equal(mirrorImport.ok, true);
 assert.equal(mirrorImport.receipt.sourceKind, "mirror-bundle");
 assert.equal(mirrorImport.receipt.topicCount, workspace.sessions.length);
+
+const acceptedFileCandidate = validateHarmonyImportFileCandidate({
+  name: "workspace.json",
+  size: HARMONY_IMPORT_MAX_BYTES
+});
+assert.equal(acceptedFileCandidate.ok, true);
+assert.deepEqual(acceptedFileCandidate.acceptedExtensions, [".json"]);
+const acceptedUppercaseExtension = validateHarmonyImportFileCandidate({
+  name: "workspace.JSON",
+  size: 1024
+});
+assert.equal(acceptedUppercaseExtension.ok, true);
+const acceptedByteLengthFallback = validateHarmonyImportFileCandidate({
+  fileName: "mirror.JSON",
+  byteLength: 1024
+});
+assert.equal(acceptedByteLengthFallback.ok, true);
+const sizeWinsOverByteLength = validateHarmonyImportFileCandidate({
+  name: "workspace.json",
+  size: HARMONY_IMPORT_MAX_BYTES,
+  byteLength: HARMONY_IMPORT_MAX_BYTES + 1
+});
+assert.equal(sizeWinsOverByteLength.ok, true);
+const rejectedFileType = validateHarmonyImportFileCandidate({
+  name: "workspace.txt",
+  size: 1024
+});
+assert.equal(rejectedFileType.ok, false);
+assert.equal(rejectedFileType.errorCode, "UNSUPPORTED_FILE_TYPE");
+const rejectedMissingName = validateHarmonyImportFileCandidate({
+  size: 1024
+});
+assert.equal(rejectedMissingName.ok, false);
+assert.equal(rejectedMissingName.errorCode, "UNSUPPORTED_FILE_TYPE");
+const rejectedOversizeFile = validateHarmonyImportFileCandidate({
+  name: "workspace.json",
+  size: HARMONY_IMPORT_MAX_BYTES + 1
+});
+assert.equal(rejectedOversizeFile.ok, false);
+assert.equal(rejectedOversizeFile.errorCode, "PORTABLE_FILE_TOO_LARGE");
+for (const size of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, undefined]) {
+  const rejectedInvalidSize = validateHarmonyImportFileCandidate({
+    name: "workspace.json",
+    size
+  });
+  assert.equal(rejectedInvalidSize.ok, false);
+  assert.equal(rejectedInvalidSize.errorCode, "INVALID_FILE_SIZE");
+}
 
 const rejectedPatchImport = importPortableForHarmony({
   schema: "learning-companion.mobile-inbox-patch.v1",

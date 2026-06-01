@@ -55,11 +55,24 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 ## Import Boundary
 
 - Use the HarmonyOS document picker or app sandbox file picker.
-- Accept only JSON files under the documented size limit chosen for the app.
+- Accept only `.json` files up to 5 MB.
 - Parse into `workspace.v1` or `mirror-bundle.staging.v1`.
 - Use `workspace.json` as canonical when importing a mirror bundle.
 - Reject unknown schema versions with a visible receipt.
 - Do not read Feishu credentials, browser cookies, system clipboards, or background storage.
+
+Concrete scaffold contract:
+
+1. Pick one foreground file only; no recursive folder scan and no background storage crawl.
+2. Run the file candidate through `validatePortableFileCandidate()` before reading bytes.
+3. Read accepted files as UTF-8 text and call `importPortableJsonText(text, nowIso)`.
+4. On success, persist only the derived `harmony-reader-view.v1` plus the import receipt.
+5. On rejection, show `ImportReceipt` with `INVALID_JSON`, `INVALID_FILE_SIZE`, `UNSUPPORTED_FILE_TYPE`, `PORTABLE_FILE_TOO_LARGE`, `UNSUPPORTED_PORTABLE_DATA`, or `PATCH_IMPORT_NOT_SUPPORTED_ON_READER`.
+6. Keep mobile inbox and review-progress patch files on the export path; the phone reader must not import them as workspace state.
+
+The 5 MB cap is a conservative MVP guard: current fixture workspaces and mirror bundles are well under 1 MB, while 5 MB leaves headroom without encouraging large media-like payloads on lower-end phones. Revisit the cap when p95 mirror bundles exceed 2 MB or the app moves from read-only reader to richer offline storage.
+
+ArkTS `validatePortableFileCandidate()` is a scaffold mirror, not a DevEco-executed behavior test. Treat the JS validator in `apps/companion-harmony/src/import-boundary.mjs` as the source of truth for verdicts until the ArkTS code is compiled and covered on device.
 
 ## Patch Boundary
 
@@ -85,6 +98,7 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 
 | Gate | Expected Evidence |
 | --- | --- |
+| File candidate guard | Non-JSON files and files over 5 MB produce a visible rejection receipt before JSON parsing. |
 | Import workspace JSON | Topic count, active topic, due cards match `sample-harmony-reader-view.json`. |
 | Import mirror bundle | Same view model as workspace import. |
 | Open question backlog | Open questions and per-topic counts match the Mac Today backlog, while resolved questions only appear in recent captures as answered. |

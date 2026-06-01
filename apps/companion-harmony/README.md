@@ -25,6 +25,7 @@ npm run smoke:harmony
 
 - No HarmonyOS SDK or DevEco build is required for the local smoke gate.
 - No Feishu credential, browser state, or local device permission is read.
+- The file-picker contract is now explicit in the prototype: accept one `.json` file up to 5 MB, reject non-JSON or oversized files before parsing, then parse only `workspace.v1` or `mirror-bundle.staging.v1`.
 - `answersToday` is a Mac-side read-only projection for Harmony, not proof that the Harmony device has written or synced those answers.
 - Native write UI is scaffolded only. Phone-side capture and review progress still use append-only patch JSON and must be imported on Mac.
 - The reader is intentionally close to plain JavaScript so the shape can be ported to ArkTS after the view model feels right.
@@ -36,7 +37,7 @@ See [DEVECO_HANDOFF.md](DEVECO_HANDOFF.md) for the scaffold layout, ArkTS port b
 ## Next Steps
 
 - Verify `../companion-harmony-dev/` in DevEco Studio once SDK setup is available.
-- Add a file-picker/import path for `workspace.json` or the mirror bundle.
+- Wire the scaffolded file-picker contract to a real HarmonyOS document picker and persist the accepted reader view.
 - Render active topic, answers today, open questions, due review, and recent captures from `harmony-reader-view.v1`.
 - Port `src/import-boundary.mjs` into ArkTS services.
 - Keep patch export append-only; do not overwrite Mac workspace state from the phone.

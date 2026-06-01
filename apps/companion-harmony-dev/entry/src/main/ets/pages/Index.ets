@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { createEmptyReaderView, summarizeReaderView } from '../model/harmonyReaderView';
 import { HarmonyReaderView } from '../model/workspace';
+import { describeImportPickerContract } from '../services/importPortableData';
 
 @Entry
 @Component
@@ -21,7 +22,10 @@ struct Index {
 
       Button('Import Workspace or Mirror JSON')
         .enabled(false)
-      Text('Document picker wiring is a deferred device gate. Use sample-harmony-reader-view.json until DevEco validation.')
+      Text('Picker contract: JSON <= 5 MB; workspace or mirror bundle only; show ImportReceipt for every success or rejection.')
+        .fontSize(12)
+        .fontColor('#666154')
+      Text(describeImportPickerContract()[3])
         .fontSize(12)
         .fontColor('#666154')
 

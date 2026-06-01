@@ -22,7 +22,7 @@ apps/companion-harmony-dev/
 Expected first DevEco tasks:
 
 1. Confirm `AppScope/app.json5` and `entry/src/main/module.json5` match the installed SDK version.
-2. Wire a document picker into `services/importPortableData.ts`.
+2. Wire a document picker into `services/importPortableData.ets` using the scaffolded contract: one `.json` file, 5 MB max, workspace or mirror bundle schema only.
 3. Replace `sampleReaderView()` with persisted imported data.
 4. Add device storage for the last accepted reader view.
 5. Run the manual gates from `../companion-harmony/DEVECO_HANDOFF.md`.
@@ -33,3 +33,4 @@ Expected first DevEco tasks:
 - Phone writes must remain append-only patch exports.
 - Mac remains the authority for importing patches and resolving conflicts.
 - Live Feishu sync is not part of this scaffold.
+- Non-JSON files, oversized files, and patch files should show an import receipt instead of mutating reader state.

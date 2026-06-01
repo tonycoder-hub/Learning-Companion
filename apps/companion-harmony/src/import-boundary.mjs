@@ -13,6 +13,54 @@ import {
 } from "./schema-reader.mjs";
 
 export const HARMONY_IMPORT_RECEIPT_SCHEMA = "learning-companion.harmony-import-receipt.v1";
+export const HARMONY_IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+export const HARMONY_IMPORT_ACCEPTED_EXTENSIONS = Object.freeze([".json"]);
+
+export function validateHarmonyImportFileCandidate(candidate = {}) {
+  const name = cleanText(candidate.name || candidate.fileName, 255);
+  const size = Number(candidate.size ?? candidate.byteLength);
+  if (!name.toLowerCase().endsWith(".json")) {
+    return {
+      ok: false,
+      errorCode: "UNSUPPORTED_FILE_TYPE",
+      message: "Select a .json workspace or mirror bundle file.",
+      maxBytes: HARMONY_IMPORT_MAX_BYTES,
+      acceptedExtensions: HARMONY_IMPORT_ACCEPTED_EXTENSIONS
+    };
+  }
+  if (!Number.isFinite(size) || size < 0) {
+    return {
+      ok: false,
+      errorCode: "INVALID_FILE_SIZE",
+      message: "Selected file size is unavailable.",
+      maxBytes: HARMONY_IMPORT_MAX_BYTES,
+      acceptedExtensions: HARMONY_IMPORT_ACCEPTED_EXTENSIONS
+    };
+  }
+  if (size === 0) {
+    return {
+      ok: false,
+      errorCode: "INVALID_FILE_SIZE",
+      message: "Selected file is empty.",
+      maxBytes: HARMONY_IMPORT_MAX_BYTES,
+      acceptedExtensions: HARMONY_IMPORT_ACCEPTED_EXTENSIONS
+    };
+  }
+  if (size > HARMONY_IMPORT_MAX_BYTES) {
+    return {
+      ok: false,
+      errorCode: "PORTABLE_FILE_TOO_LARGE",
+      message: "Selected file is larger than the Harmony reader import limit.",
+      maxBytes: HARMONY_IMPORT_MAX_BYTES,
+      acceptedExtensions: HARMONY_IMPORT_ACCEPTED_EXTENSIONS
+    };
+  }
+  return {
+    ok: true,
+    maxBytes: HARMONY_IMPORT_MAX_BYTES,
+    acceptedExtensions: HARMONY_IMPORT_ACCEPTED_EXTENSIONS
+  };
+}
 
 export function importPortableForHarmony(portableData, options = {}) {
   const importedAt = normalizeIso(options.now);
