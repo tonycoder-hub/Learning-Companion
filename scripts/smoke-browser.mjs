@@ -1138,7 +1138,12 @@ try {
   assert.match(result.handoffText, /Return Files/);
   assert.match(result.handoffText, /1 inbox · 1 review/);
   assert.match(result.handoffText, /1 added/);
-  assert.deepEqual(result.handoffButtons, ["Import File", "Export Mirror"]);
+  assert.match(result.handoffText, /On this Mac: export a mirror/);
+  assert.match(result.handoffText, /Feishu Drive, USB, email, or any file share/);
+  assert.match(result.handoffText, /On phone or Windows: open inbox\.html or review\.html/);
+  assert.match(result.handoffText, /Back on this Mac: transfer that JSON here and import it/);
+  assert.match(result.handoffText, /Manual files only/);
+  assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import File (Step 3)"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
   assert.match(result.draftFocusBrief.action, /Review/);

@@ -89,7 +89,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
-- Today tab surfaces Return Files counts and latest receipt so append-only phone/Windows JSON updates are visible in the primary daily workflow.
+- Today tab surfaces Return Files counts, latest receipt, and the manual device-labeled path: export a mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON on Mac.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 - Minimal macOS WKWebView shell scaffold that loads the web MVP.

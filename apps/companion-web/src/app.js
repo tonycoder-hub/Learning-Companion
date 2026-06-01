@@ -2214,7 +2214,7 @@ function renderToday() {
   } else {
     dom.todayList.append(renderTodayPrimaryAction(pack, draftItems));
   }
-  dom.todayList.append(renderPatchIntakePanel());
+  dom.todayList.append(renderReturnFilesPanel());
   renderTodayDrafts(draftItems);
 
   dom.todayList.append(todaySectionTitle("Due Review", "due_review"));
@@ -2955,7 +2955,7 @@ function todayStat(value, label) {
   return node;
 }
 
-function renderPatchIntakePanel() {
+function renderReturnFilesPanel() {
   const panel = document.createElement("article");
   panel.className = "item-card handoff-card";
   const inboxCount = workspace.importedPatches.length;
@@ -2971,19 +2971,29 @@ function renderPatchIntakePanel() {
     "handoff-detail",
     lastImportReceipt ? formatImportReceipt(lastImportReceipt) : "Import phone or Windows JSON updates"
   );
+  const steps = document.createElement("ol");
+  steps.className = "return-files-steps";
+  [
+    "On this Mac: export a mirror, then move it through Feishu Drive, USB, email, or any file share.",
+    "On phone or Windows: open inbox.html or review.html and save the return JSON.",
+    "Back on this Mac: transfer that JSON here and import it."
+  ].forEach((step) => {
+    steps.append(textEl("li", "", step));
+  });
+  const boundary = textEl("p", "handoff-boundary", "Manual files only. No live Feishu sync or verified HarmonyOS device app yet.");
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const importPatch = textEl("button", "mini-button primary", "Import File");
+  const importPatch = textEl("button", "mini-button primary", "Import File (Step 3)");
   importPatch.type = "button";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
-  const exportMirror = textEl("button", "mini-button", "Export Mirror");
+  const exportMirror = textEl("button", "mini-button", "Export Mirror (Step 1)");
   exportMirror.type = "button";
   exportMirror.addEventListener("click", () => {
     activeTab = "export";
     renderInspector();
   });
-  footer.append(importPatch, exportMirror);
-  panel.append(header, detail, footer);
+  footer.append(exportMirror, importPatch);
+  panel.append(header, detail, steps, boundary, footer);
   return panel;
 }
 

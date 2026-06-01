@@ -1039,7 +1039,7 @@ function buildMacManualQaMarkdown({
     "| Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | If Accessibility exposes `AXSelectedText`, selected text is captured without overwriting pasteboard. | NT |  |",
     "| Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | App does not import stale clipboard; status explains no selection/new clipboard. | NT |  |",
     "| Browser context | Capture selected/clipboard text while Safari or Chrome is frontmost on an HTTP(S) page. | Capture can attach page title and URL, or degrades to text-only if Automation is denied. | NT |  |",
-    "| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json` via `File > Import Workspace...`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |",
+    "| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json` via `File > Import Workspace...`. | Return Files/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |",
     "| Native import failure | Import a malformed JSON file via `File > Import Workspace...`. | Alert and in-app issue receipt explain the import failure. | NT |  |",
     "| Export backup | After adding a capture, confirm the storage notice appears; then use `File > Export Workspace...`. | Notice asks for export before backup and then asks you to verify the downloaded JSON file yourself. | NT |  |",
     "| Relaunch persistence | Quit and relaunch the shell. | Workspace persists through WebKit localStorage. | NT |  |",
