@@ -65,6 +65,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Today and mirror exports include a Resume Here / Focus Brief section for mobile, Windows, and Feishu handoff, with source links resuming at the latest captured timestamp when available; mirror `index.html` also previews open questions before the recent-capture list.
 - Static mirror `review.html` supports due-card review on mobile/Windows and exports append-only review progress patch JSON.
 - Static mirror `inbox.html` supports phone/Windows capture drafts and exports append-only mobile inbox patch JSON.
+- Static mirror answer links carry `answersQuestionCaptureId`; importing that answer patch can resolve the original same-topic question while preserving the new answer capture.
 - Mobile inbox patch import appends captures with patch/capture id dedupe, target-resolution fallback, unsafe URL stripping with receipt counts, and a visible import receipt.
 - Review progress patch import applies Again/Good events only when the card version still matches, and reports duplicates, missing cards, stale conflicts, and invalid events.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patch files, so return-path problems remain inspectable after the toast fades.

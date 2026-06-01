@@ -1053,6 +1053,7 @@ try {
     topicId: inboxRuntime.selectedTopicId,
     quote: "What should I answer from the mirror?",
     thought: "Answer:",
+    answerToCaptureId: "capture_question_runtime",
     timestamp: "12:34",
     tags: "question, answer",
     sourceTitle: "Mirror question preview",
@@ -1081,6 +1082,17 @@ try {
   assert.equal(inboxAnswerRuntime.tags, "question, answer");
   assert.equal(inboxAnswerRuntime.sourceTitle, "Mirror question preview");
   assert.equal(inboxAnswerRuntime.sourceUrl, "");
+  const inboxAnswerPatchRuntime = await cdp.evaluate(`(() => {
+    document.querySelector("#addCaptureBtn").click();
+    const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
+    const capture = preview.captures.find((item) => item.quote === "What should I answer from the mirror?");
+    return {
+      status: document.querySelector("#statusOutput").textContent,
+      answersQuestionCaptureId: capture?.answersQuestionCaptureId || ""
+    };
+  })()`);
+  assert.equal(inboxAnswerPatchRuntime.status, "Capture added to patch draft.");
+  assert.equal(inboxAnswerPatchRuntime.answersQuestionCaptureId, "capture_question_runtime");
 
   const hostileMirrorQuote = `Can inbox prefill keep <script>alert("x")</script> & #hash ?q=1 emoji 😀 RTL שלום ${"x".repeat(1024)}?`;
   const hostileInboxParams = new URLSearchParams({
@@ -1113,7 +1125,8 @@ try {
       captureThought: capture?.thought || "",
       captureTags: capture?.tags || "",
       captureSourceTitle: capture?.sourceTitle || "",
-      captureSourceUrl: capture?.sourceUrl || ""
+      captureSourceUrl: capture?.sourceUrl || "",
+      captureAnswersQuestionCaptureId: capture?.answersQuestionCaptureId || ""
     };
   })()`);
 
@@ -1129,6 +1142,7 @@ try {
   assert.equal(hostileInboxRuntime.captureTags, "question, hostile, answer");
   assert.equal(hostileInboxRuntime.captureSourceTitle, "Mirror hostile question");
   assert.equal(hostileInboxRuntime.captureSourceUrl, "");
+  assert.equal(hostileInboxRuntime.captureAnswersQuestionCaptureId, "");
 
   await cdp.send("Page.navigate", { url: appUrl });
   await sleep(300);

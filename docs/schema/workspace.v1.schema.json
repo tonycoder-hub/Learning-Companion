@@ -128,6 +128,11 @@
         },
         "inboxPatchId": { "type": "string", "maxLength": 128 },
         "inboxCaptureId": { "type": "string", "maxLength": 128 },
+        "answersQuestionCaptureId": {
+          "description": "Optional local capture id of the question this capture answers. Mobile inbox imports may use it to resolve an existing question in the same target topic after adding the answer capture.",
+          "type": "string",
+          "maxLength": 128
+        },
         "questionResolvedAt": {
           "description": "Optional timestamp marking a captured question as resolved. Missing or null means a question-shaped capture is still open.",
           "anyOf": [

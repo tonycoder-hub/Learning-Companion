@@ -297,6 +297,7 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
     originClientId: capture.originClientId || originClientId,
     inboxPatchId: cleanText(capture.inboxPatchId, 128),
     inboxCaptureId: cleanText(capture.inboxCaptureId, 128),
+    answersQuestionCaptureId: cleanText(capture.answersQuestionCaptureId, 128),
     questionResolvedAt,
     questionParkedAt,
     promotedToReview: Boolean(capture.promotedToReview)
@@ -571,6 +572,7 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
   if (captures.length > MAX_INBOX_PATCH_CAPTURES) {
     throw new Error("Mobile inbox patch has too many captures.");
   }
+  const importedAtIso = Number.isFinite(now?.getTime?.()) ? now.toISOString() : nowIso();
   const importedPatches = normalizeImportedPatches(safeWorkspace.importedPatches);
   if (importedPatches.includes(patchId)) {
     return {
@@ -596,6 +598,8 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
   const importedCaptures = [];
   let skippedDuplicate = 0;
   let sanitizedSourceUrls = 0;
+  let answeredQuestions = 0;
+  let skippedAnswerTargets = 0;
 
   captures.forEach((capture) => {
     const inboxCaptureId = cleanText(capture?.id, 128);
@@ -623,7 +627,8 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
       createdAt: normalizeInboxCapturedAt(capture.capturedAt, now),
       updatedAt: nowIso(),
       inboxPatchId: patchId,
-      inboxCaptureId
+      inboxCaptureId,
+      answersQuestionCaptureId: capture.answersQuestionCaptureId
     }, safeWorkspace.clientId, {
       sourceTitle: target.session.sourceTitle,
       sourceUrl: target.session.sourceUrl,
@@ -641,18 +646,37 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
     return a.inboxCaptureId.localeCompare(b.inboxCaptureId);
   });
 
+  const answerTargetIds = [...new Set(importedCaptures
+    .map((capture) => cleanText(capture.answersQuestionCaptureId, 128))
+    .filter(Boolean))];
+  const answeredQuestionIds = new Set();
+
   const nextWorkspace = {
     ...safeWorkspace,
-    updatedAt: nowIso(),
+    updatedAt: importedAtIso,
     importedPatches: [...importedPatches, patchId].slice(-200),
-    sessions: safeWorkspace.sessions.map((session) => session.id === target.session.id
-      ? {
+    sessions: safeWorkspace.sessions.map((session) => {
+      if (session.id !== target.session.id) return session;
+      const capturesWithAnsweredQuestions = session.captures.map((capture) => {
+        if (!answerTargetIds.includes(capture.id)) return capture;
+        if (!captureHasOpenQuestion(capture) && !captureHasParkedQuestion(capture)) return capture;
+        answeredQuestionIds.add(capture.id);
+        return {
+          ...capture,
+          questionResolvedAt: importedAtIso,
+          questionParkedAt: null,
+          updatedAt: importedAtIso
+        };
+      });
+      skippedAnswerTargets = answerTargetIds.length - answeredQuestionIds.size;
+      return {
         ...session,
-        captures: [...importedCaptures, ...session.captures],
-        updatedAt: nowIso()
-      }
-      : session)
+        captures: [...importedCaptures, ...capturesWithAnsweredQuestions],
+        updatedAt: importedAtIso
+      };
+    })
   };
+  answeredQuestions = answeredQuestionIds.size;
   const finalWorkspace = sanitizeWorkspace(nextWorkspace);
   return {
     workspace: finalWorkspace,
@@ -665,6 +689,8 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
       added: importedCaptures.length,
       skippedDuplicate,
       sanitizedSourceUrls,
+      answeredQuestions,
+      skippedAnswerTargets,
       importedAt: now
     })
   };
@@ -828,6 +854,7 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
     capturedAt: timestamp,
     updatedAt: timestamp,
     originClientId: workspace.clientId,
+    answersQuestionCaptureId: cleanText(captureInput.answersQuestionCaptureId, 128),
     questionResolvedAt: null,
     questionParkedAt: null,
     promotedToReview: Boolean(options.promoteToReview)
@@ -2015,6 +2042,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    };",
     "    let drafts = loadDrafts();",
     "    let sourceUrlExplicit = false;",
+    "    let answerToCaptureId = '';",
     "    seed.topics.forEach((topic) => {",
     "      const option = document.createElement('option');",
     "      option.value = topic.id;",
@@ -2055,6 +2083,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "        sourceTitle: clean(fields.sourceTitle.value, 160),",
     "        sourceUrl: safeUrl(fields.sourceUrl.value),",
     "        sourceUrlProvided: sourceUrlExplicit || Boolean(fields.sourceUrl.value.trim()),",
+    "        answersQuestionCaptureId: answerToCaptureId,",
     "        materialType: currentTopic().materialType || 'other',",
     "        capturedAt: new Date().toISOString()",
     "      });",
@@ -2080,6 +2109,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "          timestamp: item.timestamp,",
     "          sourceTitle: item.sourceTitle || topic.sourceTitle || '',",
     "          sourceUrl: item.sourceUrlProvided ? item.sourceUrl : safeUrl(topic.sourceUrl || ''),",
+    "          answersQuestionCaptureId: item.answersQuestionCaptureId || '',",
     "          materialType: item.materialType || topic.materialType || 'other',",
     "          tags: item.tags,",
     "          capturedAt: item.capturedAt",
@@ -2115,13 +2145,14 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      fields.sourceTitle.value = clean(params.get('sourceTitle'), 160);",
     "      const rawSourceUrl = params.get('sourceUrl');",
     "      sourceUrlExplicit = rawSourceUrl !== null;",
+    "      answerToCaptureId = clean(params.get('answerToCaptureId'), 128);",
     "      fields.sourceUrl.value = safeUrl(rawSourceUrl);",
     "      if (fields.quote.value || fields.thought.value) setStatus(notice || 'Answer draft loaded from mirror link.');",
     "    }",
     "    function currentTopic() { return seed.topics.find((topic) => topic.id === topicSelect.value) || seed.topics[0]; }",
     "    function loadDrafts() { try { return JSON.parse(localStorage.getItem(storageKey) || '[]').filter((item) => item && item.id); } catch { return []; } }",
     "    function saveDrafts() { localStorage.setItem(storageKey, JSON.stringify(drafts.slice(-50))); }",
-    "    function clearForm() { Object.values(fields).forEach((field) => { field.value = ''; }); sourceUrlExplicit = false; }",
+    "    function clearForm() { Object.values(fields).forEach((field) => { field.value = ''; }); sourceUrlExplicit = false; answerToCaptureId = ''; }",
     "    function clean(value, max) { return String(value || '').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim().slice(0, max); }",
     "    function safeUrl(value) { const raw = clean(value, 2048); if (!raw) return ''; try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }",
     "    function makeId(prefix) { return `${prefix}_${randomIdPart()}`; }",
@@ -2282,6 +2313,7 @@ function buildInboxAnswerHref(sessionId, capture) {
   params.set("topicId", cleanQueryParam(sessionId, 128));
   params.set("quote", cleanQueryParam(capture?.thought || capture?.quote || "Untitled question", MAX_CAPTURE_TEXT_LENGTH));
   params.set("thought", "Answer:");
+  params.set("answerToCaptureId", cleanQueryParam(capture?.id, 128));
   if (capture?.timestamp) params.set("timestamp", cleanQueryParam(capture.timestamp, 32));
   const tags = normalizeTags([...(capture?.tags || []), "answer"]).join(", ");
   if (tags) params.set("tags", tags);
@@ -2588,7 +2620,19 @@ function resolveInboxPatchTarget(workspace, patch) {
   return { session: getActiveSession(workspace), resolution: "active-fallback" };
 }
 
-function buildInboxReceipt({ patch, patchId, workspace, targetSession, targetResolution, added, skippedDuplicate, sanitizedSourceUrls = 0, importedAt }) {
+function buildInboxReceipt({
+  patch,
+  patchId,
+  workspace,
+  targetSession,
+  targetResolution,
+  added,
+  skippedDuplicate,
+  sanitizedSourceUrls = 0,
+  answeredQuestions = 0,
+  skippedAnswerTargets = 0,
+  importedAt
+}) {
   return {
     schema: "learning-companion.mobile-inbox-receipt.v1",
     patchId,
@@ -2600,6 +2644,8 @@ function buildInboxReceipt({ patch, patchId, workspace, targetSession, targetRes
     added,
     skippedDuplicate,
     sanitizedSourceUrls,
+    answeredQuestions,
+    skippedAnswerTargets,
     totalCaptures: Array.isArray(patch.captures) ? patch.captures.length : 0,
     workspaceSessionCount: workspace.sessions.length
   };

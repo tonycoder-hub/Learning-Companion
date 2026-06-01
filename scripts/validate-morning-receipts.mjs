@@ -191,6 +191,7 @@ assert.match(morningReview, /stale seven-day export/);
 assert.match(morningReview, /1 open question/);
 assert.match(morningReview, /1 parked question/);
 assert.match(morningReview, /2 unresolved questions/);
+assert.match(morningReview, /1 original question resolved/);
 assert.match(stage, /1 open question/);
 assert.match(stage, /1 parked question/);
 assert.match(reviewStartHere, /1 open question/);

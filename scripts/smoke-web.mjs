@@ -393,6 +393,8 @@ assert.equal(inboxResult.receipt.targetResolution, "id-match");
 assert.equal(inboxResult.receipt.added, 1);
 assert.equal(inboxResult.receipt.skippedDuplicate, 1);
 assert.equal(inboxResult.receipt.sanitizedSourceUrls, 1);
+assert.equal(inboxResult.receipt.answeredQuestions, 0);
+assert.equal(inboxResult.receipt.skippedAnswerTargets, 0);
 assert.equal(importedInboxCapture.sourceProvenance, "inbox");
 assert.equal(importedInboxCapture.sourceUrl, "");
 assert.equal(importedInboxCapture.inboxCaptureId, "inbox_capture_001");
@@ -576,6 +578,53 @@ parkedQuestionWorkspace = setCaptureQuestionParked(
 );
 assert.equal(getActiveSession(parkedQuestionWorkspace).captures[0].questionParkedAt, null);
 assert.equal(captureHasOpenQuestion(getActiveSession(parkedQuestionWorkspace).captures[0]), true);
+const answerInboxPatch = {
+  schema: MOBILE_INBOX_PATCH_SCHEMA,
+  appVersion: WORKSPACE_SCHEMA_VERSION,
+  patchId: "patch_answer_question_001",
+  createdAt: "2026-05-29T00:31:00.000Z",
+  source: {
+    generatedBy: "inbox.html",
+    workspaceFingerprint: "answer-test",
+    topicId: questionSession.id,
+    topicTitle: questionSession.title
+  },
+  target: {
+    topicId: questionSession.id,
+    topicTitle: questionSession.title
+  },
+  captures: [{
+    id: "inbox_answer_capture_001",
+    quote: "Ownership makes aliasing safe by enforcing one mutable owner.",
+    thought: "Answer: the compiler rejects overlapping mutable aliases before runtime.",
+    tags: "answer question",
+    answersQuestionCaptureId: questionCaptureId,
+    capturedAt: "2026-05-29T00:31:00.000Z"
+  }]
+};
+const answerInboxResult = applyMobileInboxPatch(questionLifecycleWorkspace, answerInboxPatch, new Date("2026-05-29T00:32:00.000Z"));
+const answerInboxSession = getActiveSession(answerInboxResult.workspace);
+const answeredOriginalQuestion = answerInboxSession.captures.find((capture) => capture.id === questionCaptureId);
+const importedAnswerCapture = answerInboxSession.captures.find((capture) => capture.inboxCaptureId === "inbox_answer_capture_001");
+assert.equal(answerInboxResult.receipt.answeredQuestions, 1);
+assert.equal(answerInboxResult.receipt.skippedAnswerTargets, 0);
+assert.equal(captureHasOpenQuestion(answeredOriginalQuestion), false);
+assert.equal(answeredOriginalQuestion.questionParkedAt, null);
+assert.match(answeredOriginalQuestion.questionResolvedAt, /^2026-05-29T00:32:00/);
+assert.equal(importedAnswerCapture.answersQuestionCaptureId, questionCaptureId);
+const badAnswerTargetPatch = {
+  ...answerInboxPatch,
+  patchId: "patch_answer_question_missing",
+  captures: [{
+    ...answerInboxPatch.captures[0],
+    id: "inbox_answer_capture_missing",
+    answersQuestionCaptureId: "missing_question_capture"
+  }]
+};
+const badAnswerTargetResult = applyMobileInboxPatch(questionLifecycleWorkspace, badAnswerTargetPatch, new Date("2026-05-29T00:33:00.000Z"));
+assert.equal(badAnswerTargetResult.receipt.answeredQuestions, 0);
+assert.equal(badAnswerTargetResult.receipt.skippedAnswerTargets, 1);
+assert.equal(captureHasOpenQuestion(getActiveSession(badAnswerTargetResult.workspace).captures.find((capture) => capture.id === questionCaptureId)), true);
 questionLifecycleWorkspace = setCaptureQuestionResolved(
   questionLifecycleWorkspace,
   questionSession.id,
@@ -962,6 +1011,7 @@ assert.match(questionMirrorIndexHtml, /Draft answer in inbox/);
 const questionAnswerHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
 const questionAnswerParams = new URLSearchParams(questionAnswerHref.split("?")[1] || "");
 assert.equal(questionAnswerParams.get("topicId"), algorithmsSession.id);
+assert.equal(questionAnswerParams.get("answerToCaptureId"), questionTodayPack.questionItems[0].capture.id);
 assert.equal(questionAnswerParams.get("quote"), "Which invariant breaks if the heap is stale?");
 assert.equal(questionAnswerParams.get("thought"), "Answer:");
 assert.equal(questionAnswerParams.get("timestamp"), "14:05");
@@ -975,6 +1025,7 @@ const hostileMirrorIndexHtml = generateMirrorIndexHtml(hostileQuestionWorkspace,
 const hostileAnswerHref = hostileMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
 const hostileAnswerParams = new URLSearchParams(hostileAnswerHref.split("?")[1] || "");
 assert.equal(hostileAnswerParams.get("topicId"), algorithmsSession.id);
+assert.match(hostileAnswerParams.get("answerToCaptureId") || "", /^capture_/);
 assert.match(hostileAnswerParams.get("quote") || "", /Can mirror links carry <script>alert\("x"\)<\/script> & #hash \?q=1emoji 😀 RTL שלום/);
 assert.doesNotMatch(hostileAnswerParams.get("quote") || "", /[\r\n]/);
 assert.equal(hostileAnswerParams.get("thought"), "Answer:");

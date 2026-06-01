@@ -268,13 +268,14 @@ const mobileInboxPatch = {
   captures: [
     {
       id: "morning_demo_phone_capture",
-      quote: "Phone-side follow-up while reviewing the mirror bundle.",
-      thought: "This should import as an inbox capture without touching notes or cards.",
+      quote: "Traits and TypeScript interfaces both describe behavior, but Rust trait bounds participate in compile-time dispatch and coherence.",
+      thought: "Answer: compare them as shared-behavior contracts, then call out Rust's explicit impl and dispatch model.",
       timestamp: "13:20",
       sourceTitle: "HarmonyOS browser",
       sourceUrl: "javascript:alert(1)",
       materialType: "doc",
-      tags: "phone mirror",
+      tags: "phone mirror answer",
+      answersQuestionCaptureId: "capture_trait_question_open",
       capturedAt: "2026-05-29T07:06:00.000+08:00"
     }
   ]
@@ -308,6 +309,8 @@ const reviewProgressPatch = {
 const inboxResult = applyMobileInboxPatch(demoWorkspace, mobileInboxPatch, new Date("2026-05-29T07:08:00.000+08:00"));
 assert.equal(inboxResult.receipt.added, 1);
 assert.equal(inboxResult.receipt.sanitizedSourceUrls, 1);
+assert.equal(inboxResult.receipt.answeredQuestions, 1);
+assert.equal(inboxResult.receipt.skippedAnswerTargets, 0);
 const duplicateInboxResult = applyMobileInboxPatch(inboxResult.workspace, mobileInboxPatch, new Date("2026-05-29T07:09:00.000+08:00"));
 assert.equal(duplicateInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateInboxResult.receipt.added, 0);
@@ -1174,7 +1177,7 @@ function buildMorningReviewMarkdown({
     "",
     "## Safety Receipts Verified By Generator",
     "",
-    `- Mobile inbox sample: ${inboxReceipt.added} added, ${inboxReceipt.sanitizedSourceUrls} unsafe source link stripped.`,
+    `- Mobile inbox sample: ${inboxReceipt.added} added, ${inboxReceipt.sanitizedSourceUrls} unsafe source link stripped, ${inboxReceipt.answeredQuestions} original question resolved.`,
     `- Duplicate inbox sample: ${duplicateInboxReceipt.added} added after duplicate-patch detection.`,
     `- Review progress sample: ${reviewReceipt.applied} applied, ${reviewReceipt.skippedConflict} stale conflicts.`,
     `- Review progress conflict sample: ${reviewConflictReceipt.applied} applied, ${reviewConflictReceipt.skippedConflict} stale conflict skipped.`,
@@ -1271,7 +1274,7 @@ function buildReviewStartHereHtml({
     ["Summary", "SUMMARY.json", "Hashes, provenance, and generator receipts."]
   ];
   const receiptRows = [
-    ["Mobile inbox import", `${inboxReceipt.added} added`, `${inboxReceipt.sanitizedSourceUrls} unsafe source link stripped`],
+    ["Mobile inbox import", `${inboxReceipt.added} added`, `${inboxReceipt.sanitizedSourceUrls} unsafe source link stripped; ${inboxReceipt.answeredQuestions} question resolved`],
     ["Duplicate inbox import", `${duplicateInboxReceipt.added} added`, duplicateInboxReceipt.targetResolution],
     ["Review progress import", `${reviewReceipt.applied} applied`, `${reviewReceipt.skippedConflict} stale conflicts`],
     ["Review conflict import", `${reviewConflictReceipt.applied} applied`, `${reviewConflictReceipt.skippedConflict} stale conflicts`],

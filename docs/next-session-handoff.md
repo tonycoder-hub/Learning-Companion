@@ -27,18 +27,19 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `1760d58 feat: link mirror questions to inbox answers`
 - `de3d3cd test: harden mirror answer prefill`
 - `e383e5f feat: add parked question queue`
+- `c4dadd8 feat: add question queue health cue`
 
-Current uncommitted work adds a question queue health cue:
+Current uncommitted work closes the off-device answer import loop:
 
-- `buildTodayPack()` now derives `questionHealth` with active, parked, and unresolved counts.
-- Today UI shows a `Question Queue Health` card with a jump to active or parked questions.
-- `TODAY.md` and `review-start-here.html` include the same queue-health signal.
-- The morning demo fixture now includes 1 active open question and 1 parked unresolved question.
-- Morning receipts assert active/parked/unresolved counts instead of only the active open-question count.
+- Mirror answer links include `answerToCaptureId`.
+- `inbox.html` exports `answersQuestionCaptureId` in append-only answer patches.
+- Mac import resolves the original same-topic active or parked question when the answer patch is imported.
+- Missing, already-resolved, non-question, or cross-topic answer targets are skipped and counted in the mobile inbox receipt.
+- Morning demo sample mobile inbox patch now resolves 1 original question while preserving the new answer capture.
 
 ## Verified Locally
 
-These passed after the current question-health work:
+These passed after the current answer-import work:
 
 - `npm run smoke`
 - `npm run smoke:harmony`
@@ -82,11 +83,11 @@ Latest absorbed Mira notes for parked question loop:
 ## Next Local Work
 
 1. Commit the current parked-question queue once status is clean enough:
-   - Suggested message: `feat: add question queue health cue`.
+   - Suggested message: `feat: resolve questions from answer patches`.
 
 2. Continue the study loop:
-   - Add a small receipt or inspection cue showing whether newly drafted answers are ready for Mac-side import.
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
+   - Consider a tighter Today receipt for "answers imported today" so the user sees closure after patch import.
 
 3. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
