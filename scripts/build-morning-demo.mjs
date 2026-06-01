@@ -558,6 +558,8 @@ assert.match(reviewReportHtml, /What To Inspect First/);
 assert.match(reviewReportHtml, /First-Run Start Here/);
 assert.match(reviewReportHtml, /Capture first point/);
 assert.match(reviewReportHtml, /Today section map/);
+assert.match(reviewReportHtml, /Harmony Reader Session/);
+assert.match(reviewReportHtml, /rejected-kept-current/);
 assert.match(reviewReportHtml, /Focus Loop/);
 assert.match(reviewReportHtml, /Question Closure/);
 assert.match(reviewReportHtml, /Question Queue Health/);
@@ -1162,8 +1164,8 @@ function buildMorningReviewMarkdown({
     `- Evidence tiers: \`${EVIDENCE_TIERS_FILE}\` (machine-readable claim labels for generated artifacts)`,
     `- Deferred gates: \`${DEFERRED_GATES_FILE}\` (${deferredGates.summary.pending} approval/device/signing gates still pending)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
-    `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract)`,
-    `- HarmonyOS scaffold report: \`${HARMONY_SCAFFOLD_REPORT_FILE}\` (${harmonyScaffoldReport.fileCount} scaffold files checked, no SDK compile claimed)`,
+    `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract, import file guard, reader session handoff, and device gates)`,
+    `- HarmonyOS scaffold report: \`${HARMONY_SCAFFOLD_REPORT_FILE}\` (${harmonyScaffoldReport.fileCount} scaffold files checked, including reader session/page wiring; no SDK compile claimed)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
     `- Feishu dry-run report: \`feishu-upload/feishu-upload-report.json\` (${feishuUploadReport.summary.verifiedFiles} verified local files; ${feishuUploadReport.wouldSend.requestCount} hashed wouldSend requests, ${feishuUploadReport.targetTree.files.length} target-tree files, not sent)`,
     `- Capture resume receipt: \`${CAPTURE_RESUME_RECEIPT_FILE}\` (${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief next action ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft-vs-review arbiter checked)`,
@@ -1192,6 +1194,7 @@ function buildMorningReviewMarkdown({
     "- Mirror folder: would this be readable in Feishu Drive or Windows?",
     "- Feishu upload plan: is the one-way folder writer boundary clear enough before real credentials?",
     "- Harmony reader view: does the phone-facing view model contain the right active topic, active open questions, parked questions, review, and capture slices?",
+    "- Harmony reader session: does the phone scaffold preserve the accepted reader view after a failed import and keep Index/TopicDetail/ReviewQueue on the same session state?",
     "- Mobile inbox: can phone-side captures return to Mac without overwriting notes/cards?",
     "- Review progress: can phone-side review grades return without overwriting newer Mac state?",
     "",
@@ -1221,7 +1224,7 @@ function buildMorningReviewMarkdown({
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
     determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, ${openQuestionLabel}, ${parkedQuestionLabel}, ${unresolvedQuestionLabel}.`,
-    `- Harmony scaffold sample: ${harmonyScaffoldReport.fileCount} files checked, bundle ${harmonyScaffoldReport.app.bundleName}, pages ${harmonyScaffoldReport.pages.length}.`,
+    `- Harmony scaffold sample: ${harmonyScaffoldReport.fileCount} files checked, bundle ${harmonyScaffoldReport.app.bundleName}, pages ${harmonyScaffoldReport.pages.length}; reader session/page wiring is checked without claiming DevEco execution.`,
     "- Dashboard local links were checked for file existence before `SUMMARY.json` was written.",
     "- Credential sweep and output hashes are recorded in `SUMMARY.json`.",
     `- Unsupported mobile inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}.`,
@@ -1280,8 +1283,8 @@ function buildReviewStartHereHtml({
     ["Evidence tiers", EVIDENCE_TIERS_FILE, "Machine-readable evidence tier for each generated artifact."],
     ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
-    ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, patch boundary, and device test gates."],
-    ["HarmonyOS Scaffold Report", HARMONY_SCAFFOLD_REPORT_FILE, `${harmonyScaffoldReport.fileCount} scaffold files checked; no SDK compile claimed.`],
+    ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, reader session handoff, patch boundary, and device test gates."],
+    ["HarmonyOS Scaffold Report", HARMONY_SCAFFOLD_REPORT_FILE, `${harmonyScaffoldReport.fileCount} scaffold files checked; reader session/page wiring covered; no SDK compile claimed.`],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
     ["Mirror home", "mirror-folder/index.html", "Static folder intended for Feishu Drive or Windows reading."],
     ["Today pack", "mirror-folder/TODAY.md", "Resume list generated from the workspace."],
@@ -1318,7 +1321,7 @@ function buildReviewStartHereHtml({
     ["Adversarial gates", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} passed`, "determinism and mirror-integrity expected failures observed"],
     ["Deferred gates", `${deferredGates.summary.pending}/${deferredGates.summary.total} pending`, "approval/device/signing/live-write evidence still required"],
     ...(determinismReport ? [["Morning determinism", determinismReport.ok ? "ok" : "diff", `${determinismReport.summary.comparedFiles} files; ${determinismReport.summary.differences} differences`]] : []),
-    ["Harmony scaffold", harmonyScaffoldReport.ok ? "ok" : "needs fix", `${harmonyScaffoldReport.fileCount} files; ${harmonyScaffoldReport.pages.length} pages`],
+    ["Harmony scaffold", harmonyScaffoldReport.ok ? "ok" : "needs fix", `${harmonyScaffoldReport.fileCount} files; ${harmonyScaffoldReport.pages.length} pages; reader session/page wiring checked`],
     ["Harmony reader view", `${harmonyReaderView.topics.length} topics`, `${harmonyReaderView.dueReview.length} due cards; ${openQuestionLabel}; ${parkedQuestionLabel}; ${unresolvedQuestionLabel}`]
   ];
   const stageRows = [
@@ -1331,7 +1334,7 @@ function buildReviewStartHereHtml({
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
-    ["HarmonyOS", "schema-prototype + scaffold", `${harmonyReaderView.topics.length} topic reader view; ${openQuestionLabel}; ${parkedQuestionLabel}; ${harmonyScaffoldReport.fileCount} scaffold files`, "SDK compile and real device roundtrip"],
+    ["HarmonyOS", "schema-prototype + scaffold", `${harmonyReaderView.topics.length} topic reader view; ${openQuestionLabel}; ${parkedQuestionLabel}; ${harmonyScaffoldReport.fileCount} scaffold files; reader session protects accepted view after rejected imports`, "SDK compile, real device picker, storage, and roundtrip"],
     ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
@@ -1362,12 +1365,17 @@ function buildReviewStartHereHtml({
       "mirror-folder/TODAY.md"
     ],
     [
-      "6. Cross-End Mirror",
+      "6. Harmony Reader Session",
+      "Open the Harmony handoff and scaffold report: accepted imports should feed ReaderSessionState.currentView, rejected imports should become rejected-kept-current, and Index/TopicDetail/ReviewQueue should share that session contract.",
+      HARMONY_DEVECO_HANDOFF_FILE
+    ],
+    [
+      "7. Cross-End Mirror",
       "Open the static mirror home, then try the portable review and inbox pages as the Windows/Harmony/Feishu folder proxy.",
       "mirror-folder/index.html"
     ],
     [
-      "7. Evidence Boundary",
+      "8. Evidence Boundary",
       `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
       DEFERRED_GATES_FILE
     ]
