@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `db712b1 feat: undo capture deletion from sidecar`
 - `589e346 fix: scope recent stack delete state`
 - `f51d254 feat: delete captures from recent stack`
 - `ba679fa feat: surface draft source drift in focus brief`
@@ -224,11 +225,14 @@ Latest local work adds Recent Stack mistake recovery:
 - Deleting a stack-only mistaken capture removes it from the metrics and Recent Stack while recording `Capture deleted` in the activity strip.
 - Mira returned `PASS_WITH_NOTES`; accepted fixes resolve the clicked session/capture from the current workspace, scope review reveal-state cleanup only to deleted linked cards, include the capture summary in the confirm prompt, and precompute linked-card counts for the stack render.
 - Browser smoke pins promoted stack labels, richer confirm copy, cancel behavior, direct stack deletion, unrelated revealed review cards surviving a stack delete, and the existing inspector delete path.
-- Deferred Mira note: soft undo for capture deletion is a real recovery upgrade, but it should be a deliberate follow-up rather than a rushed local state machine tonight.
+- The deferred soft-undo note is now implemented as a local sidecar recovery affordance: after a capture delete, the activity strip shows `Undo` for a short in-memory window and restores the capture plus prior review reveal state if clicked.
+- Any subsequent `persistAndRender()` action clears the undo by default, and `scheduleSave()` also clears it when the user starts autosaved edits, so the old workspace snapshot is not kept after new learning work begins.
+- Browser smoke pins the stack-only delete -> Undo -> restore -> re-delete loop, including metrics, stack text, activity copy, Undo visibility, and Undo hiding after restore.
+- A targeted Mira review packet for the soft-undo state machine was submitted at `.mira-review/capture-delete-undo-review.md`, but the broker had not returned by the time of this handoff; treat that verdict as pending/timeout unless a status file exists when resuming.
 
 ## Verified Locally
 
-These passed after the Recent Stack delete update:
+These passed after the sidecar capture-delete Undo update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
@@ -346,14 +350,14 @@ Latest absorbed Mira notes for Recent Stack delete:
 - Only clear `activeReviewKey` / `revealedReviewCards` for review cards actually linked to the deleted capture.
 - Include the capture summary and linked-card count in the confirmation prompt.
 - Pin the cancel path, direct stack delete, and unrelated revealed-review preservation in browser smoke.
-- Track soft undo as a future mistake-recovery improvement before this delete helper spreads to more surfaces.
+- Track broader undo history as a future mistake-recovery improvement before this delete helper spreads to more surfaces; the first local one-step capture-delete undo has landed.
 
 ## Next Local Work
 
 1. Continue the study loop:
    - Prefer one more Mac-first dogfood polish around source/timestamp capture or sidecar focus before broadening claims.
    - A good next local increment is to tighten the capture context around actual browser study use: what changed, where the note will land, and how to resume the source without touching approval-gated native APIs.
-   - A useful local follow-up is a small soft-undo design for capture delete, because the sidecar now exposes a faster destructive action.
+   - A useful local follow-up is to harden the new soft-undo affordance with a visible expiry cue or a broader one-step undo pattern for review-card deletion, if the current capture-only undo feels good in dogfood.
    - Consider a local persisted-view adapter stub only if it helps the Harmony/Windows handoff without claiming device storage has run.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
