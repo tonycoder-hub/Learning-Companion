@@ -126,6 +126,11 @@ Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`,
 
 ## Review Notes Absorbed
 
+Latest Mira status:
+
+- A targeted Mira review for the capture-delete soft undo timed out at the SSH broker layer after roughly 630s (`error_code: TIMEOUT`, `error_stage: ssh`).
+- No Mira verdict was available for that increment. The change is currently supported by local code review plus `npm run smoke`, `npm run smoke:browser`, `npm run check:morning`, and `git diff --check`.
+
 Accepted from Mira:
 
 - Harden URL inbound and reject unsafe schemes.

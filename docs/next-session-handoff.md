@@ -229,7 +229,7 @@ Latest local work adds Recent Stack mistake recovery:
 - The deferred soft-undo note is now implemented as a local sidecar recovery affordance: after a capture delete, the activity strip shows `Undo 10s` for a short in-memory window and restores the capture plus prior review reveal state if clicked.
 - Any subsequent `persistAndRender()` action clears the undo by default, and `scheduleSave()` also clears it when the user starts autosaved edits, so the old workspace snapshot is not kept after new learning work begins.
 - Browser smoke pins the stack-only delete -> Undo -> restore -> re-delete loop, including metrics, stack text, activity copy, Undo visibility, and Undo hiding after restore.
-- A targeted Mira review packet for the soft-undo state machine was submitted at `.mira-review/capture-delete-undo-review.md`, but the broker had not returned by the time of this handoff; treat that verdict as pending/timeout unless a status file exists when resuming.
+- A targeted Mira review packet for the soft-undo state machine timed out through the broker (`error_code: TIMEOUT`, `error_stage: ssh`, elapsed about 630s, no logid). No Mira verdict was available for this increment, so rely on local tests plus code review until a later retry succeeds.
 
 ## Verified Locally
 
