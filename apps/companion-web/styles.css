@@ -1084,6 +1084,31 @@ textarea:focus {
   opacity: 0.72;
 }
 
+.today-path-card {
+  border-color: rgba(49, 95, 130, 0.28);
+  background: #f5f9fc;
+}
+
+.today-path-card .card-prompt {
+  margin-bottom: 4px;
+}
+
+.today-path-card.is-draft,
+.today-path-card.is-parked {
+  border-color: rgba(126, 86, 48, 0.3);
+  background: #fff9ed;
+}
+
+.today-path-card.is-question {
+  border-color: rgba(47, 111, 94, 0.3);
+  background: var(--green-soft);
+}
+
+.today-path-card.is-review {
+  border-color: rgba(137, 59, 37, 0.3);
+  background: #fff6ef;
+}
+
 .start-here-card {
   border-color: rgba(47, 111, 94, 0.26);
   background: #f6fbf8;

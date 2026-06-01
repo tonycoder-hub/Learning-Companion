@@ -144,7 +144,7 @@ Latest local work ports `Answers Today` into the Harmony reader contract:
 
 Latest local work adds a Today section map for density:
 
-- Today now shows a compact section map after the summary stats and before Patch Intake.
+- Today now shows a compact section map after the summary stats and before Return Files.
 - The map shows Due, Questions, Parked, Answers, Closed, Recent, and Drafts only when drafts exist.
 - Each chip has a stable `data-today-map-target`, count, accessible jump label, and clicks to the matching `data-today-section` with a pulse.
 - Browser smoke clicks the Recent chip and verifies the Recent Captures section pulses.

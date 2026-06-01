@@ -519,6 +519,13 @@ try {
     const todayRecentOpenLinkText = [...document.querySelectorAll("#todayTab .item-card:not(.due-card) .mini-button")]
       .map((button) => button.textContent)
       .find((text) => text.startsWith("Open @")) || "";
+    const todayPrimary = {
+      text: document.querySelector(".today-path-card")?.textContent || "",
+      action: document.querySelector(".today-path-card [data-today-path-action]")?.textContent || "",
+      actionKind: document.querySelector(".today-path-card [data-today-path-action]")?.dataset.todayPathAction || "",
+      inspect: document.querySelector(".today-path-card [data-today-path-target]")?.textContent || "",
+      target: document.querySelector(".today-path-card [data-today-path-target]")?.dataset.todayPathTarget || ""
+    };
     const todayMapButtons = [...document.querySelectorAll("#todayTab .today-map-button")]
       .map((button) => ({
         target: button.dataset.todayMapTarget,
@@ -990,6 +997,7 @@ try {
           todayHasRecentCapture,
           todayDueOpenLinkText,
           todayRecentOpenLinkText,
+          todayPrimary,
           todayMapButtons,
           todayMapRecentPulsed,
           emptyFallbackNudge,
@@ -1127,10 +1135,10 @@ try {
   assert.equal(result.inboxLatestProvenance, "inbox");
   assert.equal(result.inboxSanitizedSourceUrls, 1);
   assert.equal(result.inboxImportedPatch, true);
-  assert.match(result.handoffText, /Patch Intake/);
+  assert.match(result.handoffText, /Return Files/);
   assert.match(result.handoffText, /1 inbox · 1 review/);
   assert.match(result.handoffText, /1 added/);
-  assert.deepEqual(result.handoffButtons, ["Import Patch", "Export Mirror"]);
+  assert.deepEqual(result.handoffButtons, ["Import File", "Export Mirror"]);
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
   assert.match(result.draftFocusBrief.action, /Review/);
@@ -1318,6 +1326,12 @@ try {
   assert.equal(result.todayHasRecentCapture, true);
   assert.equal(result.todayDueOpenLinkText, "Open @ 08:12");
   assert.equal(result.todayRecentOpenLinkText, "Open @ 08:12");
+  assert.match(result.todayPrimary.text, /Next Move/);
+  assert.match(result.todayPrimary.text, /Review 1 due card/);
+  assert.equal(result.todayPrimary.action, "Review");
+  assert.equal(result.todayPrimary.actionKind, "review");
+  assert.equal(result.todayPrimary.inspect, "Due");
+  assert.equal(result.todayPrimary.target, "due_review");
   assert.equal(result.todayMapButtons.some((button) => button.target === "due_review" && /Due/.test(button.text)), true);
   assert.equal(result.todayMapButtons.some((button) => button.target === "open_questions" && /Questions/.test(button.text)), true);
   assert.equal(result.todayMapButtons.some((button) => button.target === "answers_today" && /Answers/.test(button.text)), true);

@@ -56,6 +56,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Today includes a Question Loop summary so active backlog, same-day closures, answer-linked closures, and question-sourced review cards are visible as flow rather than scattered counters.
 - Today includes a compact section map so the heavier study cockpit can jump directly to due cards, questions, answers, closed items, drafts, and recent captures.
 - Today includes a first-run Start Here card with direct capture, first-question, and browser-clipper actions when no study trail exists yet.
+- Today includes a returning-user Next Move card that prioritizes due review, capture drafts, open questions, parked questions, recent captures, or capture setup before the denser dashboard sections.
 - Today includes an Answers Today section so answer captures remain inspectable even when they are separate from the closed-question card.
 - Open questions in Today can seed an Answer draft in the source topic so the question becomes a focused capture rather than a context switch.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
@@ -88,7 +89,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
-- Today tab surfaces Patch Intake counts and latest receipt so append-only return files are visible in the primary daily workflow.
+- Today tab surfaces Return Files counts and latest receipt so append-only phone/Windows JSON updates are visible in the primary daily workflow.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 - Minimal macOS WKWebView shell scaffold that loads the web MVP.

@@ -33,7 +33,7 @@ Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
 | Selected text capture | Select text in Safari/Chrome/docs, then use `Capture > Save Selected Text as Capture`. | Selected text is captured when Accessibility exposes it. | NT |  |
 | Clipboard fallback guard | Trigger selected-text capture with no exposed selection and unchanged clipboard. | No stale clipboard capture is imported. | NT |  |
 | Browser context | Capture while Safari or Chrome is frontmost on an HTTP(S) page. | Title/URL attach when Automation is available, otherwise text-only capture succeeds. | NT |  |
-| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json`. | Patch Intake/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |
+| Native import success | Import `dist/morning-demo/patches/sample-mobile-inbox-patch.json`. | Return Files/receipt shows imported inbox patch without overwriting notes/cards. | NT |  |
 | Native import failure | Import malformed JSON. | Alert and in-app issue receipt explain the failure. | NT |  |
 | Export backup | After adding a capture, confirm the storage notice appears; then use `File > Export Workspace...`. | Notice asks for export before backup and then asks you to verify the downloaded JSON file yourself. | NT |  |
 | Relaunch persistence | Quit and relaunch. | Workspace persists through WebKit localStorage. | NT |  |

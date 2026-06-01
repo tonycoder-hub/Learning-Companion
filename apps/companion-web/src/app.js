@@ -2207,9 +2207,12 @@ function renderToday() {
     todayStat(String(stats.cards), "cards")
   );
 
+  const showStartHere = shouldShowStartHere(pack, draftItems);
   dom.todayList.append(renderTodaySectionMap(pack, draftItems));
-  if (shouldShowStartHere(pack, draftItems)) {
+  if (showStartHere) {
     dom.todayList.append(renderStartHereCard());
+  } else {
+    dom.todayList.append(renderTodayPrimaryAction(pack, draftItems));
   }
   dom.todayList.append(renderPatchIntakePanel());
   renderTodayDrafts(draftItems);
@@ -2588,6 +2591,107 @@ function shouldShowStartHere(pack, draftItems = []) {
     && !pack.stats.answerCapturesToday;
 }
 
+function renderTodayPrimaryAction(pack, draftItems = []) {
+  const move = todayPrimaryMove(pack, draftItems);
+  const card = document.createElement("article");
+  card.className = `item-card today-path-card is-${move.kind}`;
+  card.append(
+    textEl("div", "item-meta", "Next Move"),
+    textEl("p", "card-prompt", move.title),
+    textEl("p", "item-meta", move.detail)
+  );
+  const footer = document.createElement("div");
+  footer.className = "item-footer";
+  const action = textEl("button", "mini-button primary", move.actionLabel);
+  action.type = "button";
+  action.dataset.todayPathAction = move.kind;
+  action.addEventListener("click", move.run);
+  const inspect = textEl("button", "mini-button", move.inspectLabel);
+  inspect.type = "button";
+  inspect.dataset.todayPathTarget = move.targetSection;
+  inspect.addEventListener("click", () => jumpToTodaySection(move.targetSection));
+  footer.append(action, inspect);
+  card.append(footer);
+  return card;
+}
+
+function todayPrimaryMove(pack, draftItems = []) {
+  const [dueItem] = pack.dueItems;
+  if (dueItem) {
+    return {
+      kind: "review",
+      title: `Review ${pack.stats.due} due ${pack.stats.due === 1 ? "card" : "cards"}`,
+      detail: `${dueItem.sessionTitle} · ${dueItem.card.prompt.slice(0, 120)}`,
+      actionLabel: "Review",
+      inspectLabel: "Due",
+      targetSection: "due_review",
+      run: () => startReviewAtItem(dueItem)
+    };
+  }
+
+  const [draftItem] = draftItems;
+  if (draftItem) {
+    return {
+      kind: "draft",
+      title: "Resume capture draft",
+      detail: `${draftItem.session.title} · ${summarizeCaptureDraft(draftItem.draft)}`,
+      actionLabel: "Resume",
+      inspectLabel: "Drafts",
+      targetSection: "capture_drafts",
+      run: () => resumeCaptureDraft(draftItem.session.id)
+    };
+  }
+
+  const [questionItem] = pack.questionItems;
+  if (questionItem) {
+    return {
+      kind: "question",
+      title: `Answer ${pack.stats.questions} open ${pack.stats.questions === 1 ? "question" : "questions"}`,
+      detail: `${questionItem.sessionTitle} · ${summarizeCapture(questionItem.capture)}`,
+      actionLabel: "Answer",
+      inspectLabel: "Questions",
+      targetSection: "open_questions",
+      run: () => answerQuestionFromToday(questionItem.capture.id, questionItem.sessionId)
+    };
+  }
+
+  const [parkedItem] = pack.parkedQuestionItems;
+  if (parkedItem) {
+    return {
+      kind: "parked",
+      title: `Resume ${pack.stats.parkedQuestions} saved ${pack.stats.parkedQuestions === 1 ? "question" : "questions"}`,
+      detail: `${parkedItem.sessionTitle} · ${summarizeCapture(parkedItem.capture)}`,
+      actionLabel: "Resume",
+      inspectLabel: "Saved",
+      targetSection: "parked_questions",
+      run: () => setQuestionParked(parkedItem.capture.id, parkedItem.sessionId, false)
+    };
+  }
+
+  const [recentItem] = pack.recentCaptures;
+  if (recentItem) {
+    return {
+      kind: "recent",
+      title: "Continue latest capture",
+      detail: `${recentItem.sessionTitle} · ${summarizeCapture(recentItem.capture)}`,
+      actionLabel: "View",
+      inspectLabel: "Recent",
+      targetSection: "recent_captures",
+      run: () => openCaptureFromToday(recentItem.sessionId, recentItem.capture)
+    };
+  }
+
+  return {
+    kind: "capture",
+    title: "Capture next point",
+    detail: `${getActiveSession(workspace).title} · ready for a quote, thought, or question`,
+    actionLabel: "Capture",
+    inspectLabel: "Recent",
+    targetSection: "recent_captures",
+    run: focusQuickCaptureFromStart
+  };
+}
+
 function renderStartHereCard() {
   const card = document.createElement("article");
   card.className = "item-card start-here-card";
@@ -2859,17 +2963,17 @@ function renderPatchIntakePanel() {
   const header = document.createElement("div");
   header.className = "handoff-header";
   header.append(
-    textEl("strong", "", "Patch Intake"),
+    textEl("strong", "", "Return Files"),
     textEl("span", "item-meta", `${inboxCount} inbox · ${reviewCount} review`)
   );
   const detail = textEl(
     "p",
     "handoff-detail",
-    lastImportReceipt ? formatImportReceipt(lastImportReceipt) : "Append-only JSON return path"
+    lastImportReceipt ? formatImportReceipt(lastImportReceipt) : "Import phone or Windows JSON updates"
   );
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const importPatch = textEl("button", "mini-button primary", "Import Patch");
+  const importPatch = textEl("button", "mini-button primary", "Import File");
   importPatch.type = "button";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
   const exportMirror = textEl("button", "mini-button", "Export Mirror");

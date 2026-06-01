@@ -40,7 +40,8 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Desk activity strip that keeps draft/save/review/synthesis feedback visible in focused sidecar mode.
 - Deterministic Focus Brief in the desk with next action, visible reason, fresh capture-draft resume when review is not due, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Workspace Find is deterministic local find over source titles, notes, captures, tags, and review cards, supports multi-term matches within the same candidate object, then jumps back to the matching session and surface.
-- Today tab includes capture drafts, Patch Intake counts, latest import receipt, and direct import/export handoff actions.
+- Today tab includes capture drafts, Return Files counts, latest import receipt, and direct import/export handoff actions.
+- Today tab now has a returning-user Next Move card above the denser sections, so due review, capture drafts, open questions, parked questions, recent captures, or capture setup get one visible primary action.
 - Sessions, clickable capture destination context, capture intent context, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action.
