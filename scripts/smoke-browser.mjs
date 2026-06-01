@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
@@ -7,6 +8,8 @@ import { tmpdir } from "node:os";
 
 const root = resolve("apps/companion-web");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const SMOKE_ROOT_PREFIX = "lc-browser-smoke-";
+const STALE_SMOKE_ROOT_MS = 30 * 60 * 1000;
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -46,7 +49,12 @@ const listenPort = await new Promise((resolvePort) => {
 });
 
 const debuggingPort = 9400 + Math.floor(Math.random() * 300);
-const profile = join(tmpdir(), `lc-browser-smoke-${Date.now()}`);
+cleanupStaleSmokeRoots(tmpdir(), Date.now() - STALE_SMOKE_ROOT_MS);
+
+const smokeRoot = join(tmpdir(), `${SMOKE_ROOT_PREFIX}${Date.now()}`);
+const profile = join(smokeRoot, "profile");
+const downloadPath = join(smokeRoot, "downloads");
+mkdirSync(downloadPath, { recursive: true, mode: 0o700 });
 const appUrl = `http://127.0.0.1:${listenPort}/`;
 const chrome = spawn(chromePath, [
   "--headless=new",
@@ -68,6 +76,10 @@ try {
   cdp.on("Runtime.exceptionThrown", (event) => exceptions.push(event));
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
+  await cdp.send("Browser.setDownloadBehavior", {
+    behavior: "allow",
+    downloadPath
+  });
   await cdp.send("Page.navigate", { url: appUrl });
   await sleep(500);
 
@@ -2852,7 +2864,9 @@ try {
   console.log("smoke_browser_ok");
 } finally {
   chrome.kill("SIGTERM");
+  await waitForProcessExit(chrome, 3000);
   server.close();
+  rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 }
 
 async function waitForTarget(port) {
@@ -2868,6 +2882,31 @@ async function waitForTarget(port) {
     }
   }
   throw new Error("Chrome DevTools target was not ready.");
+}
+
+function waitForProcessExit(process, timeoutMs) {
+  if (process.exitCode !== null || process.signalCode !== null) return Promise.resolve();
+  return new Promise((resolveExit) => {
+    const timeout = setTimeout(resolveExit, timeoutMs);
+    process.once("exit", () => {
+      clearTimeout(timeout);
+      resolveExit();
+    });
+  });
+}
+
+function cleanupStaleSmokeRoots(baseDir, cutoffMs) {
+  for (const entry of readdirSync(baseDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith(SMOKE_ROOT_PREFIX)) continue;
+    const startedAt = Number(entry.name.slice(SMOKE_ROOT_PREFIX.length));
+    if (!Number.isFinite(startedAt) || startedAt >= cutoffMs) continue;
+    rmSync(join(baseDir, entry.name), {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 100
+    });
+  }
 }
 
 async function connectCdp(url) {
