@@ -1312,6 +1312,7 @@ function renderActivity(session) {
   dom.activityTitle.textContent = activity.title;
   dom.activityDetail.textContent = activity.detail;
   dom.activityUndoBtn.hidden = !canUndoCaptureDelete;
+  dom.activityUndoBtn.textContent = canUndoCaptureDelete ? "Undo 10s" : "Undo";
   dom.activityUndoBtn.title = canUndoCaptureDelete ? `Undo delete: ${pendingCaptureUndo.summary}` : "";
   dom.activityUndoBtn.setAttribute("aria-label", canUndoCaptureDelete ? `Undo capture delete: ${pendingCaptureUndo.summary}` : "Undo capture delete");
   dom.activityDetailsBtn.textContent = actionText;

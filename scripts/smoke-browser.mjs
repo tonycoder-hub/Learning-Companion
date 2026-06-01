@@ -2189,7 +2189,7 @@ try {
   assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Delete directly from the sidecar stack/);
   assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Existing note blocks/);
   assert.equal(deleteFlow.afterStackDelete.undoVisible, true);
-  assert.equal(deleteFlow.afterStackDelete.undoLabel, "Undo");
+  assert.equal(deleteFlow.afterStackDelete.undoLabel, "Undo 10s");
   assert.equal(deleteFlow.afterStackUndo.captures, "1");
   assert.equal(deleteFlow.afterStackUndo.cards, "0");
   assert.match(deleteFlow.afterStackUndo.stackText, /Delete directly from the sidecar stack/);
