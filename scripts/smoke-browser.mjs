@@ -285,6 +285,8 @@ try {
       timestampPulsed: document.querySelector("#timestampInput").classList.contains("pulse"),
       contextTarget: document.querySelector("#captureContextTarget").textContent,
       contextTargetTitle: document.querySelector("#captureContextTarget").title,
+      contextIntent: document.querySelector("#captureContextIntent").textContent,
+      contextIntentTitle: document.querySelector("#captureContextIntent").title,
       contextSource: document.querySelector("#captureContextSource").textContent,
       contextTime: document.querySelector("#captureContextTime").textContent,
       contextOpenDisabled: document.querySelector("#captureContextOpenBtn").disabled,
@@ -367,6 +369,22 @@ try {
       status: document.querySelector("#captureDraftStatus").textContent,
       statusClass: document.querySelector("#captureDraftStatus").className
     };
+    setValue("#thoughtInput", "Why does this ownership example avoid data races?");
+    const questionIntent = {
+      text: document.querySelector("#captureContextIntent").textContent,
+      title: document.querySelector("#captureContextIntent").title
+    };
+    setValue("#thoughtInput", "Answer:");
+    const answerDraftIntent = {
+      text: document.querySelector("#captureContextIntent").textContent,
+      title: document.querySelector("#captureContextIntent").title
+    };
+    setValue("#thoughtInput", "Answer: because ownership gives each mutable reference a single active writer.");
+    const answerIntent = {
+      text: document.querySelector("#captureContextIntent").textContent,
+      title: document.querySelector("#captureContextIntent").title
+    };
+    setValue("#thoughtInput", "This should warn if the source changes before capture.");
     setValue("#sourceTitle", "Different lecture");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=other456");
     const sourceChangedDraft = {
@@ -403,7 +421,7 @@ try {
       status: document.querySelector("#captureDraftStatus").textContent,
       reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden
     };
-    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, sourceChangedDraft, sourceRestoredDraft, sourceReanchoredDraft, sourceReanchorCleared };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, questionIntent, answerDraftIntent, answerIntent, sourceChangedDraft, sourceRestoredDraft, sourceReanchoredDraft, sourceReanchorCleared };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -731,6 +749,7 @@ try {
     const captureContextInNewSession = {
       target: document.querySelector("#captureContextTarget").textContent,
       targetTitle: document.querySelector("#captureContextTarget").title,
+      intent: document.querySelector("#captureContextIntent").textContent,
       source: document.querySelector("#captureContextSource").textContent,
       timeHidden: document.querySelector("#captureContextTime").hidden,
       openDisabled: document.querySelector("#captureContextOpenBtn").disabled,
@@ -1109,6 +1128,8 @@ try {
   assert.equal(result.sourceTimestampStage.timestampPulsed, true);
   assert.equal(result.sourceTimestampStage.contextTarget, "To Learning Companion MVP");
   assert.equal(result.sourceTimestampStage.contextTargetTitle, "Captures save to Learning Companion MVP");
+  assert.equal(result.sourceTimestampStage.contextIntent, "Ready");
+  assert.equal(result.sourceTimestampStage.contextIntentTitle, "Add a quote or thought to capture.");
   assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
   assert.equal(result.sourceTimestampStage.contextTime, "@ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
@@ -1155,6 +1176,18 @@ try {
   });
   assert.equal(result.sourceTimestampNudge.titleOnlySourceRefresh.status, "Draft saved");
   assert.doesNotMatch(result.sourceTimestampNudge.titleOnlySourceRefresh.statusClass, /warn/);
+  assert.deepEqual(result.sourceTimestampNudge.questionIntent, {
+    text: "Question",
+    title: "This capture will enter Open Questions."
+  });
+  assert.deepEqual(result.sourceTimestampNudge.answerDraftIntent, {
+    text: "Answer draft",
+    title: "This looks like an answer draft; add enough detail before saving as answer evidence."
+  });
+  assert.deepEqual(result.sourceTimestampNudge.answerIntent, {
+    text: "Answer",
+    title: "This capture can appear in Answers Today."
+  });
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.status, "Source changed");
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusClass, /warn/);
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusTitle, /RustConf ownership talk/);
@@ -1189,6 +1222,7 @@ try {
   assert.deepEqual(result.captureContextInNewSession, {
     target: "To New learning session",
     targetTitle: "Captures save to New learning session",
+    intent: "Ready",
     source: "No source",
     timeHidden: true,
     openDisabled: true,

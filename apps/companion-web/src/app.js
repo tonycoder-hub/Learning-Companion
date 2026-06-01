@@ -18,6 +18,7 @@ import {
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
+  captureHasAnswer,
   captureHasOpenQuestion,
   captureHasParkedQuestion,
   captureHasQuestion,
@@ -116,6 +117,7 @@ const dom = {
   capturePane: document.querySelector("#capturePane"),
   captureContext: document.querySelector("#captureContext"),
   captureContextTarget: document.querySelector("#captureContextTarget"),
+  captureContextIntent: document.querySelector("#captureContextIntent"),
   captureContextSource: document.querySelector("#captureContextSource"),
   captureContextTime: document.querySelector("#captureContextTime"),
   captureContextOpenBtn: document.querySelector("#captureContextOpenBtn"),
@@ -1252,6 +1254,9 @@ function renderCaptureContext(session) {
   dom.captureContextTarget.textContent = targetLabel;
   dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
   dom.captureContextTarget.setAttribute("aria-label", `Show capture destination: ${session.title || "current topic"}`);
+  const intent = captureDraftIntent(session);
+  dom.captureContextIntent.textContent = intent.label;
+  dom.captureContextIntent.title = intent.title;
   dom.captureContextSource.textContent = sourceLabel;
   dom.captureContextSource.title = resume.url || sourceLabel;
   dom.captureContextTime.hidden = !resume.timestamp;
@@ -1259,6 +1264,57 @@ function renderCaptureContext(session) {
   dom.captureContextOpenBtn.disabled = !resume.href;
   dom.captureContextOpenBtn.title = resume.href ? title : "Add a source URL first";
   dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Add a source URL first");
+}
+
+function captureDraftIntent(session) {
+  const quote = dom.quoteInput.value.trim();
+  const thought = dom.thoughtInput.value.trim();
+  const draftCapture = {
+    quote,
+    thought,
+    tags: dom.sessionTags.value || session.tags
+  };
+  const answerPrefix = /^(?:a|answer)\s*[:：]/i.test(thought);
+  if (!quote && !thought) {
+    return {
+      label: "Ready",
+      title: "Add a quote or thought to capture."
+    };
+  }
+  if (answerPrefix && !captureHasAnswer(draftCapture)) {
+    return {
+      label: "Answer draft",
+      title: "This looks like an answer draft; add enough detail before saving as answer evidence."
+    };
+  }
+  if (captureHasAnswer(draftCapture)) {
+    return {
+      label: "Answer",
+      title: "This capture can appear in Answers Today."
+    };
+  }
+  if (captureHasQuestion(draftCapture)) {
+    return {
+      label: "Question",
+      title: "This capture will enter Open Questions."
+    };
+  }
+  if (quote && !thought) {
+    return {
+      label: "Quote",
+      title: "This will save as a quote capture."
+    };
+  }
+  if (thought && !quote) {
+    return {
+      label: "Thought",
+      title: "This will save as a thought capture."
+    };
+  }
+  return {
+    label: "Capture",
+    title: "This will save as a capture with quote and thought."
+  };
 }
 
 function readableSourceHost(value) {

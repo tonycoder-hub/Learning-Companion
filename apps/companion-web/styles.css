@@ -672,7 +672,7 @@ textarea:focus {
 
 .capture-context {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 0.8fr) auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -694,6 +694,20 @@ textarea:focus {
   cursor: pointer;
   font-size: 12px;
   font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-context-intent {
+  max-width: 112px;
+  padding: 3px 7px;
+  border: 1px solid rgba(47, 111, 94, 0.22);
+  border-radius: 999px;
+  background: #eef6f3;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 780;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
