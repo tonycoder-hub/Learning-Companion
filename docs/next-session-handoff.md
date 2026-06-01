@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `ba679fa feat: surface draft source drift in focus brief`
 - `09bd884 feat: open review cards from capture stack`
 - `ef36e17 feat: reanchor drifted capture drafts`
 - `74d5b20 feat: warn on capture draft source drift`
@@ -202,8 +203,9 @@ Latest local work adds Quick Capture draft source drift protection:
 - The snapshot is treated as the draft origin and stays stable until the draft is captured or cleared; later typing does not silently re-anchor it.
 - If the current session source no longer matches the draft origin, the capture status changes to `Source changed`, receives a warn class, and exposes a status/title hint for accessibility.
 - `Use current` appears only while the draft source has drifted; it explicitly re-anchors the local draft to the current source and records `Draft source updated` in the activity strip.
+- If a fresh local draft owns the Focus Brief next action, the Focus Brief also surfaces `Source changed` and the draft's original source, so the risk is visible before the user reopens Quick Capture.
 - Source comparison reuses the existing URL matching normalization, so source-time query noise and title-only refreshes do not create warnings when the canonical URL is the same.
-- Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, explicit re-anchor, clear-after-reanchor, and post-capture snapshot reset.
+- Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, explicit re-anchor, clear-after-reanchor, Focus Brief drift surfacing, and post-capture snapshot reset.
 - Mira returned `PASS_WITH_NOTES`; accepted fixes included stable first-source snapshot semantics, URL/title normalization, status accessibility, source restore coverage, title-only refresh coverage, and post-capture reset coverage. Deferred notes: real YouTube/Feishu-doc manual switching remains a manual QA item, not proven by local smoke.
 
 Latest local work closes the Recent Stack review hop:
