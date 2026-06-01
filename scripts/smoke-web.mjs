@@ -113,7 +113,9 @@ assert.match(appJs, /openSearchResult\(results\[Math\.max\(0, activeSearchIndex\
 assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 2/);
 assert.match(appJs, /workspaceBackupFingerprint/);
 assert.match(appJs, /workspaceStorageNotice/);
-assert.match(appJs, /Export requested - verify downloaded file/);
+assert.match(appJs, /showSaveFilePicker/);
+assert.match(appJs, /Backup requested - verify downloaded file/);
+assert.match(appJs, /Backup saved - verify the selected file/);
 assert.match(appJs, /openFocusBriefWarning/);
 assert.match(appJs, /answerQuestionFromToday/);
 assert.match(appJs, /data-today-section/);

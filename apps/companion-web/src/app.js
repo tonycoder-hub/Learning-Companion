@@ -534,27 +534,38 @@ dom.copyTodayBtn.addEventListener("click", () => copyText(dom.todayExport.value,
 dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, "Mirror bundle copied"));
 dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
 dom.downloadWorkspaceBtn.addEventListener("click", exportWorkspace);
-dom.downloadReviewPackBtn.addEventListener("click", () => {
-  downloadText("LEARNING_COMPANION_REVIEW_PACK.md", dom.reviewPackExport.value, "text/markdown");
+dom.downloadReviewPackBtn.addEventListener("click", async () => {
+  if (await saveTextFile("LEARNING_COMPANION_REVIEW_PACK.md", dom.reviewPackExport.value, "text/markdown")) {
+    showToast(saveCompleteMessage("Review pack"));
+  }
 });
-dom.downloadMarkdownBtn.addEventListener("click", () => {
+dom.downloadMarkdownBtn.addEventListener("click", async () => {
   const session = getActiveSession(workspace);
-  downloadText(`${slugify(session.title)}.md`, generateMarkdown(session), "text/markdown");
+  if (await saveTextFile(`${slugify(session.title)}.md`, generateMarkdown(session), "text/markdown")) {
+    showToast(saveCompleteMessage("Markdown"));
+  }
 });
-dom.downloadPayloadBtn.addEventListener("click", () => {
+dom.downloadPayloadBtn.addEventListener("click", async () => {
   const session = getActiveSession(workspace);
-  downloadText(`${slugify(session.title)}.feishu.json`, JSON.stringify(buildFeishuPayload(session), null, 2), "application/json");
+  if (await saveTextFile(`${slugify(session.title)}.feishu.json`, JSON.stringify(buildFeishuPayload(session), null, 2), "application/json")) {
+    showToast(saveCompleteMessage("JSON"));
+  }
 });
-dom.downloadTodayBtn.addEventListener("click", () => {
-  downloadText("TODAY.md", dom.todayExport.value, "text/markdown");
+dom.downloadTodayBtn.addEventListener("click", async () => {
+  if (await saveTextFile("TODAY.md", dom.todayExport.value, "text/markdown")) {
+    showToast(saveCompleteMessage("Today"));
+  }
 });
-dom.downloadMirrorBtn.addEventListener("click", () => {
-  downloadText("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json");
+dom.downloadMirrorBtn.addEventListener("click", async () => {
+  if (await saveTextFile("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json")) {
+    showToast(saveCompleteMessage("Mirror"));
+  }
 });
-dom.downloadMirrorZipBtn.addEventListener("click", () => {
+dom.downloadMirrorZipBtn.addEventListener("click", async () => {
   const zip = buildMirrorZip(workspace);
-  downloadBytes(zip.filename, zip.data, zip.mediaType);
-  showToast("Mirror ZIP saved");
+  if (await saveBytesFile(zip.filename, zip.data, zip.mediaType)) {
+    showToast(saveCompleteMessage("Mirror ZIP"));
+  }
 });
 
 function loadWorkspace() {
@@ -3342,7 +3353,10 @@ function renderExport() {
 
 function exportWorkspace() {
   const serialized = workspaceJson();
-  downloadText("learning-companion-workspace.json", serialized, "application/json");
+  afterSave(saveTextFile("learning-companion-workspace.json", serialized, "application/json"), markWorkspaceExported);
+}
+
+function markWorkspaceExported() {
   uiPrefs = {
     ...uiPrefs,
     workspaceBackup: {
@@ -3351,9 +3365,11 @@ function exportWorkspace() {
     }
   };
   saveUiPrefs();
-  storageWarning = "Export requested - verify downloaded file";
+  storageWarning = canUseFileSavePicker()
+    ? "Backup saved - verify the selected file"
+    : "Backup requested - verify downloaded file";
   renderStorageNotice();
-  showToast("Export requested - verify downloaded file");
+  showToast(storageWarning);
 }
 
 function workspaceJson() {
@@ -3396,13 +3412,66 @@ async function copyText(text, message) {
   }
 }
 
-function downloadText(filename, text, type) {
+function saveTextFile(filename, text, type) {
   const blob = new Blob([text], { type });
-  downloadBlob(filename, blob);
+  return saveBlobFile(filename, blob, type);
 }
 
-function downloadBytes(filename, bytes, type) {
-  downloadBlob(filename, new Blob([bytes], { type }));
+function saveBytesFile(filename, bytes, type) {
+  return saveBlobFile(filename, new Blob([bytes], { type }), type);
+}
+
+function saveBlobFile(filename, blob, type) {
+  if (canUseFileSavePicker()) {
+    return window.showSaveFilePicker({
+      suggestedName: filename,
+      types: [filePickerType(filename, type)]
+    })
+      .then(async (handle) => {
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return true;
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError") {
+          showToast("Save failed");
+        }
+        return false;
+      });
+  }
+  downloadBlob(filename, blob);
+  return true;
+}
+
+function afterSave(result, callback) {
+  if (result && typeof result.then === "function") {
+    result.then((saved) => {
+      if (saved) callback();
+    });
+    return;
+  }
+  if (result) callback();
+}
+
+function saveCompleteMessage(label) {
+  return canUseFileSavePicker() ? `${label} saved` : `${label} download requested`;
+}
+
+function canUseFileSavePicker() {
+  return typeof window.showSaveFilePicker === "function"
+    && navigator.webdriver !== true
+    && !/HeadlessChrome/i.test(navigator.userAgent || "");
+}
+
+function filePickerType(filename, type) {
+  const extension = filename.includes(".") ? `.${filename.split(".").pop()}` : "";
+  return {
+    description: type.includes("json") ? "JSON file" : type.includes("markdown") ? "Markdown file" : "Learning Companion file",
+    accept: {
+      [type || "application/octet-stream"]: extension ? [extension] : []
+    }
+  };
 }
 
 function downloadBlob(filename, blob) {

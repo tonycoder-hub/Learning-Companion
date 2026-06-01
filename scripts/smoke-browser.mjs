@@ -1336,7 +1336,7 @@ try {
   assert.equal(result.activityTargetPulsed, true);
   assert.deepEqual(result.backupNoticeAfterCapture, { hidden: false, text: "Local changes not exported" });
   assert.equal(result.backupNoticeAfterExport.hidden, false);
-  assert.equal(result.backupNoticeAfterExport.text, "Export requested - verify downloaded file");
+  assert.equal(result.backupNoticeAfterExport.text, "Backup requested - verify downloaded file");
   assert.match(result.backupNoticeAfterExport.fingerprint, /^[a-f0-9]{8}$/);
   assert.match(result.backupNoticeAfterExport.exportedAt, /^20/);
   assert.deepEqual(result.captureDraftStatusAfterCard, {
