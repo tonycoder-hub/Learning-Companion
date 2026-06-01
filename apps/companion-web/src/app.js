@@ -2324,6 +2324,22 @@ function formatAnswerReason(reason) {
   }[reason] || "";
 }
 
+function questionActionDetail(session, capture) {
+  return `${session.title} · ${summarizeCapture(capture)} · ${questionConversionReceipt()}`;
+}
+
+function questionConversionReceipt() {
+  const loop = buildTodayPack(workspace, new Date(), {
+    dueLimit: 1,
+    questionLimit: 1,
+    parkedQuestionLimit: 1,
+    resolvedQuestionLimit: 1,
+    answerLimit: 1,
+    recentLimit: 1
+  }).questionLoop;
+  return `Loop: ${loop.activeQuestions} active · ${loop.parkedQuestions} parked · ${loop.resolvedQuestionsToday} closed today · ${loop.questionReviewCardsToday} ${loop.questionReviewCardsToday === 1 ? "card" : "cards"} today`;
+}
+
 function formatCaptureTags(capture) {
   return (Array.isArray(capture?.tags) ? capture.tags : [])
     .map((tag) => `#${tag}`)
@@ -2443,7 +2459,7 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
   activeTab = "review";
   setActivity(getActiveSession(workspace), {
     title: "Review card created",
-    detail: summarizeCapture(capture),
+    detail: questionActionDetail(targetSession, capture),
     tab: "review",
     targetId: getActiveSession(workspace).reviewCards[0]?.id
   });
@@ -2474,7 +2490,7 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
   revealedReviewCards.delete(activeReviewKey);
   setActivity(getActiveSession(workspace), {
     title: "Review card refreshed",
-    detail: summarizeCapture(capture),
+    detail: questionActionDetail(targetSession, capture),
     tab: "review",
     targetId: after.id
   });
@@ -2506,7 +2522,7 @@ function answerQuestionFromToday(captureId, sessionId) {
   });
   setActivity(getActiveSession(workspace), {
     title: "Answer draft started",
-    detail: `${sourceSession.title} · ${summarizeCapture(capture)}`,
+    detail: questionActionDetail(sourceSession, capture),
     tab: "captures",
     targetId: capture.id
   });
@@ -2528,7 +2544,7 @@ function setQuestionParked(captureId, sessionId = getActiveSession(workspace).id
   const targetIsActive = sourceSession.id === getActiveSession(workspace).id;
   setActivity(getActiveSession(workspace), {
     title: parked ? "Question parked" : "Question resumed",
-    detail: `${sourceSession.title} · ${summarizeCapture(capture)}`,
+    detail: questionActionDetail(sourceSession, capture),
     tab: targetIsActive ? "captures" : "today",
     targetId: targetIsActive ? capture.id : ""
   });
@@ -2548,7 +2564,7 @@ function setQuestionResolved(captureId, sessionId = getActiveSession(workspace).
   const targetIsActive = sourceSession.id === getActiveSession(workspace).id;
   setActivity(getActiveSession(workspace), {
     title: resolved ? "Question resolved" : "Question reopened",
-    detail: `${sourceSession.title} · ${summarizeCapture(capture)}`,
+    detail: questionActionDetail(sourceSession, capture),
     tab: targetIsActive ? "captures" : "today",
     targetId: targetIsActive ? capture.id : ""
   });

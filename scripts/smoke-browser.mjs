@@ -1735,6 +1735,7 @@ try {
       ?.click();
     const afterPark = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
       openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
@@ -1750,6 +1751,7 @@ try {
       ?.click();
     const afterAnswerDraft = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       activeTitle: document.querySelector("#sessionTitle").value,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activeElement: document.activeElement?.id || "",
@@ -1765,6 +1767,7 @@ try {
       ?.click();
     const afterQuestionCard = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       activeTitle: document.querySelector("#sessionTitle").value,
       cardMetric: document.querySelector("#cardMetric").textContent,
       reviewActive: document.querySelector('[data-tab="review"]').classList.contains("active"),
@@ -1780,6 +1783,7 @@ try {
     promotedQuestionButtons.find((button) => button.textContent === "Resolve")?.click();
     const afterResolve = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
       stackText: document.querySelector("#captureStack").textContent,
       openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
@@ -1797,6 +1801,7 @@ try {
     document.querySelector('[data-tab="today"]').click();
     const afterReopen = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
       stackText: document.querySelector("#captureStack").textContent,
       openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
@@ -1861,6 +1866,7 @@ try {
     const refreshedAnswerCard = answerTopicAfterRefresh?.reviewCards.find((card) => card.sourceCaptureId === answerTarget?.id);
     const afterAnswerRefresh = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       reviewText: document.querySelector("#reviewList").textContent,
       activeReviewCard: Boolean(document.querySelector("#reviewList .active-review-card")),
       reviewButtonsBeforeReveal,
@@ -1885,6 +1891,7 @@ try {
       ?.click();
     const afterAnswerReopen = {
       activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
       closedQuestionCards: Array.from(document.querySelectorAll("#todayList .closed-question-card"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
       openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
@@ -1954,6 +1961,7 @@ try {
   assert.equal(questionFlow.questionButtons.includes("Make card"), true);
   assert.equal(questionFlow.questionButtons.includes("Park"), true);
   assert.equal(questionFlow.afterPark.activity, "Question parked");
+  assert.match(questionFlow.afterPark.detail, /Loop: 0 active · 1 parked · 0 closed today · 0 cards today/);
   assert.match(questionFlow.afterPark.focusFacts, /Questions/);
   assert.match(questionFlow.afterPark.focusFacts, /None/);
   assert.equal(questionFlow.afterPark.openQuestionCards, 0);
@@ -1964,16 +1972,16 @@ try {
   assert.match(questionFlow.afterPark.todayText, /compactness assumption/);
   assert.equal(questionFlow.afterPark.parkedButtons.includes("Answer"), true);
   assert.equal(questionFlow.afterPark.parkedButtons.includes("Resume"), true);
-  assert.deepEqual(questionFlow.afterAnswerDraft, {
-    activity: "Answer draft started",
-    activeTitle: "Question parking smoke",
-    activeTab: "captures",
-    activeElement: "thoughtInput",
-    quote: "Why does this theorem need the compactness assumption?",
-    thought: "Answer:",
-    timestamp: ""
-  });
+  assert.equal(questionFlow.afterAnswerDraft.activity, "Answer draft started");
+  assert.match(questionFlow.afterAnswerDraft.detail, /Loop: 1 active · 0 parked · 0 closed today · 0 cards today/);
+  assert.equal(questionFlow.afterAnswerDraft.activeTitle, "Question parking smoke");
+  assert.equal(questionFlow.afterAnswerDraft.activeTab, "captures");
+  assert.equal(questionFlow.afterAnswerDraft.activeElement, "thoughtInput");
+  assert.equal(questionFlow.afterAnswerDraft.quote, "Why does this theorem need the compactness assumption?");
+  assert.equal(questionFlow.afterAnswerDraft.thought, "Answer:");
+  assert.equal(questionFlow.afterAnswerDraft.timestamp, "");
   assert.equal(questionFlow.afterQuestionCard.activity, "Review card created");
+  assert.match(questionFlow.afterQuestionCard.detail, /Loop: 1 active · 0 parked · 0 closed today · 1 card today/);
   assert.equal(questionFlow.afterQuestionCard.activeTitle, "Question parking smoke");
   assert.equal(questionFlow.afterQuestionCard.cardMetric, "1");
   assert.equal(questionFlow.afterQuestionCard.reviewActive, true);
@@ -1981,12 +1989,14 @@ try {
   assert.deepEqual(questionFlow.promotedQuestionButton, { text: "Card", disabled: true });
   assert.equal(questionFlow.questionButtons.includes("Resolve"), true);
   assert.equal(questionFlow.afterResolve.activity, "Question resolved");
+  assert.match(questionFlow.afterResolve.detail, /Loop: 0 active · 0 parked · 1 closed today · 1 card today/);
   assert.equal(questionFlow.afterResolve.openQuestionCards, 0);
   assert.match(questionFlow.afterResolve.focusFacts, /Questions/);
   assert.match(questionFlow.afterResolve.focusFacts, /None/);
   assert.match(questionFlow.afterResolve.stackText, /Answered/);
   assert.equal(questionFlow.captureButtonsAfterResolve.includes("Reopen"), true);
   assert.equal(questionFlow.afterReopen.activity, "Question reopened");
+  assert.match(questionFlow.afterReopen.detail, /Loop: 1 active · 0 parked · 0 closed today · 1 card today/);
   assert.equal(questionFlow.afterReopen.openQuestionCards, 1);
   assert.match(questionFlow.afterReopen.focusFacts, /1 open/);
   assert.match(questionFlow.afterReopen.stackText, /Question/);
@@ -2012,6 +2022,7 @@ try {
   assert.doesNotMatch(questionFlow.afterAnswerImport.todayText, /Answer: Answer:/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Reopen/);
   assert.equal(questionFlow.afterAnswerRefresh.activity, "Review card refreshed");
+  assert.match(questionFlow.afterAnswerRefresh.detail, /Loop: 0 active · 0 parked · 1 closed today · 1 card today/);
   assert.equal(questionFlow.afterAnswerRefresh.activeReviewCard, true);
   assert.match(questionFlow.afterAnswerRefresh.reviewText, /Answer the question: Why does this theorem need the compactness assumption/);
   assert.equal(questionFlow.afterAnswerRefresh.cardEvidenceCaptureId, questionFlow.afterAnswerRefresh.answerCaptureId);
@@ -2021,6 +2032,7 @@ try {
   assert.equal(questionFlow.afterAnswerEvidence.answerCaptureVisible, true);
   assert.match(questionFlow.afterAnswerEvidence.captureText, /without compactness the proof cannot pass/);
   assert.equal(questionFlow.afterAnswerReopen.activity, "Question reopened");
+  assert.match(questionFlow.afterAnswerReopen.detail, /Loop: 1 active · 0 parked · 0 closed today · 1 card today/);
   assert.equal(questionFlow.afterAnswerReopen.closedQuestionCards, 0);
   assert.equal(questionFlow.afterAnswerReopen.openQuestionCards, 1);
   assert.match(questionFlow.afterAnswerReopen.focusFacts, /1 open/);
