@@ -575,6 +575,7 @@ try {
             sourceUrl: "data:text/html,bad",
             materialType: "doc",
             tags: "mobile inbox",
+            answersQuestionCaptureId: "bad answer target!",
             capturedAt: "2026-05-29T09:01:00+08:00"
           }]
         };
@@ -773,6 +774,8 @@ try {
   assert.equal(result.inboxCaptureMetric, "4");
   assert.match(result.inboxReceiptText, /1 added, 0 skipped/);
   assert.match(result.inboxReceiptText, /1 source link stripped/);
+  assert.match(result.inboxReceiptText, /1 answer target skipped/);
+  assert.match(result.inboxReceiptText, /invalid: 1/);
   assert.match(result.inboxReceiptText, /topic id matched/);
   assert.equal(result.inboxLatestSourceUrl, "");
   assert.equal(result.inboxLatestProvenance, "inbox");
@@ -1794,15 +1797,55 @@ try {
       openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length
     };
+    const reopenedSnapshot = {
+      signals: document.querySelector("#focusBriefSignals").textContent,
+      focusFacts: document.querySelector("#focusBriefFacts").textContent,
+      todaySummary: document.querySelector("#todaySummary").textContent,
+      todayText: document.querySelector("#todayList").textContent
+    };
+    const exportedBeforeAnswerImport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const answerTopic = exportedBeforeAnswerImport.sessions.find((session) => (
+      session.captures.some((capture) => /compactness assumption/.test(capture.thought || capture.quote))
+    ));
+    const answerTarget = answerTopic?.captures.find((capture) => /compactness assumption/.test(capture.thought || capture.quote));
+    const answerImport = window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      schema: "learning-companion.mobile-inbox-patch.v1",
+      appVersion: 1,
+      patchId: "browser_question_answer_patch",
+      createdAt: "2026-05-29T10:00:00.000Z",
+      source: { generatedBy: "inbox.html", workspaceFingerprint: "browser-question", topicId: answerTopic?.id || "", topicTitle: answerTopic?.title || "" },
+      target: { topicId: answerTopic?.id || "", topicTitle: answerTopic?.title || "" },
+      captures: [{
+        id: "browser_question_answer_capture",
+        quote: "Compactness keeps the finite subcover step available.",
+        thought: "Answer: without compactness the proof cannot pass from local covers to a finite argument.",
+        tags: "answer",
+        answersQuestionCaptureId: answerTarget?.id || "",
+        capturedAt: "2026-05-29T10:00:01.000Z"
+      }]
+    }));
+    const exportedAfterAnswerImport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const answerTopicAfter = exportedAfterAnswerImport.sessions.find((session) => session.id === answerTopic?.id);
+    const answerTargetAfter = answerTopicAfter?.captures.find((capture) => capture.id === answerTarget?.id);
+    const answerCaptureAfter = answerTopicAfter?.captures.find((capture) => capture.inboxCaptureId === "browser_question_answer_capture");
+    const afterAnswerImport = {
+      ok: answerImport.ok === true,
+      kind: answerImport.kind || "",
+      receiptText: document.querySelector("#importReceipt").textContent,
+      answeredQuestions: answerImport.receipt?.answeredQuestions || 0,
+      open: answerTargetAfter ? /Question/.test(answerTargetAfter.thought || "") && !answerTargetAfter.questionResolvedAt : true,
+      questionResolvedAt: answerTargetAfter?.questionResolvedAt || "",
+      answerCaptureLinked: answerCaptureAfter?.answersQuestionCaptureId === answerTarget?.id
+    };
     return {
       zeroFocusFacts,
       emptyTodayText,
       stackText: initialQuestionStackText,
-      signals: document.querySelector("#focusBriefSignals").textContent,
-      focusFacts: document.querySelector("#focusBriefFacts").textContent,
+      signals: reopenedSnapshot.signals,
+      focusFacts: reopenedSnapshot.focusFacts,
       questionSignalClass: questionSignal ? questionSignal.className : "",
-      todaySummary: document.querySelector("#todaySummary").textContent,
-      todayText: document.querySelector("#todayList").textContent,
+      todaySummary: reopenedSnapshot.todaySummary,
+      todayText: reopenedSnapshot.todayText,
       questionButtons,
       questionSignalClick: {
         before: beforeQuestionSignalClick,
@@ -1817,7 +1860,8 @@ try {
       },
       afterResolve,
       captureButtonsAfterResolve,
-      afterReopen
+      afterReopen,
+      afterAnswerImport
     };
   })()`);
 
@@ -1885,6 +1929,13 @@ try {
   assert.equal(questionFlow.afterReopen.openQuestionCards, 1);
   assert.match(questionFlow.afterReopen.focusFacts, /1 open/);
   assert.match(questionFlow.afterReopen.stackText, /Question/);
+  assert.equal(questionFlow.afterAnswerImport.ok, true);
+  assert.equal(questionFlow.afterAnswerImport.kind, "mobile-inbox-patch");
+  assert.equal(questionFlow.afterAnswerImport.answeredQuestions, 1);
+  assert.equal(questionFlow.afterAnswerImport.open, false);
+  assert.match(questionFlow.afterAnswerImport.questionResolvedAt, /^20/);
+  assert.equal(questionFlow.afterAnswerImport.answerCaptureLinked, true);
+  assert.match(questionFlow.afterAnswerImport.receiptText, /1 question resolved/);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {

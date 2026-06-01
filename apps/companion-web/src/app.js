@@ -1436,7 +1436,31 @@ function formatInboxReceipt(receipt) {
   const sanitized = receipt.sanitizedSourceUrls
     ? ` · ${receipt.sanitizedSourceUrls} source ${receipt.sanitizedSourceUrls === 1 ? "link" : "links"} stripped`
     : "";
-  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized} · ${resolution} · ${receipt.targetSessionTitle}`;
+  const answered = receipt.answeredQuestions
+    ? ` · ${receipt.answeredQuestions} ${receipt.answeredQuestions === 1 ? "question" : "questions"} resolved`
+    : "";
+  const answerSkipped = receipt.skippedAnswerTargets
+    ? ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips)}`
+    : "";
+  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${answerSkipped} · ${resolution} · ${receipt.targetSessionTitle}`;
+}
+
+function formatAnswerTargetSkips(skips = {}) {
+  const labels = {
+    invalid: "invalid",
+    selfReference: "self",
+    patchReference: "same patch",
+    missing: "missing",
+    nonQuestion: "not question",
+    alreadyClosed: "already closed"
+  };
+  const parts = Object.entries(labels)
+    .map(([key, label]) => {
+      const count = Number(skips[key]) || 0;
+      return count ? `${label}: ${count}` : "";
+    })
+    .filter(Boolean);
+  return parts.length ? ` (${parts.join(", ")})` : "";
 }
 
 function formatReviewProgressReceipt(receipt) {

@@ -29,20 +29,20 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `e383e5f feat: add parked question queue`
 - `c4dadd8 feat: add question queue health cue`
 - `3e2af15 feat: resolve questions from answer patches`
+- `68ed5f3 test: harden answer patch resolution`
 
-Current uncommitted work hardens the answer-patch resolver after Mira review:
+Latest local work makes answer resolution visible in import receipts:
 
-- `answersQuestionCaptureId` now accepts only bounded ASCII capture ids.
-- Mobile inbox receipts include reason-tagged answer-target skips: `invalid`, `selfReference`, `patchReference`, `missing`, `nonQuestion`, and `alreadyClosed`.
-- Static smoke covers duplicate patch idempotency, missing/cross-topic targets, already-closed target, malformed target, self-reference, and same-patch reference.
-- The mirror-bundle contract documents the skip reason enum.
+- `formatInboxReceipt()` now reports when an imported answer resolved a question.
+- The same receipt reports skipped answer targets with reason counts, such as `invalid: 1`.
+- Browser smoke covers both visible invalid-target skip feedback and an answer patch that closes the original open question.
+- The answer-patch resolver remains hardened from the prior commit: bounded ASCII ids, reason-tagged skips, duplicate idempotency, cross-topic negatives, already-closed targets, self-reference, and same-patch reference coverage.
 
 ## Verified Locally
 
-These passed after the current answer-import hardening:
+These passed after the receipt UI update:
 
 - `npm run smoke`
-- `npm run smoke:harmony`
 - `npm run smoke:browser`
 - `npm run check:morning`
 - `git diff --check`
@@ -82,19 +82,17 @@ Latest absorbed Mira notes for parked question loop:
 
 ## Next Local Work
 
-1. Commit the current parked-question queue once status is clean enough:
-   - Suggested message: `test: harden answer patch resolution`.
-
-2. Continue the study loop:
+1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
-   - Consider a tighter Today receipt for "answers imported today" so the user sees closure after patch import.
+   - Consider a tighter Today surface for "answers imported today" so the user sees closure after patch import without opening import history.
+   - Consider a small "closed today" section that keeps resolved questions visible briefly, then fades into review.
 
-3. Keep the cross-end story honest:
+2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
    - Harmony remains schema/scaffold plus fixture evidence until compile/device gates run.
    - Feishu mirror is a dry-run/contract path until real write sync is verified.
 
-4. Record approval-gated TODOs instead of stalling:
+3. Record approval-gated TODOs instead of stalling:
    - Mac build/manual QA.
    - Harmony device compile.
    - Feishu authenticated write test.
