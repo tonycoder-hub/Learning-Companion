@@ -72,6 +72,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Mirror bundle includes `TODAY.md` as a derived mobile/Windows reading entry point, while `index.html` gives a shorter open-question preview for folder-first review.
 - Today and mirror exports include the active session's Focus Brief so cross-device handoff starts at "resume here," including the latest captured timestamp when the source supports jumps.
 - Mirror bundle includes static `index.html` as a folder home page for Today, Review, Restore, and sessions.
+- Mirror home open-question previews link into `inbox.html` with a prefilled Answer draft so phone/Windows/Feishu folder review can return an append-only answer patch.
 - Mirror bundle includes static `review.html` for due-card review on phone or Windows, with append-only progress patch export.
 - Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and append-only patch export.
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.

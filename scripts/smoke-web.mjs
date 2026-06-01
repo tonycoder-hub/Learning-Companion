@@ -868,6 +868,14 @@ assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);
 assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
+assert.match(questionMirrorIndexHtml, /Answer in inbox/);
+const questionAnswerHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">Answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
+const questionAnswerParams = new URLSearchParams(questionAnswerHref.split("?")[1] || "");
+assert.equal(questionAnswerParams.get("topicId"), algorithmsSession.id);
+assert.equal(questionAnswerParams.get("quote"), "Which invariant breaks if the heap is stale?");
+assert.equal(questionAnswerParams.get("thought"), "Answer:");
+assert.equal(questionAnswerParams.get("timestamp"), "14:05");
+assert.match(questionAnswerParams.get("tags") || "", /answer/);
 let overflowMirrorQuestionWorkspace = addCapture(questionTodayWorkspace, algorithmsSession.id, {
   quote: "HTML-like study input should stay inert in the mirror home.",
   thought: "What about <script>alert(\"x\")</script> & \"quotes\"?",
@@ -1026,6 +1034,8 @@ assert.match(inboxHtml, /Learning Companion Inbox/);
 assert.match(inboxHtml, /learning-companion\.mobile-inbox-patch\.v1/);
 assert.match(inboxHtml, /Content-Security-Policy/);
 assert.match(inboxHtml, /getRandomValues/);
+assert.match(inboxHtml, /applyQueryPrefill/);
+assert.match(inboxHtml, /Answer draft loaded from mirror link/);
 assert.equal(inboxHtml.includes("<link"), false);
 assert.equal(/<script[^>]+src=/i.test(inboxHtml), false);
 assert.equal(/<iframe/i.test(inboxHtml), false);

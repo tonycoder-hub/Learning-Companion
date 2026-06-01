@@ -1022,6 +1022,8 @@ try {
     return {
       heading: document.querySelector("h1").textContent,
       topicOptions: document.querySelectorAll("#topicSelect option").length,
+      selectedTopicId: document.querySelector("#topicSelect").value,
+      selectedTopicTitle: document.querySelector("#topicSelect option:checked")?.textContent || "",
       status: document.querySelector("#statusOutput").textContent,
       draftCount: document.querySelectorAll("#draftList .capture").length,
       previewSchema: preview.schema,
@@ -1037,6 +1039,7 @@ try {
   assert.equal(exceptions.length, exceptionsBeforeInboxRuntime);
   assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
   assert.ok(inboxRuntime.topicOptions >= 1);
+  assert.notEqual(inboxRuntime.selectedTopicId, "");
   assert.equal(inboxRuntime.status, "Capture added to patch draft.");
   assert.equal(inboxRuntime.draftCount, 1);
   assert.equal(inboxRuntime.previewSchema, "learning-companion.mobile-inbox-patch.v1");
@@ -1045,6 +1048,39 @@ try {
   assert.equal(inboxRuntime.previewThought, "This should become an append-only patch.");
   assert.equal(inboxRuntime.previewSourceUrl, "");
   assert.equal(inboxRuntime.storedDraftCount, 1);
+
+  const inboxAnswerParams = new URLSearchParams({
+    topicId: inboxRuntime.selectedTopicId,
+    quote: "What should I answer from the mirror?",
+    thought: "Answer:",
+    timestamp: "12:34",
+    tags: "question, answer",
+    sourceTitle: "Mirror question preview",
+    sourceUrl: "javascript:alert(1)"
+  });
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html?${inboxAnswerParams}` });
+  await sleep(300);
+  const inboxAnswerRuntime = await cdp.evaluate(`(() => ({
+    status: document.querySelector("#statusOutput").textContent,
+    selectedTopicId: document.querySelector("#topicSelect").value,
+    selectedTopicTitle: document.querySelector("#topicSelect option:checked")?.textContent || "",
+    quote: document.querySelector("#quoteInput").value,
+    thought: document.querySelector("#thoughtInput").value,
+    timestamp: document.querySelector("#timestampInput").value,
+    tags: document.querySelector("#tagsInput").value,
+    sourceTitle: document.querySelector("#sourceTitleInput").value,
+    sourceUrl: document.querySelector("#sourceUrlInput").value
+  }))()`);
+
+  assert.equal(inboxAnswerRuntime.status, "Answer draft loaded from mirror link.");
+  assert.equal(inboxAnswerRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
+  assert.equal(inboxAnswerRuntime.selectedTopicTitle, inboxRuntime.selectedTopicTitle);
+  assert.equal(inboxAnswerRuntime.quote, "What should I answer from the mirror?");
+  assert.equal(inboxAnswerRuntime.thought, "Answer:");
+  assert.equal(inboxAnswerRuntime.timestamp, "12:34");
+  assert.equal(inboxAnswerRuntime.tags, "question, answer");
+  assert.equal(inboxAnswerRuntime.sourceTitle, "Mirror question preview");
+  assert.equal(inboxAnswerRuntime.sourceUrl, "");
 
   await cdp.send("Page.navigate", { url: appUrl });
   await sleep(300);

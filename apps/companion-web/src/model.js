@@ -1875,6 +1875,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      option.selected = topic.id === seed.activeSessionId;",
     "      topicSelect.append(option);",
     "    });",
+    "    applyQueryPrefill();",
     "    topicSelect.addEventListener('change', render);",
     "    document.querySelector('#addCaptureBtn').addEventListener('click', addCapture);",
     "    document.querySelector('#clearFormBtn').addEventListener('click', clearForm);",
@@ -1951,6 +1952,18 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      return node;",
     "    }",
     "    function emptyDraft() { const node = document.createElement('p'); node.className = 'meta'; node.textContent = 'No draft captures for this topic yet.'; return node; }",
+    "    function applyQueryPrefill() {",
+    "      const params = new URLSearchParams(window.location.search);",
+    "      const topicId = clean(params.get('topicId'), 128);",
+    "      if (seed.topics.some((topic) => topic.id === topicId)) topicSelect.value = topicId;",
+    "      fields.quote.value = clean(params.get('quote'), 12000);",
+    "      fields.thought.value = clean(params.get('thought'), 12000);",
+    "      fields.timestamp.value = clean(params.get('timestamp'), 32);",
+    "      fields.tags.value = clean(params.get('tags'), 240);",
+    "      fields.sourceTitle.value = clean(params.get('sourceTitle'), 160);",
+    "      fields.sourceUrl.value = safeUrl(params.get('sourceUrl'));",
+    "      if (fields.quote.value || fields.thought.value) setStatus('Answer draft loaded from mirror link.');",
+    "    }",
     "    function currentTopic() { return seed.topics.find((topic) => topic.id === topicSelect.value) || seed.topics[0]; }",
     "    function loadDrafts() { try { return JSON.parse(localStorage.getItem(storageKey) || '[]').filter((item) => item && item.id); } catch { return []; } }",
     "    function saveDrafts() { localStorage.setItem(storageKey, JSON.stringify(drafts.slice(-50))); }",
@@ -2000,11 +2013,12 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     : "<li>No cards due right now.</li>";
   const questionList = pack.questionItems.length
     ? [
-        ...pack.questionItems.map(({ sessionTitle, sessionPath, capture }) => {
+        ...pack.questionItems.map(({ sessionId, sessionTitle, sessionPath, capture }) => {
           const sessionLabel = isSafeMirrorSessionPath(sessionPath)
             ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
             : htmlText(sessionTitle);
-          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel}</span></li>`;
+          const answerHref = buildInboxAnswerHref(sessionId, capture);
+          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel} · <a href="${htmlAttribute(answerHref)}">Answer in inbox</a></span></li>`;
         }),
         pack.questionOverflow > 0 ? `<li>${htmlText(formatCount(pack.questionOverflow, "more open question"))} in <a href="TODAY.md">TODAY.md</a>.</li>` : ""
       ].filter(Boolean).join("\n")
@@ -2107,6 +2121,17 @@ export function getSynthesisStats(session) {
     questions: captures.filter((capture) => captureHasOpenQuestion(capture)).length,
     cards: reviewCards.length
   };
+}
+
+function buildInboxAnswerHref(sessionId, capture) {
+  const params = new URLSearchParams();
+  params.set("topicId", cleanText(sessionId, 128));
+  params.set("quote", cleanText(capture?.thought || capture?.quote || "Untitled question", MAX_CAPTURE_TEXT_LENGTH));
+  params.set("thought", "Answer:");
+  if (capture?.timestamp) params.set("timestamp", cleanText(capture.timestamp, 32));
+  const tags = normalizeTags([...(capture?.tags || []), "answer"]).join(", ");
+  if (tags) params.set("tags", tags);
+  return `inbox.html?${params.toString()}`;
 }
 
 export function captureHasQuestion(capture) {

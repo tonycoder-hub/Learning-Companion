@@ -12,8 +12,8 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 
 - `workspace.json` is canonical for restore.
 - `README.md` is derived documentation.
-- `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session, including why that next action was selected. `TODAY.md` carries the fuller Open Questions backlog; `index.html` includes a short Open Question Preview so Windows/Feishu folder browsing does not hide unresolved study questions.
-- `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` JSON.
+- `TODAY.md` and `index.html` are derived entry points and include a Focus Brief / Resume Here section for the active session, including why that next action was selected. `TODAY.md` carries the fuller Open Questions backlog; `index.html` includes a short Open Question Preview so Windows/Feishu folder browsing does not hide unresolved study questions. Preview questions may link to `inbox.html` with query-prefilled answer drafts; this is a convenience link, not a workspace mutation.
+- `inbox.html` is a derived, local-only mobile/Windows capture page that exports append-only `learning-companion.mobile-inbox-patch.v1` JSON. Its query prefill supports `topicId`, `quote`, `thought`, `timestamp`, `tags`, `sourceTitle`, and `sourceUrl`; the source URL is sanitized before it reaches patch output.
 - `review.html` is a derived, local-only mobile/Windows review page that exports append-only `learning-companion.review-progress-patch.v1` JSON.
 - `sessions/*.md` is derived human-readable material.
 - `sessions/*.feishu.json` is a derived sidecar reserved for future round-trip sync; it includes the same deterministic focus brief for that session.
