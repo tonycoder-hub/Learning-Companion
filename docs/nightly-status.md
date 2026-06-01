@@ -44,7 +44,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Sessions, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action.
-- Quick Capture keeps a Recent Stack in the main desk so sidecar mode still shows the latest captures plus Open, Note, Review/Card, and confirmed Delete actions without reopening the inspector.
+- Quick Capture keeps a Recent Stack in the main desk so sidecar mode still shows the latest captures plus Open, Note, Review/Card, and confirmed Delete actions without reopening the inspector; delete confirmation names the capture and linked-card count, and unrelated revealed review cards stay revealed.
 - Captured question-thoughts are surfaced as Focus Brief signals and Recent Stack chips, then carried into synthesis as Open Questions.
 - Today and `TODAY.md` include an Open Questions backlog across sessions so handoff does not hide unresolved study questions inside recent captures.
 - Today and `TODAY.md` include Question Queue Health, making active, parked, and total unresolved question counts visible before the user chooses the next study action.
@@ -122,7 +122,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Recent Stack delete work and now covers promoted stack labels, canceling deletion, direct sidecar deletion, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Recent Stack delete work and now covers promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
 
 ## Review Notes Absorbed
 

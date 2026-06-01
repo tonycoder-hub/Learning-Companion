@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `589e346 fix: scope recent stack delete state`
 - `f51d254 feat: delete captures from recent stack`
 - `ba679fa feat: surface draft source drift in focus brief`
 - `09bd884 feat: open review cards from capture stack`
@@ -221,7 +222,9 @@ Latest local work adds Recent Stack mistake recovery:
 - Captures with linked review cards label the action as `Delete + N card(s)` and route through the existing `deleteCapture()` cascade, so the sidecar does not invent a second deletion rule.
 - Canceling the confirmation leaves captures, cards, and stack rows intact.
 - Deleting a stack-only mistaken capture removes it from the metrics and Recent Stack while recording `Capture deleted` in the activity strip.
-- Browser smoke pins promoted stack labels, cancel behavior, direct stack deletion, and the existing inspector delete path.
+- Mira returned `PASS_WITH_NOTES`; accepted fixes resolve the clicked session/capture from the current workspace, scope review reveal-state cleanup only to deleted linked cards, include the capture summary in the confirm prompt, and precompute linked-card counts for the stack render.
+- Browser smoke pins promoted stack labels, richer confirm copy, cancel behavior, direct stack deletion, unrelated revealed review cards surviving a stack delete, and the existing inspector delete path.
+- Deferred Mira note: soft undo for capture deletion is a real recovery upgrade, but it should be a deliberate follow-up rather than a rushed local state machine tonight.
 
 ## Verified Locally
 
@@ -336,11 +339,21 @@ Latest absorbed Mira notes for Harmony import/file-picker contract:
 - Add rationale and revisit trigger for the 5 MB limit; current cap is conservative for read-only MVP fixtures.
 - Defer BOM/CRLF and smoke self-mutation checks until a real picker or broader import corpus makes them worth the extra surface.
 
+Latest absorbed Mira notes for Recent Stack delete:
+
+- Keep the commit; no blocker for a local Mac-first MVP increment.
+- Resolve `session` and `capture` by id at click time instead of trusting render-time closures.
+- Only clear `activeReviewKey` / `revealedReviewCards` for review cards actually linked to the deleted capture.
+- Include the capture summary and linked-card count in the confirmation prompt.
+- Pin the cancel path, direct stack delete, and unrelated revealed-review preservation in browser smoke.
+- Track soft undo as a future mistake-recovery improvement before this delete helper spreads to more surfaces.
+
 ## Next Local Work
 
 1. Continue the study loop:
    - Prefer one more Mac-first dogfood polish around source/timestamp capture or sidecar focus before broadening claims.
    - A good next local increment is to tighten the capture context around actual browser study use: what changed, where the note will land, and how to resume the source without touching approval-gated native APIs.
+   - A useful local follow-up is a small soft-undo design for capture delete, because the sidecar now exposes a faster destructive action.
    - Consider a local persisted-view adapter stub only if it helps the Harmony/Windows handoff without claiming device storage has run.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
