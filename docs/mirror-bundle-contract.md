@@ -20,6 +20,8 @@ ZIP is not a valid direct import source today. To restore from ZIP, extract `wor
 
 Importers restore from `workspace.json` first. They may use derived files for diagnostics, previews, or migration help, but not as the primary source of truth.
 
+The Mac import picker accepts one full workspace/mirror restore at a time, or multiple `inbox.html` / `review.html` return JSON files together. Multi-file import rejects non-return payloads and produces a combined `learning-companion.return-files-receipt.v1` summary instead of replacing the workspace.
+
 ## Snapshot Semantics
 
 Each bundle is a full snapshot rebuilt from current app state. It is not an append-only log and not an incremental delta. A future uploader should translate a bundle into a Drive folder layout and remove stale generated files from previous snapshots.

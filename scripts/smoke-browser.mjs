@@ -927,8 +927,29 @@ try {
         importInput.files = inboxTransfer.files;
         importInput.dispatchEvent(new Event("change", { bubbles: true }));
         setTimeout(() => {
+          const singleInboxReceiptText = document.querySelector("#importReceipt").textContent;
+          const batchInboxPatch = {
+            ...inboxPatch,
+            patchId: "browser_patch_002",
+            captures: [{
+              ...inboxPatch.captures[0],
+              id: "browser_inbox_capture_002",
+              quote: "Second return file capture from Windows.",
+              thought: "Batch import should report multiple files at once.",
+              capturedAt: "2026-05-29T09:02:00+08:00"
+            }]
+          };
+          const batchTransfer = new DataTransfer();
+          batchTransfer.items.add(new File([JSON.stringify(batchInboxPatch)], "learning-companion-inbox-patch-20260529-0902-002.json", { type: "application/json" }));
+          batchTransfer.items.add(new File([JSON.stringify(reviewProgressPatch)], "learning-companion-review-progress-patch-20260529-0906-missing.json", { type: "application/json" }));
+          importInput.files = batchTransfer.files;
+          importInput.dispatchEvent(new Event("change", { bubbles: true }));
+          setTimeout(() => {
           const afterInboxImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterInboxSession = afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId);
+          const batchReceiptText = document.querySelector("#importReceipt").textContent;
+          const batchActivityTitle = document.querySelector("#activityTitle").textContent;
+          const batchActivityDetail = document.querySelector("#activityDetail").textContent;
           document.querySelector('[data-tab="today"]').click();
           const handoffPanel = document.querySelector(".handoff-card");
           const handoffText = handoffPanel.textContent;
@@ -956,6 +977,7 @@ try {
           oversizedImportReceiptVisible,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
+          importInputMultiple: importInput.multiple === true,
           reviewReceiptBeforeInbox,
           duplicateReviewReceiptBeforeInbox,
           captureMetric: captureMetricBeforeInbox,
@@ -964,11 +986,16 @@ try {
           captureText: captureTextBeforeInbox,
           reviewText: reviewTextBeforeInbox,
           inboxCaptureMetric: document.querySelector("#captureMetric").textContent,
-          inboxReceiptText: document.querySelector("#importReceipt").textContent,
+          singleInboxReceiptText,
+          batchReceiptText,
+          batchActivityTitle,
+          batchActivityDetail,
           inboxLatestSourceUrl: afterInboxSession.captures[0].sourceUrl,
           inboxLatestProvenance: afterInboxSession.captures[0].sourceProvenance,
           inboxSanitizedSourceUrls: afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId).captures[0].sourceUrl === "" ? 1 : 0,
           inboxImportedPatch: afterInboxImport.importedPatches.includes("browser_patch_001"),
+          batchImportedPatch: afterInboxImport.importedPatches.includes("browser_patch_002"),
+          batchImportedReviewPatch: afterInboxImport.importedReviewPatches.includes("browser_review_progress_missing"),
           handoffText,
           handoffButtons,
           handoffExportOpened,
@@ -1102,6 +1129,7 @@ try {
           schemaVersion: restoredWorkspace.schemaVersion,
           clientId: restoredWorkspace.clientId
           });
+          }, 80);
         }, 80);
         }, 80);
         }, 80);
@@ -1131,31 +1159,41 @@ try {
   assert.equal(result.oversizedImportReceiptVisible, true);
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
+  assert.equal(result.importInputMultiple, true);
   assert.match(result.reviewReceiptBeforeInbox, /Review progress imported/);
   assert.match(result.reviewReceiptBeforeInbox, /0 applied/);
   assert.match(result.reviewReceiptBeforeInbox, /1 missing/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /Review progress imported/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /0 applied/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /1 duplicate/);
-  assert.equal(result.inboxCaptureMetric, "4");
-  assert.match(result.inboxReceiptText, /1 added, 0 skipped/);
-  assert.match(result.inboxReceiptText, /1 source link stripped/);
-  assert.match(result.inboxReceiptText, /1 answer target skipped/);
-  assert.match(result.inboxReceiptText, /invalid: 1/);
-  assert.match(result.inboxReceiptText, /topic id matched/);
+  assert.equal(result.inboxCaptureMetric, "5");
+  assert.match(result.singleInboxReceiptText, /1 added, 0 skipped/);
+  assert.match(result.singleInboxReceiptText, /1 source link stripped/);
+  assert.match(result.singleInboxReceiptText, /1 answer target skipped/);
+  assert.match(result.singleInboxReceiptText, /invalid: 1/);
+  assert.match(result.singleInboxReceiptText, /topic id matched/);
+  assert.match(result.batchReceiptText, /Return JSON imported/);
+  assert.match(result.batchReceiptText, /2\/2 files processed/);
+  assert.match(result.batchReceiptText, /inbox: 1 added, 0 skipped/);
+  assert.match(result.batchReceiptText, /review: 0 applied, 1 duplicate/);
+  assert.equal(result.batchActivityTitle, "Return JSON imported");
+  assert.match(result.batchActivityDetail, /2\/2 files processed/);
   assert.equal(result.inboxLatestSourceUrl, "");
   assert.equal(result.inboxLatestProvenance, "inbox");
   assert.equal(result.inboxSanitizedSourceUrls, 1);
   assert.equal(result.inboxImportedPatch, true);
+  assert.equal(result.batchImportedPatch, true);
+  assert.equal(result.batchImportedReviewPatch, true);
   assert.match(result.handoffText, /Return Files/);
-  assert.match(result.handoffText, /1 inbox · 1 review/);
-  assert.match(result.handoffText, /1 added/);
+  assert.match(result.handoffText, /2 inbox · 1 review/);
+  assert.match(result.handoffText, /2\/2 files processed/);
+  assert.match(result.handoffText, /review: 0 applied, 1 duplicate/);
   assert.match(result.handoffText, /On this Mac: export a mirror/);
   assert.match(result.handoffText, /Feishu Drive, USB, email, or any file share/);
-  assert.match(result.handoffText, /On phone or Windows: open inbox\.html or review\.html/);
-  assert.match(result.handoffText, /Back on this Mac: transfer that JSON here and import it/);
+  assert.match(result.handoffText, /On phone or Windows: open inbox\.html or review\.html and save inbox\/review return JSON files/);
+  assert.match(result.handoffText, /Back on this Mac: transfer those JSON files here and import one or many at once/);
   assert.match(result.handoffText, /Manual files only/);
-  assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import File (Step 3)"]);
+  assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import Files (Step 3)"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
     activeElement: "downloadMirrorBtn",
@@ -1805,7 +1843,7 @@ try {
 
   assert.equal(inbound.sourceTitle, "External course page");
   assert.equal(inbound.sourceUrl, "https://example.com/course");
-  assert.equal(inbound.captureMetric, "6");
+  assert.equal(inbound.captureMetric, "7");
   assert.equal(inbound.latestQuote, "Inbound bookmarklet capture");
   assert.equal(inbound.latestThought, "Turn this into a note");
   assert.equal(inbound.latestTimestamp, "01:02:03");

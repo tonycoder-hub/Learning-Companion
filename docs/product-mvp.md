@@ -88,6 +88,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and timestamped append-only return JSON export for Mac import, plus an unsaved-draft leave warning.
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
+- Return Files can import multiple inbox/review return JSON files in one picker action and reports per-file batch counts for inbox additions, review grades, duplicates, and failures.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
 - Today tab surfaces Return Files counts, latest receipt, and the manual device-labeled path: export a mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON on Mac. The Step 1 action opens the Export tab directly at the Mirror Folder controls, and mirror saves leave a handoff receipt.
 - Portable import/export of the full workspace JSON and mirror bundle.

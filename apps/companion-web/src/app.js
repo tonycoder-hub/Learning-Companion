@@ -219,42 +219,81 @@ dom.importReceiptDismissBtn.addEventListener("click", () => {
 });
 
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
-  const [file] = event.target.files;
-  if (!file) return;
+  const files = Array.from(event.target.files || []);
+  if (!files.length) return;
   try {
-    if (file.size > MAX_MIRROR_BUNDLE_BYTES) {
-      throw new Error("Import file is too large");
+    if (files.length > 1) {
+      await importReturnFiles(files);
+      return;
     }
-    const imported = JSON.parse(await file.text());
-    if (isMobileInboxPatchLike(imported) && file.size > MAX_INBOX_PATCH_BYTES) {
-      throw new Error("Mobile inbox patch is too large.");
-    }
-    if (isReviewProgressPatchLike(imported) && file.size > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
-      throw new Error("Review progress patch is too large.");
-    }
+    const file = files[0];
+    const imported = await readImportFile(file);
     importPortableData(imported);
   } catch (error) {
     const message = error.message || "Import failed";
-    recordImportFailure(message, file.name);
+    recordImportFailure(message, files[0]?.name || "");
     showToast(message);
   } finally {
     event.target.value = "";
   }
 });
 
+async function readImportFile(file) {
+  if (file.size > MAX_MIRROR_BUNDLE_BYTES) {
+    throw new Error("Import file is too large");
+  }
+  const imported = JSON.parse(await file.text());
+  if (isMobileInboxPatchLike(imported) && file.size > MAX_INBOX_PATCH_BYTES) {
+    throw new Error("Mobile inbox patch is too large.");
+  }
+  if (isReviewProgressPatchLike(imported) && file.size > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
+    throw new Error("Review progress patch is too large.");
+  }
+  return imported;
+}
+
+async function importReturnFiles(files) {
+  const summary = emptyReturnFilesReceipt(files.length);
+  for (const file of files) {
+    try {
+      const imported = await readImportFile(file);
+      if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
+        throw new Error("Multi-file import only accepts inbox or review return JSON.");
+      }
+      const result = importPortableData(imported, { quiet: true });
+      addReturnFileImportResult(summary, file.name, result);
+    } catch (error) {
+      addReturnFileImportError(summary, file.name, error.message || "Import failed");
+    }
+  }
+  summary.importedAt = new Date().toISOString();
+  lastImportReceipt = summary;
+  setActivity(getActiveSession(workspace), {
+    title: "Return JSON imported",
+    detail: formatReturnFilesReceipt(summary),
+    tab: "today",
+    targetId: ""
+  });
+  persistAndRender(`Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`);
+  if (summary.failedFiles) showToast(`${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`);
+}
+
 function importPortableData(imported, options = {}) {
   const focusTodayOnWorkspace = Boolean(options.focusTodayOnWorkspace);
+  const quiet = Boolean(options.quiet);
   if (isMobileInboxPatch(imported)) {
     const result = applyMobileInboxPatch(workspace, imported);
     workspace = result.workspace;
-    lastImportReceipt = result.receipt;
-    setActivity(getActiveSession(workspace), {
-      title: "Mobile inbox imported",
-      detail: formatInboxReceipt(result.receipt),
-      tab: "captures",
-      targetId: ""
-    });
-    persistAndRender(`Inbox import: ${result.receipt.added} added`);
+    if (!quiet) {
+      lastImportReceipt = result.receipt;
+      setActivity(getActiveSession(workspace), {
+        title: "Mobile inbox imported",
+        detail: formatInboxReceipt(result.receipt),
+        tab: "captures",
+        targetId: ""
+      });
+      persistAndRender(`Inbox import: ${result.receipt.added} added`);
+    }
     return {
       ok: true,
       kind: "mobile-inbox-patch",
@@ -266,14 +305,16 @@ function importPortableData(imported, options = {}) {
   if (isReviewProgressPatch(imported)) {
     const result = applyReviewProgressPatch(workspace, imported);
     workspace = result.workspace;
-    lastImportReceipt = result.receipt;
-    setActivity(getActiveSession(workspace), {
-      title: "Review progress imported",
-      detail: formatImportReceipt(result.receipt),
-      tab: "review",
-      targetId: ""
-    });
-    persistAndRender(`Review import: ${result.receipt.applied} applied`);
+    if (!quiet) {
+      lastImportReceipt = result.receipt;
+      setActivity(getActiveSession(workspace), {
+        title: "Review progress imported",
+        detail: formatImportReceipt(result.receipt),
+        tab: "review",
+        targetId: ""
+      });
+      persistAndRender(`Review import: ${result.receipt.applied} applied`);
+    }
     return {
       ok: true,
       kind: "review-progress-patch",
@@ -1749,13 +1790,16 @@ function renderImportReceipt() {
   if (!dom.importReceipt) return;
   const receipt = lastImportReceipt;
   dom.importReceipt.hidden = !receipt;
-  dom.importReceipt.classList.toggle("import-receipt-error", receipt?.schema === "learning-companion.import-error-receipt.v1");
+  dom.importReceipt.classList.toggle("import-receipt-error",
+    receipt?.schema === "learning-companion.import-error-receipt.v1"
+      || (receipt?.schema === "learning-companion.return-files-receipt.v1" && receipt.failedFiles > 0 && receipt.processedFiles === 0));
   if (!receipt) return;
   dom.importReceiptTitle.textContent = importReceiptTitle(receipt);
   dom.importReceiptDetail.textContent = formatImportReceipt(receipt);
 }
 
 function importReceiptTitle(receipt) {
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return "Return JSON imported";
   if (receipt?.schema === "learning-companion.review-progress-receipt.v1") return "Review progress imported";
   if (receipt?.schema === "learning-companion.import-error-receipt.v1") return "Import issue";
   return "Mobile inbox imported";
@@ -1765,10 +1809,75 @@ function formatImportReceipt(receipt) {
   if (receipt?.schema === "learning-companion.import-error-receipt.v1") {
     return formatImportErrorReceipt(receipt);
   }
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") {
+    return formatReturnFilesReceipt(receipt);
+  }
   if (receipt?.schema === "learning-companion.review-progress-receipt.v1") {
     return formatReviewProgressReceipt(receipt);
   }
   return formatInboxReceipt(receipt);
+}
+
+function emptyReturnFilesReceipt(fileCount) {
+  return {
+    schema: "learning-companion.return-files-receipt.v1",
+    importedAt: new Date().toISOString(),
+    fileCount,
+    processedFiles: 0,
+    failedFiles: 0,
+    inbox: {
+      files: 0,
+      added: 0,
+      skippedDuplicate: 0,
+      answeredQuestions: 0,
+      refreshableReviewCards: 0,
+      skippedAnswerTargets: 0
+    },
+    review: {
+      files: 0,
+      applied: 0,
+      skippedDuplicate: 0,
+      skippedMissing: 0,
+      skippedConflict: 0,
+      skippedInvalid: 0,
+      totalEvents: 0
+    },
+    errors: []
+  };
+}
+
+function addReturnFileImportResult(summary, fileName, result) {
+  summary.processedFiles += 1;
+  if (result.kind === "mobile-inbox-patch") {
+    const receipt = result.receipt || {};
+    summary.inbox.files += 1;
+    summary.inbox.added += Number(receipt.added) || 0;
+    summary.inbox.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
+    summary.inbox.answeredQuestions += Number(receipt.answeredQuestions) || 0;
+    summary.inbox.refreshableReviewCards += Number(receipt.refreshableReviewCards) || 0;
+    summary.inbox.skippedAnswerTargets += Number(receipt.skippedAnswerTargets) || 0;
+    return;
+  }
+  if (result.kind === "review-progress-patch") {
+    const receipt = result.receipt || {};
+    summary.review.files += 1;
+    summary.review.applied += Number(receipt.applied) || 0;
+    summary.review.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
+    summary.review.skippedMissing += Number(receipt.skippedMissing) || 0;
+    summary.review.skippedConflict += Number(receipt.skippedConflict) || 0;
+    summary.review.skippedInvalid += Number(receipt.skippedInvalid) || 0;
+    summary.review.totalEvents += Number(receipt.totalEvents) || 0;
+    return;
+  }
+  addReturnFileImportError(summary, fileName, "Unsupported return file.");
+}
+
+function addReturnFileImportError(summary, fileName, message) {
+  summary.failedFiles += 1;
+  summary.errors.push({
+    fileName: String(fileName || "").slice(0, 120),
+    message: String(message || "Import failed").slice(0, 180)
+  });
 }
 
 function recordImportFailure(message, fileName = "") {
@@ -1837,6 +1946,30 @@ function formatReviewProgressReceipt(receipt) {
   const conflict = receipt.skippedConflict ? `, ${receipt.skippedConflict} stale` : "";
   const invalid = receipt.skippedInvalid ? `, ${receipt.skippedInvalid} invalid` : "";
   return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events`;
+}
+
+function formatReturnFilesReceipt(receipt) {
+  if (!receipt) return "";
+  const parts = [`${receipt.processedFiles}/${receipt.fileCount} files processed`];
+  if (receipt.inbox?.files) {
+    const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
+    const refreshable = receipt.inbox.refreshableReviewCards ? `, ${receipt.inbox.refreshableReviewCards} cards ready` : "";
+    const answerSkipped = receipt.inbox.skippedAnswerTargets ? `, ${receipt.inbox.skippedAnswerTargets} answer targets skipped` : "";
+    parts.push(`inbox: ${receipt.inbox.added} added, ${receipt.inbox.skippedDuplicate} skipped${answered}${refreshable}${answerSkipped}`);
+  }
+  if (receipt.review?.files) {
+    const duplicate = receipt.review.skippedDuplicate ? `, ${receipt.review.skippedDuplicate} duplicate` : "";
+    const missing = receipt.review.skippedMissing ? `, ${receipt.review.skippedMissing} missing` : "";
+    const conflict = receipt.review.skippedConflict ? `, ${receipt.review.skippedConflict} stale` : "";
+    const invalid = receipt.review.skippedInvalid ? `, ${receipt.review.skippedInvalid} invalid` : "";
+    parts.push(`review: ${receipt.review.applied} applied${duplicate}${missing}${conflict}${invalid}`);
+  }
+  if (receipt.failedFiles) {
+    const first = receipt.errors?.[0];
+    const detail = first ? ` (${first.fileName ? `${first.fileName}: ` : ""}${first.message})` : "";
+    parts.push(`${receipt.failedFiles} failed${detail}`);
+  }
+  return parts.join(" · ");
 }
 
 function renderMetrics() {
@@ -2977,15 +3110,15 @@ function renderReturnFilesPanel() {
   steps.className = "return-files-steps";
   [
     "On this Mac: export a mirror, then move it through Feishu Drive, USB, email, or any file share.",
-    "On phone or Windows: open inbox.html or review.html and save the return JSON.",
-    "Back on this Mac: transfer that JSON here and import it."
+    "On phone or Windows: open inbox.html or review.html and save inbox/review return JSON files.",
+    "Back on this Mac: transfer those JSON files here and import one or many at once."
   ].forEach((step) => {
     steps.append(textEl("li", "", step));
   });
   const boundary = textEl("p", "handoff-boundary", "Manual files only. No live Feishu sync or verified HarmonyOS device app yet.");
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const importPatch = textEl("button", "mini-button primary", "Import File (Step 3)");
+  const importPatch = textEl("button", "mini-button primary", "Import Files (Step 3)");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
