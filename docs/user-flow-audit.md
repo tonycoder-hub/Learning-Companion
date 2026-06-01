@@ -13,8 +13,9 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 
 ## External Review Status
 
-- Mira packet was prepared and submitted through the Hermes SSH broker twice. Both attempts failed at `SSH_FAILED` before Mira review execution, so there is no Mira verdict for this audit.
-- Seed / Doubao review ran after network approval. The first batch partly emitted tool-call intent in no-tool mode, so only the information-architecture critique was usable. A second summary-only batch returned usable critiques for desktop flow, cross-device flow, and information architecture.
+- Earlier Mira packets failed at `SSH_FAILED`, but the Hermes SSH broker path has since been restored and re-smoked with `re-o-47` / `deep`.
+- A focused Mira review on the phone+computer journey returned `PASS_WITH_NOTES`: it accepted the need for a flow rail, but criticized a symmetric four-step rail because daily Mac capture/review is high-frequency while device transfer is lower-frequency.
+- Seed / Doubao review also criticized the cross-device route for making users manually hunt for return JSON files and for weak stale-package guardrails. I accepted the route-clarity critique but deferred Downloads auto-scan because app automation should not keep dropping files into Downloads and browser static pages cannot safely scan local folders.
 
 ## What I Accept
 
@@ -32,16 +33,18 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 
 ## Changes Made From The Audit
 
-- Added a `Next Move` card to Today for returning users. It chooses one primary action in this order: due review, capture draft, open question, parked question, recent capture, or capture setup.
-- Kept empty-workspace `Start Here` as the first-run path instead of showing `Next Move`.
+- Added a `Next Move` route for returning users. It chooses one primary action in this order: due review, capture draft, open question, parked question, recent capture, or capture setup.
+- Kept empty-workspace `Start Here` as the first-run path instead of showing `Next Move`, then moved both paths into the unified Learning Flow panel.
 - Renamed the Today handoff card from `Patch Intake` to `Return Files`, and changed the import button to `Import Return Files`.
 - Added the explicit Return Files manual transfer path with device labels: export mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON back on Mac. The card now calls Feishu a file-sharing route, not sync.
-- `Export Mirror (Step 1)` now opens the Export tab at the Mirror Folder section, focuses Save Mirror, and records a Step 1 activity receipt instead of dropping the user into an undifferentiated export panel.
-- Saving Mirror JSON or ZIP now records a handoff receipt that tells the user to move the file to Feishu Drive, phone, or Windows and use `inbox.html` or `review.html` to create a return JSON.
+- Device Flow now lists USB, AirDrop, email, or file share before manual Feishu Drive upload, so Feishu reads as a manual carrier rather than a live integration.
+- `Export Mirror` now opens the Export tab at the Mirror Folder section, focuses Save Mirror, and records a handoff activity receipt instead of dropping the user into an undifferentiated export panel.
+- Saving Mirror JSON or ZIP now records a handoff receipt that tells the user to move the file through USB, AirDrop, email, file share, or manual Feishu Drive upload and use `inbox.html` or `review.html` to create a return JSON.
 - The exported `index.html`, `review.html`, and `inbox.html` now repeat the return-file contract on the device side: static mirror, no live sync, save a return JSON, move it back to Mac, import from Today > Return Files.
 - Mira's follow-up critique identified fixed return filenames and mobile tab loss as real manual-flow risks. The static Review and Inbox pages now save timestamped return JSON filenames and warn before leaving when local review/capture work has not been saved or copied.
 - The Mac import picker now accepts multiple return JSON files at once and shows a combined `Return JSON imported` receipt, so a phone review file and a Windows inbox file can close the loop together. Batch import uses a stable inbox-before-review order and continues past wrong-type files with per-file errors.
-- Browser smoke now pins the `Next Move` priority and the new `Return Files` copy.
+- The separate `Start Here`, `Next Move`, and `Return Files` cards have been consolidated into one `Learning Flow` panel. The high-frequency Mac track shows `Capture on Mac` and `Close the loop`; the cross-device route is a lower-frequency `Device Flow` drawer labeled `Manual transfer`.
+- Browser smoke now pins the `Learning Flow`, `Next Move`, and `Device Flow` copy.
 
 ## Current Journey Assessment
 

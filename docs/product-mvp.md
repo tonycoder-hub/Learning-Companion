@@ -55,8 +55,8 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Today includes Question Queue Health so active, parked, and total unresolved questions are visible before choosing the next study action.
 - Today includes a Question Loop summary so active backlog, same-day closures, answer-linked closures, and question-sourced review cards are visible as flow rather than scattered counters.
 - Today includes a compact section map so the heavier study cockpit can jump directly to due cards, questions, answers, closed items, drafts, and recent captures.
-- Today includes a first-run Start Here card with direct capture, first-question, and browser-clipper actions when no study trail exists yet.
-- Today includes a returning-user Next Move card that prioritizes due review, capture drafts, open questions, parked questions, recent captures, or capture setup before the denser dashboard sections.
+- Today includes a compact Learning Flow panel: the daily Mac track keeps `Capture on Mac` and `Close the loop` visible, while the lower-frequency device return path lives in a `Manual transfer` Device Flow drawer.
+- The first-run Start Here actions and returning-user Next Move are embedded inside Learning Flow, so the entry point is one route instead of separate onboarding, next-action, and handoff cards.
 - Today includes an Answers Today section so answer captures remain inspectable even when they are separate from the closed-question card.
 - Open questions in Today can seed an Answer draft in the source topic so the question becomes a focused capture rather than a context switch.
 - Open questions in Today can be promoted directly into review cards, switching back to the source topic before creating the card.
@@ -90,7 +90,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Return Files can import multiple inbox/review return JSON files in one picker action and reports per-file batch counts for inbox additions, review grades, duplicates, and failures. Batch import applies inbox returns before review returns and continues past wrong-type files with per-file errors.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
-- Today tab surfaces Return Files counts, latest receipt, and the manual device-labeled path: export a mirror on Mac, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON on Mac. The Step 1 action opens the Export tab directly at the Mirror Folder controls, and mirror saves leave a handoff receipt.
+- Today tab surfaces Return Files counts, latest receipt, and the manual device-labeled path inside Device Flow: export a mirror on Mac, transfer it yourself through USB, AirDrop, email, file share, or manual Feishu Drive upload, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON on Mac. The export action opens the Export tab directly at the Mirror Folder controls, and mirror saves leave a handoff receipt.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 - Minimal macOS WKWebView shell scaffold that loads the web MVP.

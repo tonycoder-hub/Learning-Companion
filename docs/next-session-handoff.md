@@ -150,11 +150,11 @@ Latest local work adds a Today section map for density:
 - Browser smoke clicks the Recent chip and verifies the Recent Captures section pulses.
 - Visual QA covered 1440x900 and 390x844 viewports with no horizontal overflow or button text overflow.
 
-Latest local work adds a first-run Start Here card:
+Latest local work folds first-run Start Here into Learning Flow:
 
-- When the workspace has no captures, cards, due items, questions, answers, closed questions, or capture drafts, Today shows a compact `Start Here` action card.
+- When the workspace has no captures, cards, due items, questions, answers, closed questions, or capture drafts, Today shows `Learning Flow` with `Capture on Mac`, `Close the loop`, and an embedded `Start Here` action row.
 - Actions are concrete and local: `Capture first point` focuses Quick Capture, `Write first question` seeds a `Question: ` draft, and `Browser clipper` opens Export with the bookmarklet selected.
-- Browser smoke pins the card copy, button actions, Quick Capture focus, and capture pane pulse.
+- Browser smoke pins the Learning Flow copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
 
 Latest local work tightens the generated morning review pack around those entry points:

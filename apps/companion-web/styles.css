@@ -1084,6 +1084,104 @@ textarea:focus {
   opacity: 0.72;
 }
 
+.learning-flow-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(49, 95, 130, 0.28);
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.learning-flow-header,
+.device-flow-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.learning-flow-badge,
+.manual-transfer-badge {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid rgba(126, 86, 48, 0.25);
+  border-radius: 999px;
+  background: #fff9ed;
+  color: var(--amber);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.device-flow-badges {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.manual-transfer-badge.is-muted {
+  border-color: rgba(74, 62, 46, 0.14);
+  background: #fffdfa;
+  color: var(--muted);
+}
+
+.learning-flow-track {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.learning-flow-step,
+.start-here-inline {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(74, 62, 46, 0.14);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.learning-flow-step.is-review {
+  border-color: rgba(137, 59, 37, 0.28);
+  background: #fff6ef;
+}
+
+.learning-flow-step.is-question,
+.learning-flow-step.is-capture {
+  border-color: rgba(47, 111, 94, 0.26);
+  background: var(--green-soft);
+}
+
+.learning-flow-step.is-parked {
+  border-color: rgba(126, 86, 48, 0.28);
+  background: #fff9ed;
+}
+
+.learning-flow-step-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.learning-flow-step strong {
+  font-size: 18px;
+  line-height: 1.05;
+}
+
+.learning-flow-step p {
+  margin: 0;
+  color: #4b5358;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .today-path-card {
   border-color: rgba(49, 95, 130, 0.28);
   background: #f5f9fc;
@@ -1109,15 +1207,6 @@ textarea:focus {
   background: #fff6ef;
 }
 
-.start-here-card {
-  border-color: rgba(47, 111, 94, 0.26);
-  background: #f6fbf8;
-}
-
-.start-here-card .item-footer {
-  gap: 6px;
-}
-
 .today-section-title {
   margin: 4px 0 2px;
   font-size: 12px;
@@ -1128,8 +1217,12 @@ textarea:focus {
 }
 
 .handoff-card {
-  border-color: rgba(47, 111, 94, 0.24);
-  background: var(--green-soft);
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px dashed rgba(47, 111, 94, 0.34);
+  border-radius: 8px;
+  background: #fbfdf9;
 }
 
 .question-card {
@@ -1152,6 +1245,15 @@ textarea:focus {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+}
+
+.handoff-card summary {
+  cursor: pointer;
+  list-style-position: outside;
+}
+
+.handoff-card summary::-webkit-details-marker {
+  color: var(--green);
 }
 
 .handoff-detail {
@@ -1186,6 +1288,18 @@ textarea:focus {
 .handoff-card .item-footer {
   flex-wrap: wrap;
   justify-content: flex-start;
+}
+
+@media (max-width: 620px) {
+  .learning-flow-track {
+    grid-template-columns: 1fr;
+  }
+
+  .learning-flow-header,
+  .device-flow-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .review-toolbar {

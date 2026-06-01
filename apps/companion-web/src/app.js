@@ -2381,12 +2381,7 @@ function renderToday() {
 
   const showStartHere = shouldShowStartHere(pack, draftItems);
   dom.todayList.append(renderTodaySectionMap(pack, draftItems));
-  if (showStartHere) {
-    dom.todayList.append(renderStartHereCard());
-  } else {
-    dom.todayList.append(renderTodayPrimaryAction(pack, draftItems));
-  }
-  dom.todayList.append(renderReturnFilesPanel());
+  dom.todayList.append(renderLearningFlowPanel(pack, draftItems, showStartHere));
   renderTodayDrafts(draftItems);
 
   dom.todayList.append(todaySectionTitle("Due Review", "due_review"));
@@ -2763,6 +2758,122 @@ function shouldShowStartHere(pack, draftItems = []) {
     && !pack.stats.answerCapturesToday;
 }
 
+function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
+  const panel = document.createElement("section");
+  panel.className = "learning-flow-panel";
+  panel.setAttribute("aria-label", "Learning flow");
+  const header = document.createElement("div");
+  header.className = "learning-flow-header";
+  header.append(
+    textEl("div", "item-meta", "Learning Flow"),
+    textEl("span", "learning-flow-badge", "Mac first")
+  );
+  panel.append(header);
+
+  const track = document.createElement("div");
+  track.className = "learning-flow-track";
+  track.append(
+    renderLearningFlowStep({
+      label: "Capture on Mac",
+      status: captureFlowStatus(pack, draftItems),
+      detail: "Keep the browser source open and catch quote, thought, time, or question.",
+      actionLabel: showStartHere ? "Capture first point" : "Capture",
+      action: focusQuickCaptureFromStart,
+      tone: "capture"
+    }),
+    renderLearningFlowStep(resolveCloseLoopState(pack, draftItems))
+  );
+  panel.append(track);
+
+  panel.append(showStartHere ? renderStartHereInline() : renderTodayPrimaryAction(pack, draftItems));
+  panel.append(renderReturnFilesPanel());
+  return panel;
+}
+
+function renderLearningFlowStep(step) {
+  const node = document.createElement("div");
+  node.className = ["learning-flow-step", step.tone ? `is-${step.tone}` : ""].filter(Boolean).join(" ");
+  node.append(
+    textEl("span", "learning-flow-step-label", step.label),
+    textEl("strong", "", step.status),
+    textEl("p", "", step.detail)
+  );
+  const action = textEl("button", "mini-button", step.actionLabel);
+  action.type = "button";
+  action.addEventListener("click", step.action);
+  node.append(action);
+  return node;
+}
+
+function captureFlowStatus(pack, draftItems = []) {
+  const captureCount = Number(pack.stats.captures) || 0;
+  const draftCount = draftItems.length;
+  if (captureCount || draftCount) {
+    return `${captureCount} ${captureCount === 1 ? "capture" : "captures"} · ${draftCount} ${draftCount === 1 ? "draft" : "drafts"}`;
+  }
+  return "Ready";
+}
+
+function resolveCloseLoopState(pack, draftItems = []) {
+  // Keep the loop priority in one place: due review > unanswered question > unfinished draft > parked follow-up > clear.
+  const [dueItem] = pack.dueItems;
+  if (dueItem) {
+    return {
+      label: "Close the loop",
+      status: `${pack.stats.due} due`,
+      detail: `${dueItem.sessionTitle} · review the next due card before adding more material.`,
+      actionLabel: "Review",
+      action: () => startReviewAtItem(dueItem),
+      tone: "review"
+    };
+  }
+
+  const [questionItem] = pack.questionItems;
+  if (questionItem) {
+    return {
+      label: "Close the loop",
+      status: `${pack.stats.questions} open`,
+      detail: `${questionItem.sessionTitle} · answer, park, resolve, or turn it into a card.`,
+      actionLabel: "Answer",
+      action: () => answerQuestionFromToday(questionItem.capture.id, questionItem.sessionId),
+      tone: "question"
+    };
+  }
+
+  const [draftItem] = draftItems;
+  if (draftItem) {
+    return {
+      label: "Close the loop",
+      status: `${draftItems.length} ${draftItems.length === 1 ? "draft" : "drafts"}`,
+      detail: `${draftItem.session.title} · finish the waiting capture before opening another thread.`,
+      actionLabel: "Resume",
+      action: () => resumeCaptureDraft(draftItem.session.id),
+      tone: "parked"
+    };
+  }
+
+  const [parkedItem] = pack.parkedQuestionItems;
+  if (parkedItem) {
+    return {
+      label: "Close the loop",
+      status: `${pack.stats.parkedQuestions} parked`,
+      detail: `${parkedItem.sessionTitle} · resume a saved question when this study block has room.`,
+      actionLabel: "Resume",
+      action: () => setQuestionParked(parkedItem.capture.id, parkedItem.sessionId, false),
+      tone: "parked"
+    };
+  }
+
+  return {
+    label: "Close the loop",
+    status: "Clear",
+    detail: "No due cards or open questions are blocking the next capture.",
+    actionLabel: "Inspect",
+    action: () => jumpToTodaySection("question_health"),
+    tone: "clear"
+  };
+}
+
 function renderTodayPrimaryAction(pack, draftItems = []) {
   const move = todayPrimaryMove(pack, draftItems);
   const card = document.createElement("article");
@@ -2784,6 +2895,17 @@ function renderTodayPrimaryAction(pack, draftItems = []) {
   inspect.addEventListener("click", () => jumpToTodaySection(move.targetSection));
   footer.append(action, inspect);
   card.append(footer);
+  return card;
+}
+
+function renderStartHereInline() {
+  const card = document.createElement("article");
+  card.className = "start-here-inline";
+  card.append(
+    textEl("div", "item-meta", "Start Here"),
+    textEl("p", "card-prompt", "Choose the first learning move.")
+  );
+  card.append(startHereActions());
   return card;
 }
 
@@ -2864,13 +2986,7 @@ function todayPrimaryMove(pack, draftItems = []) {
   };
 }
 
-function renderStartHereCard() {
-  const card = document.createElement("article");
-  card.className = "item-card start-here-card";
-  card.append(
-    textEl("div", "item-meta", "Start Here"),
-    textEl("p", "card-prompt", "Choose the first learning move.")
-  );
+function startHereActions() {
   const footer = document.createElement("div");
   footer.className = "item-footer";
   const capture = textEl("button", "mini-button primary", "Capture first point");
@@ -2886,8 +3002,7 @@ function renderStartHereCard() {
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
   footer.append(capture, question, clipper);
-  card.append(footer);
-  return card;
+  return footer;
 }
 
 function todaySectionTitle(label, section) {
@@ -3128,43 +3243,54 @@ function todayStat(value, label) {
 }
 
 function renderReturnFilesPanel() {
-  const panel = document.createElement("article");
-  panel.className = "item-card handoff-card";
+  const panel = document.createElement("details");
+  panel.className = "handoff-card";
   const inboxCount = workspace.importedPatches.length;
   const reviewCount = workspace.importedReviewPatches.length;
+  panel.open = Boolean(lastImportReceipt || inboxCount || reviewCount);
+  const summary = document.createElement("summary");
+  summary.className = "device-flow-summary";
   const header = document.createElement("div");
   header.className = "handoff-header";
   header.append(
-    textEl("strong", "", "Return Files"),
+    textEl("strong", "", "Device Flow"),
     textEl("span", "item-meta", `${inboxCount} inbox · ${reviewCount} review`)
   );
+  const badges = document.createElement("span");
+  badges.className = "device-flow-badges";
+  badges.append(
+    textEl("span", "manual-transfer-badge", "Manual transfer"),
+    textEl("span", "manual-transfer-badge is-muted", "No live sync")
+  );
+  summary.append(header, badges);
   const detail = textEl(
     "p",
     "handoff-detail",
-    lastImportReceipt ? formatImportReceipt(lastImportReceipt) : "Import phone or Windows JSON updates"
+    lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return JSON back."
   );
   const steps = document.createElement("ol");
   steps.className = "return-files-steps";
   [
-    "On this Mac: export a mirror, then move it through Feishu Drive, USB, email, or any file share.",
-    "On phone or Windows: open inbox.html or review.html and save inbox/review return JSON files.",
-    "Back on this Mac: transfer those JSON files here and import one or many at once."
+    "Export mirror on this Mac.",
+    "Transfer it yourself through USB, AirDrop, email, or any file share, including a manual Feishu Drive upload.",
+    "On phone or Windows, open inbox.html or review.html and save inbox/review return JSON.",
+    "Back on this Mac, import one or many return JSON files at once."
   ].forEach((step) => {
     steps.append(textEl("li", "", step));
   });
-  const boundary = textEl("p", "handoff-boundary", "Manual files only. No live Feishu sync or verified HarmonyOS device app yet.");
+  const boundary = textEl("p", "handoff-boundary", "Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.");
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const importPatch = textEl("button", "mini-button primary", "Import Return Files (Step 3)");
+  const importPatch = textEl("button", "mini-button primary", "Import Return Files");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
-  const exportMirror = textEl("button", "mini-button", "Export Mirror (Step 1)");
+  const exportMirror = textEl("button", "mini-button", "Export Mirror");
   exportMirror.type = "button";
   exportMirror.dataset.returnFilesStep = "export";
   exportMirror.addEventListener("click", openReturnFilesMirrorExport);
   footer.append(exportMirror, importPatch);
-  panel.append(header, detail, steps, boundary, footer);
+  panel.append(summary, detail, steps, boundary, footer);
   return panel;
 }
 
@@ -3173,7 +3299,7 @@ function openReturnFilesMirrorExport() {
   activeTab = "export";
   setActivity(session, {
     title: "Mirror export ready",
-    detail: "Step 1: save Mirror JSON or ZIP, then move it through Feishu Drive, USB, email, or another file share.",
+    detail: "Save Mirror JSON or ZIP, then move it through USB, AirDrop, email, file share, or a manual Feishu Drive upload.",
     tab: "export",
     targetId: ""
   });
@@ -3699,7 +3825,7 @@ function recordReturnFileExportReceipt(kind) {
   const session = getActiveSession(workspace);
   setActivity(session, {
     title: `${kind} handoff ready`,
-    detail: `Step 1 done: move the ${kind} to Feishu Drive, phone, or Windows; then use inbox.html or review.html to create a return JSON.`,
+    detail: `Move the ${kind} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return JSON.`,
     tab: "export",
     targetId: ""
   });

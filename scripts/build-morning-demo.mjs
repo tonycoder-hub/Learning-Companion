@@ -1029,7 +1029,7 @@ function buildMacManualQaMarkdown({
     "| Keyboard quick capture | From Today, Review, or Export, press the app-focused Quick Capture shortcut. Repeat once with a quote-only draft. | The app returns to Quick Capture without leaving sidecar layout; empty capture focuses Quote, quote-only draft focuses Thought, and the activity strip reports the correct capture/draft state. | NT |  |",
     "| Source time staging | Paste a supported video URL that contains a timestamp into the source URL field, then use `-15`, `+15`, ArrowDown, and ArrowUp while Time is focused. | The Time field is filled and pulsed, Quick Capture shows the source/time context, the context Open button includes that time, mouse and keyboard nudges adjust the context time, the activity strip reports `Source time staged` or `Time adjusted`, and the stored source URL no longer includes only the time parameter. | NT |  |",
     "| Today draft resume | Leave a non-empty Quick Capture draft, open Today, then use the draft Resume action. | Today shows a device-local/not-exported draft card and Resume returns focus to Quick Capture. | NT |  |",
-    "| First-run Start Here | Open the app with an empty workspace or fresh browser profile. | Today shows the Start Here card; Capture first point focuses Quick Capture, Write first question seeds a `Question:` draft, and Browser clipper opens the bookmarklet/export area. | NT |  |",
+    "| First-run Start Here | Open the app with an empty workspace or fresh browser profile. | Today shows Learning Flow with an embedded Start Here row; Capture first point focuses Quick Capture, Write first question seeds a `Question:` draft, and Browser clipper opens the bookmarklet/export area. | NT |  |",
     "| Today section map | In Today with the sample workspace imported, click the Due, Questions, Parked, Answers, Closed, and Recent chips. | Each chip jumps to the matching section without horizontal overflow at sidecar/mobile widths. | NT |  |",
     "| Focus Brief draft precedence | In a workspace with both a due review and a fresh Quick Capture draft, open Focus Brief. | Due review stays the primary next action; the draft remains recoverable from Today instead of being treated as synced/exported data. | NT |  |",
     "| Focus Brief question signal | In a topic with an open question and due review or synthesis, click the Focus Brief open-question signal. | The primary Focus Brief action stays Review or Build, while the signal opens Today at Open Questions and exits sidecar layout if needed. | NT |  |",
@@ -1352,7 +1352,7 @@ function buildReviewStartHereHtml({
     ],
     [
       "2. First-Run Start Here",
-      "Open an empty workspace and confirm the Start Here card offers Capture first point, Write first question, and Browser clipper actions before any study trail exists.",
+      "Open an empty workspace and confirm Learning Flow embeds Start Here actions for Capture first point, Write first question, and Browser clipper before any study trail exists.",
       MAC_MANUAL_QA_FILE
     ],
     [

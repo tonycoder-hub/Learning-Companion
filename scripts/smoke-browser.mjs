@@ -112,9 +112,10 @@ try {
 
   const firstRun = await cdp.evaluate(`(() => {
     document.querySelector('[data-tab="today"]').click();
-    const card = document.querySelector(".start-here-card");
+    const panel = document.querySelector(".learning-flow-panel");
+    const card = document.querySelector(".start-here-inline");
     const before = {
-      text: card?.textContent || "",
+      text: panel?.textContent || "",
       buttons: [...(card?.querySelectorAll("button") || [])].map((button) => ({
         action: button.dataset.startAction,
         text: button.textContent
@@ -129,6 +130,9 @@ try {
       activity: document.querySelector("#activityTitle")?.textContent || ""
     };
   })()`);
+  assert.match(firstRun.text, /Learning Flow/);
+  assert.match(firstRun.text, /Capture on Mac/);
+  assert.match(firstRun.text, /Close the loop/);
   assert.match(firstRun.text, /Start Here/);
   assert.match(firstRun.text, /Choose the first learning move/);
   assert.deepEqual(firstRun.buttons, [
@@ -1187,23 +1191,25 @@ try {
   assert.equal(result.inboxImportedPatch, true);
   assert.equal(result.batchImportedPatch, true);
   assert.equal(result.batchImportedReviewPatch, true);
-  assert.match(result.handoffText, /Return Files/);
+  assert.match(result.handoffText, /Device Flow/);
+  assert.match(result.handoffText, /Manual transfer/);
   assert.match(result.handoffText, /2 inbox · 1 review/);
   assert.match(result.handoffText, /2\/3 files processed/);
   assert.match(result.handoffText, /review: 0 applied, 1 duplicate/);
   assert.match(result.handoffText, /1 failed/);
-  assert.match(result.handoffText, /On this Mac: export a mirror/);
-  assert.match(result.handoffText, /Feishu Drive, USB, email, or any file share/);
-  assert.match(result.handoffText, /On phone or Windows: open inbox\.html or review\.html and save inbox\/review return JSON files/);
-  assert.match(result.handoffText, /Back on this Mac: transfer those JSON files here and import one or many at once/);
-  assert.match(result.handoffText, /Manual files only/);
-  assert.deepEqual(result.handoffButtons, ["Export Mirror (Step 1)", "Import Return Files (Step 3)"]);
+  assert.match(result.handoffText, /Export mirror on this Mac/);
+  assert.match(result.handoffText, /USB, AirDrop, email, or any file share/);
+  assert.match(result.handoffText, /manual Feishu Drive upload/);
+  assert.match(result.handoffText, /On phone or Windows, open inbox\.html or review\.html and save inbox\/review return JSON/);
+  assert.match(result.handoffText, /Back on this Mac, import one or many return JSON files at once/);
+  assert.match(result.handoffText, /No live Feishu sync/);
+  assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
     activeElement: "downloadMirrorBtn",
     mirrorSectionPulsed: true,
     activityTitle: "Mirror export ready",
-    activityDetail: "Step 1: save Mirror JSON or ZIP, then move it through Feishu Drive, USB, email, or another file share."
+    activityDetail: "Save Mirror JSON or ZIP, then move it through USB, AirDrop, email, file share, or a manual Feishu Drive upload."
   });
   assert.equal(result.inboxNotesPreserved, true);
   assert.equal(result.inboxCardsPreserved, true);
@@ -1545,7 +1551,7 @@ try {
   }))()`);
   assert.deepEqual(mirrorSaveReceipt, {
     activityTitle: "Mirror JSON handoff ready",
-    activityDetail: "Step 1 done: move the Mirror JSON to Feishu Drive, phone, or Windows; then use inbox.html or review.html to create a return JSON.",
+    activityDetail: "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return JSON.",
     toast: "Mirror download requested"
   });
 
