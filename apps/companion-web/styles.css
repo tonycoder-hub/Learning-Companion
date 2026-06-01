@@ -928,6 +928,11 @@ textarea:focus {
   background: #f6fafb;
 }
 
+.closed-question-card {
+  border-color: rgba(47, 111, 94, 0.26);
+  background: var(--green-soft);
+}
+
 .handoff-header {
   display: flex;
   align-items: baseline;

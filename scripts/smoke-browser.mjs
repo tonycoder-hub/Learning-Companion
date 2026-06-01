@@ -1731,7 +1731,7 @@ try {
     const afterPark = {
       activity: document.querySelector("#activityTitle").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
-      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card)"))
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
       parkedQuestionCards: Array.from(document.querySelectorAll("#todayList .parked-question-card"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
@@ -1777,7 +1777,7 @@ try {
       activity: document.querySelector("#activityTitle").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
       stackText: document.querySelector("#captureStack").textContent,
-      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card"))
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length
     };
     document.querySelector('[data-tab="captures"]').click();
@@ -1794,7 +1794,7 @@ try {
       activity: document.querySelector("#activityTitle").textContent,
       focusFacts: document.querySelector("#focusBriefFacts").textContent,
       stackText: document.querySelector("#captureStack").textContent,
-      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card"))
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length
     };
     const reopenedSnapshot = {
@@ -1835,7 +1835,23 @@ try {
       answeredQuestions: answerImport.receipt?.answeredQuestions || 0,
       open: answerTargetAfter ? /Question/.test(answerTargetAfter.thought || "") && !answerTargetAfter.questionResolvedAt : true,
       questionResolvedAt: answerTargetAfter?.questionResolvedAt || "",
-      answerCaptureLinked: answerCaptureAfter?.answersQuestionCaptureId === answerTarget?.id
+      answerCaptureLinked: answerCaptureAfter?.answersQuestionCaptureId === answerTarget?.id,
+      closedQuestionCards: Array.from(document.querySelectorAll("#todayList .closed-question-card"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length,
+      todayText: document.querySelector("#todayList").textContent
+    };
+    const closedQuestionCard = Array.from(document.querySelectorAll("#todayList .closed-question-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(closedQuestionCard?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Reopen")
+      ?.click();
+    const afterAnswerReopen = {
+      activity: document.querySelector("#activityTitle").textContent,
+      closedQuestionCards: Array.from(document.querySelectorAll("#todayList .closed-question-card"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length,
+      openQuestionCards: Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
+        .filter((node) => /compactness assumption/.test(node.textContent)).length,
+      focusFacts: document.querySelector("#focusBriefFacts").textContent
     };
     return {
       zeroFocusFacts,
@@ -1861,7 +1877,8 @@ try {
       afterResolve,
       captureButtonsAfterResolve,
       afterReopen,
-      afterAnswerImport
+      afterAnswerImport,
+      afterAnswerReopen
     };
   })()`);
 
@@ -1936,6 +1953,13 @@ try {
   assert.match(questionFlow.afterAnswerImport.questionResolvedAt, /^20/);
   assert.equal(questionFlow.afterAnswerImport.answerCaptureLinked, true);
   assert.match(questionFlow.afterAnswerImport.receiptText, /1 question resolved/);
+  assert.equal(questionFlow.afterAnswerImport.closedQuestionCards, 1);
+  assert.match(questionFlow.afterAnswerImport.todayText, /Closed Today/);
+  assert.match(questionFlow.afterAnswerImport.todayText, /Reopen/);
+  assert.equal(questionFlow.afterAnswerReopen.activity, "Question reopened");
+  assert.equal(questionFlow.afterAnswerReopen.closedQuestionCards, 0);
+  assert.equal(questionFlow.afterAnswerReopen.openQuestionCards, 1);
+  assert.match(questionFlow.afterAnswerReopen.focusFacts, /1 open/);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {

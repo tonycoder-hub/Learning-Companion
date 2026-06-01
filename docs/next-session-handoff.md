@@ -30,17 +30,26 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `c4dadd8 feat: add question queue health cue`
 - `3e2af15 feat: resolve questions from answer patches`
 - `68ed5f3 test: harden answer patch resolution`
+- `43b3f9a feat: show answer resolution in import receipts`
 
-Latest local work makes answer resolution visible in import receipts:
+Recent committed work makes answer resolution visible in import receipts:
 
 - `formatInboxReceipt()` now reports when an imported answer resolved a question.
 - The same receipt reports skipped answer targets with reason counts, such as `invalid: 1`.
 - Browser smoke covers both visible invalid-target skip feedback and an answer patch that closes the original open question.
 - The answer-patch resolver remains hardened from the prior commit: bounded ASCII ids, reason-tagged skips, duplicate idempotency, cross-topic negatives, already-closed targets, self-reference, and same-patch reference coverage.
 
+Latest local work keeps resolved questions visible in Today:
+
+- Today now has a `Closed Today` section for questions whose `questionResolvedAt` lands inside the current local day window.
+- Data-layer fields use `resolved` naming (`resolvedQuestionsToday`, `resolvedQuestionItems`, `resolvedQuestionOverflow`) while the UI keeps friendlier `Closed Today` copy.
+- The local day window is centralized through `resolveTodayWindow()` and surfaced in Today/TODAY.md so cross-device handoff does not hide the timezone assumption.
+- Closed cards provide View/Reopen and stay excluded from active/open question counts.
+- Smoke coverage now includes answer-import closure, Reopen removing a closed card and restoring the open question, same-day re-resolve latest-wins semantics, overflow, and Today/TODAY.md window agreement.
+
 ## Verified Locally
 
-These passed after the receipt UI update:
+These passed after the `Closed Today` update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
@@ -80,12 +89,20 @@ Latest absorbed Mira notes for parked question loop:
 - Let parked questions show when they were parked and provide a direct Answer path.
 - Pin transition coverage for Park, Answer-from-parked, Resolve, Reopen, and Resume.
 
+Latest absorbed Mira notes for `Closed Today`:
+
+- Keep `resolved` as the data-layer name and `Closed Today` as UI copy.
+- Centralize the local day window instead of duplicating `new Date(year, month, day)` boundaries.
+- Surface the local window in UI/Markdown because Feishu, Windows, and Harmony may render later or in a different timezone.
+- Assert Reopen state transitions, same-day re-resolve behavior, and overflow instead of only testing the happy path.
+- Defer DST-specific and visual screenshot work as follow-up; tonight's local gates are enough for this increment.
+
 ## Next Local Work
 
 1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
-   - Consider a tighter Today surface for "answers imported today" so the user sees closure after patch import without opening import history.
-   - Consider a small "closed today" section that keeps resolved questions visible briefly, then fades into review.
+   - Consider an "answers imported today" micro-surface if the user needs to inspect answer captures separately from resolved questions.
+   - Consider a gentle "promote resolved question to review" path from Closed Today so closure can turn into retention.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.

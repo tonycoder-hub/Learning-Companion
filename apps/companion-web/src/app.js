@@ -1827,7 +1827,7 @@ function renderInspector() {
 }
 
 function renderToday() {
-  const pack = buildTodayPack(workspace, new Date(), { dueLimit: 5, questionLimit: 5, parkedQuestionLimit: 4, recentLimit: 5 });
+  const pack = buildTodayPack(workspace, new Date(), { dueLimit: 5, questionLimit: 5, parkedQuestionLimit: 4, resolvedQuestionLimit: 4, recentLimit: 5 });
   const { stats } = pack;
   clearChildren(dom.todaySummary);
   clearChildren(dom.todayList);
@@ -1835,6 +1835,7 @@ function renderToday() {
     todayStat(String(stats.due), "due"),
     todayStat(String(stats.questions), "questions"),
     todayStat(String(stats.parkedQuestions || 0), "parked"),
+    todayStat(String(stats.resolvedQuestionsToday || 0), "closed"),
     todayStat(String(stats.captures), "captures"),
     todayStat(String(stats.cards), "cards")
   );
@@ -2002,6 +2003,52 @@ function renderToday() {
       dom.todayList.append(item);
     });
     if (pack.parkedQuestionOverflow) dom.todayList.append(emptyState(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`));
+  }
+
+  const closedQuestionTitle = textEl("div", "today-section-title", "Closed Today");
+  closedQuestionTitle.dataset.todaySection = "closed_questions";
+  dom.todayList.append(closedQuestionTitle);
+  dom.todayList.append(textEl("p", "item-meta", `Local window: ${pack.localDayWindow.label}`));
+  if (!pack.resolvedQuestionItems.length) {
+    dom.todayList.append(emptyState("No questions closed today"));
+  } else {
+    pack.resolvedQuestionItems.forEach(({ sessionId, sessionTitle, capture }) => {
+      const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+      const item = document.createElement("article");
+      item.className = "item-card question-card closed-question-card";
+      item.append(textEl("div", "item-meta", [
+        sessionTitle,
+        capture.questionResolvedAt ? `Closed ${new Date(capture.questionResolvedAt).toLocaleString()}` : "",
+        capture.timestamp || ""
+      ].filter(Boolean).join(" · ")));
+      const thought = document.createElement("div");
+      thought.className = "capture-thought markdown-lite";
+      renderMarkdown(thought, capture.thought || capture.quote || "Untitled question");
+      item.append(thought);
+      const footer = document.createElement("div");
+      footer.className = "item-footer";
+      footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
+      const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
+      if (sourceHref) {
+        const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+        open.type = "button";
+        open.addEventListener("click", () => {
+          window.open(sourceHref, "_blank", "noopener,noreferrer");
+        });
+        footer.append(open);
+      }
+      const view = textEl("button", "mini-button", "View");
+      view.type = "button";
+      view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
+      footer.append(view);
+      const reopen = textEl("button", "mini-button primary", "Reopen");
+      reopen.type = "button";
+      reopen.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, false));
+      footer.append(reopen);
+      item.append(footer);
+      dom.todayList.append(item);
+    });
+    if (pack.resolvedQuestionOverflow) dom.todayList.append(emptyState(`+${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`));
   }
 
   dom.todayList.append(textEl("div", "today-section-title", "Recent Captures"));

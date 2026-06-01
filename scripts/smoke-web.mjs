@@ -29,6 +29,7 @@ import {
   captureHasOpenQuestion,
   captureHasParkedQuestion,
   captureHasQuestion,
+  captureHasResolvedQuestion,
   cleanText,
   cleanUrl,
   createDefaultWorkspace,
@@ -52,6 +53,7 @@ import {
   getDueReviewCards,
   getDueReviewItems,
   getParkedQuestionItems,
+  getResolvedQuestionItems,
   getActiveSession,
   gradeCard,
   hasCaptureDraft,
@@ -63,6 +65,7 @@ import {
   normalizeCaptureDraft,
   promoteCapture,
   resolveCaptureDraftFocusOverride,
+  resolveTodayWindow,
   reviewIntervalDays,
   safeHref,
   sanitizeWorkspace,
@@ -617,9 +620,49 @@ assert.deepEqual(answerInboxResult.receipt.answerTargetSkips, {
   alreadyClosed: 0
 });
 assert.equal(captureHasOpenQuestion(answeredOriginalQuestion), false);
+assert.equal(captureHasResolvedQuestion(answeredOriginalQuestion), true);
 assert.equal(answeredOriginalQuestion.questionParkedAt, null);
 assert.match(answeredOriginalQuestion.questionResolvedAt, /^2026-05-29T00:32:00/);
 assert.equal(importedAnswerCapture.answersQuestionCaptureId, questionCaptureId);
+const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"), {
+  resolvedQuestionLimit: 2
+});
+assert.equal(answeredTodayPack.stats.resolvedQuestionsToday, 1);
+assert.equal(answeredTodayPack.resolvedQuestionItems.length, 1);
+assert.equal(answeredTodayPack.resolvedQuestionItems[0].capture.id, questionCaptureId);
+assert.equal(getResolvedQuestionItems(answerInboxResult.workspace, 10, {
+  since: new Date("2026-05-29T00:00:00.000Z"),
+  until: new Date("2026-05-30T00:00:00.000Z")
+}).length, 1);
+const answeredTodayMarkdown = generateTodayMarkdown(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"));
+assert.match(answeredTodayMarkdown, /Closed Today/);
+assert.match(answeredTodayMarkdown, /1 closed today/);
+assert.match(answeredTodayMarkdown, /Why does ownership make aliasing safe/);
+const reopenedAfterAnswerWorkspace = setCaptureQuestionResolved(
+  answerInboxResult.workspace,
+  questionSession.id,
+  questionCaptureId,
+  false
+);
+const reopenedAfterAnswerPack = buildTodayPack(reopenedAfterAnswerWorkspace, new Date("2026-05-29T00:40:00.000Z"));
+assert.equal(reopenedAfterAnswerPack.stats.resolvedQuestionsToday, 0);
+assert.equal(reopenedAfterAnswerPack.resolvedQuestionItems.length, 0);
+assert.equal(reopenedAfterAnswerPack.stats.questions, 1);
+assert.equal(reopenedAfterAnswerPack.questionItems[0].capture.id, questionCaptureId);
+const reansweredQuestionResult = applyMobileInboxPatch(reopenedAfterAnswerWorkspace, {
+  ...answerInboxPatch,
+  patchId: "patch_answer_question_reresolve",
+  createdAt: "2026-05-29T14:00:00.000Z",
+  captures: [{
+    ...answerInboxPatch.captures[0],
+    id: "inbox_answer_capture_reresolve",
+    capturedAt: "2026-05-29T14:00:00.000Z"
+  }]
+}, new Date("2026-05-29T14:01:00.000Z"));
+const reansweredPack = buildTodayPack(reansweredQuestionResult.workspace, new Date("2026-05-29T14:02:00.000Z"));
+assert.equal(reansweredPack.stats.resolvedQuestionsToday, 1);
+assert.equal(reansweredPack.resolvedQuestionItems.length, 1);
+assert.match(reansweredPack.resolvedQuestionItems[0].capture.questionResolvedAt, /^2026-05-29T14:01:00/);
 const duplicateAnswerInboxResult = applyMobileInboxPatch(answerInboxResult.workspace, answerInboxPatch, new Date("2026-05-29T00:32:30.000Z"));
 assert.equal(duplicateAnswerInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateAnswerInboxResult.receipt.answeredQuestions, 0);
@@ -1014,11 +1057,13 @@ const todayPack = buildTodayPack(multiReviewWorkspace, frozenToday, { dueLimit: 
 assert.equal(todayPack.stats.due, 2);
 assert.equal(todayPack.stats.questions, 0);
 assert.equal(todayPack.stats.parkedQuestions, 0);
+assert.equal(todayPack.stats.resolvedQuestionsToday, 0);
 assert.equal(todayPack.questionHealth.status, "clear");
 assert.equal(todayPack.dueItems.length, 1);
 assert.equal(todayPack.dueOverflow, 1);
 assert.equal(todayPack.questionItems.length, 0);
 assert.equal(todayPack.parkedQuestionItems.length, 0);
+assert.equal(todayPack.resolvedQuestionItems.length, 0);
 assert.equal(todayPack.recentCaptures.length, 1);
 assert.equal(todayPack.focusBrief.nextAction.kind, "review");
 assert.equal(todayPack.focusBrief.sessionId, multiReviewWorkspace.activeSessionId);
@@ -1042,8 +1087,16 @@ assert.match(todayMarkdown, /Open Questions/);
 assert.match(todayMarkdown, /No open questions captured yet/);
 assert.match(todayMarkdown, /Parked Questions/);
 assert.match(todayMarkdown, /No parked questions/);
+assert.match(todayMarkdown, /Closed Today/);
+assert.match(todayMarkdown, /No questions closed today/);
 assert.match(todayMarkdown, /Recent Captures/);
 assert.match(todayMarkdown, /Recall why greedy selection works/);
+const boundaryNow = new Date("2099-01-02T23:59:30");
+const boundaryWindow = resolveTodayWindow(boundaryNow);
+const boundaryPack = buildTodayPack(multiReviewWorkspace, boundaryNow);
+assert.equal(boundaryPack.localDayWindow.start, boundaryWindow.startIso);
+assert.equal(boundaryPack.localDayWindow.end, boundaryWindow.endIso);
+assert.equal(generateTodayMarkdown(multiReviewWorkspace, boundaryNow).includes(boundaryWindow.label), true);
 
 const questionTodayWorkspace = addCapture(multiReviewWorkspace, algorithmsSession.id, {
   quote: "A stale heap item can survive after a better path is found.",
@@ -1067,8 +1120,45 @@ assert.equal(questionTodayPack.questionOverflow, 0);
 const questionTodayMarkdown = generateTodayMarkdown(questionTodayWorkspace, frozenToday);
 assert.match(questionTodayMarkdown, /Open question rule: latest 6 open question captures by capturedAt/);
 assert.match(questionTodayMarkdown, /Parked question rule: latest 6 parked question captures by parkedAt/);
-assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 2 cards \/ 2 due cards/);
+assert.match(questionTodayMarkdown, /Closed today rule: latest 4 question captures resolved in 2099-01-02 local/);
+assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 0 closed today \/ 2 cards \/ 2 due cards/);
 assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
+const overflowResolvedCaptures = Array.from({ length: 6 }, (_, index) => ({
+  id: `resolved_overflow_${index}`,
+  quote: "",
+  thought: `Resolved overflow question ${index}?`,
+  timestamp: "",
+  tags: ["question", "resolved"],
+  capturedAt: `2099-01-02T00:0${index}:00.000Z`,
+  createdAt: `2099-01-02T00:0${index}:00.000Z`,
+  updatedAt: `2099-01-02T00:${10 + index}:00.000Z`,
+  sourceTitle: "",
+  sourceUrl: "",
+  materialType: "doc",
+  sourceProvenance: "manual",
+  promotedToReview: false,
+  questionResolvedAt: `2099-01-02T00:${10 + index}:00.000Z`,
+  questionParkedAt: null
+}));
+const overflowResolvedWorkspace = workspaceFromPortableData({
+  ...multiReviewWorkspace,
+  sessions: multiReviewWorkspace.sessions.map((session) => session.id === algorithmsSession.id
+    ? {
+        ...session,
+        captures: [...session.captures, ...overflowResolvedCaptures]
+      }
+    : session)
+});
+const overflowResolvedPack = buildTodayPack(overflowResolvedWorkspace, frozenToday, {
+  dueLimit: 1,
+  recentLimit: 1,
+  resolvedQuestionLimit: 2
+});
+assert.equal(overflowResolvedPack.stats.resolvedQuestionsToday, 6);
+assert.equal(overflowResolvedPack.resolvedQuestionItems.length, 2);
+assert.equal(overflowResolvedPack.resolvedQuestionItems[0].capture.thought, "Resolved overflow question 5?");
+assert.equal(overflowResolvedPack.resolvedQuestionOverflow, 4);
+assert.match(generateTodayMarkdown(overflowResolvedWorkspace, frozenToday), /\+2 more questions closed today in workspace\.json/);
 const questionMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);

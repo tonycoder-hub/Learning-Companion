@@ -49,6 +49,22 @@ export function formatLocalIso(value = new Date()) {
   ].join("");
 }
 
+export function resolveTodayWindow(now = new Date()) {
+  const date = Number.isFinite(now?.getTime?.()) ? now : new Date(now);
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const end = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1);
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+  const dateLabel = formatLocalIso(start).slice(0, 10);
+  return {
+    start,
+    end,
+    startIso: formatLocalIso(start),
+    endIso: formatLocalIso(end),
+    timeZone,
+    label: `${dateLabel} local (${timeZone})`
+  };
+}
+
 export function makeId(prefix = "id") {
   const random = Math.random().toString(36).slice(2, 9);
   return `${prefix}_${Date.now().toString(36)}_${random}`;
@@ -1200,7 +1216,39 @@ export function getParkedQuestionItems(workspace, limit = 6) {
     .slice(0, Math.max(0, limit));
 }
 
+export function getResolvedQuestionItems(workspace, limit = 6, options = {}) {
+  const sinceTime = boundedTime(options.since);
+  const untilTime = boundedTime(options.until);
+  return workspace.sessions
+    .flatMap((session) => session.captures
+      .filter((capture) => {
+        if (!captureHasResolvedQuestion(capture)) return false;
+        const resolvedTime = resolvedQuestionTime(capture);
+        if (!Number.isFinite(resolvedTime)) return false;
+        if (Number.isFinite(sinceTime) && resolvedTime < sinceTime) return false;
+        if (Number.isFinite(untilTime) && resolvedTime >= untilTime) return false;
+        return true;
+      })
+      .map((capture) => ({
+        sessionId: session.id,
+        sessionTitle: session.title,
+        capture
+      })))
+    .sort((a, b) => {
+      const byResolved = resolvedQuestionTime(b.capture) - resolvedQuestionTime(a.capture);
+      if (byResolved !== 0) return byResolved;
+      const byTime = new Date(b.capture.capturedAt || b.capture.createdAt).getTime()
+        - new Date(a.capture.capturedAt || a.capture.createdAt).getTime();
+      if (byTime !== 0) return byTime;
+      const bySession = a.sessionTitle.localeCompare(b.sessionTitle);
+      if (bySession !== 0) return bySession;
+      return a.capture.id.localeCompare(b.capture.id);
+    })
+    .slice(0, Math.max(0, limit));
+}
+
 export function getStudyPackStats(workspace, now = new Date()) {
+  const todayWindow = resolveTodayWindow(now);
   return {
     sessions: workspace.sessions.length,
     captures: workspace.sessions.reduce((sum, session) => sum + session.captures.length, 0),
@@ -1210,6 +1258,10 @@ export function getStudyPackStats(workspace, now = new Date()) {
     parkedQuestions: workspace.sessions.reduce((sum, session) => (
       sum + session.captures.filter((capture) => captureHasParkedQuestion(capture)).length
     ), 0),
+    resolvedQuestionsToday: getResolvedQuestionItems(workspace, Number.MAX_SAFE_INTEGER, {
+      since: todayWindow.start,
+      until: todayWindow.end
+    }).length,
     cards: workspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0),
     due: getDueReviewItems(workspace, now).length
   };
@@ -1330,9 +1382,11 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
   const dueLimit = Math.max(1, Number(limits.dueLimit) || 20);
   const questionLimit = Math.max(1, Number(limits.questionLimit) || 6);
   const parkedQuestionLimit = Math.max(1, Number(limits.parkedQuestionLimit) || 6);
+  const resolvedQuestionLimit = Math.max(1, Number(limits.resolvedQuestionLimit) || 4);
   const recentLimit = Math.max(1, Number(limits.recentLimit) || 8);
   const sessionPaths = new Map(cleanWorkspace.sessions.map((session) => [session.id, getMirrorSessionPaths(session)]));
   const activeSession = getActiveSession(cleanWorkspace);
+  const todayWindow = resolveTodayWindow(now);
   const dueAll = getDueReviewItems(cleanWorkspace, now).map((item) => ({
     ...item,
     sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
@@ -1358,19 +1412,27 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     ...item,
     sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
   }));
-  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const resolvedQuestionAll = getResolvedQuestionItems(cleanWorkspace, Number.MAX_SAFE_INTEGER, {
+    since: todayWindow.start,
+    until: todayWindow.end
+  }).map((item) => ({
+    ...item,
+    sessionPath: sessionPaths.get(item.sessionId)?.markdownPath || ""
+  }));
   const stats = getStudyPackStats(cleanWorkspace, now);
   return {
     generatedAt: formatLocalIso(now),
     reviewCutoff: formatLocalIso(now),
     localDayWindow: {
-      start: formatLocalIso(dayStart),
-      end: formatLocalIso(dayEnd)
+      start: todayWindow.startIso,
+      end: todayWindow.endIso,
+      label: todayWindow.label,
+      timeZone: todayWindow.timeZone
     },
     recentDefinition: `latest ${recentLimit} captures by capturedAt`,
     questionDefinition: `latest ${questionLimit} open question captures by capturedAt`,
     parkedQuestionDefinition: `latest ${parkedQuestionLimit} parked question captures by parkedAt`,
+    resolvedQuestionDefinition: `latest ${resolvedQuestionLimit} question captures resolved in ${todayWindow.label}`,
     dueDefinition: "review cards with dueAt <= generatedAt",
     stats,
     questionHealth: buildQuestionQueueHealth(stats),
@@ -1384,6 +1446,8 @@ export function buildTodayPack(workspace, now = new Date(), limits = {}) {
     questionOverflow: Math.max(0, questionAll.length - questionLimit),
     parkedQuestionItems: parkedQuestionAll.slice(0, parkedQuestionLimit),
     parkedQuestionOverflow: Math.max(0, parkedQuestionAll.length - parkedQuestionLimit),
+    resolvedQuestionItems: resolvedQuestionAll.slice(0, resolvedQuestionLimit),
+    resolvedQuestionOverflow: Math.max(0, resolvedQuestionAll.length - resolvedQuestionLimit),
     recentCaptures: recentAll.slice(0, recentLimit),
     recentOverflow: Math.max(0, recentAll.length - recentLimit)
   };
@@ -1629,8 +1693,9 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
     `Due rule: ${pack.dueDefinition}`,
     `Open question rule: ${pack.questionDefinition}`,
     `Parked question rule: ${pack.parkedQuestionDefinition}`,
+    `Closed today rule: ${pack.resolvedQuestionDefinition}`,
     `Recent rule: ${pack.recentDefinition}`,
-    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "open question")} / ${formatCount(stats.parkedQuestions || 0, "parked question")} / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
+    `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "open question")} / ${formatCount(stats.parkedQuestions || 0, "parked question")} / ${stats.resolvedQuestionsToday || 0} closed today / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
     "",
     "## Resume Here",
     "",
@@ -1721,6 +1786,24 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
       lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}${parkedAt}`);
     });
     if (pack.parkedQuestionOverflow) lines.push(`- +${pack.parkedQuestionOverflow} more parked questions in workspace.json`);
+  }
+
+  lines.push(
+    "",
+    "## Closed Today",
+    "",
+    `_Questions resolved in ${markdownInline(pack.localDayWindow.label)} stay visible here as a closure trail._`,
+    ""
+  );
+  if (!pack.resolvedQuestionItems.length) {
+    lines.push("_No questions closed today._");
+  } else {
+    pack.resolvedQuestionItems.forEach(({ sessionTitle, sessionPath, capture }) => {
+      const question = markdownInline(capture.thought || capture.quote || "Untitled question");
+      const closedAt = capture.questionResolvedAt ? ` · closed ${formatDate(capture.questionResolvedAt)}` : "";
+      lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}${closedAt}`);
+    });
+    if (pack.resolvedQuestionOverflow) lines.push(`- +${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`);
   }
 
   lines.push("", "## Recent Captures", "");
@@ -2384,6 +2467,20 @@ export function captureHasOpenQuestion(capture) {
 
 export function captureHasParkedQuestion(capture) {
   return captureHasQuestion(capture) && !capture?.questionResolvedAt && Boolean(capture?.questionParkedAt);
+}
+
+export function captureHasResolvedQuestion(capture) {
+  return captureHasQuestion(capture) && Boolean(capture?.questionResolvedAt);
+}
+
+function resolvedQuestionTime(capture) {
+  return boundedTime(capture?.questionResolvedAt);
+}
+
+function boundedTime(value) {
+  if (!value) return Number.NaN;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : Number.NaN;
 }
 
 export function getSynthesisSourceStamp(session) {
