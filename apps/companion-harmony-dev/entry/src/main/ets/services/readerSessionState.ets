@@ -1,4 +1,5 @@
 import { HarmonyImportReceipt, HarmonyReaderView } from '../model/workspace';
+import { createEmptyReaderView } from '../model/harmonyReaderView';
 
 export type ReaderSessionStatus = 'empty' | 'accepted-pending-persist' | 'ready' | 'rejected-kept-current' | 'rejected-empty';
 export type ReaderStorageStatus = 'empty' | 'pending-device-persistence' | 'persisted-by-device-adapter';
@@ -106,4 +107,43 @@ export function summarizeReaderSessionState(state: ReaderSessionState): string {
   const view = state.currentView;
   if (!view) return state.importStatus.message;
   return `${view.topics.length} topics · ${view.dueReview.length} due · ${view.workspace.openQuestionCount} active questions · ${view.workspace.answerCaptureCountToday} answers today · ${state.storage.status}`;
+}
+
+export function createScaffoldSampleReaderView(): HarmonyReaderView {
+  const view = createEmptyReaderView('2026-05-29T07:20:00.000Z');
+  view.topics = [{
+    id: 'sample_topic',
+    title: 'Import a mirror bundle to start',
+    sourceTitle: 'Learning Companion',
+    sourceUrl: '',
+    materialType: 'doc',
+    tags: ['sample'],
+    captureCount: 0,
+    reviewCardCount: 0,
+    dueReviewCount: 0,
+    openQuestionCount: 0,
+    parkedQuestionCount: 0,
+    unresolvedQuestionCount: 0,
+    nextAction: {
+      kind: 'capture',
+      label: 'Capture next',
+      detail: 'Import a workspace or mirror bundle before phone capture.',
+      reason: 'No imported workspace is loaded yet.',
+      focusMode: 'capture',
+      tab: 'captures'
+    },
+    latestCapture: undefined
+  }];
+  view.activeTopic = view.topics[0];
+  view.workspace.sessionCount = view.topics.length;
+  view.workspace.openQuestionCount = 0;
+  view.workspace.parkedQuestionCount = 0;
+  view.workspace.unresolvedQuestionCount = 0;
+  view.workspace.answerCaptureCountToday = 0;
+  view.workspace.activeTopicId = view.activeTopic.id;
+  return view;
+}
+
+export function createScaffoldReaderSession(): ReaderSessionState {
+  return createReaderSessionState(createScaffoldSampleReaderView());
 }

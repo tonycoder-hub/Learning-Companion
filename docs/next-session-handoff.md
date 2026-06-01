@@ -154,9 +154,17 @@ Latest local work adds the Harmony import-to-reader session handoff:
 - Mira returned `PASS_WITH_NOTES`; accepted fixes added reject-from-empty coverage, reject identity/deep-equal guards, no-view persist guards, JS/ArkTS status-literal parity, and the single-slot receipt rule.
 - This is still scaffold evidence: no DevEco compile, no real picker, and no device persistence are claimed.
 
+Latest local work aligns Harmony scaffold pages around the reader session:
+
+- `readerSessionState.ets` now owns the shared scaffold sample view/session instead of each page inventing its own placeholder.
+- Index, TopicDetail, and ReviewQueue all derive their visible data from `ReaderSessionState.currentView`.
+- TopicDetail now names next action, latest capture, topic counts, and append-only capture-patch boundary.
+- ReviewQueue now reads `dueReview` from the session, reveals the first due answer when available, and keeps grading framed as review-progress patch export.
+- Scaffold smoke pins these page-to-session references; this is still not a DevEco compile/device rendering claim.
+
 ## Verified Locally
 
-These passed after the Harmony import session update:
+These passed after the Harmony reader-session page alignment:
 
 - `npm run smoke:harmony`
 - `npm run check:morning`
@@ -261,7 +269,7 @@ Latest absorbed Mira notes for Harmony import/file-picker contract:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is rendering more of the accepted `harmony-reader-view.v1` session state in the ArkTS TopicDetail/ReviewQueue pages, or adding a local persisted-view adapter stub that still avoids device claims.
+   - Consider whether the next useful increment is adding a local persisted-view adapter stub that still avoids device claims, or tightening the Mac morning review pack to surface the Harmony session-state evidence.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
 2. Keep the cross-end story honest:

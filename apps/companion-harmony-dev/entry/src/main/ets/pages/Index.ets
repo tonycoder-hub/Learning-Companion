@@ -1,16 +1,15 @@
 import router from '@ohos.router';
-import { createEmptyReaderView, summarizeReaderView } from '../model/harmonyReaderView';
-import { HarmonyReaderView } from '../model/workspace';
+import { summarizeReaderView } from '../model/harmonyReaderView';
 import { describeImportPickerContract } from '../services/importPortableData';
-import { ReaderSessionState, createReaderSessionState, summarizeReaderSessionState } from '../services/readerSessionState';
+import { ReaderSessionState, createScaffoldReaderSession, createScaffoldSampleReaderView, summarizeReaderSessionState } from '../services/readerSessionState';
 
 @Entry
 @Component
 struct Index {
-  @State private readerSession: ReaderSessionState = createReaderSessionState(sampleReaderView());
+  @State private readerSession: ReaderSessionState = createScaffoldReaderSession();
 
   build() {
-    const readerView = this.readerSession.currentView || sampleReaderView();
+    const readerView = this.readerSession.currentView || createScaffoldSampleReaderView();
     Column({ space: 14 }) {
       Text('Learning Companion')
         .fontSize(28)
@@ -106,39 +105,4 @@ struct Index {
     .height('100%')
     .backgroundColor('#f6f3ed')
   }
-}
-
-function sampleReaderView(): HarmonyReaderView {
-  const view = createEmptyReaderView('2026-05-29T07:20:00.000Z');
-  view.topics = [{
-    id: 'sample_topic',
-    title: 'Import a mirror bundle to start',
-    sourceTitle: 'Learning Companion',
-    sourceUrl: '',
-    materialType: 'doc',
-    tags: ['sample'],
-    captureCount: 0,
-    reviewCardCount: 0,
-    dueReviewCount: 0,
-    openQuestionCount: 0,
-    parkedQuestionCount: 0,
-    unresolvedQuestionCount: 0,
-    nextAction: {
-      kind: 'capture',
-      label: 'Capture next',
-      detail: 'Import a workspace or mirror bundle before phone capture.',
-      reason: 'No imported workspace is loaded yet.',
-      focusMode: 'capture',
-      tab: 'captures'
-    },
-    latestCapture: undefined
-  }];
-  view.activeTopic = view.topics[0];
-  view.workspace.sessionCount = view.topics.length;
-  view.workspace.openQuestionCount = 0;
-  view.workspace.parkedQuestionCount = 0;
-  view.workspace.unresolvedQuestionCount = 0;
-  view.workspace.answerCaptureCountToday = 0;
-  view.workspace.activeTopicId = view.activeTopic.id;
-  return view;
 }

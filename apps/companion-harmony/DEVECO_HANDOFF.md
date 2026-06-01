@@ -48,9 +48,9 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 
 | Screen | Purpose | Data |
 | --- | --- | --- |
-| Index | Resume Here, answers today, active open questions, parked questions, topic list, import button, latest intake status. | `activeTopic`, `answersToday`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
-| TopicDetail | Source title/URL, latest capture, notes preview, capture count. | One topic from `topics`. |
-| ReviewQueue | Read-only due cards with answer reveal. | `dueReview`. |
+| Index | Resume Here, accepted import status, answers today, active open questions, parked questions, topic list, import button, latest intake status. | `ReaderSessionState.currentView`, `importStatus`, `activeTopic`, `answersToday`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
+| TopicDetail | Source title/URL, latest capture, next action, and topic counts from the accepted reader session. | One topic from `ReaderSessionState.currentView.topics`. |
+| ReviewQueue | Read-only due cards with answer reveal from the accepted reader session. | `ReaderSessionState.currentView.dueReview`. |
 | ImportReceipt | Shows imported workspace/mirror metadata and limitations. | `source`, `workspace`, `limitations`. |
 
 ## Import Boundary
