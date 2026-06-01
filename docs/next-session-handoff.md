@@ -19,6 +19,17 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `571f1d6 test: pin time nudge mobile layout`
+- `f356125 feat: support keyboard time nudges`
+- `9173f34 docs: prioritize capture sidecar review`
+- `dbcfb63 feat: add capture time nudges`
+- `ae27a96 feat: show capture source context`
+- `92b4b33 feat: surface source time staging`
+- `836ca08 feat: add keyboard quick capture focus`
+- `6fd3c83 docs: surface harmony session evidence in morning pack`
+- `c0818d6 feat: align harmony pages to reader session`
+- `6eca901 feat: add harmony reader session state`
+- `ded3eb1 feat: define harmony import file contract`
 - `4a257ca feat: make focus question signal actionable`
 - `7a2c0d6 test: harden focus question signal`
 - `3717aa4 test: verify focus question browser path`
@@ -176,12 +187,12 @@ Latest local work also clarifies source time staging:
 - The Time field now has local `-15` and `+15` nudge buttons plus ArrowDown/ArrowUp nudges while the Time field is focused, for correcting lecture timestamps while staying in the sidecar.
 - Pasting a supported timestamped video URL into the source URL field now makes the hidden extraction visible with `Source time staged` in the activity strip and a pulse on the Time field.
 - The extracted time is saved into the device-local capture draft, the source-open button reports the same local time target, and the stored session source URL strips only the time parameter so future source matching remains canonical.
-- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, Quick Capture context source/time, context Open href, typed-but-unblurred Time reads, mouse and keyboard time nudges, empty/invalid Time fallback to latest capture time, empty-source disabled behavior, draft status, source-open title, and stripped URL after blur/change.
+- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, Quick Capture context source/time, context Open href, typed-but-unblurred Time reads, mouse and keyboard time nudges, empty/invalid Time fallback to latest capture time, empty-source disabled behavior, draft status, source-open title, stripped URL after blur/change, and a 390px sidecar/mobile layout where the Time row does not overflow and both nudge buttons stay at least 44px wide.
 - The morning manual QA pack now has a `Source time staging` row; this remains Mac/web local URL-parser evidence, not Harmony/Windows reader UI parity and not live playback QA against external video sites.
 
 ## Verified Locally
 
-These passed after the source time staging update:
+These passed after the Time nudge mobile layout hardening:
 
 - `npm run smoke`
 - `npm run smoke:browser`
@@ -198,6 +209,14 @@ Approval-gated or environment-gated checks were intentionally skipped tonight:
 ## Mira Review Stance
 
 Mira is now available as a Tony-only external review gate through the Hermes broker path. Use it for important artifacts, especially architecture, permission boundaries, data contracts, and risky UX claims.
+
+Current local operating model:
+
+- The `mira-review` skill is internal to Tony's Codex environment, not part of this repository.
+- Codex sends only a sanitized review packet through `hermes-mira-review`.
+- The SSH path is constrained to a forced-command `codex-mira` entry, which forwards JSON over a broker socket to an openclaw-owned Hermes service.
+- The broker owns Mira/Feishu session handling and returns only sanitized JSON verdict/status plus optional sanitized response text.
+- `.mira-review/` stays ignored. Do not commit packets, responses, or broker status files.
 
 Operational stance:
 
@@ -287,7 +306,9 @@ Latest absorbed Mira notes for Harmony import/file-picker contract:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is adding a local persisted-view adapter stub that still avoids device claims, or adding one more Mac-first dogfood polish around source/timestamp capture.
+   - Prefer one more Mac-first dogfood polish around source/timestamp capture or sidecar focus before broadening claims.
+   - A good next local increment is to tighten the capture context around actual browser study use: what changed, where the note will land, and how to resume the source without touching approval-gated native APIs.
+   - Consider a local persisted-view adapter stub only if it helps the Harmony/Windows handoff without claiming device storage has run.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
 2. Keep the cross-end story honest:
@@ -300,6 +321,7 @@ Latest absorbed Mira notes for Harmony import/file-picker contract:
    - Harmony device compile.
    - Feishu authenticated write test.
    - Push/GitHub actions if network is unavailable.
+   - Mira broker auth/session maintenance, if the broker reports `AUTH_EXPIRED`, `AUTH_UNAVAILABLE`, or `TIMEOUT`.
 
 ## Resume Commands
 
