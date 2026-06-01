@@ -162,10 +162,20 @@ Latest local work aligns Harmony scaffold pages around the reader session:
 - ReviewQueue now reads `dueReview` from the session, reveals the first due answer when available, and keeps grading framed as review-progress patch export.
 - Scaffold smoke pins these page-to-session references; this is still not a DevEco compile/device rendering claim.
 
+Latest local work improves Mac-first capture focus:
+
+- `Cmd/Ctrl + Shift + C` is now the app-focused Quick Capture shortcut.
+- It switches the active session back to Capture mode, opens the Captures tab, preserves sidecar layout, focuses Quote for an empty capture, and focuses Thought for a quote-only draft.
+- Activity strip copy is draft-aware: `Quick Capture ready` for empty state and `Capture draft ready` when a local draft exists.
+- Browser smoke verifies the sidecar-preserving path, editable-field dispatch, `preventDefault`, repeat pulse feedback, and quote-only draft focus.
+- Product docs note the conflict boundary: this is not a system-wide hotkey and can conflict with browser DevTools or password/clipboard utilities that own the same chord.
+
 ## Verified Locally
 
-These passed after the Harmony reader-session page alignment:
+These passed after the keyboard quick capture update:
 
+- `npm run smoke`
+- `npm run smoke:browser`
 - `npm run smoke:harmony`
 - `npm run check:morning`
 - `git diff --check`
@@ -269,7 +279,7 @@ Latest absorbed Mira notes for Harmony import/file-picker contract:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is adding a local persisted-view adapter stub that still avoids device claims, or tightening the Mac morning review pack to surface the Harmony session-state evidence.
+   - Consider whether the next useful increment is adding a local persisted-view adapter stub that still avoids device claims, or adding one more Mac-first dogfood polish around source/timestamp capture.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
 2. Keep the cross-end story honest:

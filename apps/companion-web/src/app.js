@@ -447,13 +447,21 @@ dom.deskReviewGoodBtn.addEventListener("click", () => gradeActiveReview("good"))
 document.addEventListener("keydown", (event) => {
   const isMod = event.metaKey || event.ctrlKey;
   if (handleReviewShortcut(event)) return;
+  if (isMod && event.shiftKey && event.key.toLowerCase() === "c") {
+    event.preventDefault();
+    event.stopPropagation();
+    focusQuickCapture();
+    return;
+  }
   if (isMod && event.key === "Enter") {
     event.preventDefault();
     capture(event.shiftKey);
+    return;
   }
   if (isMod && event.key.toLowerCase() === "s") {
     event.preventDefault();
     persistAndRender("Saved");
+    return;
   }
   if (isMod && event.key.toLowerCase() === "k") {
     event.preventDefault();
@@ -465,6 +473,7 @@ document.addEventListener("keydown", (event) => {
     }
     dom.searchInput.focus();
     dom.searchInput.select();
+    return;
   }
   if (isMod && event.key === "\\") {
     if (isEditableTarget(event.target)) return;
@@ -1293,6 +1302,34 @@ function runFocusBriefAction() {
   }
 }
 
+function focusQuickCapture() {
+  const session = getActiveSession(workspace);
+  const draft = getCaptureDraft(session.id);
+  const hasDraft = hasCaptureDraft(draft);
+  const title = hasDraft ? "Capture draft ready" : "Quick Capture ready";
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setActivity(session, {
+    title,
+    detail: hasDraft ? summarizeCaptureDraft(draft) : "Capture a quote, thought, or timestamp without leaving the study surface.",
+    tab: "captures",
+    targetId: ""
+  });
+  persistAndRender(title);
+  const target = dom.quoteInput.value.trim() && !dom.thoughtInput.value.trim()
+    ? dom.thoughtInput
+    : dom.quoteInput;
+  target.focus();
+  pulseNode(dom.capturePane);
+  return {
+    ok: true,
+    activeTab,
+    focusMode: getActiveSession(workspace).focusMode,
+    focused: target.id,
+    sidecarLayout: uiPrefs.sidecarLayout
+  };
+}
+
 function getActivity(session) {
   if (lastActivity?.sessionId === session.id) return lastActivity;
   const draft = getCaptureDraft(session.id);
@@ -1361,7 +1398,10 @@ function scrollActivityTarget(activity) {
 }
 
 function pulseNode(target) {
-  target?.classList.add("pulse");
+  if (!target) return;
+  target.classList.remove("pulse");
+  void target.offsetWidth;
+  target.classList.add("pulse");
   setTimeout(() => target?.classList.remove("pulse"), 900);
 }
 

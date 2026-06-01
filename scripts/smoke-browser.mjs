@@ -145,7 +145,9 @@ try {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       pressed: toggle.getAttribute("aria-pressed"),
       stored: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").sidecarLayout === true,
-      storedVersion: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").schemaVersion
+      storedVersion: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").schemaVersion,
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
     });
     const before = readState();
     document.querySelector("#notesEditor").focus();
@@ -165,9 +167,43 @@ try {
       cancelable: true
     }));
     const afterPanelShortcut = readState();
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "C",
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true
+    }));
+    const afterFocusCaptureShortcut = readState();
+    document.querySelector("#quoteInput").value = "Draft quote from shortcut smoke.";
+    document.querySelector("#thoughtInput").value = "";
+    document.querySelector("#quoteInput").dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector('[data-focus-mode="review"]').click();
+    document.querySelector("#notesEditor").focus();
+    const draftShortcutEvent = new KeyboardEvent("keydown", {
+      key: "C",
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true
+    });
+    const draftShortcutDispatchResult = document.querySelector("#notesEditor").dispatchEvent(draftShortcutEvent);
+    const afterDraftFocusCaptureShortcut = {
+      ...readState(),
+      defaultPrevented: draftShortcutEvent.defaultPrevented,
+      dispatchResult: draftShortcutDispatchResult
+    };
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      key: "C",
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true
+    }));
+    const afterRepeatFocusCaptureShortcut = readState();
     document.querySelector("#activityDetailsBtn").click();
     const afterActivityDetails = readState();
-    return { before, afterEditableShortcut, afterPanelShortcut, afterActivityDetails };
+    return { before, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, afterActivityDetails };
   })()`);
 
   assert.equal(sidecarLayout.before.shellCompact, false);
@@ -182,6 +218,20 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
   assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 2);
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.shellCompact, true);
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeTab, "captures");
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeId, "quoteInput");
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityTitle, "Quick Capture ready");
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.capturePanePulsed, true);
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityAction, "Exit + Details");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.shellCompact, true);
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activeTab, "captures");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activeId, "thoughtInput");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityTitle, "Capture draft ready");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.defaultPrevented, true);
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.dispatchResult, false);
+  assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.activeId, "thoughtInput");
+  assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.capturePanePulsed, true);
   assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
   assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");

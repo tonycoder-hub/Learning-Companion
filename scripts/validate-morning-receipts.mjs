@@ -220,6 +220,8 @@ assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOC
 assert.match(manualQa, /verify the downloaded JSON file yourself/);
 assert.match(manualQa, /First-run Start Here/);
 assert.match(manualQa, /Capture first point focuses Quick Capture/);
+assert.match(manualQa, /Keyboard quick capture/);
+assert.match(manualQa, /quote-only draft focuses Thought/);
 assert.match(manualQa, /Today section map/);
 assert.match(manualQa, /sidecar\/mobile widths/);
 assert.match(manualQa, /Focus Brief question signal/);
