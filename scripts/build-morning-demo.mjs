@@ -555,6 +555,9 @@ assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
 assert.match(reviewReportHtml, /open question/);
 assert.match(reviewReportHtml, /parked question/);
 assert.match(reviewReportHtml, /What To Inspect First/);
+assert.match(reviewReportHtml, /First-Run Start Here/);
+assert.match(reviewReportHtml, /Capture first point/);
+assert.match(reviewReportHtml, /Today section map/);
 assert.match(reviewReportHtml, /Focus Loop/);
 assert.match(reviewReportHtml, /Question Closure/);
 assert.match(reviewReportHtml, /Question Queue Health/);
@@ -1020,6 +1023,8 @@ function buildMacManualQaMarkdown({
     "| Clipboard capture | Copy text in any app, then use `Capture > Save Clipboard as Capture`. | Capture appears in the active topic with `clipboard` source. | NT |  |",
     "| Quick Capture draft persistence | Type a quote, thought, and time in Quick Capture without saving; switch to another session and return. | Draft text and time are restored, and the capture surface shows a local draft status. | NT |  |",
     "| Today draft resume | Leave a non-empty Quick Capture draft, open Today, then use the draft Resume action. | Today shows a device-local/not-exported draft card and Resume returns focus to Quick Capture. | NT |  |",
+    "| First-run Start Here | Open the app with an empty workspace or fresh browser profile. | Today shows the Start Here card; Capture first point focuses Quick Capture, Write first question seeds a `Question:` draft, and Browser clipper opens the bookmarklet/export area. | NT |  |",
+    "| Today section map | In Today with the sample workspace imported, click the Due, Questions, Parked, Answers, Closed, and Recent chips. | Each chip jumps to the matching section without horizontal overflow at sidecar/mobile widths. | NT |  |",
     "| Focus Brief draft precedence | In a workspace with both a due review and a fresh Quick Capture draft, open Focus Brief. | Due review stays the primary next action; the draft remains recoverable from Today instead of being treated as synced/exported data. | NT |  |",
     "| Focus Brief question signal | In a topic with an open question and due review or synthesis, click the Focus Brief open-question signal. | The primary Focus Brief action stays Review or Build, while the signal opens Today at Open Questions and exits sidecar layout if needed. | NT |  |",
     "| Open question handoff | After importing `dist/morning-demo/sample-workspace.json`, open Today and the mirror home. | The Rust traits question appears in Today Open Questions and in `mirror-folder/index.html` as an Open Question Preview. | NT |  |",
@@ -1135,6 +1140,8 @@ function buildMorningReviewMarkdown({
     "0d. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
     "0e. Read `dist/morning-demo/CAPTURE_RESUME_RECEIPT.json` if you want the exact model evidence that due review blocks a fresh Quick Capture draft from owning the Focus Brief.",
     `0f. Read \`dist/morning-demo/${SOURCE_TIME_LINKS_RECEIPT_FILE}\` for the local source-time parser evidence; it does not prove real video-site playback.`,
+    "0g. Check the first-run `Start Here` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
+    "0h. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
@@ -1179,6 +1186,8 @@ function buildMorningReviewMarkdown({
     "- Source time links: do supported provider links resume to the intended timestamp locally, and is the absence of live playback QA explicit enough?",
     "- Workspace Find: can you find a prior capture or card quickly?",
     "- Today pack: does it tell you what to resume?",
+    "- First-run Start Here: does an empty workspace offer capture, first-question, and browser-clipper entry points without becoming onboarding fluff?",
+    "- Today section map: does the denser cockpit stay skimmable by jumping to due, question, answer, closed, and recent sections?",
     "- Local durability: does the app ask for a workspace export after real learning changes without pretending the browser download is already durable?",
     "- Mirror folder: would this be readable in Feishu Drive or Windows?",
     "- Feishu upload plan: is the one-way folder writer boundary clear enough before real credentials?",
@@ -1328,27 +1337,37 @@ function buildReviewStartHereHtml({
   ];
   const inspectRows = [
     [
-      "1. Focus Loop",
+      "1. First-Run Start Here",
+      "Open an empty workspace and confirm the Start Here card offers Capture first point, Write first question, and Browser clipper actions before any study trail exists.",
+      MAC_MANUAL_QA_FILE
+    ],
+    [
+      "2. Today Section Map",
+      "With the sample workspace imported, use the Today section map to jump to due cards, questions, parked items, answers, closed items, and recent captures without losing the sidecar/mobile layout.",
+      MAC_MANUAL_QA_FILE
+    ],
+    [
+      "3. Focus Loop",
       `Import the sample workspace, then confirm Focus Brief points to review before capture while Today keeps ${openQuestionLabel} and ${parkedQuestionLabel} visible.`,
       SAMPLE_WORKSPACE_FILE
     ],
     [
-      "2. Question Closure",
+      "4. Question Closure",
       "Use the Focus Brief open-question signal, then Make card, Resolve, and Reopen from Today/Captures.",
       MAC_MANUAL_QA_FILE
     ],
     [
-      "3. Question Queue Health",
+      "5. Question Queue Health",
       `Inspect Today and TODAY.md: active plus parked should read as ${unresolvedQuestionLabel}, without making parked items hijack focus.`,
       "mirror-folder/TODAY.md"
     ],
     [
-      "4. Cross-End Mirror",
+      "6. Cross-End Mirror",
       "Open the static mirror home, then try the portable review and inbox pages as the Windows/Harmony/Feishu folder proxy.",
       "mirror-folder/index.html"
     ],
     [
-      "5. Evidence Boundary",
+      "7. Evidence Boundary",
       `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
       DEFERRED_GATES_FILE
     ]

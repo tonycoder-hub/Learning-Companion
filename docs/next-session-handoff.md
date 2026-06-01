@@ -127,13 +127,19 @@ Latest local work adds a first-run Start Here card:
 - Browser smoke pins the card copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
 
+Latest local work tightens the generated morning review pack around those entry points:
+
+- `review-start-here.html` now puts `First-Run Start Here` and `Today Section Map` before the older Focus Loop path, so morning review starts with the concrete app entry points Tony asked for.
+- `MORNING_REVIEW.md` now points reviewers to the Start Here and Today map rows in `MAC_MANUAL_QA.md` without claiming the generator proves manual UI behavior.
+- `MAC_MANUAL_QA.md` now has explicit `NT` rows for empty-workspace Start Here behavior and Today map chip jumps at sidecar/mobile widths.
+- `validate-morning-receipts.mjs` pins these strings so the morning evidence pack cannot silently drift back to a generic artifact checklist.
+
 ## Verified Locally
 
-These passed after the first-run Start Here update:
+These passed after the morning review pack evidence update:
 
-- `npm run smoke`
-- `npm run smoke:browser`
-- `npm run smoke:harmony`
+- `npm run demo:morning`
+- `npm run morning:receipts`
 - `npm run check:morning`
 - `git diff --check`
 
@@ -227,7 +233,8 @@ Latest Mira note for Today section map:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is making the Harmony scaffold import/file-picker story more concrete without claiming device validation, or tightening the generated morning review pack around the new first-run and Today map evidence.
+   - Consider whether the next useful increment is making the Harmony scaffold import/file-picker story more concrete without claiming device validation.
+   - Alternatively, run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
