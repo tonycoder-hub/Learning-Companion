@@ -20,8 +20,9 @@ private enum AccessibilityStringAttribute {
   case unavailable
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
   private let maxWorkspaceImportBytes = 5_000_000
+  private let maxNativeSaveBytes = 25_000_000
   private let clipboardCaptureHotKeyId: UInt32 = 1
   private let selectedTextCaptureHotKeyId: UInt32 = 2
   private let standardMinSize = NSSize(width: 760, height: 560)
@@ -47,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     let indexFile = webRoot.appendingPathComponent("index.html")
     let configuration = WKWebViewConfiguration()
     configuration.websiteDataStore = .default()
+    configuration.userContentController.add(self, name: "learningCompanion")
 
     let view = WKWebView(frame: .zero, configuration: configuration)
     view.navigationDelegate = self
@@ -296,6 +298,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
   func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
     applyPendingWebSidecarLayout(retry: true)
+  }
+
+  func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+    guard message.name == "learningCompanion",
+          let payload = message.body as? [String: Any],
+          payload["type"] as? String == "saveTextFile",
+          let requestId = payload["requestId"] as? String,
+          let filename = payload["filename"] as? String,
+          let text = payload["text"] as? String else {
+      return
+    }
+    let mediaType = payload["mediaType"] as? String ?? "text/plain"
+    saveTextFileFromWeb(requestId: requestId, filename: filename, mediaType: mediaType, text: text)
   }
 
   private func resolveWebRoot() -> URL {
@@ -761,6 +776,70 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     } catch {
       showError("Could not save the workspace file.")
     }
+  }
+
+  private func saveTextFileFromWeb(requestId: String, filename: String, mediaType: String, text: String) {
+    guard let data = text.data(using: .utf8), data.count <= maxNativeSaveBytes else {
+      completeNativeSaveRequest(requestId, ok: false, error: "file_too_large")
+      showError("The export is too large to save from the app.")
+      return
+    }
+
+    let panel = NSSavePanel()
+    panel.title = "Save Learning Companion Export"
+    panel.allowedContentTypes = allowedContentTypes(mediaType: mediaType, filename: filename)
+    panel.nameFieldStringValue = safeSuggestedFilename(filename)
+
+    guard panel.runModal() == .OK, let url = panel.url else {
+      completeNativeSaveRequest(requestId, ok: false, error: "canceled")
+      return
+    }
+
+    do {
+      try data.write(to: url, options: .atomic)
+      completeNativeSaveRequest(requestId, ok: true)
+    } catch {
+      completeNativeSaveRequest(requestId, ok: false, error: "write_failed")
+      showError("Could not save the export file.")
+    }
+  }
+
+  private func completeNativeSaveRequest(_ requestId: String, ok: Bool, error: String = "") {
+    guard let webView,
+          let encodedRequestId = jsonStringLiteral(requestId),
+          let result = jsonObjectLiteral(["ok": ok, "error": error]) else {
+      return
+    }
+    webView.evaluateJavaScript("window.learningCompanionNative?.completeSaveRequest?.(\(encodedRequestId), \(result));")
+  }
+
+  private func allowedContentTypes(mediaType: String, filename: String) -> [UTType] {
+    let lowerMediaType = mediaType.lowercased()
+    let fileExtension = URL(fileURLWithPath: filename).pathExtension.lowercased()
+    if lowerMediaType.contains("json") || fileExtension == "json" {
+      return [.json]
+    }
+    if lowerMediaType.contains("markdown") || fileExtension == "md" {
+      return [UTType(filenameExtension: "md") ?? .plainText]
+    }
+    if lowerMediaType.contains("html") || fileExtension == "html" {
+      return [.html]
+    }
+    if let type = UTType(filenameExtension: fileExtension), !fileExtension.isEmpty {
+      return [type]
+    }
+    return [.plainText]
+  }
+
+  private func safeSuggestedFilename(_ value: String) -> String {
+    let name = URL(fileURLWithPath: value).lastPathComponent
+      .components(separatedBy: CharacterSet.controlCharacters)
+      .joined()
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    if name.isEmpty {
+      return "learning-companion-export.txt"
+    }
+    return String(name.prefix(160))
   }
 
   private func morningReviewPackURL() -> URL? {

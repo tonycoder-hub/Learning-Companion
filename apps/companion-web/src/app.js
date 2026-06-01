@@ -70,6 +70,7 @@ const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 2;
 const CAPTURE_DELETE_UNDO_MS = 10000;
+const nativeSaveRequests = new Map();
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -3365,7 +3366,7 @@ function markWorkspaceExported() {
     }
   };
   saveUiPrefs();
-  storageWarning = canUseFileSavePicker()
+  storageWarning = hasDirectedSaveDestination()
     ? "Backup saved - verify the selected file"
     : "Backup requested - verify downloaded file";
   renderStorageNotice();
@@ -3399,6 +3400,13 @@ function installNativeBridge() {
     },
     setSidecarLayout(enabled) {
       return setSidecarLayout(Boolean(enabled));
+    },
+    completeSaveRequest(requestId, result = {}) {
+      const resolveRequest = nativeSaveRequests.get(String(requestId || ""));
+      if (!resolveRequest) return false;
+      nativeSaveRequests.delete(String(requestId || ""));
+      resolveRequest(Boolean(result?.ok));
+      return true;
     }
   };
 }
@@ -3413,6 +3421,9 @@ async function copyText(text, message) {
 }
 
 function saveTextFile(filename, text, type) {
+  if (canUseNativeSaveBridge()) {
+    return saveTextFileWithNative(filename, text, type);
+  }
   const blob = new Blob([text], { type });
   return saveBlobFile(filename, blob, type);
 }
@@ -3455,7 +3466,34 @@ function afterSave(result, callback) {
 }
 
 function saveCompleteMessage(label) {
-  return canUseFileSavePicker() ? `${label} saved` : `${label} download requested`;
+  return hasDirectedSaveDestination() ? `${label} saved` : `${label} download requested`;
+}
+
+function hasDirectedSaveDestination() {
+  return canUseNativeSaveBridge() || canUseFileSavePicker();
+}
+
+function canUseNativeSaveBridge() {
+  return Boolean(window.webkit?.messageHandlers?.learningCompanion?.postMessage);
+}
+
+function saveTextFileWithNative(filename, text, type) {
+  const requestId = `save_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return new Promise((resolveRequest) => {
+    nativeSaveRequests.set(requestId, resolveRequest);
+    try {
+      window.webkit.messageHandlers.learningCompanion.postMessage({
+        type: "saveTextFile",
+        requestId,
+        filename,
+        mediaType: type,
+        text: String(text || "")
+      });
+    } catch {
+      nativeSaveRequests.delete(requestId);
+      resolveRequest(saveBlobFile(filename, new Blob([text], { type }), type));
+    }
+  });
 }
 
 function canUseFileSavePicker() {

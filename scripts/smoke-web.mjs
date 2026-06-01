@@ -114,6 +114,8 @@ assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 2/);
 assert.match(appJs, /workspaceBackupFingerprint/);
 assert.match(appJs, /workspaceStorageNotice/);
 assert.match(appJs, /showSaveFilePicker/);
+assert.match(appJs, /messageHandlers\?\.learningCompanion/);
+assert.match(appJs, /completeSaveRequest/);
 assert.match(appJs, /Backup requested - verify downloaded file/);
 assert.match(appJs, /Backup saved - verify the selected file/);
 assert.match(appJs, /openFocusBriefWarning/);
