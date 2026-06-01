@@ -74,7 +74,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
 - Markdown + JSON export for the active session.
-- Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs; browser Save prefers `showSaveFilePicker()` when available and falls back to download when the picker is unsupported or automation is running.
+- Export panel exposes full workspace copy/save with a collapsed JSON disclosure next to session, Today, mirror, ZIP, and bookmarklet outputs; browser Save prefers `showSaveFilePicker()` when available, Mac shell text saves route through native NSSavePanel, and unsupported/headless runtimes fall back to download.
 - Storage notice prompts for a local workspace export after committed learning data changes, warns when the last matching export is older than seven days, and asks the user to verify the selected/downloaded JSON file rather than treating the click as durable backup proof.
 - Copy/save `TODAY.md` directly from the Export panel.
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
@@ -124,7 +124,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, smoke temp-download hygiene, and save-picker export work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, picker-vs-fallback backup copy, the destination-locate action from sidecar layout, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, `npm run mac:build`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, smoke temp-download hygiene, save-picker export, and Mac-shell web save bridge work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, picker-vs-fallback backup copy, the destination-locate action from sidecar layout, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA. The Mac-shell bridge has SwiftPM build evidence, not manual NSSavePanel click-through QA.
 
 ## Review Notes Absorbed
 

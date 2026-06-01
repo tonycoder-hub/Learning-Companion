@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `466cf05 feat: save web exports through Mac shell`
 - `059acd4 feat: prefer save picker for exports`
 - `0789ee2 test: keep browser smoke downloads temporary`
 - `4a4ff79 fix: align linked answer readiness`
@@ -263,9 +264,12 @@ Latest local work links local Answer drafts back to their questions:
 Latest local export work separates real saves from temporary downloads:
 
 - Browser Save/Export buttons now prefer `window.showSaveFilePicker()` when the runtime supports it, so real Chromium users can choose the destination instead of silently filling Downloads.
+- Inside the Mac shell, text-based web Save buttons now use a WK message bridge to call native NSSavePanel and report completion back into the web app; workspace JSON, review pack, current-session Markdown/JSON, Today, and mirror JSON all use this path.
+- The native bridge sanitizes suggested filenames, limits text exports to 25 MB, maps common content types to `UTType`, and returns `false` on cancel so the web UI does not claim a save.
 - Headless Chrome, webdriver automation, and browsers without the File System Access API still fall back to `<a download>`.
 - Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup requested - verify downloaded file`.
 - Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy for fallback saves.
+- ZIP export is intentionally not sent through the text bridge; it continues through save picker/download fallback to avoid large binary payloads in the WK message body.
 - `npm run smoke:browser` now creates a private `$TMPDIR/lc-browser-smoke-*/` root with separate Chrome profile and `downloads/` directory.
 - Chrome's CDP download behavior is set to that temporary download path before the test clicks the app's Export button.
 - The script waits for Chrome to exit before deleting the current smoke root, and a startup janitor removes stale `lc-browser-smoke-*` roots older than 30 minutes.
@@ -288,6 +292,13 @@ These passed after the save-picker export update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
+- `git diff --check`
+
+These passed after the Mac-shell web save bridge:
+
+- `npm run smoke`
+- `npm run smoke:browser`
+- `npm run mac:build`
 - `git diff --check`
 
 The last full offline headline gate before this handoff was:
