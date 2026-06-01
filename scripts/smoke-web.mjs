@@ -149,12 +149,16 @@ const normalizedDraft = normalizeCaptureDraft({
   quote: "  Draft quote\n",
   thought: "Draft thought",
   timestamp: " 08:12 ",
+  sourceTitle: "  Source doc ",
+  sourceUrl: " https://example.com/lesson ",
   updatedAt: "2026-05-29T00:01:00.000Z"
 });
 assert.deepEqual(normalizedDraft, {
   quote: "Draft quote",
   thought: "Draft thought",
   timestamp: "08:12",
+  sourceTitle: "Source doc",
+  sourceUrl: "https://example.com/lesson",
   updatedAt: "2026-05-29T00:01:00.000Z"
 });
 assert.equal(hasCaptureDraft(normalizedDraft), true);
@@ -163,6 +167,15 @@ assert.equal(captureDraftStatusText(normalizedDraft), "Draft saved");
 assert.equal(captureDraftStatusText(normalizeCaptureDraft({ timestamp: "01:23" })), "Time kept");
 assert.equal(captureDraftStatusText(normalizeCaptureDraft({})), "No draft");
 assert.match(normalizeCaptureDraft({ quote: "\u0000safe" }).quote, /^safe$/);
+assert.deepEqual(
+  {
+    sourceTitle: normalizeCaptureDraft({ quote: "legacy draft" }).sourceTitle,
+    sourceUrl: normalizeCaptureDraft({ quote: "legacy draft" }).sourceUrl
+  },
+  { sourceTitle: "", sourceUrl: "" }
+);
+assert.equal(normalizeCaptureDraft({ sourceTitle: "\u0000 Source\nTitle " }).sourceTitle, "Source Title");
+assert.equal(normalizeCaptureDraft({ sourceUrl: ` ${"x".repeat(2200)} ` }).sourceUrl.length, 2048);
 assert.equal(normalizeCaptureDraft({ quote: "x" }, new Date("2026-05-29T00:02:00.000Z")).updatedAt, "2026-05-29T00:02:00.000Z");
 
 const draftSessions = [

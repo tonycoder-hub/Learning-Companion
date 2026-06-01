@@ -224,6 +224,7 @@ assert.match(manualQa, /First-run Start Here/);
 assert.match(manualQa, /Capture first point focuses Quick Capture/);
 assert.match(manualQa, /Keyboard quick capture/);
 assert.match(manualQa, /quote-only draft focuses Thought/);
+assert.match(manualQa, /Source changed/);
 assert.match(manualQa, /Source time staging/);
 assert.match(manualQa, /filled and pulsed/);
 assert.match(manualQa, /source\/time context/);

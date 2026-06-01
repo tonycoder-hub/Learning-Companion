@@ -103,6 +103,8 @@ export function normalizeCaptureDraft(value, now = new Date()) {
     quote: cleanText(draft.quote, MAX_CAPTURE_TEXT_LENGTH),
     thought: cleanText(draft.thought, MAX_CAPTURE_TEXT_LENGTH),
     timestamp: cleanText(draft.timestamp, 32),
+    sourceTitle: cleanText(draft.sourceTitle, MAX_TITLE_LENGTH).replace(/\s+/g, " "),
+    sourceUrl: cleanText(draft.sourceUrl, MAX_URL_LENGTH),
     updatedAt
   };
 }

@@ -655,10 +655,12 @@ function setCaptureDraft(sessionId, draftInput) {
 
 function saveCurrentCaptureDraft() {
   const session = getActiveSession(workspace);
+  const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value);
   setCaptureDraft(session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
-    timestamp: dom.timestampInput.value
+    timestamp: dom.timestampInput.value,
+    ...snapshot
   });
   const draft = getCaptureDraft(session.id);
   if (resolveCaptureDraftFocusOverride(null, draft).isFresh) {
@@ -701,8 +703,43 @@ function renderCaptureDraft(session) {
 
 function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) {
   const hasDraft = hasCaptureDraft(draft);
-  dom.captureDraftStatus.textContent = captureDraftStatusText(draft);
+  const sourceChanged = hasDraft && captureDraftSourceChanged(session, draft);
+  dom.captureDraftStatus.textContent = sourceChanged ? "Source changed" : captureDraftStatusText(draft);
+  dom.captureDraftStatus.classList.toggle("warn", sourceChanged);
+  dom.captureDraftStatus.title = sourceChanged
+    ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
+    : "";
   dom.clearCaptureDraftBtn.hidden = !hasDraft;
+}
+
+function captureDraftSourceChanged(session, draft) {
+  const draftUrl = canonicalDraftSourceUrl(draft.sourceUrl);
+  const sessionUrl = canonicalDraftSourceUrl(session.sourceUrl);
+  const draftTitle = normalizeInboundSourceTitle(draft.sourceTitle);
+  const sessionTitle = normalizeInboundSourceTitle(session.sourceTitle);
+  // Legacy local drafts did not store source snapshots; without origin evidence, avoid false warnings.
+  if (!draftUrl && !draftTitle) return false;
+  if (draftUrl && sessionUrl) return draftUrl !== sessionUrl;
+  const draftSource = draftTitle || draftUrl;
+  const sessionSource = sessionTitle || sessionUrl;
+  return Boolean(draftSource && sessionSource && draftSource !== sessionSource);
+}
+
+function draftSourceSnapshotFor(sessionId, sourceTitle, sourceUrl) {
+  const draft = getCaptureDraft(sessionId);
+  // A draft's source snapshot is its origin, so keep it stable until the draft is captured or cleared.
+  return {
+    sourceTitle: draft.sourceTitle || sourceTitle,
+    sourceUrl: draft.sourceUrl || canonicalDraftSourceUrl(sourceUrl)
+  };
+}
+
+function canonicalDraftSourceUrl(value) {
+  return normalizeInboundMatchUrl(value) || stripSourceTimestamp(value) || cleanUrl(value);
+}
+
+function sourceSnapshotLabel(source) {
+  return source?.sourceTitle || readableSourceHost(source?.sourceUrl) || "(no source)";
 }
 
 function applyUrlCapture() {
@@ -822,7 +859,7 @@ function findInboundTitleMatch(currentWorkspace, active, normalizedTitle) {
 }
 
 function normalizeInboundSourceTitle(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function normalizeInboundMatchUrl(value) {
@@ -882,17 +919,19 @@ function updateSessionFromFields(event) {
   let stagedSourceTimestamp = "";
   if (event?.target === dom.sourceUrl) {
     const extractedTimestamp = extractSourceTimestamp(sourceUrl);
+    const strippedSourceUrl = stripSourceTimestamp(sourceUrl);
     if (extractedTimestamp && !dom.timestampInput.value.trim()) {
       dom.timestampInput.value = extractedTimestamp;
       stagedSourceTimestamp = extractedTimestamp;
+      const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, strippedSourceUrl || sourceUrl);
       setCaptureDraft(session.id, {
         quote: dom.quoteInput.value,
         thought: dom.thoughtInput.value,
-        timestamp: extractedTimestamp
+        timestamp: extractedTimestamp,
+        ...snapshot
       });
       renderCaptureDraftStatus(session);
     }
-    const strippedSourceUrl = stripSourceTimestamp(sourceUrl);
     if (strippedSourceUrl) {
       sourceUrl = strippedSourceUrl;
       if (event.type === "change" && strippedSourceUrl !== cleanUrl(dom.sourceUrl.value)) {
@@ -910,6 +949,7 @@ function updateSessionFromFields(event) {
   scheduleSave();
   renderOpenSourceButton(getActiveSession(workspace));
   renderCaptureContext(getActiveSession(workspace));
+  renderCaptureDraftStatus(getActiveSession(workspace));
   renderFocusBrief();
   renderSessions();
   renderInspector();
@@ -951,7 +991,9 @@ function capture(promoteToReview) {
   const updated = getActiveSession(workspace);
   const isCloze = promoteToReview === "cloze";
   setCaptureDraft(session.id, {
-    timestamp: dom.timestampInput.value
+    timestamp: dom.timestampInput.value,
+    sourceTitle: updated.sourceTitle,
+    sourceUrl: updated.sourceUrl
   });
   setActivity(updated, {
     title: isCloze ? "Cloze card saved" : promoteToReview ? "Capture and card saved" : "Capture saved",

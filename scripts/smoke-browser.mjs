@@ -341,7 +341,33 @@ try {
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent
     };
-    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack };
+    setValue("#quoteInput", "Draft anchored to the RustConf source.");
+    setValue("#thoughtInput", "This should warn if the source changes before capture.");
+    setValue("#sourceTitle", "RustConf ownership talk - YouTube");
+    const titleOnlySourceRefresh = {
+      status: document.querySelector("#captureDraftStatus").textContent,
+      statusClass: document.querySelector("#captureDraftStatus").className
+    };
+    setValue("#sourceTitle", "Different lecture");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=other456");
+    const sourceChangedDraft = {
+      status: document.querySelector("#captureDraftStatus").textContent,
+      statusClass: document.querySelector("#captureDraftStatus").className,
+      statusTitle: document.querySelector("#captureDraftStatus").title,
+      role: document.querySelector("#captureDraftStatus").getAttribute("role"),
+      ariaLive: document.querySelector("#captureDraftStatus").getAttribute("aria-live")
+    };
+    setValue("#sourceTitle", "RustConf ownership talk");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123&t=0s");
+    const restoredWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const restoredActiveSession = restoredWorkspace.sessions
+      .find((item) => item.id === restoredWorkspace.activeSessionId);
+    const sourceRestoredDraft = {
+      status: document.querySelector("#captureDraftStatus").textContent,
+      statusClass: document.querySelector("#captureDraftStatus").className,
+      sourceUrlStored: restoredActiveSession.sourceUrl
+    };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, sourceChangedDraft, sourceRestoredDraft };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -364,7 +390,9 @@ try {
     };
     const captureDraftStatusAfterCard = {
       text: document.querySelector("#captureDraftStatus").textContent,
-      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
+      clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden,
+      statusClass: document.querySelector("#captureDraftStatus").className,
+      statusTitle: document.querySelector("#captureDraftStatus").title
     };
     let sourceJumpOpened = "";
     const nativeWindowOpen = window.open;
@@ -1075,6 +1103,17 @@ try {
     activityTitle: "Time unchanged",
     activityDetail: "Capture time is already 00:00."
   });
+  assert.equal(result.sourceTimestampNudge.titleOnlySourceRefresh.status, "Draft saved");
+  assert.doesNotMatch(result.sourceTimestampNudge.titleOnlySourceRefresh.statusClass, /warn/);
+  assert.equal(result.sourceTimestampNudge.sourceChangedDraft.status, "Source changed");
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusClass, /warn/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusTitle, /RustConf ownership talk/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusTitle, /Different lecture/);
+  assert.equal(result.sourceTimestampNudge.sourceChangedDraft.role, "status");
+  assert.equal(result.sourceTimestampNudge.sourceChangedDraft.ariaLive, "polite");
+  assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.status, "Draft saved");
+  assert.doesNotMatch(result.sourceTimestampNudge.sourceRestoredDraft.statusClass, /warn/);
+  assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.sourceUrlStored, "https://www.youtube.com/watch?v=rust123");
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);
@@ -1189,7 +1228,12 @@ try {
   assert.equal(result.backupNoticeAfterExport.text, "Export requested - verify downloaded file");
   assert.match(result.backupNoticeAfterExport.fingerprint, /^[a-f0-9]{8}$/);
   assert.match(result.backupNoticeAfterExport.exportedAt, /^20/);
-  assert.deepEqual(result.captureDraftStatusAfterCard, { text: "Time kept", clearHidden: false });
+  assert.deepEqual(result.captureDraftStatusAfterCard, {
+    text: "Time kept",
+    clearHidden: false,
+    statusClass: "save-state capture-draft-status",
+    statusTitle: ""
+  });
   assert.equal(result.sourceJumpOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
   assert.match(result.captureText, /Ownership lets Rust/);

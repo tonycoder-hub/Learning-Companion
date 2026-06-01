@@ -747,6 +747,10 @@ textarea:focus {
   text-align: right;
 }
 
+.capture-draft-status.warn {
+  color: var(--amber);
+}
+
 .capture-stack {
   display: grid;
   gap: 8px;
