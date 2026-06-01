@@ -201,9 +201,18 @@ try {
       cancelable: true
     }));
     const afterRepeatFocusCaptureShortcut = readState();
+    document.querySelector("#captureContextTarget").click();
+    const activeSessionRow = document.querySelector("#sessionList .session-row.active");
+    const afterCaptureDestination = {
+      ...readState(),
+      targetText: document.querySelector("#captureContextTarget").textContent,
+      activeSessionFocused: document.activeElement === activeSessionRow,
+      activeSessionPulsed: activeSessionRow?.classList.contains("pulse") === true,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
     document.querySelector("#activityDetailsBtn").click();
     const afterActivityDetails = readState();
-    return { before, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, afterActivityDetails };
+    return { before, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, afterCaptureDestination, afterActivityDetails };
   })()`);
 
   assert.equal(sidecarLayout.before.shellCompact, false);
@@ -232,6 +241,14 @@ try {
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.dispatchResult, false);
   assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.activeId, "thoughtInput");
   assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.capturePanePulsed, true);
+  assert.equal(sidecarLayout.afterCaptureDestination.shellCompact, false);
+  assert.notEqual(sidecarLayout.afterCaptureDestination.sidebarDisplay, "none");
+  assert.equal(sidecarLayout.afterCaptureDestination.activeTab, "captures");
+  assert.equal(sidecarLayout.afterCaptureDestination.targetText, "To Learning Companion MVP");
+  assert.equal(sidecarLayout.afterCaptureDestination.activeSessionFocused, true);
+  assert.equal(sidecarLayout.afterCaptureDestination.activeSessionPulsed, true);
+  assert.equal(sidecarLayout.afterCaptureDestination.activityTitle, "Capture destination shown");
+  assert.match(sidecarLayout.afterCaptureDestination.activityDetail, /Captures save to Learning Companion MVP/);
   assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
   assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");

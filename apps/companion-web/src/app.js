@@ -379,6 +379,7 @@ dom.notesPreviewBtn.addEventListener("click", () => {
 });
 
 dom.openSourceBtn.addEventListener("click", openCurrentSource);
+dom.captureContextTarget.addEventListener("click", showCaptureDestination);
 dom.captureContextOpenBtn.addEventListener("click", openCurrentSource);
 dom.timeBackBtn.addEventListener("click", () => nudgeCaptureTime(-15));
 dom.timeForwardBtn.addEventListener("click", () => nudgeCaptureTime(15));
@@ -1250,6 +1251,7 @@ function renderCaptureContext(session) {
   const targetLabel = `To ${session.title || "current topic"}`;
   dom.captureContextTarget.textContent = targetLabel;
   dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
+  dom.captureContextTarget.setAttribute("aria-label", `Show capture destination: ${session.title || "current topic"}`);
   dom.captureContextSource.textContent = sourceLabel;
   dom.captureContextSource.title = resume.url || sourceLabel;
   dom.captureContextTime.hidden = !resume.timestamp;
@@ -1413,6 +1415,29 @@ function focusBriefFact(label, value) {
   item.className = "focus-brief-fact";
   item.append(textEl("span", "", label), textEl("strong", "", value));
   return item;
+}
+
+function showCaptureDestination() {
+  const session = getActiveSession(workspace);
+  activeTab = "captures";
+  if (uiPrefs.sidecarLayout) {
+    uiPrefs = { ...uiPrefs, sidecarLayout: false };
+    saveUiPrefs();
+    renderShellMode();
+  }
+  renderInspector();
+  renderSessions();
+  const activeRow = document.querySelector(`[data-session-id="${CSS.escape(session.id)}"]`);
+  activeRow?.scrollIntoView({ behavior: "smooth", block: "center" });
+  pulseNode(activeRow);
+  activeRow?.focus();
+  setActivity(session, {
+    title: "Capture destination shown",
+    detail: `Captures save to ${session.title}.`,
+    tab: "captures",
+    targetId: ""
+  });
+  renderActivity(session);
 }
 
 function focusBriefButtonLabel(kind) {
@@ -1910,6 +1935,7 @@ function renderSessions() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `session-row${session.id === active.id ? " active" : ""}`;
+    button.dataset.sessionId = session.id;
     button.append(
       textEl("span", "session-title", session.title),
       textEl("span", "session-subtitle", `${session.sourceTitle || session.materialType} · ${session.captures.length} captures`)

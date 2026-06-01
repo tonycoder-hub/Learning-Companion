@@ -682,9 +682,16 @@ textarea:focus {
 }
 
 .capture-context-target {
+  min-height: 28px;
   min-width: 0;
+  padding: 0 8px;
   overflow: hidden;
+  text-align: left;
+  border: 1px solid rgba(96, 108, 118, 0.18);
+  border-radius: 8px;
+  background: #f7f8f6;
   color: var(--muted);
+  cursor: pointer;
   font-size: 12px;
   font-weight: 750;
   text-overflow: ellipsis;
