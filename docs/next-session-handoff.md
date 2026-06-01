@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `03e360f feat: show quick capture destination`
 - `77707f2 fix: show capture undo expiry`
 - `db712b1 feat: undo capture deletion from sidecar`
 - `589e346 fix: scope recent stack delete state`
@@ -231,9 +232,15 @@ Latest local work adds Recent Stack mistake recovery:
 - Browser smoke pins the stack-only delete -> Undo -> restore -> re-delete loop, including metrics, stack text, activity copy, Undo visibility, and Undo hiding after restore.
 - A targeted Mira review packet for the soft-undo state machine timed out through the broker (`error_code: TIMEOUT`, `error_stage: ssh`, elapsed about 630s, no logid). No Mira verdict was available for this increment, so rely on local tests plus code review until a later retry succeeds.
 
+Latest local work clarifies the Quick Capture destination:
+
+- The Quick Capture context strip now starts with `To <session title>`, so the sidecar tells the user where a quote/thought will be saved before they type.
+- The destination chip updates with session title changes and session switches, sitting beside the existing source, timestamp, and Open controls.
+- Browser smoke pins the destination for the main fixture session and for a brand-new empty session, and the existing mobile-width capture-context no-overflow check covers the wider strip.
+
 ## Verified Locally
 
-These passed after the sidecar capture-delete Undo update:
+These passed after the Quick Capture destination update:
 
 - `npm run smoke`
 - `npm run smoke:browser`

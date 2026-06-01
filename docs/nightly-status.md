@@ -41,7 +41,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Deterministic Focus Brief in the desk with next action, visible reason, fresh capture-draft resume when review is not due, latest capture, source, workspace-review fallback, synthesis freshness signals, and sidecar-safe visibility.
 - Workspace Find is deterministic local find over source titles, notes, captures, tags, and review cards, supports multi-term matches within the same candidate object, then jumps back to the matching session and surface.
 - Today tab includes capture drafts, Patch Intake counts, latest import receipt, and direct import/export handoff actions.
-- Sessions, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp.
+- Sessions, capture destination context, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action.
 - Quick Capture keeps a Recent Stack in the main desk so sidecar mode still shows the latest captures plus Open, Note, Review/Card, confirmed Delete, and one-step `Undo 10s` for capture deletion without reopening the inspector; delete confirmation names the capture and linked-card count, and unrelated revealed review cards stay revealed.
@@ -122,7 +122,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Recent Stack delete/Undo work and now covers promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture destination work and now covers capture destination/source/time context, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
 
 ## Review Notes Absorbed
 
