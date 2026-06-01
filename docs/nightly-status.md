@@ -44,7 +44,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Sessions, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action.
-- Quick Capture keeps a Recent Stack in the main desk so sidecar mode still shows the latest captures plus Open, Note, Review/Card, confirmed Delete, and one-step Undo for capture deletion without reopening the inspector; delete confirmation names the capture and linked-card count, and unrelated revealed review cards stay revealed.
+- Quick Capture keeps a Recent Stack in the main desk so sidecar mode still shows the latest captures plus Open, Note, Review/Card, confirmed Delete, and one-step `Undo 10s` for capture deletion without reopening the inspector; delete confirmation names the capture and linked-card count, and unrelated revealed review cards stay revealed.
 - Captured question-thoughts are surfaced as Focus Brief signals and Recent Stack chips, then carried into synthesis as Open Questions.
 - Today and `TODAY.md` include an Open Questions backlog across sessions so handoff does not hide unresolved study questions inside recent captures.
 - Today and `TODAY.md` include Question Queue Health, making active, parked, and total unresolved question counts visible before the user chooses the next study action.
