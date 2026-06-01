@@ -167,6 +167,23 @@ const demoWorkspace = sanitizeWorkspace({
           promotedToReview: false
         },
         {
+          id: "capture_gc_question_answer",
+          quote: "Garbage collection reclaims unreachable memory at runtime; ownership prevents invalid access before runtime.",
+          thought: "Answer: ownership is a compile-time discipline, while GC is a runtime reclamation strategy.",
+          timestamp: "14:08",
+          sourceTitle: "RustConf ownership talk",
+          sourceUrl: "https://www.youtube.com/watch?v=rust123",
+          materialType: "video",
+          sourceProvenance: "snapshot",
+          tags: ["rust", "answer"],
+          answersQuestionCaptureId: "capture_gc_question_resolved",
+          createdAt: "2026-05-29T06:48:00.000+08:00",
+          capturedAt: "2026-05-29T06:48:00.000+08:00",
+          updatedAt: "2026-05-29T06:49:00.000+08:00",
+          originClientId: "client_morning_demo",
+          promotedToReview: false
+        },
+        {
           id: "capture_trait_question_parked",
           quote: "Trait objects can erase concrete types behind dynamic dispatch.",
           thought: "When should I compare trait objects with TypeScript structural typing?",
@@ -342,6 +359,9 @@ await mkdir(PATCH_DIR, { recursive: true });
 const mirrorBundle = buildMirrorBundle(demoWorkspace, {
   exportedAt: MORNING_GENERATED_AT
 });
+const todayMarkdownFile = mirrorBundle.files.find((file) => file.path === "TODAY.md")?.content || "";
+assert.match(todayMarkdownFile, /Closed Today/);
+assert.match(todayMarkdownFile, /Answer: ownership is a compile-time discipline, while GC is a runtime reclamation strategy/);
 const mirrorZip = buildMirrorZip(demoWorkspace, {
   exportedAt: MORNING_GENERATED_AT
 });
