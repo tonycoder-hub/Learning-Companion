@@ -333,7 +333,15 @@ try {
       dispatchResult: keyForwardDispatchResult,
       activeId: document.activeElement?.id || ""
     };
-    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward };
+    setValue("#timestampInput", "00:00");
+    document.querySelector("#timeBackBtn").click();
+    const afterZeroBack = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -1060,6 +1068,12 @@ try {
     defaultPrevented: true,
     dispatchResult: false,
     activeId: "timestampInput"
+  });
+  assert.deepEqual(result.sourceTimestampNudge.afterZeroBack, {
+    timestamp: "00:00",
+    contextTime: "@ 00:00",
+    activityTitle: "Time unchanged",
+    activityDetail: "Capture time is already 00:00."
   });
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);

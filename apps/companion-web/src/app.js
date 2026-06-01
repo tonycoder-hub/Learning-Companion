@@ -1128,10 +1128,23 @@ function openCurrentSource() {
 function nudgeCaptureTime(deltaSeconds) {
   const session = getActiveSession(workspace);
   // Precedence: typed Time field, latest captured source time, then zero; nudges never go below 00:00.
+  const currentTimestamp = dom.timestampInput.value.trim();
   const currentSeconds = timestampToSeconds(dom.timestampInput.value);
   const fallbackSeconds = timestampToSeconds(buildResumeSource(session, "").timestamp);
   const baseSeconds = currentSeconds ?? fallbackSeconds ?? 0;
-  const nextTimestamp = secondsToTimestamp(Math.max(0, baseSeconds + deltaSeconds));
+  const nextSeconds = Math.max(0, baseSeconds + deltaSeconds);
+  const nextTimestamp = secondsToTimestamp(nextSeconds);
+  if (currentSeconds !== null && currentTimestamp === nextTimestamp && nextSeconds === currentSeconds) {
+    setActivity(session, {
+      title: "Time unchanged",
+      detail: `Capture time is already ${nextTimestamp}.`,
+      tab: "captures",
+      targetId: ""
+    });
+    renderActivity(session);
+    pulseNode(dom.timestampInput);
+    return;
+  }
   dom.timestampInput.value = nextTimestamp;
   saveCurrentCaptureDraft();
   setActivity(session, {
