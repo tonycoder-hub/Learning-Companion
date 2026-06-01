@@ -384,6 +384,7 @@ dom.notesPreviewBtn.addEventListener("click", () => {
 
 dom.openSourceBtn.addEventListener("click", openCurrentSource);
 dom.captureContextTarget.addEventListener("click", showCaptureDestination);
+dom.captureContextSource.addEventListener("click", showCaptureSource);
 dom.captureContextOpenBtn.addEventListener("click", openCurrentSource);
 dom.timeBackBtn.addEventListener("click", () => nudgeCaptureTime(-15));
 dom.timeForwardBtn.addEventListener("click", () => nudgeCaptureTime(15));
@@ -1279,6 +1280,7 @@ function renderCaptureContext(session) {
   dom.captureContextIntent.title = intent.title;
   dom.captureContextSource.textContent = sourceLabel;
   dom.captureContextSource.title = resume.url || sourceLabel;
+  dom.captureContextSource.setAttribute("aria-label", `Show capture source: ${sourceLabel}`);
   dom.captureContextTime.hidden = !resume.timestamp;
   dom.captureContextTime.textContent = resume.timestamp ? `@ ${resume.timestamp}` : "";
   dom.captureContextOpenBtn.disabled = !resume.href;
@@ -1528,6 +1530,24 @@ function showCaptureDestination() {
   setActivity(session, {
     title: "Capture destination shown",
     detail: `Captures save to ${session.title}.`,
+    tab: "captures",
+    targetId: ""
+  });
+  renderActivity(session);
+}
+
+function showCaptureSource() {
+  const session = getActiveSession(workspace);
+  const shouldFocusTitle = Boolean(session.sourceTitle) || !session.sourceUrl;
+  const focusTarget = shouldFocusTitle ? dom.sourceTitle : dom.sourceUrl;
+  focusTarget.focus();
+  focusTarget.select?.();
+  pulseNode(document.querySelector(".source-strip"));
+  setActivity(session, {
+    title: "Capture source shown",
+    detail: session.sourceTitle || session.sourceUrl
+      ? `Captures use ${sourceSnapshotLabel(session)}.`
+      : "Add a source title or URL before capturing.",
     tab: "captures",
     targetId: ""
   });

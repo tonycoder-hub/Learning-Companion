@@ -305,6 +305,14 @@ try {
       contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
       contextOpened: sourceContextOpened
     };
+    document.querySelector("#captureContextSource").click();
+    const sourceContextShown = {
+      activeElement: document.activeElement?.id || "",
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      sourceStripPulsed: document.querySelector(".source-strip").classList.contains("pulse"),
+      ariaLabel: document.querySelector("#captureContextSource").getAttribute("aria-label")
+    };
     document.querySelector("#sourceUrl").dispatchEvent(new Event("change", { bubbles: true }));
     sourceTimestampStage.sourceUrlInputAfterChange = document.querySelector("#sourceUrl").value;
     setValue("#timestampInput", "12:30");
@@ -953,6 +961,7 @@ try {
           draftFocusBrief,
           draftActivity,
           sourceTimestampStage,
+          sourceContextShown,
           sourceTimestampTyped,
           sourceTimestampNudge,
           todayDraftBeforeResume,
@@ -1147,6 +1156,13 @@ try {
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
   assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12");
   assert.equal(result.sourceTimestampStage.contextOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
+  assert.deepEqual(result.sourceContextShown, {
+    activeElement: "sourceTitle",
+    activityTitle: "Capture source shown",
+    activityDetail: "Captures use RustConf ownership talk.",
+    sourceStripPulsed: true,
+    ariaLabel: "Show capture source: RustConf ownership talk"
+  });
   assert.equal(result.sourceTimestampTyped.timestamp, "12:30");
   assert.equal(result.sourceTimestampTyped.contextTime, "@ 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30");
