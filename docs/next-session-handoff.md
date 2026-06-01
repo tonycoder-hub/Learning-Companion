@@ -37,6 +37,7 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `c6e09bf feat: refresh answered question review cards`
 - `62dbffb test: surface closed answers in morning demo`
 - `cd1e6c3 feat: add question loop summary`
+- `94432b9 feat: surface answer captures in harmony reader`
 
 Recent committed work makes answer resolution visible in import receipts:
 
@@ -100,12 +101,22 @@ Latest local work adds question-conversion receipts to the activity strip:
 - The receipt reports active questions, parked questions, questions closed today, and question cards made today.
 - Browser smoke pins the receipt after Park, Answer draft, Make card, Resolve, Reopen, Refresh card, and Reopen-after-answer.
 
+Latest local work ports `Answers Today` into the Harmony reader contract:
+
+- `buildHarmonyReaderView()` now emits `localDayWindow`, `workspace.answerCaptureCountToday`, `answersToday`, and `answersTodayOverflow`.
+- Harmony answer items carry `answeredAt` plus `answeredAtSource`, so the phone can explain whether the Today attribution came from `capturedAt`, `createdAt`, or an inbox patch landing through `updatedAt`.
+- The ArkTS scaffold model and Index sample include read-only `Answers Today` fields.
+- The Harmony import receipt includes `answerCaptureCountToday`.
+- Smoke coverage pins workspace/mirror parity, inbox-import answer timing, old local answer edits that should not appear today, and the count/list/overflow invariant.
+- This remains JSON contract/scaffold evidence only; DevEco compile, device rendering, file picker import, Feishu sync, and live login are still not proven.
+
 ## Verified Locally
 
-These passed after the `Question Loop` update:
+These passed after the Harmony `Answers Today` reader update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
+- `npm run smoke:harmony`
 - `npm run check:morning`
 - `git diff --check`
 
@@ -182,10 +193,19 @@ Latest absorbed Mira notes for `Answers Today`:
 - Pin overflow and Markdown behavior.
 - Defer classifier corpus metrics, rule-versioning, and broader mirror UI surfaces; the offline mirror integrity gate and TODAY.md coverage are enough for this local increment.
 
+Latest absorbed Mira notes for Harmony `Answers Today`:
+
+- Add `answeredAtSource` so the generated view explains whether `answeredAt` came from capture time, create time, or inbox patch landing time.
+- Keep `answersToday` top-level because this matches the existing reader-view pattern: `workspace` carries counts while top-level arrays carry display collections such as `dueReview`, `openQuestions`, and `parkedQuestions`.
+- Document that `answeredAt` is Today attribution time, not necessarily the original human answer time.
+- Document that `localDayWindow` is the reader generator's local window and must not be silently recomputed as phone-local time.
+- Pin negative coverage for an old local answer edited today that should not reappear in `Answers Today`.
+- Pin the invariant `answerCaptureCountToday === answersToday.length + answersTodayOverflow` for the current limit.
+
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider whether the next useful increment is visual QA/density polishing for the now-heavy Today surface, or Harmony read-model parity for Answers Today.
+   - Consider whether the next useful increment is visual QA/density polishing for the now-heavy Today surface, or making the Harmony scaffold import/file-picker story more concrete without claiming device validation.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.

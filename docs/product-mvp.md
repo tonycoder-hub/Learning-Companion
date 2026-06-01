@@ -59,7 +59,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Open questions can be parked as unresolved-but-not-active follow-up, then resumed or answered when the study block has attention for them.
 - Captured questions can be marked resolved and reopened so the Open Questions backlog stays bounded without deleting the original evidence.
 - Question actions show an immediate loop receipt with active, parked, closed-today, and question-card counts so state transitions remain inspectable without opening another panel.
-- HarmonyOS reader handoff carries the same open-question counts and marks recent captures as open or answered so phone resume does not flatten unresolved questions into generic notes.
+- HarmonyOS reader handoff carries the same open-question counts, `Answers Today`, and answer attribution source so phone resume does not flatten unresolved questions or newly imported answers into generic notes.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.
@@ -97,7 +97,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Real browser extension.
 - Production-packaged native shell with signing, menu commands, hotkeys, and browser automation.
 - OCR/PDF annotation engine.
-- HarmonyOS ArkTS project.
+- Device-verified HarmonyOS build, file picker, and live ArkTS app behavior beyond the local schema/scaffold handoff.
 - Cloud account system.
 
 These are integration points after the local product loop feels right.
