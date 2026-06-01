@@ -1210,7 +1210,7 @@ try {
   assert.equal(result.captureStackAfterCard.rows, 1);
   assert.match(result.captureStackAfterCard.text, /08:12/);
   assert.match(result.captureStackAfterCard.text, /compiler-enforced lifetimes/);
-  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Note", "Review"]);
+  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Note", "Review", "Delete + 1 card"]);
   assert.equal(result.captureStackAfterCard.reviewDisabled, false);
   assert.equal(result.captureStackReviewOpen.activeTab, "review");
   assert.equal(result.captureStackReviewOpen.focusMode, "review");
@@ -1986,7 +1986,19 @@ try {
       cards: document.querySelector("#cardMetric").textContent,
       stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
       stackReviewEnabled: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
-        .find((button) => button.textContent === "Review")?.disabled === false
+        .find((button) => button.textContent === "Review")?.disabled === false,
+      stackDeleteLabel: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+        .map((button) => button.textContent)
+        .find((text) => text.startsWith("Delete")) || ""
+    };
+    window.confirm = () => false;
+    [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+      .find((button) => button.textContent.startsWith("Delete"))
+      ?.click();
+    const afterStackCancelDelete = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length
     };
     document.querySelector("#sidecarLayoutBtn").click();
     const stackAllBefore = {
@@ -2033,19 +2045,38 @@ try {
     const makeCardEnabled = [...captureCard.querySelectorAll("button")]
       .find((button) => button.textContent === "Make card" && !button.disabled);
     [...captureCard.querySelectorAll("button")].find((button) => button.textContent === "Delete").click();
+    const afterCaptureDelete = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      captureText: document.querySelector("#captureList").textContent,
+      stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
+      stackText: document.querySelector("#captureStack").textContent,
+      notesHasCapture: document.querySelector("#notesEditor").value.includes("Temporary capture for deletion."),
+      activity: document.querySelector("#activityTitle").textContent
+    };
+    setValue("#quoteInput", "Stack-only mistaken capture.");
+    setValue("#thoughtInput", "Delete directly from the sidecar stack.");
+    document.querySelector("#captureBtn").click();
+    const stackOnlyDeleteLabel = [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+      .map((button) => button.textContent)
+      .find((text) => text.startsWith("Delete")) || "";
+    [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+      .find((button) => button.textContent === "Delete")
+      ?.click();
+    const afterStackDelete = {
+      captures: document.querySelector("#captureMetric").textContent,
+      cards: document.querySelector("#cardMetric").textContent,
+      stackText: document.querySelector("#captureStack").textContent,
+      activity: document.querySelector("#activityTitle").textContent,
+      stackOnlyDeleteLabel
+    };
     return {
       before,
       afterCardDelete,
       makeCardEnabled: Boolean(makeCardEnabled),
-      afterCaptureDelete: {
-        captures: document.querySelector("#captureMetric").textContent,
-        cards: document.querySelector("#cardMetric").textContent,
-        captureText: document.querySelector("#captureList").textContent,
-        stackRows: document.querySelectorAll("#captureStack .capture-stack-row").length,
-        stackText: document.querySelector("#captureStack").textContent,
-        notesHasCapture: document.querySelector("#notesEditor").value.includes("Temporary capture for deletion."),
-        activity: document.querySelector("#activityTitle").textContent
-      },
+      afterCaptureDelete,
+      afterStackDelete,
+      afterStackCancelDelete,
       afterCancelDelete,
       stackAllBefore,
       stackAllAfter,
@@ -2057,6 +2088,8 @@ try {
   assert.equal(deleteFlow.before.cards, "1");
   assert.equal(deleteFlow.before.stackRows, 1);
   assert.equal(deleteFlow.before.stackReviewEnabled, true);
+  assert.equal(deleteFlow.before.stackDeleteLabel, "Delete + 1 card");
+  assert.deepEqual(deleteFlow.afterStackCancelDelete, { captures: "1", cards: "1", stackRows: 1 });
   assert.deepEqual(deleteFlow.stackAllBefore, { shellCompact: true, inspectorDisplay: "none" });
   assert.equal(deleteFlow.stackAllAfter.shellCompact, false);
   assert.equal(deleteFlow.stackAllAfter.activeTab, "captures");
@@ -2076,6 +2109,13 @@ try {
   assert.doesNotMatch(deleteFlow.afterCaptureDelete.stackText, /Temporary capture for deletion/);
   assert.equal(deleteFlow.afterCaptureDelete.notesHasCapture, true);
   assert.equal(deleteFlow.afterCaptureDelete.activity, "Capture deleted");
+  assert.deepEqual(deleteFlow.afterStackDelete, {
+    captures: "0",
+    cards: "0",
+    stackText: "Recent StackSidecar memoryAllSaved captures will stay visible here while you read.",
+    activity: "Capture deleted",
+    stackOnlyDeleteLabel: "Delete"
+  });
 
   const questionFlow = await cdp.evaluate(`(() => {
     window.__questionFlowErrors = [];

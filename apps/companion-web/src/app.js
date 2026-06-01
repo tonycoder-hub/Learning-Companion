@@ -2624,6 +2624,7 @@ function renderCaptureStack(session) {
       else promoteCaptureToReview(capture.id);
     });
     actions.append(cardButton);
+    actions.append(captureDeleteButton(session, capture));
     row.append(actions);
     list.append(row);
   });
@@ -3000,33 +3001,39 @@ function renderCaptures() {
       actions.append(resolveButton);
     }
     const linkedReviewCount = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id).length;
-    const deleteButton = document.createElement("button");
-    deleteButton.className = "mini-button danger";
-    deleteButton.type = "button";
-    deleteButton.textContent = linkedReviewCount
-      ? `Delete + ${linkedReviewCount} card${linkedReviewCount === 1 ? "" : "s"}`
-      : "Delete";
-    deleteButton.addEventListener("click", () => {
-      const linkedCopy = linkedReviewCount
-        ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
-        : "";
-      if (!window.confirm(`Delete this capture${linkedCopy}? Notes already inserted will be kept.`)) return;
-      workspace = deleteCapture(workspace, session.id, capture.id);
-      activeReviewKey = "";
-      revealedReviewCards.clear();
-      setActivity(getActiveSession(workspace), {
-        title: "Capture deleted",
-        detail: summarizeCapture(capture),
-        tab: "captures",
-        targetId: ""
-      });
-      persistAndRender("Capture deleted");
-    });
-    actions.append(deleteButton);
+    actions.append(captureDeleteButton(session, capture, linkedReviewCount));
     footer.append(actions);
     item.append(footer);
     dom.captureList.append(item);
   });
+}
+
+function captureDeleteButton(session, capture, linkedReviewCount = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id).length) {
+  const deleteButton = document.createElement("button");
+  deleteButton.className = "mini-button danger";
+  deleteButton.type = "button";
+  deleteButton.textContent = linkedReviewCount
+    ? `Delete + ${linkedReviewCount} card${linkedReviewCount === 1 ? "" : "s"}`
+    : "Delete";
+  deleteButton.addEventListener("click", () => deleteCaptureWithConfirmation(session, capture, linkedReviewCount));
+  return deleteButton;
+}
+
+function deleteCaptureWithConfirmation(session, capture, linkedReviewCount = 0) {
+  const linkedCopy = linkedReviewCount
+    ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
+    : "";
+  if (!window.confirm(`Delete this capture${linkedCopy}? Notes already inserted will be kept.`)) return;
+  workspace = deleteCapture(workspace, session.id, capture.id);
+  activeReviewKey = "";
+  revealedReviewCards.clear();
+  setActivity(getActiveSession(workspace), {
+    title: "Capture deleted",
+    detail: summarizeCapture(capture),
+    tab: "captures",
+    targetId: ""
+  });
+  persistAndRender("Capture deleted");
 }
 
 function renderReviewCards() {
