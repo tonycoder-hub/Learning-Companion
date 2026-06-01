@@ -94,6 +94,12 @@ Latest local work gates weak answers out of review-card answer generation:
 - Very short answers such as `Answer: ok` do not replace review-card content or become `evidenceCaptureId`.
 - If a newer answer is too weak but an older linked answer is useful, the review card uses the older useful answer.
 
+Latest local work adds question-conversion receipts to the activity strip:
+
+- Question actions now append a compact loop receipt to the activity detail.
+- The receipt reports active questions, parked questions, questions closed today, and question cards made today.
+- Browser smoke pins the receipt after Park, Answer draft, Make card, Resolve, Reopen, Refresh card, and Reopen-after-answer.
+
 ## Verified Locally
 
 These passed after the `Question Loop` update:
@@ -179,7 +185,7 @@ Latest absorbed Mira notes for `Answers Today`:
 ## Next Local Work
 
 1. Continue the study loop:
-   - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
+   - Consider whether the next useful increment is visual QA/density polishing for the now-heavy Today surface, or Harmony read-model parity for Answers Today.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
