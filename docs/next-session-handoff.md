@@ -19,6 +19,8 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `41b1ab7 feat: clarify zero time nudge feedback`
+- `9198d20 docs: refresh sidecar continuation handoff`
 - `571f1d6 test: pin time nudge mobile layout`
 - `f356125 feat: support keyboard time nudges`
 - `9173f34 docs: prioritize capture sidecar review`
@@ -187,7 +189,7 @@ Latest local work also clarifies source time staging:
 - The Time field now has local `-15` and `+15` nudge buttons plus ArrowDown/ArrowUp nudges while the Time field is focused, for correcting lecture timestamps while staying in the sidecar.
 - Pasting a supported timestamped video URL into the source URL field now makes the hidden extraction visible with `Source time staged` in the activity strip and a pulse on the Time field.
 - The extracted time is saved into the device-local capture draft, the source-open button reports the same local time target, and the stored session source URL strips only the time parameter so future source matching remains canonical.
-- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, Quick Capture context source/time, context Open href, typed-but-unblurred Time reads, mouse and keyboard time nudges, empty/invalid Time fallback to latest capture time, empty-source disabled behavior, draft status, source-open title, stripped URL after blur/change, and a 390px sidecar/mobile layout where the Time row does not overflow and both nudge buttons stay at least 44px wide.
+- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, Quick Capture context source/time, context Open href, typed-but-unblurred Time reads, mouse and keyboard time nudges, empty/invalid Time fallback to latest capture time, `00:00` no-op feedback, empty-source disabled behavior, draft status, source-open title, stripped URL after blur/change, and a 390px sidecar/mobile layout where the Time row does not overflow and both nudge buttons stay at least 44px wide.
 - The morning manual QA pack now has a `Source time staging` row; this remains Mac/web local URL-parser evidence, not Harmony/Windows reader UI parity and not live playback QA against external video sites.
 
 ## Verified Locally
