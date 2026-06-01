@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `f51d254 feat: delete captures from recent stack`
 - `ba679fa feat: surface draft source drift in focus brief`
 - `09bd884 feat: open review cards from capture stack`
 - `ef36e17 feat: reanchor drifted capture drafts`
@@ -214,9 +215,17 @@ Latest local work closes the Recent Stack review hop:
 - Clicking it selects the linked review card, switches the desk-native focus mode to Review, keeps the review hidden until reveal, and records `Review card opened` in the activity strip.
 - Browser smoke pins the promoted capture stack actions, the Review hop, and the cleanup flow now expecting the stack Review action rather than a disabled card button.
 
+Latest local work adds Recent Stack mistake recovery:
+
+- Quick Capture Recent Stack rows now include the same confirmed `Delete` action as the capture inspector.
+- Captures with linked review cards label the action as `Delete + N card(s)` and route through the existing `deleteCapture()` cascade, so the sidecar does not invent a second deletion rule.
+- Canceling the confirmation leaves captures, cards, and stack rows intact.
+- Deleting a stack-only mistaken capture removes it from the metrics and Recent Stack while recording `Capture deleted` in the activity strip.
+- Browser smoke pins promoted stack labels, cancel behavior, direct stack deletion, and the existing inspector delete path.
+
 ## Verified Locally
 
-These passed after the source drift protection update:
+These passed after the Recent Stack delete update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
