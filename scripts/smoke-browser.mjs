@@ -266,6 +266,8 @@ try {
       openSourceTitle: document.querySelector("#openSourceBtn").title,
       draftStatus: document.querySelector("#captureDraftStatus").textContent,
       timestampPulsed: document.querySelector("#timestampInput").classList.contains("pulse"),
+      contextTarget: document.querySelector("#captureContextTarget").textContent,
+      contextTargetTitle: document.querySelector("#captureContextTarget").title,
       contextSource: document.querySelector("#captureContextSource").textContent,
       contextTime: document.querySelector("#captureContextTime").textContent,
       contextOpenDisabled: document.querySelector("#captureContextOpenBtn").disabled,
@@ -710,6 +712,8 @@ try {
     document.querySelector("#captureContextOpenBtn").click();
     window.open = nativeEmptyWindowOpen;
     const captureContextInNewSession = {
+      target: document.querySelector("#captureContextTarget").textContent,
+      targetTitle: document.querySelector("#captureContextTarget").title,
       source: document.querySelector("#captureContextSource").textContent,
       timeHidden: document.querySelector("#captureContextTime").hidden,
       openDisabled: document.querySelector("#captureContextOpenBtn").disabled,
@@ -1086,6 +1090,8 @@ try {
   assert.equal(result.sourceTimestampStage.openSourceTitle, "Open source at 08:12");
   assert.equal(result.sourceTimestampStage.draftStatus, "Time kept");
   assert.equal(result.sourceTimestampStage.timestampPulsed, true);
+  assert.equal(result.sourceTimestampStage.contextTarget, "To Learning Companion MVP");
+  assert.equal(result.sourceTimestampStage.contextTargetTitle, "Captures save to Learning Companion MVP");
   assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
   assert.equal(result.sourceTimestampStage.contextTime, "@ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
@@ -1164,6 +1170,8 @@ try {
   assert.deepEqual(result.captureDraftStatusInNewSession, { text: "No draft", clearHidden: true });
   assert.equal(result.captureDraftNewSessionEmpty, true);
   assert.deepEqual(result.captureContextInNewSession, {
+    target: "To New learning session",
+    targetTitle: "Captures save to New learning session",
     source: "No source",
     timeHidden: true,
     openDisabled: true,

@@ -115,6 +115,7 @@ const dom = {
   thoughtInput: document.querySelector("#thoughtInput"),
   capturePane: document.querySelector("#capturePane"),
   captureContext: document.querySelector("#captureContext"),
+  captureContextTarget: document.querySelector("#captureContextTarget"),
   captureContextSource: document.querySelector("#captureContextSource"),
   captureContextTime: document.querySelector("#captureContextTime"),
   captureContextOpenBtn: document.querySelector("#captureContextOpenBtn"),
@@ -1246,6 +1247,9 @@ function renderCaptureContext(session) {
   const resume = buildResumeSource(session, dom.timestampInput.value);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "No source";
   const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
+  const targetLabel = `To ${session.title || "current topic"}`;
+  dom.captureContextTarget.textContent = targetLabel;
+  dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
   dom.captureContextSource.textContent = sourceLabel;
   dom.captureContextSource.title = resume.url || sourceLabel;
   dom.captureContextTime.hidden = !resume.timestamp;
