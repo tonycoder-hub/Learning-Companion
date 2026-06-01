@@ -1850,10 +1850,32 @@ try {
     const refreshButton = Array.from(document.querySelectorAll("#todayList .closed-question-card button"))
       .find((button) => button.textContent === "Refresh card");
     refreshButton?.click();
+    const activeReviewButtons = () => Array.from(document.querySelectorAll("#reviewList .active-review-card button"));
+    const reviewButtonsBeforeReveal = activeReviewButtons()
+      .map((button) => button.textContent);
+    activeReviewButtons()
+      .find((button) => button.textContent === "Reveal")
+      ?.click();
+    const exportedAfterRefresh = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const answerTopicAfterRefresh = exportedAfterRefresh.sessions.find((session) => session.id === answerTopic?.id);
+    const refreshedAnswerCard = answerTopicAfterRefresh?.reviewCards.find((card) => card.sourceCaptureId === answerTarget?.id);
     const afterAnswerRefresh = {
       activity: document.querySelector("#activityTitle").textContent,
       reviewText: document.querySelector("#reviewList").textContent,
-      activeReviewCard: Boolean(document.querySelector("#reviewList .active-review-card"))
+      activeReviewCard: Boolean(document.querySelector("#reviewList .active-review-card")),
+      reviewButtonsBeforeReveal,
+      reviewButtons: activeReviewButtons()
+        .map((button) => button.textContent),
+      cardEvidenceCaptureId: refreshedAnswerCard?.evidenceCaptureId || "",
+      answerCaptureId: answerCaptureAfter?.id || ""
+    };
+    const answerEvidenceButton = activeReviewButtons()
+      .find((button) => button.textContent === "Answer evidence");
+    answerEvidenceButton?.click();
+    const afterAnswerEvidence = {
+      activity: document.querySelector("#activityTitle").textContent,
+      captureText: document.querySelector("#captureList").textContent,
+      answerCaptureVisible: Boolean(answerCaptureAfter?.id && document.querySelector("[data-capture-id='" + CSS.escape(answerCaptureAfter.id) + "']"))
     };
     document.querySelector('[data-tab="today"]').click();
     const closedQuestionCard = Array.from(document.querySelectorAll("#todayList .closed-question-card"))
@@ -1895,6 +1917,7 @@ try {
       afterReopen,
       afterAnswerImport,
       afterAnswerRefresh,
+      afterAnswerEvidence,
       afterAnswerReopen,
       errors: window.__questionFlowErrors
     };
@@ -1988,6 +2011,12 @@ try {
   assert.equal(questionFlow.afterAnswerRefresh.activity, "Review card refreshed");
   assert.equal(questionFlow.afterAnswerRefresh.activeReviewCard, true);
   assert.match(questionFlow.afterAnswerRefresh.reviewText, /Answer the question: Why does this theorem need the compactness assumption/);
+  assert.equal(questionFlow.afterAnswerRefresh.cardEvidenceCaptureId, questionFlow.afterAnswerRefresh.answerCaptureId);
+  assert.equal(questionFlow.afterAnswerRefresh.reviewButtonsBeforeReveal.includes("Answer evidence"), false);
+  assert.equal(questionFlow.afterAnswerRefresh.reviewButtons.includes("Answer evidence"), true);
+  assert.equal(questionFlow.afterAnswerEvidence.activity, "Capture selected");
+  assert.equal(questionFlow.afterAnswerEvidence.answerCaptureVisible, true);
+  assert.match(questionFlow.afterAnswerEvidence.captureText, /without compactness the proof cannot pass/);
   assert.equal(questionFlow.afterAnswerReopen.activity, "Question reopened");
   assert.equal(questionFlow.afterAnswerReopen.closedQuestionCards, 0);
   assert.equal(questionFlow.afterAnswerReopen.openQuestionCards, 1);

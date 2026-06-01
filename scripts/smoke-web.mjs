@@ -630,9 +630,18 @@ const promotedAnsweredQuestionSession = getActiveSession(promotedAnsweredQuestio
 const promotedAnsweredQuestionCard = promotedAnsweredQuestionSession.reviewCards[0];
 assert.equal(promotedAnsweredQuestionSession.captures.find((capture) => capture.id === questionCaptureId).promotedToReview, true);
 assert.equal(promotedAnsweredQuestionCard.sourceCaptureId, questionCaptureId);
+assert.equal(promotedAnsweredQuestionCard.evidenceCaptureId, importedAnswerCapture.id);
 assert.match(promotedAnsweredQuestionCard.prompt, /Answer the question: Why does ownership make aliasing safe/);
 assert.match(promotedAnsweredQuestionCard.answer, /compiler rejects overlapping mutable aliases/);
 assert.match(promotedAnsweredQuestionCard.answer, /Evidence: Ownership makes aliasing safe/);
+const evidenceDeletedQuestionWorkspace = deleteCapture(
+  promotedAnsweredQuestionWorkspace,
+  questionSession.id,
+  promotedAnsweredQuestionCard.evidenceCaptureId
+);
+const evidenceDeletedQuestionCard = getActiveSession(evidenceDeletedQuestionWorkspace).reviewCards[0];
+assert.equal(evidenceDeletedQuestionCard.sourceCaptureId, questionCaptureId);
+assert.equal(evidenceDeletedQuestionCard.evidenceCaptureId, "");
 const prePromotedQuestionWorkspace = promoteCapture(questionLifecycleWorkspace, questionSession.id, questionCaptureId);
 const prePromotedQuestionCardId = getActiveSession(prePromotedQuestionWorkspace).reviewCards[0].id;
 const answeredPrePromotedQuestion = applyMobileInboxPatch(prePromotedQuestionWorkspace, {
@@ -643,11 +652,14 @@ const answeredPrePromotedQuestion = applyMobileInboxPatch(prePromotedQuestionWor
     id: "inbox_answer_capture_pre_promoted"
   }]
 }, new Date("2026-05-29T00:33:30.000Z"));
+const prePromotedAnswerCapture = getActiveSession(answeredPrePromotedQuestion.workspace)
+  .captures.find((capture) => capture.inboxCaptureId === "inbox_answer_capture_pre_promoted");
 const refreshedPrePromotedQuestion = promoteCapture(answeredPrePromotedQuestion.workspace, questionSession.id, questionCaptureId);
 const refreshedPrePromotedSession = getActiveSession(refreshedPrePromotedQuestion);
 assert.equal(refreshedPrePromotedSession.reviewCards.length, 1);
 assert.equal(refreshedPrePromotedSession.reviewCards[0].id, prePromotedQuestionCardId);
 assert.doesNotMatch(refreshedPrePromotedSession.reviewCards[0].prompt, /Answer the question:/);
+assert.equal(refreshedPrePromotedSession.reviewCards[0].evidenceCaptureId, "");
 assert.equal(refreshedPrePromotedSession.captures.find((capture) => capture.id === questionCaptureId).promotedToReview, true);
 const answerRefreshedPrePromotedQuestion = refreshAnsweredQuestionReviewCard(
   answeredPrePromotedQuestion.workspace,
@@ -659,6 +671,7 @@ assert.equal(answerRefreshedPrePromotedSession.reviewCards.length, 1);
 assert.equal(answerRefreshedPrePromotedSession.reviewCards[0].id, prePromotedQuestionCardId);
 assert.match(answerRefreshedPrePromotedSession.reviewCards[0].prompt, /Answer the question: Why does ownership make aliasing safe/);
 assert.match(answerRefreshedPrePromotedSession.reviewCards[0].answer, /compiler rejects overlapping mutable aliases/);
+assert.equal(answerRefreshedPrePromotedSession.reviewCards[0].evidenceCaptureId, prePromotedAnswerCapture.id);
 assert.equal(answerRefreshedPrePromotedSession.reviewCards[0].dueAt, getActiveSession(prePromotedQuestionWorkspace).reviewCards[0].dueAt);
 const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"), {
   resolvedQuestionLimit: 2
@@ -755,6 +768,7 @@ assert.doesNotMatch(qPrefixedQuestionCard.prompt, /Answer the question: Q:/);
 assert.match(qPrefixedQuestionCard.answer, /Final invariant: distances are only committed when popped fresh/);
 assert.doesNotMatch(qPrefixedQuestionCard.answer, /discard entries whose distance/);
 assert.doesNotMatch(qPrefixedQuestionCard.answer, /Evidence:/);
+assert.equal(qPrefixedQuestionCard.evidenceCaptureId, "answer_created_only");
 const tiedAnswerCardFixture = workspaceFromPortableData({
   schema: WORKSPACE_SCHEMA,
   schemaVersion: WORKSPACE_SCHEMA_VERSION,
@@ -793,6 +807,7 @@ const tiedAnswerCard = getActiveSession(promoteCapture(tiedAnswerCardFixture, "a
 assert.match(tiedAnswerCard.prompt, /Answer the question: Which equal-timestamp answer wins\?/);
 assert.match(tiedAnswerCard.answer, /higher lexical id wins/);
 assert.doesNotMatch(tiedAnswerCard.answer, /lower lexical id/);
+assert.equal(tiedAnswerCard.evidenceCaptureId, "answer_z");
 const duplicateAnswerInboxResult = applyMobileInboxPatch(answerInboxResult.workspace, answerInboxPatch, new Date("2026-05-29T00:32:30.000Z"));
 assert.equal(duplicateAnswerInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateAnswerInboxResult.receipt.answeredQuestions, 0);
@@ -1173,6 +1188,24 @@ assert.equal(getSynthesisSourceStamp({
   captures: [...synthesizedSession.captures].reverse(),
   reviewCards: [...synthesizedSession.reviewCards].reverse()
 }), getSynthesisSourceStamp(synthesizedSession));
+const evidenceStampSession = {
+  ...synthesizedSession,
+  reviewCards: [{
+    id: "stamp_card",
+    prompt: "Same prompt",
+    answer: "Same answer",
+    sourceCaptureId: "done_a",
+    evidenceCaptureId: "answer_a",
+    updatedAt: "2026-05-29T00:03:00.000Z"
+  }]
+};
+assert.notEqual(getSynthesisSourceStamp(evidenceStampSession), getSynthesisSourceStamp({
+  ...evidenceStampSession,
+  reviewCards: [{
+    ...evidenceStampSession.reviewCards[0],
+    evidenceCaptureId: "answer_b"
+  }]
+}));
 const staleSynthesisBrief = buildFocusBrief({
   ...synthesizedSession,
   captures: [
@@ -1341,6 +1374,10 @@ const priorSessionAnswerPack = buildTodayPack(priorSessionAnswerWorkspace, froze
 assert.equal(priorSessionAnswerPack.questionLoop.resolvedQuestionsToday, 1);
 assert.equal(priorSessionAnswerPack.questionLoop.answerLinkedResolvedToday, 0);
 assert.equal(priorSessionAnswerPack.resolvedQuestionItems[0].answerCapture, null);
+const priorPromotedQuestion = promoteCapture(priorSessionAnswerWorkspace, "prior_question_topic", "prior_session_question");
+const priorPromotedCard = getActiveSession(priorPromotedQuestion).reviewCards[0];
+assert.equal(priorPromotedCard.evidenceCaptureId, "");
+assert.doesNotMatch(priorPromotedCard.answer, /same-session linking prevents/);
 const questionMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);

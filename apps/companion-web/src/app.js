@@ -2415,6 +2415,8 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
   }
   workspace = selectSession(workspace, targetSession.id);
   activeTab = "review";
+  activeReviewKey = reviewKey(targetSession.id, after.id);
+  revealedReviewCards.delete(activeReviewKey);
   setActivity(getActiveSession(workspace), {
     title: "Review card refreshed",
     detail: summarizeCapture(capture),
@@ -2609,6 +2611,8 @@ function renderReviewCards() {
     activeReviewKey = first ? reviewKey(first.sessionId, first.card.id) : "";
   }
   reviewItems.forEach(({ sessionId, sessionTitle, card }) => {
+    const cardSession = workspace.sessions.find((sessionItem) => sessionItem.id === sessionId);
+    const evidenceCapture = cardSession?.captures.find((capture) => capture.id === card.evidenceCaptureId);
     const key = reviewKey(sessionId, card.id);
     const isDue = dueItems.some((due) => reviewKey(due.sessionId, due.card.id) === key);
     const isActive = key === activeReviewKey;
@@ -2624,6 +2628,12 @@ function renderReviewCards() {
 
     const footer = document.createElement("div");
     footer.className = "item-footer";
+    if (isRevealed && evidenceCapture) {
+      const evidence = textEl("button", "mini-button", "Answer evidence");
+      evidence.type = "button";
+      evidence.addEventListener("click", () => openCaptureFromToday(sessionId, evidenceCapture));
+      footer.append(evidence);
+    }
     if (isRevealed) {
       const answer = document.createElement("div");
       answer.className = "review-answer markdown-lite";

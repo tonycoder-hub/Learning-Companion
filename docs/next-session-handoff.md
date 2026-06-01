@@ -36,6 +36,7 @@ Recent local work on top of `origin/product/mvp-learning-sidecar`:
 - `ba2dd9f feat: show answer summaries for closed questions`
 - `c6e09bf feat: refresh answered question review cards`
 - `62dbffb test: surface closed answers in morning demo`
+- `cd1e6c3 feat: add question loop summary`
 
 Recent committed work makes answer resolution visible in import receipts:
 
@@ -61,13 +62,22 @@ Recent committed work turns answered questions into stronger review cards:
 - Smoke coverage includes promoted-before-answered, multiple linked answers, quote-only answer captures, and equal-timestamp answer tie-breaking.
 - Closed Today/TODAY.md now also show the linked answer summary, with leading `Answer:` stripped to avoid duplicated labels.
 
-Current uncommitted work adds a Question Loop summary:
+Recent committed work adds a Question Loop summary:
 
 - `buildTodayPack()` now emits `questionLoop`, a derived summary of active, parked, closed-today, answer-linked closed-today, and question-sourced review-card counts.
 - Today UI shows `Question Loop` as a flow card after `Question Queue Health`, with Today, Backlog, and Lifetime lines so day-window and lifetime metrics are not mixed.
 - `TODAY.md` includes a `## Question Loop` section with a one-line timescale legend for Feishu/Windows/mobile handoff.
 - Mira reviewed the first version as `PASS_WITH_NOTES`; accepted fixes renamed ambiguous `answered` copy to `answer-linked closure`, separated stock/backlog from flow, and pinned same-session answer-link behavior.
 - Smoke coverage includes quiet, active, reopened, closed, overflow, and cross-session-answer edge cases.
+
+Latest local work adds answer evidence provenance for review cards:
+
+- `reviewCards[]` can now carry optional `evidenceCaptureId`.
+- `sourceCaptureId` remains the original question/capture source; `evidenceCaptureId` points to the answer capture used as the card's answer evidence.
+- Refreshing an answered-question card updates prompt, answer, and evidence id while preserving card id, due date, strength, and review history.
+- Deleting the original source capture still deletes the card; deleting the answer evidence capture keeps the card and clears only `evidenceCaptureId`.
+- Review UI shows `Answer evidence` only after the card is revealed, so the existence of a linked answer does not leak before recall.
+- Browser smoke pins the reveal-gated evidence button and the jump back to the answer capture.
 
 ## Verified Locally
 
@@ -135,12 +145,19 @@ Latest absorbed Mira notes for `Question Loop`:
 - Add a Markdown legend because Feishu/Windows/mobile handoff loses hover/tooltips.
 - Pin same-session answer-link semantics; cross-session answers do not count as answer-linked closures.
 
+Latest absorbed Mira notes for answer evidence provenance:
+
+- Keep `sourceCaptureId`, `answersQuestionCaptureId`, and `evidenceCaptureId` as separate invariants; the code and docs now state their roles.
+- Avoid showing `Answer evidence` before reveal, because it leaks the presence of an answer and weakens recall.
+- Preserve cards when only the answer evidence capture is deleted; clear the evidence pointer instead of deleting review history.
+- Add schema description/length for `evidenceCaptureId` and pin same-session plus tie-break behavior in tests/docs.
+- Do not blindly drop unresolved `evidenceCaptureId` during normalization; partial cross-device sync can make a valid evidence capture temporarily absent. The UI only renders the button when the capture is resolvable, and explicit deletion clears the pointer.
+
 ## Next Local Work
 
 1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
    - Consider an "answers imported today" micro-surface if the user needs to inspect answer captures separately from resolved questions.
-   - Consider `evidenceCaptureId` or equivalent provenance so future review cards can jump to both the original question and the answer evidence.
    - Consider weak-card gating for answer captures that are too short or empty to become useful review cards.
 
 2. Keep the cross-end story honest:

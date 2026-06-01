@@ -178,7 +178,16 @@
         "originClientId": { "type": "string", "minLength": 1, "maxLength": 128 },
         "prompt": { "type": "string", "maxLength": 12000 },
         "answer": { "type": "string", "maxLength": 12000 },
-        "sourceCaptureId": { "type": "string" },
+        "sourceCaptureId": {
+          "type": "string",
+          "description": "Originating capture for the review card. Deleting this capture deletes the card.",
+          "maxLength": 128
+        },
+        "evidenceCaptureId": {
+          "type": "string",
+          "description": "Optional same-session answer capture used as the current evidence source for the card answer.",
+          "maxLength": 128
+        },
         "dueAt": { "type": "string", "format": "date-time" },
         "lastReviewedAt": { "type": "string", "format": "date-time" },
         "strength": { "type": "integer", "minimum": 0, "maximum": 5 },

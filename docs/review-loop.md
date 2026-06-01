@@ -45,8 +45,17 @@ When a mobile/portable inbox answer patch resolves a captured question, the orig
 - prompt: the original question, with leading `Q:` / `Question:` removed before wrapping
 - answer: the latest same-topic capture whose `answersQuestionCaptureId` points to that question
 - evidence: the answer capture quote when the answer capture also has a thought
+- provenance: `evidenceCaptureId` points back to the answer capture so the review card can jump to the answer evidence, while `sourceCaptureId` still points to the original question
+
+The three ids have separate meanings:
+
+- `sourceCaptureId`: card origin; deleting this capture deletes the card.
+- `answersQuestionCaptureId`: answer-capture backlink to a question capture.
+- `evidenceCaptureId`: optional card backlink to the answer capture currently used as evidence; deleting this capture clears the link but keeps the card and review history.
 
 The lookup is intentionally same-session. A later cross-topic answer is treated as a separate import concern rather than silently changing review-card content.
+
+When multiple same-session answers point to the same question, the latest answer is selected by `capturedAt`, then `createdAt`, then lexicographically higher capture id for equal timestamps.
 
 If the question was already promoted before the answer arrived, the existing card is left alone until the user chooses `Refresh card` from Closed Today. Refreshing preserves the card id, due date, strength, and review history while updating the prompt/answer from the linked answer capture.
 

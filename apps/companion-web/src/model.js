@@ -327,6 +327,10 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
   };
 }
 
+// Review-card provenance invariants:
+// sourceCaptureId is the originating capture; deleting that capture deletes the card.
+// answersQuestionCaptureId lives on answer captures and points back to the question capture.
+// evidenceCaptureId lives on cards and points to the current answer evidence capture when available.
 export function normalizeReviewCard(card = {}, originClientId = makeId("client")) {
   const timestamp = nowIso();
   return {
@@ -334,6 +338,7 @@ export function normalizeReviewCard(card = {}, originClientId = makeId("client")
     prompt: cleanText(card.prompt, MAX_CAPTURE_TEXT_LENGTH),
     answer: cleanText(card.answer, MAX_CAPTURE_TEXT_LENGTH),
     sourceCaptureId: cleanText(card.sourceCaptureId, 128),
+    evidenceCaptureId: cleanAnswerTargetId(card.evidenceCaptureId),
     dueAt: card.dueAt || timestamp,
     strength: Math.max(0, Math.min(5, Number(card.strength) || 0)),
     createdAt: card.createdAt || timestamp,
@@ -960,6 +965,7 @@ export function createReviewCardFromCapture(capture, originClientId = capture.or
     prompt,
     answer,
     sourceCaptureId: capture.id,
+    evidenceCaptureId: cleanAnswerTargetId(overrides.evidenceCaptureId),
     dueAt: timestamp,
     strength: 0,
     createdAt: timestamp,
@@ -1010,6 +1016,7 @@ export function refreshAnsweredQuestionReviewCard(workspace, sessionId, captureI
             ...item,
             prompt: overrides.prompt,
             answer: overrides.answer,
+            evidenceCaptureId: overrides.evidenceCaptureId || "",
             updatedAt: timestamp
           }
         : item),
@@ -1038,7 +1045,8 @@ function reviewOverridesFromAnsweredQuestion(session, capture) {
     prompt: `Answer the question: ${questionText}`,
     answer: [answerText, answerEvidence, answer.timestamp ? `Time: ${answer.timestamp}` : ""]
       .filter(Boolean)
-      .join("\n\n")
+      .join("\n\n"),
+    evidenceCaptureId: answer.id
   };
 }
 
@@ -1149,7 +1157,11 @@ export function deleteCapture(workspace, sessionId, captureId) {
       return {
         ...session,
         captures: session.captures.filter((capture) => capture.id !== captureId),
-        reviewCards: session.reviewCards.filter((card) => card.sourceCaptureId !== captureId),
+        reviewCards: session.reviewCards
+          .filter((card) => card.sourceCaptureId !== captureId)
+          .map((card) => card.evidenceCaptureId === captureId
+            ? { ...card, evidenceCaptureId: "", updatedAt: nowIso() }
+            : card),
         updatedAt: nowIso()
       };
     })
@@ -2674,6 +2686,7 @@ export function getSynthesisSourceStamp(session) {
       id: card.id,
       prompt: card.prompt,
       answer: card.answer,
+      evidenceCaptureId: card.evidenceCaptureId || "",
       updatedAt: card.updatedAt
     })).sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")))
   }));

@@ -132,6 +132,7 @@ Workspace
       prompt
       answer
       sourceCaptureId
+      evidenceCaptureId?
       dueAt
       strength
 ```
