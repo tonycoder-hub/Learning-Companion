@@ -51,6 +51,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Today Open Questions can create review cards directly while selecting the correct source session.
 - Today Open Questions can be parked and resumed, keeping unresolved low-priority follow-up out of the active focus queue without losing the original capture.
 - Captured questions can be marked resolved or reopened, and resolved questions stop counting in Focus Brief, synthesis, Today, HarmonyOS reader backlog, and handoff exports without losing the original capture.
+- Local Quick Capture Answer drafts opened from a question preserve `answersQuestionCaptureId`; sufficiently detailed local answers close the original question, while weak answers such as `Answer: ok` stay non-closing drafts.
 - One-click capture insertion into Notes with idempotent capture blocks.
 - Confirmed delete for mistaken captures and review cards.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
@@ -122,7 +123,7 @@ npm run check:morning:browser
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 
-Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent work and now covers capture destination/source/time/intent context, the destination-locate action from sidecar layout, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
+Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent and local Answer draft linkage work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, the destination-locate action from sidecar layout, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA.
 
 ## Review Notes Absorbed
 

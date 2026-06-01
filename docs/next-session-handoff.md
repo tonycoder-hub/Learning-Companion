@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `36d56ad feat: link local answer drafts to questions`
 - `f32d1e1 feat: show quick capture intent`
 - `0118db8 feat: locate quick capture destination`
 - `03e360f feat: show quick capture destination`
@@ -247,9 +248,17 @@ Latest local work clarifies Quick Capture intent:
 - The chip uses existing model semantics where possible: question detection uses `captureHasQuestion()`, and answer detection uses `captureHasAnswer()`; a short `Answer:` prefix is explicitly labeled `Answer draft` rather than pretending it will close a question.
 - Browser smoke pins the empty ready state, question intent, short answer draft, review-ready answer intent, and the empty new-session intent.
 
+Latest local work links local Answer drafts back to their questions:
+
+- `Answer` from an open or parked question now seeds a local Quick Capture draft with `answersQuestionCaptureId`, and autosave preserves that target while the thought still begins with `Answer:`.
+- Saving a sufficiently detailed local answer writes a linked answer capture and closes the original question in the target session, clearing parked state at the same time.
+- Weak local answers such as `Answer: ok` can still be saved as answer drafts but do not close the linked question or pretend to be review-ready evidence.
+- Browser smoke pins the full UI path by opening a question answer draft, saving a real linked answer, verifying the question closes, and restoring the pre-save workspace snapshot before the rest of the question-flow assertions continue.
+- Model smoke pins both weak-answer non-closure and strong-answer closure, plus capture-draft normalization for valid and invalid answer targets.
+
 ## Verified Locally
 
-These passed after the Quick Capture intent update:
+These passed after the local Answer draft linkage update:
 
 - `npm run smoke`
 - `npm run smoke:browser`
