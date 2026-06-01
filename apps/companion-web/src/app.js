@@ -1358,6 +1358,7 @@ function renderFocusBrief() {
 }
 
 function renderCaptureDraftFocusBrief(session, draft, brief) {
+  const sourceChanged = captureDraftSourceChanged(session, draft);
   const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
     ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
     : `${brief.stats.dueCards} due`;
@@ -1368,15 +1369,21 @@ function renderCaptureDraftFocusBrief(session, draft, brief) {
   dom.focusBriefActionBtn.title = "Continue the saved quote or thought";
   dom.focusBriefActionBtn.setAttribute("aria-label", "Resume capture draft");
   clearChildren(dom.focusBriefFacts);
-  dom.focusBriefFacts.append(
+  const facts = [
     focusBriefFact("Source", session.sourceTitle || (session.sourceUrl ? "Open source" : "No source")),
+    ...(sourceChanged ? [focusBriefFact("Draft source", sourceSnapshotLabel(draft))] : []),
     focusBriefFact("Draft", draft.timestamp ? `Saved @ ${draft.timestamp}` : "Saved locally"),
     focusBriefFact("Sync", "Device-local"),
     focusBriefFact("Why", "Fresh local draft and no due review is blocking it.")
-  );
+  ];
+  dom.focusBriefFacts.append(...facts);
   clearChildren(dom.focusBriefSignals);
+  const draftSignal = textEl("span", "focus-signal warn", "Draft waiting");
+  const sourceSignal = textEl("span", "focus-signal warn", "Source changed");
+  sourceSignal.title = `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`;
   dom.focusBriefSignals.append(
-    textEl("span", "focus-signal warn", "Draft waiting"),
+    draftSignal,
+    ...(sourceChanged ? [sourceSignal] : []),
     textEl("span", "focus-signal", "Not exported")
   );
 }

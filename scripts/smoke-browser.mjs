@@ -2516,6 +2516,55 @@ try {
   assert.match(nativeClipboardCapture.activityDetail, /matched existing source URL/);
   assert.equal(nativeClipboardCapture.activeTabUi, "captures");
 
+  const draftDriftFocusBrief = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const session = {
+      ...workspace.sessions[0],
+      id: "draft_focus_source_drift",
+      title: "Draft focus source drift",
+      sourceTitle: "Original lesson",
+      sourceUrl: "https://example.com/original",
+      materialType: "video",
+      tags: [],
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...workspace,
+      activeSessionId: session.id,
+      sessions: [session],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-focus-mode="capture"]').click();
+    setValue("#quoteInput", "Draft that should own the next action.");
+    setValue("#thoughtInput", "Keep the source warning visible in Focus Brief.");
+    setValue("#timestampInput", "03:21");
+    setValue("#sourceTitle", "Different lesson");
+    setValue("#sourceUrl", "https://example.com/different");
+    return {
+      action: document.querySelector("#focusBriefAction").textContent,
+      detail: document.querySelector("#focusBriefDetail").textContent,
+      facts: document.querySelector("#focusBriefFacts").textContent,
+      signals: document.querySelector("#focusBriefSignals").textContent,
+      status: document.querySelector("#captureDraftStatus").textContent
+    };
+  })()`);
+
+  assert.equal(draftDriftFocusBrief.action, "Resume capture draft");
+  assert.match(draftDriftFocusBrief.detail, /Draft that should own/);
+  assert.match(draftDriftFocusBrief.facts, /Draft source/);
+  assert.match(draftDriftFocusBrief.facts, /Original lesson/);
+  assert.match(draftDriftFocusBrief.signals, /Source changed/);
+  assert.equal(draftDriftFocusBrief.status, "Source changed");
+
   await cdp.send("Emulation.setDeviceMetricsOverride", {
     width: 390,
     height: 844,
