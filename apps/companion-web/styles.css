@@ -633,7 +633,7 @@ textarea:focus {
 }
 
 .capture-pane {
-  grid-template-rows: auto minmax(82px, 0.3fr) minmax(96px, 0.38fr) auto;
+  grid-template-rows: auto auto minmax(82px, 0.3fr) minmax(96px, 0.38fr) auto;
 }
 
 .capture-pane[hidden],
@@ -648,6 +648,40 @@ textarea:focus {
 
 .synthesis-pane {
   grid-template-rows: auto 1fr;
+}
+
+.capture-context {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.capture-context-source {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capture-context-time {
+  max-width: 92px;
+  padding: 3px 7px;
+  border: 1px solid rgba(49, 95, 130, 0.2);
+  border-radius: 999px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .desk-review-pane {

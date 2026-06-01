@@ -224,6 +224,7 @@ assert.match(manualQa, /Keyboard quick capture/);
 assert.match(manualQa, /quote-only draft focuses Thought/);
 assert.match(manualQa, /Source time staging/);
 assert.match(manualQa, /filled and pulsed/);
+assert.match(manualQa, /source\/time context/);
 assert.match(manualQa, /Source time staged/);
 assert.match(manualQa, /Today section map/);
 assert.match(manualQa, /sidecar\/mobile widths/);

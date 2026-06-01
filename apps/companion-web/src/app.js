@@ -108,6 +108,10 @@ const dom = {
   quoteInput: document.querySelector("#quoteInput"),
   thoughtInput: document.querySelector("#thoughtInput"),
   capturePane: document.querySelector("#capturePane"),
+  captureContext: document.querySelector("#captureContext"),
+  captureContextSource: document.querySelector("#captureContextSource"),
+  captureContextTime: document.querySelector("#captureContextTime"),
+  captureContextOpenBtn: document.querySelector("#captureContextOpenBtn"),
   captureStack: document.querySelector("#captureStack"),
   captureDraftStatus: document.querySelector("#captureDraftStatus"),
   clearCaptureDraftBtn: document.querySelector("#clearCaptureDraftBtn"),
@@ -364,11 +368,8 @@ dom.notesPreviewBtn.addEventListener("click", () => {
   renderNotesMode();
 });
 
-dom.openSourceBtn.addEventListener("click", () => {
-  const session = getActiveSession(workspace);
-  const resume = buildResumeSource(session, dom.timestampInput.value);
-  if (resume.href) window.open(resume.href, "_blank", "noopener,noreferrer");
-});
+dom.openSourceBtn.addEventListener("click", openCurrentSource);
+dom.captureContextOpenBtn.addEventListener("click", openCurrentSource);
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
 dom.activityDetailsBtn.addEventListener("click", showActivityDetails);
@@ -659,6 +660,7 @@ function saveCurrentCaptureDraft() {
   }
   renderCaptureDraftStatus(session, draft);
   renderOpenSourceButton(session);
+  renderCaptureContext(session);
   renderActivity(session);
   renderFocusBrief();
   if (activeTab === "today") renderToday();
@@ -669,6 +671,7 @@ function clearCurrentCaptureDraft() {
   clearCaptureDraftActivity(getActiveSession(workspace).id);
   renderCaptureDraft(getActiveSession(workspace));
   renderOpenSourceButton(getActiveSession(workspace));
+  renderCaptureContext(getActiveSession(workspace));
   renderActivity(getActiveSession(workspace));
   renderFocusBrief();
   if (activeTab === "today") renderToday();
@@ -893,6 +896,7 @@ function updateSessionFromFields(event) {
   });
   scheduleSave();
   renderOpenSourceButton(getActiveSession(workspace));
+  renderCaptureContext(getActiveSession(workspace));
   renderFocusBrief();
   renderSessions();
   renderInspector();
@@ -1088,6 +1092,7 @@ function render() {
   renderCaptureDraft(session);
   renderCaptureStack(session);
   renderOpenSourceButton(session);
+  renderCaptureContext(session);
   renderFocusMode(session.focusMode);
   renderShellMode();
   renderActivity(session);
@@ -1101,12 +1106,39 @@ function render() {
   renderInspector();
 }
 
+function openCurrentSource() {
+  const session = getActiveSession(workspace);
+  const resume = buildResumeSource(session, dom.timestampInput.value);
+  if (resume.href) window.open(resume.href, "_blank", "noopener,noreferrer");
+}
+
 function renderOpenSourceButton(session) {
   const resume = buildResumeSource(session, dom.timestampInput.value);
   dom.openSourceBtn.disabled = !resume.href;
   const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
   dom.openSourceBtn.title = title;
   dom.openSourceBtn.setAttribute("aria-label", title);
+}
+
+function renderCaptureContext(session) {
+  const resume = buildResumeSource(session, dom.timestampInput.value);
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || "No source";
+  const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
+  dom.captureContextSource.textContent = sourceLabel;
+  dom.captureContextSource.title = resume.url || sourceLabel;
+  dom.captureContextTime.hidden = !resume.timestamp;
+  dom.captureContextTime.textContent = resume.timestamp ? `@ ${resume.timestamp}` : "";
+  dom.captureContextOpenBtn.disabled = !resume.href;
+  dom.captureContextOpenBtn.title = resume.href ? title : "Add a source URL first";
+  dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Add a source URL first");
+}
+
+function readableSourceHost(value) {
+  try {
+    return cleanUrl(value) ? new URL(value).hostname.replace(/^www\./, "") : "";
+  } catch {
+    return "";
+  }
 }
 
 function toggleSidecarLayout() {

@@ -172,10 +172,11 @@ Latest local work improves Mac-first capture focus:
 
 Latest local work also clarifies source time staging:
 
+- Quick Capture now has a compact source/time context strip so the capture surface itself shows the current source title, staged time, and a local Open action.
 - Pasting a supported timestamped video URL into the source URL field now makes the hidden extraction visible with `Source time staged` in the activity strip and a pulse on the Time field.
 - The extracted time is saved into the device-local capture draft, the source-open button reports the same local time target, and the stored session source URL strips only the time parameter so future source matching remains canonical.
-- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, draft status, source-open title, and stripped URL after blur/change.
-- The morning manual QA pack now has a `Source time staging` row; this remains local URL-parser evidence, not live playback QA against external video sites.
+- Browser smoke pins the input-before-change behavior, stored URL normalization, visible activity receipt, Time-field pulse, Quick Capture context source/time, context Open href, typed-but-unblurred Time reads, empty-source disabled behavior, draft status, source-open title, and stripped URL after blur/change.
+- The morning manual QA pack now has a `Source time staging` row; this remains Mac/web local URL-parser evidence, not Harmony/Windows reader UI parity and not live playback QA against external video sites.
 
 ## Verified Locally
 

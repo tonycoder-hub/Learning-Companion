@@ -247,6 +247,14 @@ try {
     setValue("#thoughtInput", "");
     setValue("#timestampInput", "");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123&t=8m12s");
+    let sourceContextOpened = "";
+    const nativeContextWindowOpen = window.open;
+    window.open = (href) => {
+      sourceContextOpened = href;
+      return null;
+    };
+    document.querySelector("#captureContextOpenBtn").click();
+    window.open = nativeContextWindowOpen;
     const sourceTimestampWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
     const sourceTimestampSession = sourceTimestampWorkspace.sessions.find((item) => item.id === sourceTimestampWorkspace.activeSessionId);
     const sourceTimestampStage = {
@@ -257,10 +265,30 @@ try {
       activityDetail: document.querySelector("#activityDetail").textContent,
       openSourceTitle: document.querySelector("#openSourceBtn").title,
       draftStatus: document.querySelector("#captureDraftStatus").textContent,
-      timestampPulsed: document.querySelector("#timestampInput").classList.contains("pulse")
+      timestampPulsed: document.querySelector("#timestampInput").classList.contains("pulse"),
+      contextSource: document.querySelector("#captureContextSource").textContent,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      contextOpenDisabled: document.querySelector("#captureContextOpenBtn").disabled,
+      contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
+      contextOpened: sourceContextOpened
     };
     document.querySelector("#sourceUrl").dispatchEvent(new Event("change", { bubbles: true }));
     sourceTimestampStage.sourceUrlInputAfterChange = document.querySelector("#sourceUrl").value;
+    setValue("#timestampInput", "12:30");
+    let typedTimestampContextOpened = "";
+    const nativeTypedWindowOpen = window.open;
+    window.open = (href) => {
+      typedTimestampContextOpened = href;
+      return null;
+    };
+    document.querySelector("#captureContextOpenBtn").click();
+    window.open = nativeTypedWindowOpen;
+    const sourceTimestampTyped = {
+      timestamp: document.querySelector("#timestampInput").value,
+      contextTime: document.querySelector("#captureContextTime").textContent,
+      contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
+      contextOpened: typedTimestampContextOpened
+    };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -549,6 +577,21 @@ try {
       text: document.querySelector("#captureDraftStatus").textContent,
       clearHidden: document.querySelector("#clearCaptureDraftBtn").hidden
     };
+    let emptyContextOpened = "";
+    const nativeEmptyWindowOpen = window.open;
+    window.open = (href) => {
+      emptyContextOpened = href;
+      return null;
+    };
+    document.querySelector("#captureContextOpenBtn").click();
+    window.open = nativeEmptyWindowOpen;
+    const captureContextInNewSession = {
+      source: document.querySelector("#captureContextSource").textContent,
+      timeHidden: document.querySelector("#captureContextTime").hidden,
+      openDisabled: document.querySelector("#captureContextOpenBtn").disabled,
+      openLabel: document.querySelector("#captureContextOpenBtn").getAttribute("aria-label"),
+      opened: emptyContextOpened
+    };
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
     [...document.querySelectorAll("#sessionList .session-row")]
       .find((button) => button.textContent.includes("Learning Companion MVP"))
@@ -734,10 +777,12 @@ try {
           draftFocusBrief,
           draftActivity,
           sourceTimestampStage,
+          sourceTimestampTyped,
           todayDraftBeforeResume,
           todayDraftAfterResume,
           captureDraftStatusBeforeSwitch,
           captureDraftStatusInNewSession,
+          captureContextInNewSession,
           captureDraftNewSessionEmpty,
           captureDraftAfterSwitch,
           captureDraftStatusAfterSwitch,
@@ -913,6 +958,15 @@ try {
   assert.equal(result.sourceTimestampStage.openSourceTitle, "Open source at 08:12");
   assert.equal(result.sourceTimestampStage.draftStatus, "Time kept");
   assert.equal(result.sourceTimestampStage.timestampPulsed, true);
+  assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
+  assert.equal(result.sourceTimestampStage.contextTime, "@ 08:12");
+  assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
+  assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12");
+  assert.equal(result.sourceTimestampStage.contextOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
+  assert.equal(result.sourceTimestampTyped.timestamp, "12:30");
+  assert.equal(result.sourceTimestampTyped.contextTime, "@ 12:30");
+  assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30");
+  assert.equal(result.sourceTimestampTyped.contextOpened, "https://www.youtube.com/watch?v=rust123&t=750s");
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);
@@ -927,6 +981,13 @@ try {
   assert.deepEqual(result.captureDraftStatusBeforeSwitch, { text: "Draft saved", clearHidden: false });
   assert.deepEqual(result.captureDraftStatusInNewSession, { text: "No draft", clearHidden: true });
   assert.equal(result.captureDraftNewSessionEmpty, true);
+  assert.deepEqual(result.captureContextInNewSession, {
+    source: "No source",
+    timeHidden: true,
+    openDisabled: true,
+    openLabel: "Add a source URL first",
+    opened: ""
+  });
   assert.equal(result.captureDraftAfterSwitch.quote, "Draft quote before session switch.");
   assert.equal(result.captureDraftAfterSwitch.thought, "Draft thought should survive.");
   assert.equal(result.captureDraftAfterSwitch.timestamp, "01:23");
@@ -2265,6 +2326,10 @@ try {
       .split(" ")
       .filter(Boolean).length;
     const deskReviewWidth = Math.ceil(document.querySelector("#deskReviewPane").getBoundingClientRect().width);
+    const deskReviewVisible = !document.querySelector("#deskReviewPane").hidden;
+    const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
+    document.querySelector('[data-focus-mode="capture"]').click();
+    const captureContext = document.querySelector("#captureContext");
     return {
       innerWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
@@ -2273,8 +2338,11 @@ try {
       workColumns: styleColumns(".work-grid"),
       tabColumns: styleColumns(".tabs"),
       deskReviewWidth,
-      deskReviewVisible: !document.querySelector("#deskReviewPane").hidden,
-      todayActive: document.querySelector(".tab.active")?.dataset.tab === "today"
+      deskReviewVisible,
+      todayActive,
+      captureContextVisible: getComputedStyle(captureContext).display !== "none",
+      captureContextWidth: Math.ceil(captureContext.getBoundingClientRect().width),
+      captureContextScrollWidth: captureContext.scrollWidth
     };
   })()`);
 
@@ -2283,7 +2351,10 @@ try {
   assert.equal(mobileLayout.tabColumns, 2);
   assert.equal(mobileLayout.deskReviewVisible, true);
   assert.equal(mobileLayout.todayActive, true);
+  assert.equal(mobileLayout.captureContextVisible, true);
   assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
+  assert.ok(mobileLayout.captureContextWidth <= mobileLayout.innerWidth - 24);
+  assert.ok(mobileLayout.captureContextScrollWidth <= mobileLayout.captureContextWidth + 2);
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
   await cdp.close();
