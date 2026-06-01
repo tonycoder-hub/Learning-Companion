@@ -118,6 +118,7 @@ const dom = {
   captureContextOpenBtn: document.querySelector("#captureContextOpenBtn"),
   captureStack: document.querySelector("#captureStack"),
   captureDraftStatus: document.querySelector("#captureDraftStatus"),
+  reanchorCaptureDraftBtn: document.querySelector("#reanchorCaptureDraftBtn"),
   clearCaptureDraftBtn: document.querySelector("#clearCaptureDraftBtn"),
   captureBtn: document.querySelector("#captureBtn"),
   captureCardBtn: document.querySelector("#captureCardBtn"),
@@ -389,6 +390,7 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
+dom.reanchorCaptureDraftBtn.addEventListener("click", reanchorCurrentCaptureDraft);
 dom.clearCaptureDraftBtn.addEventListener("click", clearCurrentCaptureDraft);
 [dom.quoteInput, dom.thoughtInput, dom.timestampInput].forEach((node) => {
   node.addEventListener("input", saveCurrentCaptureDraft);
@@ -693,6 +695,27 @@ function clearCurrentCaptureDraft() {
   dom.quoteInput.focus();
 }
 
+function reanchorCurrentCaptureDraft() {
+  const session = getActiveSession(workspace);
+  const draft = getCaptureDraft(session.id);
+  if (!hasCaptureDraft(draft)) return;
+  setCaptureDraft(session.id, {
+    ...draft,
+    sourceTitle: session.sourceTitle,
+    sourceUrl: session.sourceUrl
+  });
+  setActivity(session, {
+    title: "Draft source updated",
+    detail: `Draft now uses ${sourceSnapshotLabel(session)}.`,
+    tab: "captures",
+    targetId: ""
+  });
+  renderCaptureDraftStatus(session);
+  renderActivity(session);
+  renderFocusBrief();
+  if (activeTab === "today") renderToday();
+}
+
 function renderCaptureDraft(session) {
   const draft = getCaptureDraft(session.id);
   dom.quoteInput.value = draft.quote;
@@ -709,6 +732,9 @@ function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) 
   dom.captureDraftStatus.title = sourceChanged
     ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
     : "";
+  dom.reanchorCaptureDraftBtn.hidden = !sourceChanged;
+  dom.reanchorCaptureDraftBtn.title = sourceChanged ? "Use the current source for this local draft" : "";
+  dom.reanchorCaptureDraftBtn.setAttribute("aria-label", "Use current source for this draft");
   dom.clearCaptureDraftBtn.hidden = !hasDraft;
 }
 

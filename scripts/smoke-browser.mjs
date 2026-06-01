@@ -354,6 +354,7 @@ try {
       status: document.querySelector("#captureDraftStatus").textContent,
       statusClass: document.querySelector("#captureDraftStatus").className,
       statusTitle: document.querySelector("#captureDraftStatus").title,
+      reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden,
       role: document.querySelector("#captureDraftStatus").getAttribute("role"),
       ariaLive: document.querySelector("#captureDraftStatus").getAttribute("aria-live")
     };
@@ -365,9 +366,25 @@ try {
     const sourceRestoredDraft = {
       status: document.querySelector("#captureDraftStatus").textContent,
       statusClass: document.querySelector("#captureDraftStatus").className,
+      reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden,
       sourceUrlStored: restoredActiveSession.sourceUrl
     };
-    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, sourceChangedDraft, sourceRestoredDraft };
+    setValue("#sourceTitle", "Different lecture");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=other456");
+    document.querySelector("#reanchorCaptureDraftBtn").click();
+    const sourceReanchoredDraft = {
+      status: document.querySelector("#captureDraftStatus").textContent,
+      statusClass: document.querySelector("#captureDraftStatus").className,
+      reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+    document.querySelector("#clearCaptureDraftBtn").click();
+    const sourceReanchorCleared = {
+      status: document.querySelector("#captureDraftStatus").textContent,
+      reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden
+    };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, sourceChangedDraft, sourceRestoredDraft, sourceReanchoredDraft, sourceReanchorCleared };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -1109,11 +1126,19 @@ try {
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusClass, /warn/);
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusTitle, /RustConf ownership talk/);
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusTitle, /Different lecture/);
+  assert.equal(result.sourceTimestampNudge.sourceChangedDraft.reanchorHidden, false);
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.role, "status");
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.ariaLive, "polite");
   assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.status, "Draft saved");
   assert.doesNotMatch(result.sourceTimestampNudge.sourceRestoredDraft.statusClass, /warn/);
+  assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.reanchorHidden, true);
   assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.sourceUrlStored, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(result.sourceTimestampNudge.sourceReanchoredDraft.status, "Draft saved");
+  assert.doesNotMatch(result.sourceTimestampNudge.sourceReanchoredDraft.statusClass, /warn/);
+  assert.equal(result.sourceTimestampNudge.sourceReanchoredDraft.reanchorHidden, true);
+  assert.equal(result.sourceTimestampNudge.sourceReanchoredDraft.activityTitle, "Draft source updated");
+  assert.match(result.sourceTimestampNudge.sourceReanchoredDraft.activityDetail, /Different lecture/);
+  assert.deepEqual(result.sourceTimestampNudge.sourceReanchorCleared, { status: "No draft", reanchorHidden: true });
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);
