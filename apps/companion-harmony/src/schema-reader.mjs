@@ -3,10 +3,12 @@ import {
   captureHasOpenQuestion,
   captureHasParkedQuestion,
   captureHasQuestion,
+  getAnswerCaptureItems,
   getDueReviewItems,
   getOpenQuestionItems,
   getParkedQuestionItems,
   getRecentCaptureItems,
+  resolveTodayWindow,
   workspaceFromPortableData
 } from "../../companion-web/src/model.js";
 
@@ -17,6 +19,12 @@ export function buildHarmonyReaderView(portableData, options = {}) {
   const workspace = workspaceFromPortableData(portableData);
   const openQuestionItems = getOpenQuestionItems(workspace, 12);
   const parkedQuestionItems = getParkedQuestionItems(workspace, 12);
+  const todayWindow = resolveTodayWindow(now);
+  const answerItems = getAnswerCaptureItems(workspace, Number.MAX_SAFE_INTEGER, {
+    since: todayWindow.start,
+    until: todayWindow.end
+  });
+  const answerLimit = 12;
   const openQuestionCount = countOpenQuestions(workspace);
   const parkedQuestionCount = countParkedQuestions(workspace);
   const unresolvedQuestionCount = openQuestionCount + parkedQuestionCount;
@@ -53,6 +61,12 @@ export function buildHarmonyReaderView(portableData, options = {}) {
     schema: HARMONY_READER_VIEW_SCHEMA,
     generatedAt: now.toISOString(),
     mode: "read-only-prototype",
+    localDayWindow: {
+      start: todayWindow.startIso,
+      end: todayWindow.endIso,
+      label: todayWindow.label,
+      timeZone: todayWindow.timeZone
+    },
     source: {
       acceptedSchemas: [
         "learning-companion.workspace.v1",
@@ -68,6 +82,7 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       openQuestionCount,
       parkedQuestionCount,
       unresolvedQuestionCount,
+      answerCaptureCountToday: answerItems.length,
       activeTopicId: activeTopic?.id || ""
     },
     activeTopic,
@@ -117,6 +132,8 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       sourceTitle: item.capture.sourceTitle,
       sourceUrl: item.capture.sourceUrl
     })),
+    answersToday: answerItems.slice(0, answerLimit).map((item) => answerTodayItem(item)),
+    answersTodayOverflow: Math.max(0, answerItems.length - answerLimit),
     limitations: [
       "Prototype reader only; no HarmonyOS storage adapter yet.",
       "Review and inbox patches still use the mirror bundle's static pages.",
@@ -141,4 +158,42 @@ function normalizeDate(value) {
   if (value instanceof Date && Number.isFinite(value.getTime())) return value;
   const date = value ? new Date(value) : new Date();
   return Number.isFinite(date.getTime()) ? date : new Date();
+}
+
+function answerTodayItem(item) {
+  const answerTime = answerCaptureTimestamp(item.capture);
+  return {
+    sessionId: item.sessionId,
+    sessionTitle: item.sessionTitle,
+    captureId: item.capture.id,
+    quote: item.capture.quote,
+    thought: item.capture.thought,
+    capturedAt: item.capture.capturedAt || item.capture.createdAt,
+    answeredAt: answerTime.iso,
+    answeredAtSource: answerTime.source,
+    answerReason: item.answerReason,
+    questionCaptureId: item.questionCapture?.id || "",
+    questionThought: item.questionCapture?.thought || "",
+    questionResolvedAt: item.questionCapture?.questionResolvedAt || "",
+    sourceTitle: item.capture.sourceTitle,
+    sourceUrl: item.capture.sourceUrl
+  };
+}
+
+function answerCaptureTimestamp(capture) {
+  if (capture?.inboxPatchId) {
+    const updatedAt = normalizeOptionalDate(capture.updatedAt);
+    if (updatedAt) return { iso: updatedAt, source: "updatedAt-inbox-import" };
+  }
+  const capturedAt = normalizeOptionalDate(capture?.capturedAt);
+  if (capturedAt) return { iso: capturedAt, source: "capturedAt" };
+  const createdAt = normalizeOptionalDate(capture?.createdAt);
+  if (createdAt) return { iso: createdAt, source: "createdAt" };
+  return { iso: "", source: "" };
+}
+
+function normalizeOptionalDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : "";
 }

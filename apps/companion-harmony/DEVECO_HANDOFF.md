@@ -10,7 +10,7 @@ Create a minimal HarmonyOS app that can read the same portable artifacts produce
 - `learning-companion.mirror-bundle.staging.v1`
 - derived `learning-companion.harmony-reader-view.v1`
 
-The first device milestone is read-only: import a workspace or mirror bundle, render the active topic, open questions, due review cards, recent captures, and Focus Brief next action. Phone-side writes remain append-only patch exports.
+The first device milestone is read-only: import a workspace or mirror bundle, render the active topic, answers captured today, open questions, due review cards, recent captures, and Focus Brief next action. Phone-side writes remain append-only patch exports.
 
 ## Scaffold Layout
 
@@ -39,13 +39,15 @@ apps/companion-harmony-dev/
 
 The scaffold is intentionally separate from the executable JavaScript prototype in `apps/companion-harmony/src/`. The JS prototype remains the authoritative smoke-tested implementation until DevEco compilation passes.
 
-`learning-companion.harmony-reader-view.v1` is additive during the prototype stage: new fields may be added for scaffold consumers, but removing or renaming fields requires a derived schema bump. Current open-question and parked-question fields are JSON contract evidence only, not device evidence.
+`learning-companion.harmony-reader-view.v1` is additive during the prototype stage: new fields may be added for scaffold consumers, but removing or renaming fields requires a derived schema bump. Current answer-today, open-question, and parked-question fields are JSON contract evidence only, not device evidence.
+
+`answersToday` is a Mac-generated read-only projection. `answersToday[].answeredAt` is the Today attribution time for the generated view, and `answeredAtSource` records whether that time came from `capturedAt`, `createdAt`, or an inbox patch landing through `updatedAt`. `localDayWindow` belongs to the reader generator's local timezone and must not be silently recomputed as phone-local time.
 
 ## Screens
 
 | Screen | Purpose | Data |
 | --- | --- | --- |
-| Index | Resume Here, active open questions, parked questions, topic list, import button, latest intake status. | `activeTopic`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
+| Index | Resume Here, answers today, active open questions, parked questions, topic list, import button, latest intake status. | `activeTopic`, `answersToday`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
 | TopicDetail | Source title/URL, latest capture, notes preview, capture count. | One topic from `topics`. |
 | ReviewQueue | Read-only due cards with answer reveal. | `dueReview`. |
 | ImportReceipt | Shows imported workspace/mirror metadata and limitations. | `source`, `workspace`, `limitations`. |
@@ -86,6 +88,7 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 | Import workspace JSON | Topic count, active topic, due cards match `sample-harmony-reader-view.json`. |
 | Import mirror bundle | Same view model as workspace import. |
 | Open question backlog | Open questions and per-topic counts match the Mac Today backlog, while resolved questions only appear in recent captures as answered. |
+| Answers today | `answersToday` and `workspace.answerCaptureCountToday` match Mac Today for the same local day window. |
 | Offline relaunch | Last imported view model reopens without network. |
 | Review reveal | Answer reveal works without changing card state. |
 | Capture patch export | App writes append-only inbox patch JSON, then Mac imports it with a visible receipt. |

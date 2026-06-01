@@ -28,6 +28,20 @@ struct Index {
       Button('Review Queue')
         .onClick(() => router.pushUrl({ url: 'pages/ReviewQueue' }))
 
+      if (this.readerView.answersToday.length > 0) {
+        Text('Answers Today')
+          .fontSize(18)
+          .fontWeight(FontWeight.Medium)
+        Text(`Showing ${Math.min(this.readerView.answersToday.length, 3)} of ${this.readerView.workspace.answerCaptureCountToday} · ${this.readerView.localDayWindow.label}`)
+          .fontSize(12)
+          .fontColor('#666154')
+        ForEach(this.readerView.answersToday.slice(0, 3), (answer) => {
+          Text(`${answer.sessionTitle}: ${answer.thought}`)
+            .fontSize(12)
+            .fontColor('#426254')
+        }, (answer) => answer.captureId)
+      }
+
       if (this.readerView.openQuestions.length > 0) {
         Text('Open Questions')
           .fontSize(18)
@@ -112,6 +126,7 @@ function sampleReaderView(): HarmonyReaderView {
   view.workspace.openQuestionCount = 0;
   view.workspace.parkedQuestionCount = 0;
   view.workspace.unresolvedQuestionCount = 0;
+  view.workspace.answerCaptureCountToday = 0;
   view.workspace.activeTopicId = view.activeTopic.id;
   return view;
 }

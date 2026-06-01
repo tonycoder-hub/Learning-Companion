@@ -61,6 +61,55 @@ const resolvedQuestionCaptureId = getActiveSession(workspace).captures.find((cap
 )).id;
 workspace = setCaptureQuestionResolved(workspace, active.id, resolvedQuestionCaptureId, true);
 workspace = addCapture(workspace, active.id, {
+  quote: "A linked answer should be visible on the phone today.",
+  thought: "Answer: keep answered phone questions in Answers Today without putting them back in the backlog.",
+  timestamp: "00:05:40",
+  tags: "harmony reader answer",
+  sourceTitle: "Mac study video",
+  sourceUrl: "https://example.com/study?t=340",
+  answersQuestionCaptureId: resolvedQuestionCaptureId
+}, { now: new Date("2026-05-29T08:24:00.000+08:00") });
+const answerCaptureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.answersQuestionCaptureId === resolvedQuestionCaptureId
+)).id;
+workspace = addCapture(workspace, active.id, {
+  quote: "A phone answer imported today should stay visible even when the original capture is older.",
+  thought: "Answer: this was captured earlier on the phone but landed on the Mac today.",
+  timestamp: "00:05:45",
+  tags: "harmony reader answer",
+  sourceTitle: "Mac study video",
+  sourceUrl: "https://example.com/study?t=345",
+  answersQuestionCaptureId: resolvedQuestionCaptureId
+}, { now: new Date("2026-05-26T08:24:00.000+08:00") });
+const inboxAnswerCaptureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.thought === "Answer: this was captured earlier on the phone but landed on the Mac today."
+)).id;
+workspace = updateSession(workspace, active.id, {
+  captures: getActiveSession(workspace).captures.map((capture) => capture.id === inboxAnswerCaptureId
+    ? {
+        ...capture,
+        inboxPatchId: "harmony_inbox_answer_patch_001",
+        updatedAt: "2026-05-29T00:25:00.000Z"
+      }
+    : capture)
+});
+workspace = addCapture(workspace, active.id, {
+  quote: "An old local answer edited today should not be reclassified as today's phone answer.",
+  thought: "Answer: this old local answer was edited today but was not imported today.",
+  timestamp: "00:05:50",
+  tags: "harmony reader answer",
+  sourceTitle: "Mac study video",
+  sourceUrl: "https://example.com/study?t=350"
+}, { now: new Date("2026-05-28T08:24:00.000+08:00") });
+const editedOldAnswerCaptureId = getActiveSession(workspace).captures.find((capture) => (
+  capture.thought === "Answer: this old local answer was edited today but was not imported today."
+)).id;
+workspace = updateSession(workspace, active.id, {
+  captures: getActiveSession(workspace).captures.map((capture) => capture.id === editedOldAnswerCaptureId
+    ? { ...capture, updatedAt: "2026-05-29T00:26:00.000Z" }
+    : capture)
+});
+workspace = addCapture(workspace, active.id, {
   quote: "Parked questions should wait without crowding the active phone backlog.",
   thought: "Which HarmonyOS question can wait until the next study block?",
   timestamp: "00:06:02",
@@ -104,6 +153,8 @@ assert.equal(workspaceView.activeTopic.unresolvedQuestionCount, 15);
 assert.equal(workspaceView.workspace.openQuestionCount, 14);
 assert.equal(workspaceView.workspace.parkedQuestionCount, 1);
 assert.equal(workspaceView.workspace.unresolvedQuestionCount, 15);
+assert.equal(workspaceView.workspace.answerCaptureCountToday, 2);
+assert.equal(workspaceView.localDayWindow.label.includes("2026-05-29"), true);
 assert.equal(workspaceView.topics.length, workspace.sessions.length);
 assert.equal(workspaceView.topics.some((topic) => topic.captureCount > 0), true);
 assert.equal(workspaceView.dueReview.length, 1);
@@ -143,6 +194,20 @@ assert.equal(typeof recentLearningCapture.isOpenQuestion, "boolean");
 assert.equal(typeof recentLearningCapture.isParkedQuestion, "boolean");
 assert.equal(recentLearningCapture.questionResolvedAt, "");
 assert.equal(recentLearningCapture.questionParkedAt, "");
+assert.equal(workspaceView.answersToday.length, 2);
+assert.equal(workspaceView.answersTodayOverflow, 0);
+assert.equal(workspaceView.workspace.answerCaptureCountToday, workspaceView.answersToday.length + workspaceView.answersTodayOverflow);
+assert.equal(workspaceView.answersToday[0].captureId, inboxAnswerCaptureId);
+assert.equal(workspaceView.answersToday[0].answeredAt, "2026-05-29T00:25:00.000Z");
+assert.equal(workspaceView.answersToday[0].answeredAtSource, "updatedAt-inbox-import");
+assert.equal(workspaceView.answersToday[1].captureId, answerCaptureId);
+assert.equal(workspaceView.answersToday[1].answerReason, "linked-question");
+assert.equal(workspaceView.answersToday[1].questionCaptureId, resolvedQuestionCaptureId);
+assert.equal(workspaceView.answersToday[1].questionThought, "How do I keep answered phone questions out of the open list?");
+assert.equal(workspaceView.answersToday[1].questionResolvedAt.length > 0, true);
+assert.equal(workspaceView.answersToday[1].answeredAt, "2026-05-29T00:24:00.000Z");
+assert.equal(workspaceView.answersToday[1].answeredAtSource, "capturedAt");
+assert.equal(workspaceView.answersToday.some((item) => item.captureId === editedOldAnswerCaptureId), false);
 assert.equal(workspaceView.limitations.some((item) => item.includes("Prototype reader only")), true);
 
 const mirror = buildMirrorBundle(workspace);
@@ -161,6 +226,9 @@ assert.equal(mirrorView.activeTopic.parkedQuestionCount, workspaceView.activeTop
 assert.equal(mirrorView.activeTopic.unresolvedQuestionCount, workspaceView.activeTopic.unresolvedQuestionCount);
 assert.deepEqual(mirrorView.openQuestions, workspaceView.openQuestions);
 assert.deepEqual(mirrorView.parkedQuestions, workspaceView.parkedQuestions);
+assert.equal(mirrorView.workspace.answerCaptureCountToday, workspaceView.workspace.answerCaptureCountToday);
+assert.deepEqual(mirrorView.answersToday, workspaceView.answersToday);
+assert.equal(mirrorView.answersTodayOverflow, workspaceView.answersTodayOverflow);
 
 const workspaceImport = importPortableForHarmony(workspace, { now });
 assert.equal(workspaceImport.ok, true);
@@ -168,6 +236,7 @@ assert.equal(workspaceImport.receipt.schema, HARMONY_IMPORT_RECEIPT_SCHEMA);
 assert.equal(workspaceImport.receipt.sourceKind, "workspace");
 assert.equal(workspaceImport.receipt.readerViewSchema, HARMONY_READER_VIEW_SCHEMA);
 assert.equal(workspaceImport.view.activeTopic.id, workspace.activeSessionId);
+assert.equal(workspaceImport.receipt.answerCaptureCountToday, 2);
 
 const mirrorImport = importPortableForHarmony(mirror, { now });
 assert.equal(mirrorImport.ok, true);

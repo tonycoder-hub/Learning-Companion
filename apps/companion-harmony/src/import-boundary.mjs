@@ -31,6 +31,7 @@ export function importPortableForHarmony(portableData, options = {}) {
         readerViewSchema: HARMONY_READER_VIEW_SCHEMA,
         topicCount: view.topics.length,
         dueReviewCount: view.dueReview.length,
+        answerCaptureCountToday: view.workspace.answerCaptureCountToday,
         mode: view.mode,
         limitations: view.limitations
       }

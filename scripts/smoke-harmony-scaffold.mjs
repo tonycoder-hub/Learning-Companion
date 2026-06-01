@@ -79,7 +79,9 @@ export function buildHarmonyScaffoldReport(options = {}) {
     check("review_patch_export", /buildReviewProgressPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("focus_action_open_source_kind", /'open_source'/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
     check("focus_action_detail_reason", /detail: string/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /reason: string/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
+    check("answers_today_contract", /interface AnswerToday/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /answerCaptureCountToday: number/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /answeredAtSource: AnsweredAtSource/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
     check("resume_here_page", /Resume Here/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
+    check("answers_today_page", /Answers Today/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
     check("review_reveal_page", /Reveal Answer/.test(files.get("entry/src/main/ets/pages/ReviewQueue.ets"))),
     check("no_forbidden_credentials", [...files].every(([, text]) => !/mira_session|open_csrf_token|Authorization:\s*Bearer|Set-Cookie:/i.test(text)))
   ];

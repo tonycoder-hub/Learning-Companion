@@ -9,6 +9,12 @@ export function createEmptyReaderView(nowIso: string): HarmonyReaderView {
     schema: HARMONY_READER_VIEW_SCHEMA,
     generatedAt: nowIso,
     mode: 'native-scaffold',
+    localDayWindow: {
+      start: nowIso,
+      end: nowIso,
+      label: 'today',
+      timeZone: 'local'
+    },
     workspace: {
       schema: '',
       schemaVersion: 0,
@@ -17,6 +23,7 @@ export function createEmptyReaderView(nowIso: string): HarmonyReaderView {
       openQuestionCount: 0,
       parkedQuestionCount: 0,
       unresolvedQuestionCount: 0,
+      answerCaptureCountToday: 0,
       activeTopicId: ''
     },
     activeTopic: undefined,
@@ -25,6 +32,8 @@ export function createEmptyReaderView(nowIso: string): HarmonyReaderView {
     recentCaptures: [],
     openQuestions: [],
     parkedQuestions: [],
+    answersToday: [],
+    answersTodayOverflow: 0,
     limitations: [
       'DevEco scaffold only; import adapter is not device-verified.',
       'Phone writes export append-only patch JSON for Mac import.',
@@ -39,8 +48,9 @@ export function summarizeReaderView(view: HarmonyReaderView): string {
   const questionCount = view.workspace.openQuestionCount;
   const parkedCount = view.workspace.parkedQuestionCount;
   const unresolvedCount = view.workspace.unresolvedQuestionCount;
+  const answerCount = view.workspace.answerCaptureCountToday;
   const active = view.activeTopic?.title || 'No active topic';
-  return `${active} · ${topicCount} topics · ${dueCount} due · ${questionCount} active · ${parkedCount} parked · ${unresolvedCount} unresolved`;
+  return `${active} · ${topicCount} topics · ${dueCount} due · ${questionCount} active · ${parkedCount} parked · ${unresolvedCount} unresolved · ${answerCount} answers today`;
 }
 
 export function topicById(view: HarmonyReaderView, topicId: string): TopicSummary | undefined {

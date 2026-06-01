@@ -8,6 +8,8 @@ export const HARMONY_IMPORT_RECEIPT_SCHEMA = 'learning-companion.harmony-import-
 export type FocusActionKind = 'review' | 'synthesize' | 'capture' | 'continue' | 'open_source';
 export type MaterialType = 'article' | 'video' | 'doc' | 'course' | 'book' | 'other';
 export type ReviewGrade = 'again' | 'good';
+export type AnswerReason = 'linked-question' | 'tagged-answer' | 'answer-prefix' | '';
+export type AnsweredAtSource = 'capturedAt' | 'createdAt' | 'updatedAt-inbox-import' | '';
 
 export interface FocusNextAction {
   kind: FocusActionKind;
@@ -53,6 +55,13 @@ export interface DueReviewCard {
   strength: number;
 }
 
+export interface LocalDayWindow {
+  start: string;
+  end: string;
+  label: string;
+  timeZone: string;
+}
+
 export interface RecentCapture {
   sessionId: string;
   sessionTitle: string;
@@ -84,10 +93,28 @@ export interface ParkedQuestion extends OpenQuestion {
   questionParkedAt: string;
 }
 
+export interface AnswerToday {
+  sessionId: string;
+  sessionTitle: string;
+  captureId: string;
+  quote: string;
+  thought: string;
+  capturedAt: string;
+  answeredAt: string;
+  answeredAtSource: AnsweredAtSource;
+  answerReason: AnswerReason;
+  questionCaptureId: string;
+  questionThought: string;
+  questionResolvedAt: string;
+  sourceTitle: string;
+  sourceUrl: string;
+}
+
 export interface HarmonyReaderView {
   schema: typeof HARMONY_READER_VIEW_SCHEMA;
   generatedAt: string;
   mode: 'read-only-prototype' | 'native-scaffold';
+  localDayWindow: LocalDayWindow;
   workspace: {
     schema: string;
     schemaVersion: number;
@@ -96,6 +123,7 @@ export interface HarmonyReaderView {
     openQuestionCount: number;
     parkedQuestionCount: number;
     unresolvedQuestionCount: number;
+    answerCaptureCountToday: number;
     activeTopicId: string;
   };
   activeTopic?: TopicSummary;
@@ -104,6 +132,8 @@ export interface HarmonyReaderView {
   recentCaptures: RecentCapture[];
   openQuestions: OpenQuestion[];
   parkedQuestions: ParkedQuestion[];
+  answersToday: AnswerToday[];
+  answersTodayOverflow: number;
   limitations: string[];
 }
 
@@ -116,6 +146,7 @@ export interface HarmonyImportReceipt {
   readerViewSchema?: string;
   topicCount?: number;
   dueReviewCount?: number;
+  answerCaptureCountToday?: number;
   mode?: string;
   errorCode?: string;
   message?: string;
