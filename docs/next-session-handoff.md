@@ -88,6 +88,12 @@ Latest local work also adds an `Answers Today` micro-surface:
 - Imported inbox answers use import/update time for the local day window, so a phone answer captured earlier still appears when it is imported today.
 - Overflow and `TODAY.md` output are pinned in smoke coverage.
 
+Latest local work gates weak answers out of review-card answer generation:
+
+- `reviewOverridesFromAnsweredQuestion()` now chooses the latest review-ready linked answer, not merely the latest linked answer.
+- Very short answers such as `Answer: ok` do not replace review-card content or become `evidenceCaptureId`.
+- If a newer answer is too weak but an older linked answer is useful, the review card uses the older useful answer.
+
 ## Verified Locally
 
 These passed after the `Question Loop` update:
@@ -144,7 +150,7 @@ Latest absorbed Mira notes for answered-question review cards:
 - Pin multi-answer ordering and equal-time tie-breaking.
 - Normalize `Q:` / `Question:` prompt prefixes.
 - Cover quote-only answer captures, not only thought+quote answers.
-- Defer `evidenceCaptureId` and weak-card quality gating as explicit follow-ups instead of smuggling in a schema change.
+- The earlier follow-ups for `evidenceCaptureId` and weak-card quality gating have now landed as small, additive local changes.
 
 Latest absorbed Mira notes for `Question Loop`:
 
@@ -174,7 +180,6 @@ Latest absorbed Mira notes for `Answers Today`:
 
 1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
-   - Consider weak-card gating for answer captures that are too short or empty to become useful review cards.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.
