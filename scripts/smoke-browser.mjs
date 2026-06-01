@@ -2344,6 +2344,11 @@ try {
       })()
     };
     const beforeLocalAnswerSave = window.learningCompanionNative.exportWorkspaceJson();
+    setValue("#thoughtInput", "Answer: supercalifragilistic");
+    const notReadyLinkedAnswerIntent = {
+      text: document.querySelector("#captureContextIntent").textContent,
+      title: document.querySelector("#captureContextIntent").title
+    };
     setValue("#thoughtInput", "Answer: compactness lets the proof extract a finite subcover from the open cover.");
     const localAnswerIntent = document.querySelector("#captureContextIntent").textContent;
     document.querySelector("#captureBtn").click();
@@ -2514,6 +2519,7 @@ try {
       },
       afterPark,
       afterAnswerDraft,
+      notReadyLinkedAnswerIntent,
       localAnswerSaved,
       afterQuestionCard,
       promotedQuestionButton: {
@@ -2583,6 +2589,10 @@ try {
   assert.equal(questionFlow.afterAnswerDraft.timestamp, "");
   assert.equal(questionFlow.afterAnswerDraft.intent, "Answer draft");
   assert.match(questionFlow.afterAnswerDraft.draftTarget, /^capture_/);
+  assert.deepEqual(questionFlow.notReadyLinkedAnswerIntent, {
+    text: "Answer draft",
+    title: "This will answer the linked question once you add enough detail."
+  });
   assert.deepEqual(questionFlow.localAnswerSaved, {
     intentBeforeSave: "Answer",
     activity: "Answer saved",

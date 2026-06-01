@@ -22,6 +22,7 @@ import {
   captureHasOpenQuestion,
   captureHasParkedQuestion,
   captureHasQuestion,
+  captureHasReviewReadyAnswer,
   cleanUrl,
   deleteCapture,
   deleteReviewCard,
@@ -1017,7 +1018,7 @@ function capture(promoteToReview) {
     return;
   }
   const draft = getCaptureDraft(session.id);
-  const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, dom.thoughtInput.value, { requireBody: true });
+  const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, dom.thoughtInput.value, { requireReviewReady: true });
   workspace = addCapture(workspace, session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
@@ -1285,14 +1286,13 @@ function captureDraftIntent(session) {
     answersQuestionCaptureId
   };
   const answerPrefix = /^(?:a|answer)\s*[:：]/i.test(thought);
-  const answerBody = thought.replace(/^(?:a|answer)\s*[:：]\s*/i, "").trim() || (!thought ? quote : "");
   if (!quote && !thought) {
     return {
       label: "Ready",
       title: "Add a quote or thought to capture."
     };
   }
-  if (answerPrefix && answerBody.length < 12) {
+  if (answerPrefix && !captureHasReviewReadyAnswer(draftCapture)) {
     return {
       label: answersQuestionCaptureId ? "Answer draft" : "Answer draft",
       title: answersQuestionCaptureId
@@ -1336,7 +1336,10 @@ function answerDraftTargetForThought(targetId, thought, options = {}) {
   if (!targetId) return "";
   const text = String(thought || "").trim();
   if (!/^(?:a|answer)\s*[:：]/i.test(text)) return "";
-  if (options.requireBody && text.replace(/^(?:a|answer)\s*[:：]\s*/i, "").trim().length < 12) return "";
+  if (options.requireReviewReady && !captureHasReviewReadyAnswer({
+    thought: text,
+    answersQuestionCaptureId: targetId
+  })) return "";
   return targetId;
 }
 

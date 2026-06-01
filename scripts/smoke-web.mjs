@@ -26,6 +26,7 @@ import {
   buildSourceJumpUrl,
   buildTodayPack,
   captureDraftStatusText,
+  captureHasReviewReadyAnswer,
   captureHasOpenQuestion,
   captureHasParkedQuestion,
   captureHasQuestion,
@@ -613,7 +614,12 @@ const localWeakAnswerWorkspace = addCapture(questionLifecycleWorkspace, question
 }, { now: "2026-05-29T00:30:30.000Z" });
 const localWeakAnswerSession = getActiveSession(localWeakAnswerWorkspace);
 assert.equal(localWeakAnswerSession.captures[0].answersQuestionCaptureId, questionCaptureId);
+assert.equal(captureHasReviewReadyAnswer(localWeakAnswerSession.captures[0]), false);
 assert.equal(captureHasOpenQuestion(localWeakAnswerSession.captures.find((capture) => capture.id === questionCaptureId)), true);
+assert.equal(captureHasReviewReadyAnswer({
+  thought: "Answer: supercalifragilistic",
+  answersQuestionCaptureId: questionCaptureId
+}), false);
 const localAnswerWorkspace = addCapture(questionLifecycleWorkspace, questionSession.id, {
   id: "local_answer_capture",
   quote: "Ownership makes aliasing safe by enforcing one mutable owner.",
@@ -623,6 +629,7 @@ const localAnswerWorkspace = addCapture(questionLifecycleWorkspace, questionSess
 const localAnswerSession = getActiveSession(localAnswerWorkspace);
 const localAnsweredQuestion = localAnswerSession.captures.find((capture) => capture.id === questionCaptureId);
 assert.equal(localAnswerSession.captures[0].answersQuestionCaptureId, questionCaptureId);
+assert.equal(captureHasReviewReadyAnswer(localAnswerSession.captures[0]), true);
 assert.equal(captureHasOpenQuestion(localAnsweredQuestion), false);
 assert.equal(captureHasResolvedQuestion(localAnsweredQuestion), true);
 assert.equal(localAnsweredQuestion.questionParkedAt, null);

@@ -2778,6 +2778,10 @@ export function captureHasAnswer(capture) {
   return classifyAnswerCapture(capture).isAnswer;
 }
 
+export function captureHasReviewReadyAnswer(capture) {
+  return captureHasAnswer(capture) && answerTextIsReviewReady(answerCaptureText(capture));
+}
+
 function classifyAnswerCapture(capture) {
   const answerTargetId = cleanAnswerTargetId(capture?.answersQuestionCaptureId);
   if (answerTargetId) return { isAnswer: true, reason: "linked-question" };
