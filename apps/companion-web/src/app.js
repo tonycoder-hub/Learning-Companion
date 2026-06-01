@@ -2012,7 +2012,7 @@ function renderToday() {
   if (!pack.resolvedQuestionItems.length) {
     dom.todayList.append(emptyState("No questions closed today"));
   } else {
-    pack.resolvedQuestionItems.forEach(({ sessionId, sessionTitle, capture }) => {
+    pack.resolvedQuestionItems.forEach(({ sessionId, sessionTitle, capture, answerCapture }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
       const item = document.createElement("article");
       item.className = "item-card question-card closed-question-card";
@@ -2025,6 +2025,12 @@ function renderToday() {
       thought.className = "capture-thought markdown-lite";
       renderMarkdown(thought, capture.thought || capture.quote || "Untitled question");
       item.append(thought);
+      if (answerCapture) {
+        const answer = document.createElement("div");
+        answer.className = "capture-thought markdown-lite";
+        renderMarkdown(answer, `Answer: ${formatAnswerCaptureSummary(answerCapture)}`);
+        item.append(answer);
+      }
       const footer = document.createElement("div");
       footer.className = "item-footer";
       footer.append(textEl("span", "", capture.tags.map((tag) => `#${tag}`).join(" ")));
@@ -2223,6 +2229,13 @@ function resumeCaptureDraft(sessionId) {
   });
   persistAndRender();
   dom.quoteInput.focus();
+}
+
+function formatAnswerCaptureSummary(capture) {
+  return String(capture?.thought || capture?.quote || "Linked answer capture")
+    .replace(/[\u0000-\u001F\u007F]/g, "")
+    .replace(/^(?:a|answer)\s*[:：]\s*/i, "")
+    .trim() || "Linked answer capture";
 }
 
 function todayStat(value, label) {

@@ -1961,6 +1961,8 @@ try {
     { text: "Card", disabled: true }
   );
   assert.match(questionFlow.afterAnswerImport.todayText, /Closed Today/);
+  assert.match(questionFlow.afterAnswerImport.todayText, /Answer: without compactness the proof cannot pass/);
+  assert.doesNotMatch(questionFlow.afterAnswerImport.todayText, /Answer: Answer:/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Reopen/);
   assert.equal(questionFlow.afterAnswerReopen.activity, "Question reopened");
   assert.equal(questionFlow.afterAnswerReopen.closedQuestionCards, 0);

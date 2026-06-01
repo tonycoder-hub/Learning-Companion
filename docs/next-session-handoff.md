@@ -54,6 +54,7 @@ Current uncommitted work turns answered questions into stronger review cards:
 - Leading `Q:` / `Question:` is stripped before wrapping the prompt.
 - If a question was promoted before an answer arrived, the old card remains stable and Closed Today shows disabled `Card`; there is no silent supersede yet.
 - Smoke coverage includes promoted-before-answered, multiple linked answers, quote-only answer captures, and equal-timestamp answer tie-breaking.
+- Closed Today/TODAY.md now also show the linked answer summary, with leading `Answer:` stripped to avoid duplicated labels.
 
 ## Verified Locally
 

@@ -654,6 +654,7 @@ const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("
 assert.equal(answeredTodayPack.stats.resolvedQuestionsToday, 1);
 assert.equal(answeredTodayPack.resolvedQuestionItems.length, 1);
 assert.equal(answeredTodayPack.resolvedQuestionItems[0].capture.id, questionCaptureId);
+assert.equal(answeredTodayPack.resolvedQuestionItems[0].answerCapture.inboxCaptureId, "inbox_answer_capture_001");
 assert.equal(getResolvedQuestionItems(answerInboxResult.workspace, 10, {
   since: new Date("2026-05-29T00:00:00.000Z"),
   until: new Date("2026-05-30T00:00:00.000Z")
@@ -662,6 +663,8 @@ const answeredTodayMarkdown = generateTodayMarkdown(answerInboxResult.workspace,
 assert.match(answeredTodayMarkdown, /Closed Today/);
 assert.match(answeredTodayMarkdown, /1 closed today/);
 assert.match(answeredTodayMarkdown, /Why does ownership make aliasing safe/);
+assert.match(answeredTodayMarkdown, /Answer: the compiler rejects overlapping mutable aliases before runtime/);
+assert.doesNotMatch(answeredTodayMarkdown, /Answer: Answer:/);
 const reopenedAfterAnswerWorkspace = setCaptureQuestionResolved(
   answerInboxResult.workspace,
   questionSession.id,

@@ -997,7 +997,7 @@ function reviewOverridesFromAnsweredQuestion(session, capture) {
   const answer = latestAnswerForQuestion(session, capture.id);
   if (!answer) return {};
   const questionText = reviewQuestionText(capture);
-  const answerText = cleanText(answer.thought || answer.quote, MAX_CAPTURE_TEXT_LENGTH);
+  const answerText = answerCaptureText(answer);
   if (!questionText || !answerText) return {};
   const answerEvidence = answer.quote && answer.thought
     ? `Evidence: ${cleanText(answer.quote, MAX_CAPTURE_TEXT_LENGTH)}`
@@ -1013,6 +1013,12 @@ function reviewOverridesFromAnsweredQuestion(session, capture) {
 function reviewQuestionText(capture) {
   return cleanText(capture.thought || capture.quote, MAX_CAPTURE_TEXT_LENGTH)
     .replace(/^(?:q|question)\s*[:：]\s*/i, "")
+    .trim();
+}
+
+function answerCaptureText(capture) {
+  return cleanText(capture.thought || capture.quote, MAX_CAPTURE_TEXT_LENGTH)
+    .replace(/^(?:a|answer)\s*[:：]\s*/i, "")
     .trim();
 }
 
@@ -1245,7 +1251,8 @@ export function getParkedQuestionItems(workspace, limit = 6) {
       .map((capture) => ({
         sessionId: session.id,
         sessionTitle: session.title,
-        capture
+        capture,
+        answerCapture: latestAnswerForQuestion(session, capture.id)
       })))
     .sort((a, b) => {
       const byParked = new Date(b.capture.questionParkedAt || b.capture.updatedAt).getTime()
@@ -1277,7 +1284,8 @@ export function getResolvedQuestionItems(workspace, limit = 6, options = {}) {
       .map((capture) => ({
         sessionId: session.id,
         sessionTitle: session.title,
-        capture
+        capture,
+        answerCapture: latestAnswerForQuestion(session, capture.id)
       })))
     .sort((a, b) => {
       const byResolved = resolvedQuestionTime(b.capture) - resolvedQuestionTime(a.capture);
@@ -1843,10 +1851,13 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
   if (!pack.resolvedQuestionItems.length) {
     lines.push("_No questions closed today._");
   } else {
-    pack.resolvedQuestionItems.forEach(({ sessionTitle, sessionPath, capture }) => {
+    pack.resolvedQuestionItems.forEach(({ sessionTitle, sessionPath, capture, answerCapture }) => {
       const question = markdownInline(capture.thought || capture.quote || "Untitled question");
       const closedAt = capture.questionResolvedAt ? ` · closed ${formatDate(capture.questionResolvedAt)}` : "";
       lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}${closedAt}`);
+      if (answerCapture) {
+        lines.push(`  - Answer: ${markdownInline(answerCaptureText(answerCapture) || "Linked answer capture")}`);
+      }
     });
     if (pack.resolvedQuestionOverflow) lines.push(`- +${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`);
   }
