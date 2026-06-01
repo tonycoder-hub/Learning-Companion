@@ -19,6 +19,7 @@ Branch: `product/mvp-learning-sidecar`
 
 Recent local work on top of `origin/product/mvp-learning-sidecar`:
 
+- `09bd884 feat: open review cards from capture stack`
 - `ef36e17 feat: reanchor drifted capture drafts`
 - `74d5b20 feat: warn on capture draft source drift`
 - `0463b81 docs: record zero time nudge handoff`
@@ -204,6 +205,12 @@ Latest local work adds Quick Capture draft source drift protection:
 - Source comparison reuses the existing URL matching normalization, so source-time query noise and title-only refreshes do not create warnings when the canonical URL is the same.
 - Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, explicit re-anchor, clear-after-reanchor, and post-capture snapshot reset.
 - Mira returned `PASS_WITH_NOTES`; accepted fixes included stable first-source snapshot semantics, URL/title normalization, status accessibility, source restore coverage, title-only refresh coverage, and post-capture reset coverage. Deferred notes: real YouTube/Feishu-doc manual switching remains a manual QA item, not proven by local smoke.
+
+Latest local work closes the Recent Stack review hop:
+
+- Promoted captures in the Quick Capture Recent Stack now show an enabled `Review` action instead of a disabled `Card` button.
+- Clicking it selects the linked review card, switches the desk-native focus mode to Review, keeps the review hidden until reveal, and records `Review card opened` in the activity strip.
+- Browser smoke pins the promoted capture stack actions, the Review hop, and the cleanup flow now expecting the stack Review action rather than a disabled card button.
 
 ## Verified Locally
 
