@@ -624,6 +624,30 @@ assert.equal(captureHasResolvedQuestion(answeredOriginalQuestion), true);
 assert.equal(answeredOriginalQuestion.questionParkedAt, null);
 assert.match(answeredOriginalQuestion.questionResolvedAt, /^2026-05-29T00:32:00/);
 assert.equal(importedAnswerCapture.answersQuestionCaptureId, questionCaptureId);
+const promotedAnsweredQuestionWorkspace = promoteCapture(answerInboxResult.workspace, questionSession.id, questionCaptureId);
+const promotedAnsweredQuestionSession = getActiveSession(promotedAnsweredQuestionWorkspace);
+const promotedAnsweredQuestionCard = promotedAnsweredQuestionSession.reviewCards[0];
+assert.equal(promotedAnsweredQuestionSession.captures.find((capture) => capture.id === questionCaptureId).promotedToReview, true);
+assert.equal(promotedAnsweredQuestionCard.sourceCaptureId, questionCaptureId);
+assert.match(promotedAnsweredQuestionCard.prompt, /Answer the question: Why does ownership make aliasing safe/);
+assert.match(promotedAnsweredQuestionCard.answer, /compiler rejects overlapping mutable aliases/);
+assert.match(promotedAnsweredQuestionCard.answer, /Evidence: Ownership makes aliasing safe/);
+const prePromotedQuestionWorkspace = promoteCapture(questionLifecycleWorkspace, questionSession.id, questionCaptureId);
+const prePromotedQuestionCardId = getActiveSession(prePromotedQuestionWorkspace).reviewCards[0].id;
+const answeredPrePromotedQuestion = applyMobileInboxPatch(prePromotedQuestionWorkspace, {
+  ...answerInboxPatch,
+  patchId: "patch_answer_question_pre_promoted",
+  captures: [{
+    ...answerInboxPatch.captures[0],
+    id: "inbox_answer_capture_pre_promoted"
+  }]
+}, new Date("2026-05-29T00:33:30.000Z"));
+const refreshedPrePromotedQuestion = promoteCapture(answeredPrePromotedQuestion.workspace, questionSession.id, questionCaptureId);
+const refreshedPrePromotedSession = getActiveSession(refreshedPrePromotedQuestion);
+assert.equal(refreshedPrePromotedSession.reviewCards.length, 1);
+assert.equal(refreshedPrePromotedSession.reviewCards[0].id, prePromotedQuestionCardId);
+assert.doesNotMatch(refreshedPrePromotedSession.reviewCards[0].prompt, /Answer the question:/);
+assert.equal(refreshedPrePromotedSession.captures.find((capture) => capture.id === questionCaptureId).promotedToReview, true);
 const answeredTodayPack = buildTodayPack(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"), {
   resolvedQuestionLimit: 2
 });
@@ -663,6 +687,87 @@ const reansweredPack = buildTodayPack(reansweredQuestionResult.workspace, new Da
 assert.equal(reansweredPack.stats.resolvedQuestionsToday, 1);
 assert.equal(reansweredPack.resolvedQuestionItems.length, 1);
 assert.match(reansweredPack.resolvedQuestionItems[0].capture.questionResolvedAt, /^2026-05-29T14:01:00/);
+const answeredQuestionCardFixture = workspaceFromPortableData({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  clientId: "client_answered_question_cards",
+  activeSessionId: "answered_card_topic",
+  sessions: [{
+    id: "answered_card_topic",
+    title: "Answered card semantics",
+    captures: [{
+      id: "q_prefixed_question",
+      quote: "",
+      thought: "Q: Which invariant survives stale heap entries?",
+      tags: ["question"],
+      capturedAt: "2099-01-02T10:00:00.000Z",
+      createdAt: "2099-01-02T10:00:00.000Z",
+      updatedAt: "2099-01-02T10:00:00.000Z",
+      questionResolvedAt: "2099-01-02T12:10:00.000Z"
+    }, {
+      id: "answer_captured_earlier",
+      quote: "Stale heap entries are ignored when popped.",
+      thought: "Answer: discard entries whose distance no longer matches the best-known distance.",
+      answersQuestionCaptureId: "q_prefixed_question",
+      capturedAt: "2099-01-02T11:00:00.000Z",
+      createdAt: "2099-01-02T13:00:00.000Z",
+      updatedAt: "2099-01-02T13:00:00.000Z"
+    }, {
+      id: "answer_created_only",
+      quote: "Final invariant: distances are only committed when popped fresh.",
+      thought: "",
+      answersQuestionCaptureId: "q_prefixed_question",
+      createdAt: "2099-01-02T12:00:00.000Z",
+      updatedAt: "2099-01-02T12:00:00.000Z"
+    }],
+    reviewCards: []
+  }]
+});
+const promotedQPrefixedQuestion = promoteCapture(answeredQuestionCardFixture, "answered_card_topic", "q_prefixed_question");
+const qPrefixedQuestionCard = getActiveSession(promotedQPrefixedQuestion).reviewCards[0];
+assert.match(qPrefixedQuestionCard.prompt, /Answer the question: Which invariant survives stale heap entries\?/);
+assert.doesNotMatch(qPrefixedQuestionCard.prompt, /Answer the question: Q:/);
+assert.match(qPrefixedQuestionCard.answer, /Final invariant: distances are only committed when popped fresh/);
+assert.doesNotMatch(qPrefixedQuestionCard.answer, /discard entries whose distance/);
+assert.doesNotMatch(qPrefixedQuestionCard.answer, /Evidence:/);
+const tiedAnswerCardFixture = workspaceFromPortableData({
+  schema: WORKSPACE_SCHEMA,
+  schemaVersion: WORKSPACE_SCHEMA_VERSION,
+  clientId: "client_answered_question_tie",
+  activeSessionId: "answered_card_tie_topic",
+  sessions: [{
+    id: "answered_card_tie_topic",
+    title: "Answered card tie semantics",
+    captures: [{
+      id: "tie_question",
+      thought: "Question: Which equal-timestamp answer wins?",
+      tags: ["question"],
+      capturedAt: "2099-01-02T10:00:00.000Z",
+      createdAt: "2099-01-02T10:00:00.000Z",
+      updatedAt: "2099-01-02T10:00:00.000Z",
+      questionResolvedAt: "2099-01-02T12:10:00.000Z"
+    }, {
+      id: "answer_a",
+      thought: "Answer: lower lexical id should lose the deterministic tie.",
+      answersQuestionCaptureId: "tie_question",
+      capturedAt: "2099-01-02T12:00:00.000Z",
+      createdAt: "2099-01-02T12:00:00.000Z",
+      updatedAt: "2099-01-02T12:00:00.000Z"
+    }, {
+      id: "answer_z",
+      thought: "Answer: higher lexical id wins the deterministic tie.",
+      answersQuestionCaptureId: "tie_question",
+      capturedAt: "2099-01-02T12:00:00.000Z",
+      createdAt: "2099-01-02T12:00:00.000Z",
+      updatedAt: "2099-01-02T12:00:00.000Z"
+    }],
+    reviewCards: []
+  }]
+});
+const tiedAnswerCard = getActiveSession(promoteCapture(tiedAnswerCardFixture, "answered_card_tie_topic", "tie_question")).reviewCards[0];
+assert.match(tiedAnswerCard.prompt, /Answer the question: Which equal-timestamp answer wins\?/);
+assert.match(tiedAnswerCard.answer, /higher lexical id wins/);
+assert.doesNotMatch(tiedAnswerCard.answer, /lower lexical id/);
 const duplicateAnswerInboxResult = applyMobileInboxPatch(answerInboxResult.workspace, answerInboxPatch, new Date("2026-05-29T00:32:30.000Z"));
 assert.equal(duplicateAnswerInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateAnswerInboxResult.receipt.answeredQuestions, 0);

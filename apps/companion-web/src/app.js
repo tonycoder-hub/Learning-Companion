@@ -2041,6 +2041,11 @@ function renderToday() {
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
+      const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
+      card.type = "button";
+      card.disabled = capture.promotedToReview;
+      card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
+      footer.append(card);
       const reopen = textEl("button", "mini-button primary", "Reopen");
       reopen.type = "button";
       reopen.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, false));

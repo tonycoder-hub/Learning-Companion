@@ -47,6 +47,14 @@ Latest local work keeps resolved questions visible in Today:
 - Closed cards provide View/Reopen and stay excluded from active/open question counts.
 - Smoke coverage now includes answer-import closure, Reopen removing a closed card and restoring the open question, same-day re-resolve latest-wins semantics, overflow, and Today/TODAY.md window agreement.
 
+Current uncommitted work turns answered questions into stronger review cards:
+
+- `promoteCapture()` now detects same-session answer captures linked by `answersQuestionCaptureId`.
+- When promoting an answered question, the card prompt uses the original question and the card answer uses the latest linked answer capture.
+- Leading `Q:` / `Question:` is stripped before wrapping the prompt.
+- If a question was promoted before an answer arrived, the old card remains stable and Closed Today shows disabled `Card`; there is no silent supersede yet.
+- Smoke coverage includes promoted-before-answered, multiple linked answers, quote-only answer captures, and equal-timestamp answer tie-breaking.
+
 ## Verified Locally
 
 These passed after the `Closed Today` update:
@@ -97,12 +105,22 @@ Latest absorbed Mira notes for `Closed Today`:
 - Assert Reopen state transitions, same-day re-resolve behavior, and overflow instead of only testing the happy path.
 - Defer DST-specific and visual screenshot work as follow-up; tonight's local gates are enough for this increment.
 
+Latest absorbed Mira notes for answered-question review cards:
+
+- Pin the promoted-before-answered contract so no duplicate or silent stale-card replacement occurs.
+- Pin multi-answer ordering and equal-time tie-breaking.
+- Normalize `Q:` / `Question:` prompt prefixes.
+- Cover quote-only answer captures, not only thought+quote answers.
+- Defer `evidenceCaptureId` and weak-card quality gating as explicit follow-ups instead of smuggling in a schema change.
+
 ## Next Local Work
 
 1. Continue the study loop:
    - Consider a question-conversion receipt: active, parked, answered/resolved, and promoted-to-review counts.
    - Consider an "answers imported today" micro-surface if the user needs to inspect answer captures separately from resolved questions.
-   - Consider a gentle "promote resolved question to review" path from Closed Today so closure can turn into retention.
+   - Consider a deliberate "refresh card from answer" affordance for questions that were promoted before the answer arrived.
+   - Consider `evidenceCaptureId` or equivalent provenance so future review cards can jump to both the original question and the answer evidence.
+   - Consider weak-card gating for answer captures that are too short or empty to become useful review cards.
 
 2. Keep the cross-end story honest:
    - Mac/web offline path is strongest today.

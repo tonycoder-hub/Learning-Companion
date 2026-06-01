@@ -1838,6 +1838,8 @@ try {
       answerCaptureLinked: answerCaptureAfter?.answersQuestionCaptureId === answerTarget?.id,
       closedQuestionCards: Array.from(document.querySelectorAll("#todayList .closed-question-card"))
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
+      closedCardButtons: Array.from(document.querySelectorAll("#todayList .closed-question-card button"))
+        .map((button) => ({ text: button.textContent, disabled: button.disabled === true })),
       todayText: document.querySelector("#todayList").textContent
     };
     const closedQuestionCard = Array.from(document.querySelectorAll("#todayList .closed-question-card"))
@@ -1954,6 +1956,10 @@ try {
   assert.equal(questionFlow.afterAnswerImport.answerCaptureLinked, true);
   assert.match(questionFlow.afterAnswerImport.receiptText, /1 question resolved/);
   assert.equal(questionFlow.afterAnswerImport.closedQuestionCards, 1);
+  assert.deepEqual(
+    questionFlow.afterAnswerImport.closedCardButtons.find((button) => button.text === "Card"),
+    { text: "Card", disabled: true }
+  );
   assert.match(questionFlow.afterAnswerImport.todayText, /Closed Today/);
   assert.match(questionFlow.afterAnswerImport.todayText, /Reopen/);
   assert.equal(questionFlow.afterAnswerReopen.activity, "Question reopened");

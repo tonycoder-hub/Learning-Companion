@@ -981,11 +981,56 @@ export function promoteCapture(workspace, sessionId, captureId) {
         captures: session.captures.map((item) => item.id === captureId
           ? { ...item, promotedToReview: true, updatedAt: nowIso() }
           : item),
-        reviewCards: [createReviewCardFromCapture(capture, workspace.clientId), ...session.reviewCards],
+        reviewCards: [createReviewCardFromCapture(
+          capture,
+          workspace.clientId,
+          reviewOverridesFromAnsweredQuestion(session, capture)
+        ), ...session.reviewCards],
         updatedAt: nowIso()
       };
     })
   };
+}
+
+function reviewOverridesFromAnsweredQuestion(session, capture) {
+  if (!captureHasQuestion(capture)) return {};
+  const answer = latestAnswerForQuestion(session, capture.id);
+  if (!answer) return {};
+  const questionText = reviewQuestionText(capture);
+  const answerText = cleanText(answer.thought || answer.quote, MAX_CAPTURE_TEXT_LENGTH);
+  if (!questionText || !answerText) return {};
+  const answerEvidence = answer.quote && answer.thought
+    ? `Evidence: ${cleanText(answer.quote, MAX_CAPTURE_TEXT_LENGTH)}`
+    : "";
+  return {
+    prompt: `Answer the question: ${questionText}`,
+    answer: [answerText, answerEvidence, answer.timestamp ? `Time: ${answer.timestamp}` : ""]
+      .filter(Boolean)
+      .join("\n\n")
+  };
+}
+
+function reviewQuestionText(capture) {
+  return cleanText(capture.thought || capture.quote, MAX_CAPTURE_TEXT_LENGTH)
+    .replace(/^(?:q|question)\s*[:：]\s*/i, "")
+    .trim();
+}
+
+function latestAnswerForQuestion(session, questionCaptureId) {
+  return [...(session.captures || [])]
+    .filter((capture) => cleanAnswerTargetId(capture.answersQuestionCaptureId) === questionCaptureId)
+    .sort((a, b) => {
+      const byTime = captureEventTime(b) - captureEventTime(a);
+      if (byTime !== 0) return byTime;
+      return String(b.id || "").localeCompare(String(a.id || ""));
+    })[0] || null;
+}
+
+function captureEventTime(capture) {
+  const capturedTime = boundedTime(capture?.capturedAt);
+  if (Number.isFinite(capturedTime)) return capturedTime;
+  const createdTime = boundedTime(capture?.createdAt);
+  return Number.isFinite(createdTime) ? createdTime : 0;
 }
 
 export function setCaptureQuestionResolved(workspace, sessionId, captureId, resolved = true) {
