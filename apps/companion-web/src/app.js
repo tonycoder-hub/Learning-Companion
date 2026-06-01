@@ -1440,10 +1440,13 @@ function formatInboxReceipt(receipt) {
   const answered = receipt.answeredQuestions
     ? ` · ${receipt.answeredQuestions} ${receipt.answeredQuestions === 1 ? "question" : "questions"} resolved`
     : "";
+  const refreshable = receipt.refreshableReviewCards
+    ? ` · ${receipt.refreshableReviewCards} ${receipt.refreshableReviewCards === 1 ? "card" : "cards"} ready to refresh`
+    : "";
   const answerSkipped = receipt.skippedAnswerTargets
     ? ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips)}`
     : "";
-  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${answerSkipped} · ${resolution} · ${receipt.targetSessionTitle}`;
+  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped} · ${resolution} · ${receipt.targetSessionTitle}`;
 }
 
 function formatAnswerTargetSkips(skips = {}) {

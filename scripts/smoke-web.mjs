@@ -611,6 +611,7 @@ const answerInboxSession = getActiveSession(answerInboxResult.workspace);
 const answeredOriginalQuestion = answerInboxSession.captures.find((capture) => capture.id === questionCaptureId);
 const importedAnswerCapture = answerInboxSession.captures.find((capture) => capture.inboxCaptureId === "inbox_answer_capture_001");
 assert.equal(answerInboxResult.receipt.answeredQuestions, 1);
+assert.equal(answerInboxResult.receipt.refreshableReviewCards, 0);
 assert.equal(answerInboxResult.receipt.skippedAnswerTargets, 0);
 assert.deepEqual(answerInboxResult.receipt.answerTargetSkips, {
   invalid: 0,
@@ -652,6 +653,8 @@ const answeredPrePromotedQuestion = applyMobileInboxPatch(prePromotedQuestionWor
     id: "inbox_answer_capture_pre_promoted"
   }]
 }, new Date("2026-05-29T00:33:30.000Z"));
+assert.equal(answeredPrePromotedQuestion.receipt.answeredQuestions, 1);
+assert.equal(answeredPrePromotedQuestion.receipt.refreshableReviewCards, 1);
 const prePromotedAnswerCapture = getActiveSession(answeredPrePromotedQuestion.workspace)
   .captures.find((capture) => capture.inboxCaptureId === "inbox_answer_capture_pre_promoted");
 const refreshedPrePromotedQuestion = promoteCapture(answeredPrePromotedQuestion.workspace, questionSession.id, questionCaptureId);
@@ -811,6 +814,7 @@ assert.equal(tiedAnswerCard.evidenceCaptureId, "answer_z");
 const duplicateAnswerInboxResult = applyMobileInboxPatch(answerInboxResult.workspace, answerInboxPatch, new Date("2026-05-29T00:32:30.000Z"));
 assert.equal(duplicateAnswerInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateAnswerInboxResult.receipt.answeredQuestions, 0);
+assert.equal(duplicateAnswerInboxResult.receipt.refreshableReviewCards, 0);
 assert.equal(duplicateAnswerInboxResult.receipt.skippedAnswerTargets, 0);
 const alreadyClosedAnswerResult = applyMobileInboxPatch(answerInboxResult.workspace, {
   ...answerInboxPatch,

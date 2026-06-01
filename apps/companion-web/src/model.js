@@ -745,18 +745,22 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
   answeredQuestions = answeredQuestionIds.size;
   skippedAnswerTargets = Object.values(answerTargetSkips).reduce((sum, count) => sum + count, 0);
   const finalWorkspace = sanitizeWorkspace(nextWorkspace);
+  const finalTargetSession = finalWorkspace.sessions.find((session) => session.id === target.session.id) || getActiveSession(finalWorkspace);
+  const refreshableReviewCards = finalTargetSession.reviewCards
+    .filter((card) => answeredQuestionIds.has(card.sourceCaptureId)).length;
   return {
     workspace: finalWorkspace,
     receipt: buildInboxReceipt({
       patch,
       patchId,
       workspace: finalWorkspace,
-      targetSession: finalWorkspace.sessions.find((session) => session.id === target.session.id) || getActiveSession(finalWorkspace),
+      targetSession: finalTargetSession,
       targetResolution: target.resolution,
       added: importedCaptures.length,
       skippedDuplicate,
       sanitizedSourceUrls,
       answeredQuestions,
+      refreshableReviewCards,
       skippedAnswerTargets,
       answerTargetSkips,
       importedAt: now
@@ -2961,6 +2965,7 @@ function buildInboxReceipt({
   skippedDuplicate,
   sanitizedSourceUrls = 0,
   answeredQuestions = 0,
+  refreshableReviewCards = 0,
   skippedAnswerTargets = 0,
   answerTargetSkips = {},
   importedAt
@@ -2977,6 +2982,7 @@ function buildInboxReceipt({
     skippedDuplicate,
     sanitizedSourceUrls,
     answeredQuestions,
+    refreshableReviewCards,
     skippedAnswerTargets,
     answerTargetSkips: {
       invalid: Number(answerTargetSkips.invalid) || 0,

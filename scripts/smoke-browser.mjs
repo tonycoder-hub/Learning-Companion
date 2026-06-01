@@ -1997,6 +1997,7 @@ try {
   assert.match(questionFlow.afterAnswerImport.questionResolvedAt, /^20/);
   assert.equal(questionFlow.afterAnswerImport.answerCaptureLinked, true);
   assert.match(questionFlow.afterAnswerImport.receiptText, /1 question resolved/);
+  assert.match(questionFlow.afterAnswerImport.receiptText, /1 card ready to refresh/);
   assert.equal(questionFlow.afterAnswerImport.closedQuestionCards, 1);
   assert.deepEqual(
     questionFlow.afterAnswerImport.closedCardButtons.find((button) => button.text === "Refresh card"),
