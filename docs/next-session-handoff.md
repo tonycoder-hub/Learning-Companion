@@ -347,11 +347,11 @@ Latest local export work separates real saves from temporary downloads:
 - Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup requested - verify downloaded file`.
 - Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy only for explicit smoke fallback saves.
 - ZIP export is intentionally not sent through the text bridge; it continues through save picker or explicit smoke fallback to avoid large binary payloads in the WK message body.
-- `npm run smoke:browser` now creates a private `$TMPDIR/lc-browser-smoke-*/` root with separate Chrome profile and `downloads/` directory.
+- `npm run smoke:browser` now creates a private ignored `.codex-tmp/browser-smoke/*/` root with separate Chrome profile and `downloads/` directory.
 - Chrome's CDP download behavior is set to that temporary download path, and the page receives an explicit `window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = true` harness flag before the test clicks export/return buttons.
 - Browser smoke also includes a negative return-file save case: when that explicit flag is absent in a controlled session, clicking `Save Return JSON` creates no download file and surfaces Copy guidance.
 - The script waits for Chrome to exit before deleting the current smoke root, and a startup janitor removes stale `lc-browser-smoke-*` roots older than 30 minutes.
-- A plain web page still cannot write arbitrary files to `/tmp`; `/tmp` routing is only for automated smoke fallback downloads. The Mac shell `File > Export Workspace...` remains the native NSSavePanel path.
+- A plain web page still cannot write arbitrary files into a chosen local scratch directory; `.codex-tmp/` routing is only for automated smoke fallback downloads. The Mac shell `File > Export Workspace...` remains the native NSSavePanel path.
 
 ## Verified Locally
 

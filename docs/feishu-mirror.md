@@ -20,7 +20,7 @@ The first uploader-shaped adapter is local only:
 ```bash
 node scripts/feishu-mirror-uploader.mjs \
   --bundle learning-companion-feishu-mirror.json \
-  --out /tmp/learning-companion-feishu-upload \
+  --out .codex-tmp/feishu-upload \
   --json
 ```
 
@@ -37,9 +37,9 @@ Dry-run report example:
 
 ```bash
 node scripts/feishu-mirror-uploader.mjs \
-  --plan /tmp/learning-companion-feishu-upload/feishu-upload-plan.json \
-  --files-dir /tmp/learning-companion-feishu-upload/files \
-  --report-out /tmp/learning-companion-feishu-upload/feishu-upload-report.json \
+  --plan .codex-tmp/feishu-upload/feishu-upload-plan.json \
+  --files-dir .codex-tmp/feishu-upload/files \
+  --report-out .codex-tmp/feishu-upload/feishu-upload-report.json \
   --json
 ```
 
