@@ -13,6 +13,18 @@ import {
 } from "../../companion-web/src/model.js";
 
 export const HARMONY_READER_VIEW_SCHEMA = "learning-companion.harmony-reader-view.v1";
+export const HARMONY_READER_NEXT_ACTION_PRIORITY = Object.freeze([
+  "review_queue",
+  "answer_question",
+  "read_answers",
+  "resume_topic",
+  "import_reader_view"
+]);
+export const HARMONY_READER_NEXT_ACTION_ROUTES = Object.freeze([
+  "pages/ReviewQueue",
+  "pages/TopicDetail",
+  "pages/ImportReceipt"
+]);
 
 export function buildHarmonyReaderView(portableData, options = {}) {
   const now = normalizeDate(options.now);
@@ -57,6 +69,62 @@ export function buildHarmonyReaderView(portableData, options = {}) {
     };
   });
   const activeTopic = topics.find((topic) => topic.id === workspace.activeSessionId) || topics[0] || null;
+  const dueReview = getDueReviewItems(workspace, now).slice(0, 20).map((item) => ({
+    sessionId: item.sessionId,
+    sessionTitle: item.sessionTitle,
+    cardId: item.card.id,
+    prompt: item.card.prompt,
+    answer: item.card.answer,
+    dueAt: item.card.dueAt,
+    strength: item.card.strength
+  }));
+  const recentCaptures = getRecentCaptureItems(workspace, 12).map((item) => ({
+    sessionId: item.sessionId,
+    sessionTitle: item.sessionTitle,
+    captureId: item.capture.id,
+    quote: item.capture.quote,
+    thought: item.capture.thought,
+    capturedAt: item.capture.capturedAt || item.capture.createdAt,
+    sourceTitle: item.capture.sourceTitle,
+    sourceUrl: item.capture.sourceUrl,
+    isQuestion: captureHasQuestion(item.capture),
+    isOpenQuestion: captureHasOpenQuestion(item.capture),
+    isParkedQuestion: captureHasParkedQuestion(item.capture),
+    questionResolvedAt: item.capture.questionResolvedAt || "",
+    questionParkedAt: item.capture.questionParkedAt || ""
+  }));
+  const openQuestions = openQuestionItems.map((item) => ({
+    sessionId: item.sessionId,
+    sessionTitle: item.sessionTitle,
+    captureId: item.capture.id,
+    quote: item.capture.quote,
+    thought: item.capture.thought,
+    capturedAt: item.capture.capturedAt || item.capture.createdAt,
+    sourceTitle: item.capture.sourceTitle,
+    sourceUrl: item.capture.sourceUrl
+  }));
+  const parkedQuestions = parkedQuestionItems.map((item) => ({
+    sessionId: item.sessionId,
+    sessionTitle: item.sessionTitle,
+    captureId: item.capture.id,
+    quote: item.capture.quote,
+    thought: item.capture.thought,
+    capturedAt: item.capture.capturedAt || item.capture.createdAt,
+    questionParkedAt: item.capture.questionParkedAt || "",
+    sourceTitle: item.capture.sourceTitle,
+    sourceUrl: item.capture.sourceUrl
+  }));
+  const answersToday = answerItems.slice(0, answerLimit).map((item) => answerTodayItem(item));
+  const readerNextAction = buildHarmonyReaderNextAction({
+    generatedAt: now.toISOString(),
+    activeTopic,
+    dueReview,
+    openQuestions,
+    answersToday,
+    recentCaptures,
+    answerCount: answerItems.length,
+    openQuestionCount
+  });
   return {
     schema: HARMONY_READER_VIEW_SCHEMA,
     generatedAt: now.toISOString(),
@@ -86,53 +154,13 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       activeTopicId: activeTopic?.id || ""
     },
     activeTopic,
+    readerNextAction,
     topics,
-    dueReview: getDueReviewItems(workspace, now).slice(0, 20).map((item) => ({
-      sessionId: item.sessionId,
-      sessionTitle: item.sessionTitle,
-      cardId: item.card.id,
-      prompt: item.card.prompt,
-      answer: item.card.answer,
-      dueAt: item.card.dueAt,
-      strength: item.card.strength
-    })),
-    recentCaptures: getRecentCaptureItems(workspace, 12).map((item) => ({
-      sessionId: item.sessionId,
-      sessionTitle: item.sessionTitle,
-      captureId: item.capture.id,
-      quote: item.capture.quote,
-      thought: item.capture.thought,
-      capturedAt: item.capture.capturedAt || item.capture.createdAt,
-      sourceTitle: item.capture.sourceTitle,
-      sourceUrl: item.capture.sourceUrl,
-      isQuestion: captureHasQuestion(item.capture),
-      isOpenQuestion: captureHasOpenQuestion(item.capture),
-      isParkedQuestion: captureHasParkedQuestion(item.capture),
-      questionResolvedAt: item.capture.questionResolvedAt || "",
-      questionParkedAt: item.capture.questionParkedAt || ""
-    })),
-    openQuestions: openQuestionItems.map((item) => ({
-      sessionId: item.sessionId,
-      sessionTitle: item.sessionTitle,
-      captureId: item.capture.id,
-      quote: item.capture.quote,
-      thought: item.capture.thought,
-      capturedAt: item.capture.capturedAt || item.capture.createdAt,
-      sourceTitle: item.capture.sourceTitle,
-      sourceUrl: item.capture.sourceUrl
-    })),
-    parkedQuestions: parkedQuestionItems.map((item) => ({
-      sessionId: item.sessionId,
-      sessionTitle: item.sessionTitle,
-      captureId: item.capture.id,
-      quote: item.capture.quote,
-      thought: item.capture.thought,
-      capturedAt: item.capture.capturedAt || item.capture.createdAt,
-      questionParkedAt: item.capture.questionParkedAt || "",
-      sourceTitle: item.capture.sourceTitle,
-      sourceUrl: item.capture.sourceUrl
-    })),
-    answersToday: answerItems.slice(0, answerLimit).map((item) => answerTodayItem(item)),
+    dueReview,
+    recentCaptures,
+    openQuestions,
+    parkedQuestions,
+    answersToday,
     answersTodayOverflow: Math.max(0, answerItems.length - answerLimit),
     limitations: [
       "Prototype reader only; no HarmonyOS storage adapter yet.",
@@ -140,6 +168,104 @@ export function buildHarmonyReaderView(portableData, options = {}) {
       "No live Feishu sync or device file picker is implemented here."
     ]
   };
+}
+
+function buildHarmonyReaderNextAction({
+  generatedAt,
+  activeTopic,
+  dueReview,
+  openQuestions,
+  answersToday,
+  recentCaptures,
+  answerCount,
+  openQuestionCount
+}) {
+  if (dueReview.length) {
+    return {
+      kind: "review_queue",
+      label: "Review due cards",
+      detail: dueReview[0]?.prompt || "Reveal the first due card from this import.",
+      route: "pages/ReviewQueue",
+      routeLabel: "Open Review Queue",
+      meta: `${formatCount(dueReview.length, "due card")} from this import`,
+      secondary: deferredReaderNextLine({
+        openQuestionCount,
+        answerCount
+      }),
+      generatedAt,
+      surface: "reader"
+    };
+  }
+  if (openQuestions.length) {
+    return {
+      kind: "answer_question",
+      label: "Answer next question",
+      detail: summarizePhoneAction(openQuestions[0]?.thought || openQuestions[0]?.quote || "Open question"),
+      route: "pages/TopicDetail",
+      routeLabel: "Open Active Topic",
+      meta: `${formatCount(openQuestionCount, "open question")} from this import`,
+      secondary: [
+        deferredReaderNextLine({ answerCount }),
+        "Phone answers should return as append-only JSON for Mac import."
+      ].filter(Boolean).join(" "),
+      generatedAt,
+      surface: "reader"
+    };
+  }
+  if (answersToday.length) {
+    return {
+      kind: "read_answers",
+      label: "Review answers today",
+      detail: summarizePhoneAction(answersToday[0]?.thought || "Read the latest answer imported today."),
+      route: "pages/TopicDetail",
+      routeLabel: "Open Active Topic",
+      meta: `${formatCount(answerCount, "answer")} today`,
+      secondary: "Answers are a Mac-generated read-only projection.",
+      generatedAt,
+      surface: "reader"
+    };
+  }
+  if (activeTopic?.latestCapture) {
+    return {
+      kind: "resume_topic",
+      label: activeTopic.nextAction?.label || "Resume topic",
+      detail: summarizePhoneAction(activeTopic.latestCapture.summary || activeTopic.nextAction?.detail || "Continue the active topic."),
+      route: "pages/TopicDetail",
+      routeLabel: "Open Active Topic",
+      meta: activeTopic.title || "Active topic",
+      secondary: "Static reader view; re-import a fresh mirror for updates.",
+      generatedAt,
+      surface: "reader"
+    };
+  }
+  return {
+    kind: "import_reader_view",
+    label: "Import mirror JSON",
+    detail: "When the device picker is wired, choose a workspace or mirror bundle before using the phone reader.",
+    route: "pages/ImportReceipt",
+    routeLabel: "View Import Contract",
+    meta: "JSON <= 5 MB; no live sync",
+    secondary: "Rejected files keep the previous reader view visible.",
+    generatedAt,
+    surface: "reader"
+  };
+}
+
+function deferredReaderNextLine({ openQuestionCount = 0, answerCount = 0 }) {
+  const parts = [];
+  if (openQuestionCount) parts.push(formatCount(openQuestionCount, "open question"));
+  if (answerCount) parts.push(`${formatCount(answerCount, "answer")} today`);
+  return parts.length ? `Also: ${parts.join(" · ")}.` : "";
+}
+
+function summarizePhoneAction(value) {
+  const text = String(value || "").replace(/[\u0000-\u001F\u007F]/g, "").trim();
+  if (!text) return "Open the active topic for the next reader step.";
+  return text.length > 120 ? `${text.slice(0, 117).trimEnd()}...` : text;
+}
+
+function formatCount(count, singular) {
+  return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
 function countOpenQuestions(workspace) {

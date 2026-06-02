@@ -6,6 +6,10 @@ export const REVIEW_PROGRESS_PATCH_SCHEMA = 'learning-companion.review-progress-
 export const HARMONY_IMPORT_RECEIPT_SCHEMA = 'learning-companion.harmony-import-receipt.v1';
 
 export type FocusActionKind = 'review' | 'synthesize' | 'capture' | 'continue' | 'open_source';
+export type HarmonyReaderNextActionKind = 'review_queue' | 'answer_question' | 'read_answers' | 'resume_topic' | 'import_reader_view';
+export type HarmonyReaderRoute = 'pages/ReviewQueue' | 'pages/TopicDetail' | 'pages/ImportReceipt';
+export type HarmonyReaderSurface = 'reader';
+export const HARMONY_READER_NEXT_ACTION_PRIORITY: HarmonyReaderNextActionKind[] = ['review_queue', 'answer_question', 'read_answers', 'resume_topic', 'import_reader_view'];
 export type MaterialType = 'article' | 'video' | 'doc' | 'course' | 'book' | 'other';
 export type ReviewGrade = 'again' | 'good';
 export type AnswerReason = 'linked-question' | 'tagged-answer' | 'answer-prefix' | '';
@@ -35,6 +39,18 @@ export interface TopicSummary {
   unresolvedQuestionCount: number;
   nextAction: FocusNextAction;
   latestCapture?: CapturePreview;
+}
+
+export interface HarmonyReaderNextAction {
+  kind: HarmonyReaderNextActionKind;
+  label: string;
+  detail: string;
+  route: HarmonyReaderRoute;
+  routeLabel: string;
+  meta: string;
+  secondary: string;
+  generatedAt: string;
+  surface: HarmonyReaderSurface;
 }
 
 export interface CapturePreview {
@@ -127,6 +143,7 @@ export interface HarmonyReaderView {
     activeTopicId: string;
   };
   activeTopic?: TopicSummary;
+  readerNextAction: HarmonyReaderNextAction;
   topics: TopicSummary[];
   dueReview: DueReviewCard[];
   recentCaptures: RecentCapture[];

@@ -27,6 +27,17 @@ export function createEmptyReaderView(nowIso: string): HarmonyReaderView {
       activeTopicId: ''
     },
     activeTopic: undefined,
+    readerNextAction: {
+      kind: 'import_reader_view',
+      label: 'Import mirror JSON',
+      detail: 'When the device picker is wired, choose a workspace or mirror bundle before using the phone reader.',
+      route: 'pages/ImportReceipt',
+      routeLabel: 'View Import Contract',
+      meta: 'JSON <= 5 MB; no live sync',
+      secondary: 'Rejected files keep the previous reader view visible.',
+      generatedAt: nowIso,
+      surface: 'reader'
+    },
     topics: [],
     dueReview: [],
     recentCaptures: [],

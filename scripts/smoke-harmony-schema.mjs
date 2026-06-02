@@ -12,6 +12,8 @@ import {
   updateSession
 } from "../apps/companion-web/src/model.js";
 import {
+  HARMONY_READER_NEXT_ACTION_PRIORITY,
+  HARMONY_READER_NEXT_ACTION_ROUTES,
   HARMONY_READER_VIEW_SCHEMA,
   buildHarmonyReaderView
 } from "../apps/companion-harmony/src/schema-reader.mjs";
@@ -149,12 +151,24 @@ workspace = sanitizeWorkspace(workspace);
 
 const workspaceView = buildHarmonyReaderView(workspace, { now });
 assert.equal(workspaceView.schema, HARMONY_READER_VIEW_SCHEMA);
+assert.deepEqual(HARMONY_READER_NEXT_ACTION_PRIORITY, ["review_queue", "answer_question", "read_answers", "resume_topic", "import_reader_view"]);
+assert.deepEqual(HARMONY_READER_NEXT_ACTION_ROUTES, ["pages/ReviewQueue", "pages/TopicDetail", "pages/ImportReceipt"]);
 assert.equal(workspaceView.mode, "read-only-prototype");
 assert.equal(workspaceView.workspace.sessionCount, workspace.sessions.length);
 assert.equal(workspaceView.workspace.activeTopicId, workspace.activeSessionId);
 assert.equal(workspaceView.activeTopic.title, getActiveSession(workspace).title);
 assert.equal(workspaceView.activeTopic.nextAction.reason, "Active topic has due review due now.");
 assert.equal(workspaceView.activeTopic.nextAction.detail, "Reveal and grade before adding more material.");
+assert.equal(workspaceView.readerNextAction.kind, "review_queue");
+assert.equal(workspaceView.readerNextAction.label, "Review due cards");
+assert.equal(workspaceView.readerNextAction.route, "pages/ReviewQueue");
+assert.equal(workspaceView.readerNextAction.routeLabel, "Open Review Queue");
+assert.equal(HARMONY_READER_NEXT_ACTION_ROUTES.includes(workspaceView.readerNextAction.route), true);
+assert.equal(workspaceView.readerNextAction.surface, "reader");
+assert.match(workspaceView.readerNextAction.meta, /1 due card from this import/);
+assert.match(workspaceView.readerNextAction.secondary, /Also: 14 open questions · 2 answers today\./);
+assert.equal(workspaceView.readerNextAction.generatedAt, now.toISOString());
+assert.equal(Number.isFinite(Date.parse(workspaceView.readerNextAction.generatedAt)), true);
 assert.equal(workspaceView.activeTopic.openQuestionCount, 14);
 assert.equal(workspaceView.activeTopic.parkedQuestionCount, 1);
 assert.equal(workspaceView.activeTopic.unresolvedQuestionCount, 15);
@@ -237,6 +251,27 @@ assert.deepEqual(mirrorView.parkedQuestions, workspaceView.parkedQuestions);
 assert.equal(mirrorView.workspace.answerCaptureCountToday, workspaceView.workspace.answerCaptureCountToday);
 assert.deepEqual(mirrorView.answersToday, workspaceView.answersToday);
 assert.equal(mirrorView.answersTodayOverflow, workspaceView.answersTodayOverflow);
+assert.deepEqual(mirrorView.readerNextAction, workspaceView.readerNextAction);
+
+let questionOnlyWorkspace = createDefaultWorkspace();
+const questionOnlyActive = getActiveSession(questionOnlyWorkspace);
+questionOnlyWorkspace = addCapture(questionOnlyWorkspace, questionOnlyActive.id, {
+  quote: "Question-only Harmony import should not pretend review is due.",
+  thought: "What should the phone reader answer first?",
+  tags: "harmony question"
+}, { now });
+const questionOnlyView = buildHarmonyReaderView(questionOnlyWorkspace, { now });
+assert.equal(questionOnlyView.dueReview.length, 0);
+assert.equal(questionOnlyView.readerNextAction.kind, "answer_question");
+assert.equal(questionOnlyView.readerNextAction.label, "Answer next question");
+assert.equal(questionOnlyView.readerNextAction.route, "pages/TopicDetail");
+assert.equal(HARMONY_READER_NEXT_ACTION_ROUTES.includes(questionOnlyView.readerNextAction.route), true);
+assert.match(questionOnlyView.readerNextAction.detail, /What should the phone reader answer first\?/);
+assert.match(questionOnlyView.readerNextAction.secondary, /append-only JSON/);
+
+const emptyReaderView = buildHarmonyReaderView(createDefaultWorkspace(), { now });
+assert.notEqual(emptyReaderView.readerNextAction, null);
+assert.equal(HARMONY_READER_NEXT_ACTION_ROUTES.includes(emptyReaderView.readerNextAction.route), true);
 
 const workspaceImport = importPortableForHarmony(workspace, { now });
 assert.equal(workspaceImport.ok, true);

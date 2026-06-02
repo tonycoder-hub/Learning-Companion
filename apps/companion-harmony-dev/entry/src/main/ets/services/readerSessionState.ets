@@ -135,6 +135,17 @@ export function createScaffoldSampleReaderView(): HarmonyReaderView {
     latestCapture: undefined
   }];
   view.activeTopic = view.topics[0];
+  view.readerNextAction = {
+    kind: 'import_reader_view',
+    label: 'Import mirror JSON',
+    detail: 'When the device picker is wired, choose a workspace or mirror bundle before using the phone reader.',
+    route: 'pages/ImportReceipt',
+    routeLabel: 'View Import Contract',
+    meta: 'JSON <= 5 MB; no live sync',
+    secondary: 'Rejected files keep the previous reader view visible.',
+    generatedAt: view.generatedAt,
+    surface: 'reader'
+  };
   view.workspace.sessionCount = view.topics.length;
   view.workspace.openQuestionCount = 0;
   view.workspace.parkedQuestionCount = 0;

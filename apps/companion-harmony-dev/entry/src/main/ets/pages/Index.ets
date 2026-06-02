@@ -10,10 +10,31 @@ struct Index {
 
   build() {
     const readerView = this.readerSession.currentView || createScaffoldSampleReaderView();
+    const readerNext = readerView.readerNextAction;
     Column({ space: 14 }) {
       Text('Learning Companion')
         .fontSize(28)
         .fontWeight(FontWeight.Bold)
+      Text('Phone Next')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+      Text(readerNext.label)
+        .fontSize(17)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#2f6f5e')
+      Text(readerNext.detail)
+        .fontSize(14)
+        .fontColor('#5f4b20')
+      Text(`${readerNext.meta} · As of ${readerNext.generatedAt}`)
+        .fontSize(12)
+        .fontColor('#666154')
+      if (readerNext.secondary.length > 0) {
+        Text(readerNext.secondary)
+          .fontSize(12)
+          .fontColor('#666154')
+      }
+      Button(readerNext.routeLabel)
+        .onClick(() => router.pushUrl({ url: readerNext.route }))
       Text('Resume Here')
         .fontSize(18)
         .fontWeight(FontWeight.Medium)

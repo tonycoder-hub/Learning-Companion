@@ -68,7 +68,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Open questions can be parked as unresolved-but-not-active follow-up, then resumed or answered when the study block has attention for them.
 - Captured questions can be marked resolved and reopened so the Open Questions backlog stays bounded without deleting the original evidence.
 - Question actions show an immediate loop receipt with active, parked, closed-today, and question-card counts so state transitions remain inspectable without opening another panel.
-- HarmonyOS reader handoff carries the same open-question counts, `Answers Today`, and answer attribution source so phone resume does not flatten unresolved questions or newly imported answers into generic notes.
+- HarmonyOS reader handoff carries the same open-question counts, `Answers Today`, answer attribution source, and a top-level `readerNextAction` so phone resume starts with one read-only next action instead of a dashboard. This remains schema/scaffold evidence, not device verification.
 - Markdown note editor with autosave.
 - Highlight/capture stream grouped by session.
 - Sidecar layout that temporarily collapses session navigation and the inspector.

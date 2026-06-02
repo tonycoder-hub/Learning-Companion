@@ -49,6 +49,7 @@ export function buildHarmonyScaffoldReport(options = {}) {
   const pages = JSON.parse(files.get("entry/src/main/resources/base/profile/main_pages.json")).src;
   const diskFiles = listFiles(root);
   const arktsSchemas = extractArktsSchemaConstants(files.get("entry/src/main/ets/model/workspace.ets"));
+  const readerNextActionFields = extractArktsInterfaceFields(files.get("entry/src/main/ets/model/workspace.ets"), "HarmonyReaderNextAction");
   const jsReaderSessionText = readFileSync("apps/companion-harmony/src/import-session.mjs", "utf8");
   const arktsReaderSessionText = files.get("entry/src/main/ets/services/readerSessionState.ets");
   const readerSessionStatusLiterals = [
@@ -100,6 +101,10 @@ export function buildHarmonyScaffoldReport(options = {}) {
     check("review_patch_export", /buildReviewProgressPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("focus_action_open_source_kind", /'open_source'/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
     check("focus_action_detail_reason", /detail: string/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /reason: string/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
+    check("reader_next_action_contract", /HarmonyReaderNextActionKind/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /HarmonyReaderRoute/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /HarmonyReaderSurface/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /HARMONY_READER_NEXT_ACTION_PRIORITY/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /interface HarmonyReaderNextAction/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /readerNextAction: HarmonyReaderNextAction/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
+    check("reader_next_action_field_parity", sameArray(readerNextActionFields, ["kind", "label", "detail", "route", "routeLabel", "meta", "secondary", "generatedAt", "surface"])),
+    check("reader_next_action_empty_view", /readerNextAction/.test(files.get("entry/src/main/ets/model/harmonyReaderView.ets")) && /Import mirror JSON/.test(files.get("entry/src/main/ets/model/harmonyReaderView.ets"))),
+    check("reader_next_index", /Phone Next/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /readerNext\.label/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /readerNext\.routeLabel/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /router\.pushUrl\(\{ url: readerNext\.route \}\)/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
     check("answers_today_contract", /interface AnswerToday/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /answerCaptureCountToday: number/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /answeredAtSource: AnsweredAtSource/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
     check("resume_here_page", /Resume Here/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
     check("answers_today_page", /Answers Today/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
@@ -167,6 +172,12 @@ function extractArktsSchemaConstants(text) {
     constants[match[1]] = match[2];
   }
   return constants;
+}
+
+function extractArktsInterfaceFields(text, interfaceName) {
+  const match = text.match(new RegExp(`export interface ${interfaceName} \\{([\\s\\S]*?)\\n\\}`));
+  if (!match) return [];
+  return [...match[1].matchAll(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\??\s*:/gm)].map((item) => item[1]);
 }
 
 function extractJsMirrorBundleSchema() {
