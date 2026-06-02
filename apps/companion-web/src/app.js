@@ -2433,11 +2433,7 @@ function renderToday() {
   if (pack.questionHealth.targetSection) {
     const jump = textEl("button", "mini-button primary", pack.questionHealth.status === "active" ? "Work active" : "Inspect parked");
     jump.type = "button";
-    jump.addEventListener("click", () => {
-      const section = document.querySelector(`[data-today-section="${CSS.escape(pack.questionHealth.targetSection)}"]`);
-      section?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (section) pulseNode(section);
-    });
+    jump.addEventListener("click", () => jumpToTodaySection(pack.questionHealth.targetSection));
     const footer = document.createElement("div");
     footer.className = "item-footer";
     footer.append(jump);
@@ -2457,11 +2453,7 @@ function renderToday() {
   if (pack.questionLoop.targetSection) {
     const jump = textEl("button", "mini-button", "Inspect loop");
     jump.type = "button";
-    jump.addEventListener("click", () => {
-      const section = document.querySelector(`[data-today-section="${CSS.escape(pack.questionLoop.targetSection)}"]`);
-      section?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (section) pulseNode(section);
-    });
+    jump.addEventListener("click", () => jumpToTodaySection(pack.questionLoop.targetSection));
     const footer = document.createElement("div");
     footer.className = "item-footer";
     footer.append(jump);
@@ -2469,10 +2461,16 @@ function renderToday() {
   }
   dom.todayList.append(loop);
 
+  const archive = renderTodayDetailDrawer(pack);
+  const archiveList = document.createElement("div");
+  archiveList.className = "today-detail-list";
+  archive.append(archiveList);
+  dom.todayList.append(archive);
+
   const openQuestionTitle = todaySectionTitle("Open Questions", "open_questions");
-  dom.todayList.append(openQuestionTitle);
+  archiveList.append(openQuestionTitle);
   if (!pack.questionItems.length) {
-    dom.todayList.append(emptyState("No open questions captured"));
+    archiveList.append(emptyState("No open questions captured"));
   } else {
     pack.questionItems.forEach(({ sessionId, sessionTitle, capture }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
@@ -2521,15 +2519,15 @@ function renderToday() {
       resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
       footer.append(resolve);
       item.append(footer);
-      dom.todayList.append(item);
+      archiveList.append(item);
     });
-    if (pack.questionOverflow) dom.todayList.append(emptyState(`+${pack.questionOverflow} more open questions in workspace.json`));
+    if (pack.questionOverflow) archiveList.append(emptyState(`+${pack.questionOverflow} more open questions in workspace.json`));
   }
 
   const parkedQuestionTitle = todaySectionTitle("Parked Questions", "parked_questions");
-  dom.todayList.append(parkedQuestionTitle);
+  archiveList.append(parkedQuestionTitle);
   if (!pack.parkedQuestionItems.length) {
-    dom.todayList.append(emptyState("No parked questions"));
+    archiveList.append(emptyState("No parked questions"));
   } else {
     pack.parkedQuestionItems.forEach(({ sessionId, sessionTitle, capture }) => {
       const item = document.createElement("article");
@@ -2563,15 +2561,15 @@ function renderToday() {
       resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
       footer.append(resolve);
       item.append(footer);
-      dom.todayList.append(item);
+      archiveList.append(item);
     });
-    if (pack.parkedQuestionOverflow) dom.todayList.append(emptyState(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`));
+    if (pack.parkedQuestionOverflow) archiveList.append(emptyState(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`));
   }
 
-  dom.todayList.append(todaySectionTitle("Answers Today", "answers_today"));
-  dom.todayList.append(textEl("p", "item-meta", `Answer captures in ${pack.localDayWindow.label}`));
+  archiveList.append(todaySectionTitle("Answers Today", "answers_today"));
+  archiveList.append(textEl("p", "item-meta", `Answer captures in ${pack.localDayWindow.label}`));
   if (!pack.answerItems.length) {
-    dom.todayList.append(emptyState("No answers captured today"));
+    archiveList.append(emptyState("No answers captured today"));
   } else {
     pack.answerItems.forEach(({ sessionId, sessionTitle, capture, questionCapture, answerReason }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
@@ -2607,16 +2605,16 @@ function renderToday() {
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
       item.append(footer);
-      dom.todayList.append(item);
+      archiveList.append(item);
     });
-    if (pack.answerOverflow) dom.todayList.append(emptyState(`+${pack.answerOverflow} more answers captured today in workspace.json`));
+    if (pack.answerOverflow) archiveList.append(emptyState(`+${pack.answerOverflow} more answers captured today in workspace.json`));
   }
 
   const closedQuestionTitle = todaySectionTitle("Closed Today", "closed_questions");
-  dom.todayList.append(closedQuestionTitle);
-  dom.todayList.append(textEl("p", "item-meta", `Local window: ${pack.localDayWindow.label}`));
+  archiveList.append(closedQuestionTitle);
+  archiveList.append(textEl("p", "item-meta", `Local window: ${pack.localDayWindow.label}`));
   if (!pack.resolvedQuestionItems.length) {
-    dom.todayList.append(emptyState("No questions closed today"));
+    archiveList.append(emptyState("No questions closed today"));
   } else {
     pack.resolvedQuestionItems.forEach(({ sessionId, sessionTitle, capture, answerCapture }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
@@ -2669,14 +2667,14 @@ function renderToday() {
       reopen.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, false));
       footer.append(reopen);
       item.append(footer);
-      dom.todayList.append(item);
+      archiveList.append(item);
     });
-    if (pack.resolvedQuestionOverflow) dom.todayList.append(emptyState(`+${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`));
+    if (pack.resolvedQuestionOverflow) archiveList.append(emptyState(`+${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`));
   }
 
-  dom.todayList.append(todaySectionTitle("Recent Captures", "recent_captures"));
+  archiveList.append(todaySectionTitle("Recent Captures", "recent_captures"));
   if (!pack.recentCaptures.length) {
-    dom.todayList.append(emptyState("No captures yet"));
+    archiveList.append(emptyState("No captures yet"));
     return;
   }
   pack.recentCaptures.forEach(({ sessionId, sessionTitle, capture }) => {
@@ -2712,9 +2710,45 @@ function renderToday() {
     view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
     footer.append(view);
     item.append(footer);
-    dom.todayList.append(item);
+    archiveList.append(item);
   });
-  if (pack.recentOverflow) dom.todayList.append(emptyState(`+${pack.recentOverflow} more captures in workspace.json`));
+  if (pack.recentOverflow) archiveList.append(emptyState(`+${pack.recentOverflow} more captures in workspace.json`));
+}
+
+function renderTodayDetailDrawer(pack) {
+  const totalRecent = pack.recentCaptures.length + pack.recentOverflow;
+  const totalDetails = [
+    pack.stats.questions,
+    pack.stats.parkedQuestions || 0,
+    pack.stats.answerCapturesToday || 0,
+    pack.stats.resolvedQuestionsToday || 0,
+    totalRecent
+  ].reduce((sum, value) => sum + (Number(value) || 0), 0);
+  const drawer = document.createElement("details");
+  const unresolvedQuestions = (Number(pack.stats.questions) || 0) + (Number(pack.stats.parkedQuestions) || 0);
+  drawer.className = ["today-detail-drawer", unresolvedQuestions ? "has-attention" : ""].filter(Boolean).join(" ");
+  drawer.dataset.todayDetailDrawer = "study_details";
+  const summary = document.createElement("summary");
+  summary.className = "today-detail-summary";
+  const badges = document.createElement("span");
+  badges.className = "today-detail-badges";
+  badges.append(
+    textEl("span", unresolvedQuestions ? "today-detail-badge is-attention" : "today-detail-badge", `${pack.stats.questions} open`),
+    textEl("span", pack.stats.parkedQuestions ? "today-detail-badge is-warm" : "today-detail-badge", `${pack.stats.parkedQuestions || 0} parked`),
+    textEl("span", totalRecent ? "today-detail-badge" : "today-detail-badge is-muted", `${totalRecent} recent`)
+  );
+  summary.append(
+    textEl("strong", "", "Study Details"),
+    textEl("span", "item-meta", `${totalDetails} tracked`),
+    badges
+  );
+  const hint = textEl(
+    "p",
+    "today-detail-hint",
+    "Open questions, parked follow-ups, answers, closed items, and recent captures stay here until you need the full ledger."
+  );
+  drawer.append(summary, hint);
+  return drawer;
 }
 
 function renderTodaySectionMap(pack, draftItems = []) {
@@ -3013,6 +3047,8 @@ function todaySectionTitle(label, section) {
 
 function jumpToTodaySection(sectionName) {
   const section = document.querySelector(`[data-today-section="${CSS.escape(sectionName)}"]`);
+  const drawer = section?.closest("details");
+  if (drawer && !drawer.open) drawer.open = true;
   section?.scrollIntoView({ behavior: "smooth", block: "start" });
   if (section) pulseNode(section);
 }

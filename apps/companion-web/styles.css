@@ -1290,6 +1290,79 @@ textarea:focus {
   justify-content: flex-start;
 }
 
+.today-detail-drawer {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(74, 62, 46, 0.16);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.today-detail-drawer.has-attention {
+  border-color: rgba(49, 95, 130, 0.26);
+}
+
+.today-detail-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  cursor: pointer;
+  list-style-position: outside;
+}
+
+.today-detail-summary strong {
+  margin-right: 8px;
+}
+
+.today-detail-badges {
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.today-detail-badge {
+  padding: 3px 7px;
+  border: 1px solid rgba(74, 62, 46, 0.14);
+  border-radius: 999px;
+  background: #fffdfa;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.today-detail-badge.is-attention {
+  border-color: rgba(49, 95, 130, 0.26);
+  background: #f4f9fc;
+  color: var(--blue);
+}
+
+.today-detail-badge.is-warm {
+  border-color: rgba(126, 86, 48, 0.26);
+  background: #fff9ed;
+  color: var(--amber);
+}
+
+.today-detail-badge.is-muted {
+  opacity: 0.68;
+}
+
+.today-detail-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.today-detail-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 @media (max-width: 620px) {
   .learning-flow-track {
     grid-template-columns: 1fr;

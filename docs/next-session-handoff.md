@@ -157,6 +157,12 @@ Latest local work folds first-run Start Here into Learning Flow:
 - Browser smoke pins the Learning Flow copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
 
+Latest local work folds Today ledgers into Study Details:
+
+- `Open Questions`, `Parked Questions`, `Answers Today`, `Closed Today`, and `Recent Captures` now sit inside a `Study Details` drawer below the primary decision cards, with open/parked/recent count badges in the summary.
+- Today section-map buttons and Question Queue/Loop actions open the drawer before jumping to a nested section, so the details remain reachable without flattening the first screen.
+- Browser smoke verifies the drawer starts closed and opens when each nested chip jumps to `Open Questions`, `Parked Questions`, `Answers Today`, `Closed Today`, or `Recent Captures`.
+
 Latest local work tightens the generated morning review pack around those entry points:
 
 - `review-start-here.html` now puts `First-Run Start Here` and `Today Section Map` before the older Focus Loop path, so morning review starts with the concrete app entry points Tony asked for.

@@ -536,9 +536,22 @@ try {
         text: button.textContent.trim(),
         aria: button.getAttribute("aria-label")
       }));
-    const todayMapRecentButton = document.querySelector('#todayTab .today-map-button[data-today-map-target="recent_captures"]');
-    todayMapRecentButton?.click();
-    const todayMapRecentPulsed = document.querySelector('[data-today-section="recent_captures"]')?.classList.contains("pulse") === true;
+    const todayDetailDrawer = document.querySelector(".today-detail-drawer");
+    const todayDetailDrawerOpenBefore = todayDetailDrawer?.open === true;
+    const todayDetailDrawerText = todayDetailDrawer?.querySelector("summary")?.textContent || "";
+    const todayDetailJumpResults = ["open_questions", "parked_questions", "answers_today", "closed_questions", "recent_captures"]
+      .map((target) => {
+        if (todayDetailDrawer) todayDetailDrawer.open = false;
+        document.querySelector('[data-today-section="' + target + '"]')?.classList.remove("pulse");
+        document.querySelector('#todayTab .today-map-button[data-today-map-target="' + target + '"]')?.click();
+        return {
+          target,
+          open: todayDetailDrawer?.open === true,
+          pulsed: document.querySelector('[data-today-section="' + target + '"]')?.classList.contains("pulse") === true
+        };
+      });
+    const todayDetailDrawerOpenAfter = todayDetailDrawer?.open === true;
+    const todayMapRecentPulsed = todayDetailJumpResults.find((item) => item.target === "recent_captures")?.pulsed === true;
     document.querySelector("#activityDetailsBtn").click();
     const activityOpenedReviewTab = document.querySelector(".tab.active")?.dataset.tab || "";
     const activityTargetPulsed = Boolean(document.querySelector(".review-card.pulse"));
@@ -1042,6 +1055,10 @@ try {
           todayRecentOpenLinkText,
           todayPrimary,
           todayMapButtons,
+          todayDetailDrawerOpenBefore,
+          todayDetailDrawerText,
+          todayDetailJumpResults,
+          todayDetailDrawerOpenAfter,
           todayMapRecentPulsed,
           emptyFallbackNudge,
           invalidFallbackNudge,
@@ -1408,6 +1425,19 @@ try {
   assert.equal(result.todayMapButtons.some((button) => button.target === "open_questions" && /Questions/.test(button.text)), true);
   assert.equal(result.todayMapButtons.some((button) => button.target === "answers_today" && /Answers/.test(button.text)), true);
   assert.equal(result.todayMapButtons.some((button) => button.target === "recent_captures" && /Recent/.test(button.text)), true);
+  assert.equal(result.todayDetailDrawerOpenBefore, false);
+  assert.match(result.todayDetailDrawerText, /Study Details/);
+  assert.match(result.todayDetailDrawerText, /\d+ open/);
+  assert.match(result.todayDetailDrawerText, /\d+ parked/);
+  assert.match(result.todayDetailDrawerText, /\d+ recent/);
+  assert.deepEqual(result.todayDetailJumpResults, [
+    { target: "open_questions", open: true, pulsed: true },
+    { target: "parked_questions", open: true, pulsed: true },
+    { target: "answers_today", open: true, pulsed: true },
+    { target: "closed_questions", open: true, pulsed: true },
+    { target: "recent_captures", open: true, pulsed: true }
+  ]);
+  assert.equal(result.todayDetailDrawerOpenAfter, true);
   assert.equal(result.todayMapRecentPulsed, true);
   assert.deepEqual(result.emptyFallbackNudge, {
     timestamp: "07:57",

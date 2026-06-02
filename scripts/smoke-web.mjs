@@ -131,6 +131,8 @@ assert.match(appCss, /\.today-map-button/);
 assert.match(appCss, /\.learning-flow-panel/);
 assert.match(appCss, /\.manual-transfer-badge/);
 assert.match(appCss, /\.device-flow-badges/);
+assert.match(appCss, /\.today-detail-drawer/);
+assert.match(appCss, /\.today-detail-badge/);
 assert.match(appCss, /prefers-reduced-motion: reduce/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v2/);
