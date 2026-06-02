@@ -1557,6 +1557,9 @@ try {
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasIndex, true);
   assert.match(result.mirrorIndexHtml, /Manual Return/);
+  assert.match(result.mirrorIndexHtml, /Read Today/);
+  assert.match(result.mirrorIndexHtml, /Work here/);
+  assert.match(result.mirrorIndexHtml, /Return JSON back to Mac/);
   assert.match(result.mirrorIndexHtml, /Today &gt; Return Files/);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);

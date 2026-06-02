@@ -65,6 +65,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Today tab summarizes workspace due review and recent captures.
 - Static mirror `index.html` provides a portable folder home page for Today, Review, Restore, and sessions.
 - Today and mirror exports include a Resume Here / Focus Brief section for mobile, Windows, and Feishu handoff, with source links resuming at the latest captured timestamp when available; mirror `index.html` also previews open questions before the recent-capture list.
+- Static mirror `index.html` includes a Manual Return checklist so phone/Windows users can start from Today, choose Review or Inbox, and bring Return JSON back to Mac without treating the mirror as live sync.
 - Static mirror `review.html` supports due-card review on mobile/Windows and exports append-only review progress patch JSON.
 - Static mirror `inbox.html` supports phone/Windows capture drafts and exports append-only mobile inbox patch JSON.
 - Static mirror answer links carry `answersQuestionCaptureId`; importing that answer patch can resolve the original same-topic question while preserving the new answer capture.
