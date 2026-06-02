@@ -945,6 +945,7 @@ try {
         importInput.dispatchEvent(new Event("change", { bubbles: true }));
         setTimeout(() => {
           const singleInboxReceiptText = document.querySelector("#importReceipt").textContent;
+          const singleInboxActiveTab = document.querySelector(".tab.active")?.dataset.tab || "";
           const batchInboxPatch = {
             ...inboxPatch,
             patchId: "browser_patch_002",
@@ -968,6 +969,10 @@ try {
           const batchReceiptText = document.querySelector("#importReceipt").textContent;
           const batchActivityTitle = document.querySelector("#activityTitle").textContent;
           const batchActivityDetail = document.querySelector("#activityDetail").textContent;
+          const activeTabAfterBatchImport = document.querySelector(".tab.active")?.dataset.tab || "";
+          const handoffAfterBatchImport = document.querySelector(".handoff-card");
+          const handoffOpenAfterBatchImport = handoffAfterBatchImport?.open === true;
+          const handoffPulsedAfterBatchImport = handoffAfterBatchImport?.classList.contains("pulse") === true;
           document.querySelector('[data-tab="today"]').click();
           const handoffPanel = document.querySelector(".handoff-card");
           const handoffText = handoffPanel.textContent;
@@ -1005,9 +1010,13 @@ try {
           reviewText: reviewTextBeforeInbox,
           inboxCaptureMetric: document.querySelector("#captureMetric").textContent,
           singleInboxReceiptText,
+          singleInboxActiveTab,
           batchReceiptText,
           batchActivityTitle,
           batchActivityDetail,
+          activeTabAfterBatchImport,
+          handoffOpenAfterBatchImport,
+          handoffPulsedAfterBatchImport,
           inboxLatestSourceUrl: afterInboxSession.captures[0].sourceUrl,
           inboxLatestProvenance: afterInboxSession.captures[0].sourceProvenance,
           inboxSanitizedSourceUrls: afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId).captures[0].sourceUrl === "" ? 1 : 0,
@@ -1197,6 +1206,7 @@ try {
   assert.match(result.singleInboxReceiptText, /invalid: 1/);
   assert.match(result.singleInboxReceiptText, /mirror base changed/);
   assert.match(result.singleInboxReceiptText, /topic id matched/);
+  assert.equal(result.singleInboxActiveTab, "today");
   assert.match(result.batchReceiptText, /Return JSON imported/);
   assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /2 mirror bases changed/);
@@ -1208,6 +1218,9 @@ try {
   assert.match(result.batchReceiptText, /workspace-return-mistake\.json/);
   assert.equal(result.batchActivityTitle, "Return JSON imported (1 inbox, 1 review)");
   assert.match(result.batchActivityDetail, /2\/3 files processed/);
+  assert.equal(result.activeTabAfterBatchImport, "today");
+  assert.equal(result.handoffOpenAfterBatchImport, true);
+  assert.equal(result.handoffPulsedAfterBatchImport, true);
   assert.equal(result.inboxLatestSourceUrl, "");
   assert.equal(result.inboxLatestProvenance, "inbox");
   assert.equal(result.inboxSanitizedSourceUrls, 1);

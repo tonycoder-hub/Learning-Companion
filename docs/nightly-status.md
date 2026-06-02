@@ -68,6 +68,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Static mirror `index.html` includes a Manual Return checklist so phone/Windows users can start from Today, choose Review or Inbox, and bring Return JSON back to Mac without treating the mirror as live sync.
 - Static mirror `review.html` supports due-card review on mobile/Windows and exports append-only review progress patch JSON.
 - Static mirror `inbox.html` supports phone/Windows capture drafts and exports append-only mobile inbox patch JSON.
+- Return File imports route the Mac UI back to Today, open the Device Flow receipt, and pulse that panel so returned phone/Windows work reconnects to the Learning Flow.
 - Static mirror answer links carry `answersQuestionCaptureId`; importing that answer patch can resolve the original same-topic question while preserving the new answer capture.
 - Mobile inbox patch import appends captures with patch/capture id dedupe, target-resolution fallback, unsafe URL stripping with receipt counts, and a visible import receipt.
 - Review progress patch import applies Again/Good events only when the card version still matches, and reports duplicates, missing cards, stale conflicts, and invalid events.

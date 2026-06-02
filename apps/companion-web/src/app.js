@@ -287,8 +287,22 @@ async function importReturnFiles(files) {
     tab: "today",
     targetId: ""
   });
-  persistAndRender(`Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`);
+  finishReturnFileImport(`Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`);
   if (summary.failedFiles) showToast(`${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`);
+}
+
+function finishReturnFileImport(message) {
+  activeTab = "today";
+  persistAndRender(message);
+  focusReturnFilesPanel();
+}
+
+function focusReturnFilesPanel() {
+  const panel = document.querySelector(".handoff-card");
+  if (!panel) return;
+  panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "center" });
+  pulseNode(panel);
 }
 
 function compareReturnFiles(a, b) {
@@ -319,10 +333,10 @@ function importPortableData(imported, options = {}) {
       setActivity(getActiveSession(workspace), {
         title: "Mobile inbox imported",
         detail: formatInboxReceipt(result.receipt),
-        tab: "captures",
+        tab: "today",
         targetId: ""
       });
-      persistAndRender(`Inbox import: ${result.receipt.added} added`);
+      finishReturnFileImport(`Inbox import: ${result.receipt.added} added`);
     }
     return {
       ok: true,
@@ -340,10 +354,10 @@ function importPortableData(imported, options = {}) {
       setActivity(getActiveSession(workspace), {
         title: "Review progress imported",
         detail: formatImportReceipt(result.receipt),
-        tab: "review",
+        tab: "today",
         targetId: ""
       });
-      persistAndRender(`Review import: ${result.receipt.applied} applied`);
+      finishReturnFileImport(`Review import: ${result.receipt.applied} applied`);
     }
     return {
       ok: true,
