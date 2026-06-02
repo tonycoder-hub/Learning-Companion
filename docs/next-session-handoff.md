@@ -211,6 +211,13 @@ Latest local work folds first-run Start Here into Learning Flow:
 - Browser smoke pins the Learning Flow copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
 
+Latest local work adds clipboard-assisted source setup:
+
+- The URL field now has a visible `Paste Source` button. It reads clipboard text only after the user clicks, extracts the first safe `http/https` URL, derives an editable source title, infers material type locally when safe, and pulls supported video timestamps into Time.
+- If an existing topic already has captures, Paste Source keeps the current material type and explains that in the activity strip instead of silently reclassifying a `Doc` topic as `Video`.
+- This is not active browser automation: no browser cookie/session/profile access, no page scraping, and no background clipboard monitoring.
+- Browser smoke covers a copied YouTube URL with `t=95s`, confirming Source, URL, Video type, `01:35`, source-strip pulse, Quick Capture focus, non-URL rejection, and the existing-capture type guardrail.
+
 Local agent temp convention:
 
 - Use the project-local ignored `.codex-tmp/` directory for Seed batches, Mira packets/responses, transient receipts, and smoke scratch files.

@@ -94,6 +94,7 @@ const dom = {
   sessionTitle: document.querySelector("#sessionTitle"),
   sourceTitle: document.querySelector("#sourceTitle"),
   sourceUrl: document.querySelector("#sourceUrl"),
+  pasteSourceBtn: document.querySelector("#pasteSourceBtn"),
   openSourceBtn: document.querySelector("#openSourceBtn"),
   materialType: document.querySelector("#materialType"),
   timestampInput: document.querySelector("#timestampInput"),
@@ -478,6 +479,7 @@ dom.notesPreviewBtn.addEventListener("click", () => {
 });
 
 dom.openSourceBtn.addEventListener("click", resumeCurrentSource);
+dom.pasteSourceBtn.addEventListener("click", pasteSourceFromClipboard);
 dom.captureContextTarget.addEventListener("click", showCaptureDestination);
 dom.captureContextSource.addEventListener("click", showCaptureSource);
 dom.captureContextOpenBtn.addEventListener("click", handleCaptureContextSourceAction);
@@ -1396,6 +1398,186 @@ function promptForSource(session = getActiveSession(workspace)) {
   renderActivity(session);
   dom.sourceUrl.focus();
   pulseNode(document.querySelector(".source-strip"));
+}
+
+async function pasteSourceFromClipboard() {
+  const session = getActiveSession(workspace);
+  if (!navigator.clipboard?.readText) {
+    handlePasteSourceFailure(session, "Clipboard unavailable", "Paste the browser URL into the URL field.");
+    return;
+  }
+  const previousLabel = dom.pasteSourceBtn.textContent;
+  dom.pasteSourceBtn.disabled = true;
+  dom.pasteSourceBtn.textContent = "...";
+  try {
+    const parsed = parseClipboardSource(await navigator.clipboard.readText());
+    if (!parsed.url) {
+      handlePasteSourceFailure(session, "No source URL found", "Copy the browser URL, then use Paste Source or enter it manually.");
+      return;
+    }
+    applyClipboardSource(parsed);
+  } catch {
+    handlePasteSourceFailure(session, "Clipboard blocked", "Browser settings blocked clipboard access. Enter the source URL manually.");
+  } finally {
+    dom.pasteSourceBtn.disabled = false;
+    dom.pasteSourceBtn.textContent = previousLabel;
+  }
+}
+
+function applyClipboardSource(source) {
+  const session = getActiveSession(workspace);
+  const timestamp = extractSourceTimestamp(source.url);
+  const sourceUrl = stripSourceTimestamp(source.url) || source.url;
+  const sourceTitle = source.title || session.sourceTitle;
+  const nextTitle = shouldRenameUntitledSession(session.title) && sourceTitle
+    ? sourceTitle
+    : session.title;
+  const inferredMaterialType = inferClipboardMaterialType(sourceUrl, timestamp, session.materialType);
+  const typeGuarded = shouldKeepExistingMaterialType(session, inferredMaterialType);
+  const materialType = typeGuarded ? session.materialType : inferredMaterialType;
+  workspace = updateSession(workspace, session.id, {
+    title: nextTitle,
+    sourceTitle,
+    sourceUrl,
+    materialType,
+    focusMode: "capture"
+  });
+  activeTab = "captures";
+  persistAndRender("Source pasted");
+  if (timestamp && !dom.timestampInput.value.trim()) {
+    dom.timestampInput.value = timestamp;
+    setCaptureDraft(session.id, {
+      quote: dom.quoteInput.value,
+      thought: dom.thoughtInput.value,
+      timestamp,
+      sourceTitle,
+      sourceUrl
+    });
+  }
+  const updated = getActiveSession(workspace);
+  setActivity(updated, {
+    title: "Source pasted",
+    detail: `${sourceTitle || readableSourceHost(sourceUrl) || "Source URL"}${timestamp ? ` @ ${timestamp}` : ""} is ready for captures.${typeGuarded ? ` Type kept as ${materialTypeLabel(session.materialType)} because this topic already has captures.` : ""}`,
+    tab: "captures",
+    targetId: ""
+  });
+  renderActivity(updated);
+  renderCaptureDraftStatus(updated);
+  renderCaptureContext(updated);
+  renderOpenSourceButton(updated);
+  pulseNode(document.querySelector(".source-strip"));
+  dom.quoteInput.focus();
+}
+
+function handlePasteSourceFailure(session, title, detail) {
+  setActivity(session, {
+    title,
+    detail,
+    tab: "captures",
+    targetId: ""
+  });
+  renderActivity(session);
+  dom.sourceUrl.focus();
+  pulseNode(document.querySelector(".source-strip"));
+}
+
+function parseClipboardSource(value) {
+  const text = String(value || "");
+  const url = extractFirstClipboardUrl(text);
+  if (!url) return { url: "", title: "" };
+  return {
+    url,
+    title: extractClipboardTitle(text, url) || deriveSourceTitleFromUrl(url)
+  };
+}
+
+function extractFirstClipboardUrl(text) {
+  const matches = String(text || "").match(/https?:\/\/[^\s<>"'`]+/gi) || [];
+  for (const match of matches) {
+    const cleaned = cleanUrl(match.replace(/[)\].,;!?]+$/g, ""));
+    if (cleaned) return cleaned;
+  }
+  return "";
+}
+
+function extractClipboardTitle(text, sourceUrl) {
+  const markdownLink = String(text || "").match(/\[([^\]]{2,160})\]\((https?:\/\/[^)]+)\)/i);
+  if (markdownLink && cleanUrl(markdownLink[2]) === sourceUrl) {
+    return normalizeClipboardTitle(markdownLink[1]);
+  }
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => normalizeClipboardTitle(line))
+    .find((line) => line && !/https?:\/\//i.test(line)) || "";
+}
+
+function deriveSourceTitleFromUrl(sourceUrl) {
+  try {
+    const url = new URL(sourceUrl);
+    const segments = url.pathname
+      .split("/")
+      .map((segment) => decodeURIComponent(segment).replace(/\.[a-z0-9]{1,8}$/i, ""))
+      .map((segment) => segment.replace(/[-_+]+/g, " ").trim())
+      .filter((segment) => segment && !/^\d+$/.test(segment));
+    const slug = segments[segments.length - 1];
+    if (slug && !["watch", "docs", "document", "read"].includes(slug.toLowerCase())) {
+      return titleCaseSource(slug);
+    }
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
+function normalizeClipboardTitle(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[-*#>\s]+/, "")
+    .trim()
+    .slice(0, 160);
+}
+
+function titleCaseSource(value) {
+  return normalizeClipboardTitle(value)
+    .split(" ")
+    .map((word) => word ? `${word[0].toUpperCase()}${word.slice(1)}` : "")
+    .join(" ");
+}
+
+function shouldRenameUntitledSession(title) {
+  return ["", "New learning session"].includes(String(title || "").trim());
+}
+
+function shouldKeepExistingMaterialType(session, inferredMaterialType) {
+  return Boolean(
+    inferredMaterialType &&
+    session.materialType &&
+    inferredMaterialType !== session.materialType &&
+    session.captures.length
+  );
+}
+
+function inferClipboardMaterialType(sourceUrl, timestamp, fallback) {
+  const href = cleanUrl(sourceUrl || "");
+  if (!href) return fallback;
+  try {
+    const host = new URL(href).hostname.toLowerCase();
+    if (isKnownVideoHost(host)) return "video";
+  } catch {
+    return fallback;
+  }
+  return inferInboundMaterialType(sourceUrl, timestamp, fallback);
+}
+
+function materialTypeLabel(value) {
+  return {
+    article: "Article",
+    video: "Video",
+    doc: "Doc",
+    course: "Course",
+    book: "Book",
+    other: "Other"
+  }[value] || "current type";
 }
 
 function nudgeCaptureTime(deltaSeconds) {

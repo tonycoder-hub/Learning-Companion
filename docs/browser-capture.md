@@ -41,6 +41,22 @@ If incoming text is staged instead of auto-saved, the app switches to capture fo
 
 The browser smoke test executes the generated bookmarklet on local virtual video and document pages, then follows the opened Learning Companion URL and verifies the saved capture. This covers selected text, multi-node document selections, empty-selection source updates, page title, page URL, empty document timestamps, and `<video>.currentTime` formatting without touching browser cookies or real external accounts.
 
+## Paste Source
+
+`Paste Source` is the low-friction source setup path before installing or using the bookmarklet.
+
+Safety boundary:
+
+- It reads clipboard text only after the user clicks the visible `Paste Source` button beside the URL field.
+- It keeps only the first safe `http`/`https` URL.
+- It does not monitor the clipboard in the background.
+- It does not read browser cookies, sessions, profiles, page DOM, or account data.
+- Non-URL clipboard text is discarded and replaced with a manual-entry prompt.
+- Supported video time parameters are moved into the Time field and stripped from the stored source URL.
+- If a topic already has captures, the existing material type is kept instead of silently reclassifying the topic from `Doc` to `Video`.
+
+Automated browser smoke covers a copied YouTube URL with a timestamp, a non-URL clipboard rejection, and the existing-capture material-type guardrail.
+
 Coverage matrix:
 
 | Capture path | Automated | Manual follow-up |

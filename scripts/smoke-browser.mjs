@@ -276,6 +276,122 @@ try {
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
   assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");
 
+  const pastedSource = await cdp.evaluate(`(async () => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => "Lecture Notes\\nhttps://www.youtube.com/watch?v=paste123&t=95s&utm_source=clipboard",
+        writeText: async () => {}
+      }
+    });
+    setValue("#sourceTitle", "");
+    setValue("#sourceUrl", "");
+    setValue("#timestampInput", "");
+    document.querySelector("#pasteSourceBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    return {
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      materialType: session.materialType,
+      timestamp: document.querySelector("#timestampInput").value,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      activeElement: document.activeElement?.id || "",
+      openSourceTitle: document.querySelector("#openSourceBtn").title,
+      contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
+      sourceStripPulsed: document.querySelector(".source-strip").classList.contains("pulse")
+    };
+  })()`);
+
+  assert.equal(pastedSource.sourceTitle, "Lecture Notes");
+  assert.equal(pastedSource.sourceUrl, "https://www.youtube.com/watch?v=paste123&utm_source=clipboard");
+  assert.equal(pastedSource.materialType, "video");
+  assert.equal(pastedSource.timestamp, "01:35");
+  assert.equal(pastedSource.activityTitle, "Source pasted");
+  assert.match(pastedSource.activityDetail, /Lecture Notes @ 01:35/);
+  assert.equal(pastedSource.activeElement, "quoteInput");
+  assert.equal(pastedSource.openSourceTitle, "Open source at 01:35");
+  assert.equal(pastedSource.contextOpenText, "Resume @ 01:35");
+  assert.equal(pastedSource.sourceStripPulsed, true);
+
+  const rejectedClipboardSource = await cdp.evaluate(`(async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => "private non-url note that must not become source metadata",
+        writeText: async () => {}
+      }
+    });
+    document.querySelector("#pasteSourceBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    return {
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      activeElement: document.activeElement?.id || ""
+    };
+  })()`);
+  assert.equal(rejectedClipboardSource.sourceTitle, "Lecture Notes");
+  assert.equal(rejectedClipboardSource.sourceUrl, "https://www.youtube.com/watch?v=paste123&utm_source=clipboard");
+  assert.equal(rejectedClipboardSource.activityTitle, "No source URL found");
+  assert.match(rejectedClipboardSource.activityDetail, /Copy the browser URL/);
+  assert.equal(rejectedClipboardSource.activeElement, "sourceUrl");
+
+  const guardedPasteSource = await cdp.evaluate(`(async () => {
+    const beforeWorkspaceJson = localStorage.getItem("learning-companion.workspace.v1");
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    setValue("#sourceTitle", "Doc lesson");
+    setValue("#sourceUrl", "https://example.com/doc-lesson");
+    setValue("#materialType", "doc");
+    setValue("#timestampInput", "");
+    setValue("#quoteInput", "Existing doc capture");
+    setValue("#thoughtInput", "Keep this topic framed as a document.");
+    document.querySelector("#captureBtn").click();
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => "Companion video\\nhttps://www.youtube.com/watch?v=guarded&t=30s",
+        writeText: async () => {}
+      }
+    });
+    document.querySelector("#pasteSourceBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+    const result = {
+      captures: session.captures.length,
+      sourceTitle: session.sourceTitle,
+      sourceUrl: session.sourceUrl,
+      materialType: session.materialType,
+      timestamp: document.querySelector("#timestampInput").value,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+    window.learningCompanionNative.importWorkspaceJson(beforeWorkspaceJson);
+    return result;
+  })()`);
+  assert.equal(guardedPasteSource.sourceTitle, "Companion video");
+  assert.equal(guardedPasteSource.sourceUrl, "https://www.youtube.com/watch?v=guarded");
+  assert.equal(guardedPasteSource.materialType, "doc");
+  assert.equal(guardedPasteSource.timestamp, "00:30");
+  assert.equal(guardedPasteSource.activityTitle, "Source pasted");
+  assert.match(guardedPasteSource.activityDetail, /Type kept as Doc/);
+  assert.ok(guardedPasteSource.captures >= 1);
+
   const result = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
@@ -286,6 +402,7 @@ try {
     setValue("#quoteInput", "");
     setValue("#thoughtInput", "");
     setValue("#timestampInput", "");
+    setValue("#materialType", "video");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123&t=8m12s");
     let sourceContextOpened = "";
     const nativeContextWindowOpen = window.open;

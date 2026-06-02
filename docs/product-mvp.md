@@ -42,6 +42,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Session list for learning topics.
 - Workspace Find for jumping from source titles, notes, captures, and review cards back into the right session, including multi-term matches across fields like source type plus title or tag plus excerpt.
 - Source panel for URL, title, material type, and video timestamp, with source-open jumps that respect a typed time, extract supported video time links, or fall back to the latest captured timestamp.
+- Source setup includes an explicit `Paste Source` clipboard action beside URL: after copying a browser URL, Tony can bind the source URL, infer video/article type when it is safe, derive an editable title, and pull a supported timestamp into Time without claiming live browser automation. Existing topics with captures keep their current material type instead of being silently reclassified.
 - Quick capture for quote + note + tags, with per-session draft recovery and a Today resume entry while switching learning contexts.
 - Keyboard-first capture focus that returns from Today, Review, Export, or hidden side panels to Quick Capture without leaving sidecar layout.
 - Capture-level source snapshots and source/time jump links.
