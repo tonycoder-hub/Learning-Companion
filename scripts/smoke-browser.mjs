@@ -898,7 +898,10 @@ try {
       hidden: document.querySelector("#storageNotice").hidden,
       text: document.querySelector("#storageNoticeText").textContent,
       fingerprint: backupPrefsAfterExport.fingerprint || "",
-      exportedAt: backupPrefsAfterExport.exportedAt || ""
+      exportedAt: backupPrefsAfterExport.exportedAt || "",
+      directedSaveDestination: Boolean(window.webkit?.messageHandlers?.learningCompanion?.postMessage)
+        || (typeof window.showSaveFilePicker === "function" && window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ !== true),
+      automatedDownloadFallback: window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ === true
     };
     const captureDraftStatusAfterCard = {
       text: document.querySelector("#captureDraftStatus").textContent,
@@ -2005,7 +2008,9 @@ try {
   assert.equal(result.activityTargetPulsed, true);
   assert.deepEqual(result.backupNoticeAfterCapture, { hidden: false, text: "Local changes not exported" });
   assert.equal(result.backupNoticeAfterExport.hidden, false);
-  assert.equal(result.backupNoticeAfterExport.text, "Backup requested - verify downloaded file");
+  assert.equal(result.backupNoticeAfterExport.text, "Backup export requested - verify the exported file");
+  assert.equal(result.backupNoticeAfterExport.directedSaveDestination, false);
+  assert.equal(result.backupNoticeAfterExport.automatedDownloadFallback, true);
   assert.match(result.backupNoticeAfterExport.fingerprint, /^[a-f0-9]{8}$/);
   assert.match(result.backupNoticeAfterExport.exportedAt, /^20/);
   assert.deepEqual(result.captureDraftStatusAfterCard, {
@@ -3910,7 +3915,7 @@ async function assertPostSaveFlow(cdp) {
     document.querySelector("#captureBtn").click();
     const ordinarySaved = readActivity();
     return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, ordinarySaved };
-  })()`);
+  })()`, 45000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
   assert.equal(postSaveFlow.questionSaved.action, "Questions");
@@ -3943,7 +3948,7 @@ async function assertPostSaveFlow(cdp) {
 
 async function waitForTarget(port) {
   const endpoint = `http://127.0.0.1:${port}/json`;
-  const deadline = Date.now() + 12000;
+  const deadline = Date.now() + 20000; // Headless Chrome startup occasionally exceeds 12s before any product assertion runs.
   while (Date.now() < deadline) {
     try {
       const targets = await fetch(endpoint).then((response) => response.json());

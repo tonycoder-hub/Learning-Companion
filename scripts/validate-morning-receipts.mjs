@@ -243,7 +243,7 @@ assert.match(reviewStartHere, /live video-site playback QA is not proven/i);
 assert.match(morningReview, /Harmony reader session/);
 assert.match(morningReview, /accepted reader view after a failed import/);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
-assert.match(manualQa, /verify the downloaded JSON file yourself/);
+assert.match(manualQa, /verify the exported JSON file yourself/);
 assert.match(manualQa, /First-run Start Here/);
 assert.match(manualQa, /Capture this thought focuses Quick Capture/);
 assert.match(manualQa, /Keyboard quick capture/);

@@ -15,11 +15,12 @@ The product bias is a study cockpit, not a generic note app. Every feature shoul
 
 ## 2026-06-02 Continuation Snapshot
 
-Current branch is `main`, clean, ahead of `origin/main` by 13 commits.
+Current branch is `main`, ahead of `origin/main` with local product commits.
 
 Latest commits:
 
-- `fix: keep controlled downloads out of downloads` (current slice)
+- `fix: avoid downloads wording for backup exports` (current slice)
+- `fix: keep controlled downloads out of downloads`
 - `f7f8474 feat: label legacy return file checks`
 - `dcb0b00 docs: refresh continuation handoff`
 - `73671c5 feat: reconnect return imports to today flow`
@@ -47,6 +48,10 @@ What changed in this continuation:
 - Old Return JSON files still import through the legacy mirror check, but the in-app receipt, returned-work nudge, and Device Flow now say to re-export the mirror before the next phone/Windows pass.
 - Newly generated static mirror pages (`index.html`, `review.html`, `inbox.html`) show a `Return-ready mirror` badge explaining that Review/Inbox Return JSON includes the Mac return-base check while remaining static/no-live-sync.
 - The morning pack now generates `WINDOWS_STATIC_QA.md` as a `PENDING_USER_GATE` receipt for Windows Edge/Chrome static mirror launch, Review/Inbox Return JSON creation, and Mac Return Files import. It is a pending receipt, not QA evidence, until a real Windows pass fills the rows.
+- Workspace backup receipts now avoid steering users toward Downloads: directed saves still say `Backup saved - verify the selected file`, and fallback export copy says `Backup export requested - verify the exported file`.
+- Mac manual QA and the generated morning demo script now ask reviewers to verify the exported JSON file instead of assuming a Downloads-based path.
+- `npm run smoke:browser` gives Chrome target startup and the final post-save learning-flow block a slightly larger timeout budget, because that end-to-end browser path was flaking before any product assertion failed.
+- Mira returned `PASS_WITH_NOTES` for the backup-export copy slice. Accepted notes: prove the browser-smoke assertion exercises the non-directed branch, comment the two timeout budgets, statically pin `downloadBlob()` behind the explicit automation fallback, and document that `exported` is intentionally destination-agnostic.
 
 External review / critique absorbed:
 
@@ -378,7 +383,7 @@ Latest local export work separates real saves from temporary downloads:
 - Static return pages keep a stable per-draft return id and show `Suggested file: ...`, so Copy and Save refer to the same timestamped Return JSON name.
 - Static return pages also expose `Manual Copy`, which only selects the preview Return JSON when clipboard or picker permissions are unavailable; it does not write the clipboard, download a file, or start any background scan.
 - Return imports with new work now show `Returned from phone/Windows` inside Learning Flow. The nudge is in-memory only, suppresses duplicate-only receipts, names captures/review updates separately, exposes `Import details`, and can be dismissed without altering workspace or mirror data.
-- Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup requested - verify downloaded file`.
+- Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup export requested - verify the exported file`.
 - Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy only for explicit smoke fallback saves.
 - ZIP export is intentionally not sent through the text bridge; it continues through save picker or explicit smoke fallback to avoid large binary payloads in the WK message body.
 - `npm run smoke:browser` now creates a private ignored `.codex-tmp/browser-smoke/*/` root with separate Chrome profile and `downloads/` directory.

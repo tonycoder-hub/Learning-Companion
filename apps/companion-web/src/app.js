@@ -4863,7 +4863,7 @@ function markWorkspaceExported() {
   saveUiPrefs();
   storageWarning = hasDirectedSaveDestination()
     ? "Backup saved - verify the selected file"
-    : "Backup requested - verify downloaded file";
+    : "Backup export requested - verify the exported file";
   renderStorageNotice();
   showToast(storageWarning);
 }
