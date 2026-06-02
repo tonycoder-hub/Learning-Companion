@@ -78,6 +78,7 @@ import {
   setCaptureQuestionResolved,
   stripSourceTimestamp,
   timestampToSeconds,
+  updateCaptureThought,
   updateSession,
   workspaceBackupFingerprint,
   workspaceFingerprint,
@@ -140,6 +141,9 @@ assert.match(appJs, /captureIsQuoteOnly/);
 assert.match(appJs, /Highlight saved/);
 assert.match(appJs, /source page is unchanged/);
 assert.match(appJs, /View highlight/);
+assert.match(appJs, /updateCaptureThought/);
+assert.match(appJs, /Add why this highlight matters/);
+assert.match(appCss, /\.highlight-annotation-form/);
 assert.match(appJs, /resumeCurrentSource/);
 assert.match(appJs, /handleCaptureContextSourceAction/);
 assert.match(appJs, /promptForSource/);
@@ -310,6 +314,69 @@ assert.equal(stripSourceTimestamp("https://vimeo.com/123456789?h=abc#t=1m30s"), 
 assert.equal(stripSourceTimestamp("https://vimeo.com/123456789?h=abc#t=1m30s&autoplay=1"), "https://vimeo.com/123456789?h=abc#autoplay=1");
 assert.equal(stripSourceTimestamp("https://vimeo.com/123456789#chapter-one"), "https://vimeo.com/123456789#chapter-one");
 assert.equal(stripSourceTimestamp("https://example.com/video?t=1m30s"), "https://example.com/video?t=1m30s");
+
+let highlightWorkspace = createDefaultWorkspace();
+highlightWorkspace = addCapture(highlightWorkspace, getActiveSession(highlightWorkspace).id, {
+  id: "capture_quote_only_annotation",
+  quote: "A quote-only highlight should stay as one capture.",
+  thought: "",
+  timestamp: "02:10"
+}, { now: "2026-05-29T00:04:00.000Z" });
+const highlightSession = getActiveSession(highlightWorkspace);
+highlightWorkspace = updateCaptureThought(
+  highlightWorkspace,
+  highlightSession.id,
+  "capture_quote_only_annotation",
+  "This explains why annotation must be in-place.",
+  { now: "2026-05-29T00:05:00.000Z" }
+);
+const annotatedHighlight = getActiveSession(highlightWorkspace).captures[0];
+assert.equal(getActiveSession(highlightWorkspace).captures.length, 1);
+assert.equal(annotatedHighlight.thought, "This explains why annotation must be in-place.");
+assert.equal(annotatedHighlight.quote, "A quote-only highlight should stay as one capture.");
+assert.equal(annotatedHighlight.updatedAt, "2026-05-29T00:05:00.000Z");
+assert.equal(updateCaptureThought(highlightWorkspace, highlightSession.id, annotatedHighlight.id, ""), highlightWorkspace);
+assert.equal(updateCaptureThought(highlightWorkspace, highlightSession.id, annotatedHighlight.id, "   "), highlightWorkspace);
+
+let promotedHighlightWorkspace = createDefaultWorkspace();
+promotedHighlightWorkspace = addCapture(promotedHighlightWorkspace, getActiveSession(promotedHighlightWorkspace).id, {
+  id: "capture_promoted_quote_only_annotation",
+  quote: "A promoted quote-only highlight should keep its linked card useful.",
+  thought: ""
+}, { promoteToReview: true, now: "2026-05-29T00:06:00.000Z" });
+const promotedHighlightSession = getActiveSession(promotedHighlightWorkspace);
+assert.match(promotedHighlightSession.reviewCards[0].prompt, /^Explain this excerpt:/);
+promotedHighlightWorkspace = updateCaptureThought(
+  promotedHighlightWorkspace,
+  promotedHighlightSession.id,
+  "capture_promoted_quote_only_annotation",
+  "Use the annotation as the recall prompt.",
+  { now: "2026-05-29T00:07:00.000Z" }
+);
+const refreshedPromotedHighlight = getActiveSession(promotedHighlightWorkspace);
+assert.equal(refreshedPromotedHighlight.captures.length, 1);
+assert.equal(refreshedPromotedHighlight.reviewCards.length, 1);
+assert.equal(refreshedPromotedHighlight.reviewCards[0].prompt, "Recall the point behind: Use the annotation as the recall prompt.");
+const editedPromptWorkspace = {
+  ...promotedHighlightWorkspace,
+  sessions: promotedHighlightWorkspace.sessions.map((item) => item.id === promotedHighlightSession.id
+    ? {
+        ...item,
+        reviewCards: item.reviewCards.map((card) => ({
+          ...card,
+          prompt: "Custom learner prompt should survive annotation."
+        }))
+      }
+    : item)
+};
+const preservedPromptWorkspace = updateCaptureThought(
+  editedPromptWorkspace,
+  promotedHighlightSession.id,
+  "capture_promoted_quote_only_annotation",
+  "A later annotation should not overwrite custom prompts.",
+  { now: "2026-05-29T00:08:00.000Z" }
+);
+assert.equal(getActiveSession(preservedPromptWorkspace).reviewCards[0].prompt, "Custom learner prompt should survive annotation.");
 
 workspace = addSession(workspace, "Rust ownership course");
 let session = getActiveSession(workspace);

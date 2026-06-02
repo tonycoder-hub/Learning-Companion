@@ -1014,6 +1014,53 @@ export function addCapture(workspace, sessionId, captureInput, options = {}) {
   };
 }
 
+export function updateCaptureThought(workspace, sessionId, captureId, thoughtInput, options = {}) {
+  const thought = cleanText(thoughtInput, MAX_CAPTURE_TEXT_LENGTH);
+  if (!thought) return workspace;
+  const timestamp = optionIso(options.now) || nowIso();
+  let changed = false;
+  const sessions = workspace.sessions.map((session) => {
+    if (session.id !== sessionId) return session;
+    let targetCapture = null;
+    const captures = session.captures.map((capture) => {
+      if (capture.id !== captureId) return capture;
+      if (capture.thought === thought) return capture;
+      changed = true;
+      targetCapture = capture;
+      return {
+        ...capture,
+        thought,
+        updatedAt: timestamp
+      };
+    });
+    if (!changed) return session;
+    const reviewCards = session.reviewCards.map((card) => {
+      if (card.sourceCaptureId !== captureId || !targetCapture) return card;
+      // Only refresh the generated quote-only prompt; preserve any prompt the learner has already changed.
+      const quotePrompt = `Explain this excerpt: ${targetCapture.quote.slice(0, 160)}`;
+      if (card.prompt !== quotePrompt) return card;
+      return {
+        ...card,
+        prompt: `Recall the point behind: ${thought}`,
+        updatedAt: timestamp
+      };
+    });
+    return {
+      ...session,
+      captures,
+      reviewCards,
+      updatedAt: timestamp
+    };
+  });
+  return changed
+    ? {
+        ...workspace,
+        updatedAt: timestamp,
+        sessions
+      }
+    : workspace;
+}
+
 export function createReviewCardFromCapture(capture, originClientId = capture.originClientId, overrides = {}) {
   const prompt = cleanText(overrides.prompt, MAX_CAPTURE_TEXT_LENGTH) || (capture.thought
     ? `Recall the point behind: ${capture.thought}`

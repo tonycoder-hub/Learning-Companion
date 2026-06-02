@@ -3910,10 +3910,61 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Takeaway: Ownership makes the reader check aliasing before mutation.");
     document.querySelector("#captureBtn").click();
     const takeawaySaved = readActivity();
+    setValue("#quoteInput", "This earlier sentence is another quote-only highlight.");
+    setValue("#thoughtInput", "");
+    document.querySelector("#captureBtn").click();
     setValue("#quoteInput", "This sentence is worth keeping as a highlight.");
     setValue("#thoughtInput", "");
     document.querySelector("#captureBtn").click();
     const highlightSaved = readActivity();
+    const highlightBefore = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return {
+        count: session.captures.length,
+        id: session.captures[0]?.id || "",
+        previousId: session.captures[1]?.id || "",
+        quote: session.captures[0]?.quote || ""
+      };
+    })();
+    const addThoughtButtonFor = (captureId) => [...document.querySelectorAll("#captureStack .capture-stack-row button")]
+      .find((button) => button.textContent === "Add thought" && button.dataset.highlightAnnotationTrigger === captureId);
+    addThoughtButtonFor(highlightBefore.id)?.click();
+    const annotationFormVisible = document.querySelector(".highlight-annotation-form")?.textContent.includes("Add why this highlight matters") === true;
+    const annotationFocusOnOpen = document.activeElement?.classList.contains("highlight-annotation-input") === true;
+    addThoughtButtonFor(highlightBefore.previousId)?.click();
+    const singleFormAfterSecondOpen = document.querySelectorAll(".highlight-annotation-form").length === 1
+      && document.querySelector(".highlight-annotation-form")?.dataset.highlightAnnotationId === highlightBefore.previousId;
+    addThoughtButtonFor(highlightBefore.id)?.click();
+    const escapeInput = document.querySelector(".highlight-annotation-form textarea");
+    escapeInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    const escapeCanceled = document.querySelectorAll(".highlight-annotation-form").length === 0;
+    const focusReturnedToTrigger = document.activeElement?.dataset.highlightAnnotationTrigger === highlightBefore.id;
+    addThoughtButtonFor(highlightBefore.id)?.click();
+    const annotationInput = document.querySelector(".highlight-annotation-form textarea");
+    annotationInput.value = "This annotation must stay attached to the existing highlight.";
+    annotationInput.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector(".highlight-annotation-form button[type='submit']").click();
+    const highlightAnnotated = readActivity();
+    const highlightAnnotationState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session.captures.find((item) => item.id === highlightBefore.id);
+      const activeRow = document.querySelector("#captureStack .capture-stack-row");
+      return {
+        annotationFormVisible,
+        annotationFocusOnOpen,
+        singleFormAfterSecondOpen,
+        escapeCanceled,
+        focusReturnedToTrigger,
+        countBefore: highlightBefore.count,
+        countAfter: session.captures.length,
+        quote: capture?.quote || "",
+        thought: capture?.thought || "",
+        stackText: activeRow?.textContent || "",
+        addThoughtGone: ![...(activeRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "Add thought")
+      };
+    })();
     setValue("#quoteInput", "Plain capture quote.");
     setValue("#thoughtInput", "Plain capture thought.");
     document.querySelector("#captureBtn").click();
@@ -3922,7 +3973,7 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
     const quoteQuestionSaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, ordinarySaved, quoteQuestionSaved };
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightAnnotated, highlightAnnotationState, ordinarySaved, quoteQuestionSaved };
   })()`, 45000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
@@ -3954,6 +4005,20 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightSaved.detail, /source page is unchanged/);
   assert.match(postSaveFlow.highlightSaved.detail, /make a card/);
   assert.equal(postSaveFlow.highlightSaved.action, "View highlight");
+  assert.equal(postSaveFlow.highlightAnnotated.title, "Highlight annotated");
+  assert.match(postSaveFlow.highlightAnnotated.detail, /Thought added to the saved highlight/);
+  assert.match(postSaveFlow.highlightAnnotated.detail, /source page is unchanged/);
+  assert.equal(postSaveFlow.highlightAnnotated.action, "View highlight");
+  assert.equal(postSaveFlow.highlightAnnotationState.annotationFormVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.annotationFocusOnOpen, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.singleFormAfterSecondOpen, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.escapeCanceled, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.focusReturnedToTrigger, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.countAfter, postSaveFlow.highlightAnnotationState.countBefore);
+  assert.equal(postSaveFlow.highlightAnnotationState.quote, "This sentence is worth keeping as a highlight.");
+  assert.equal(postSaveFlow.highlightAnnotationState.thought, "This annotation must stay attached to the existing highlight.");
+  assert.match(postSaveFlow.highlightAnnotationState.stackText, /annotation must stay attached/);
+  assert.equal(postSaveFlow.highlightAnnotationState.addThoughtGone, true);
   assert.equal(postSaveFlow.ordinarySaved.title, "Capture saved");
   assert.match(postSaveFlow.ordinarySaved.detail, /Keep reading/);
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");

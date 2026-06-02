@@ -1012,6 +1012,48 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.highlight-annotation-form {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(49, 95, 130, 0.18);
+  border-radius: 8px;
+  background: #f7f8f2;
+}
+
+.highlight-annotation-form.compact {
+  padding: 8px;
+}
+
+.highlight-annotation-label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.highlight-annotation-input {
+  width: 100%;
+  min-height: 72px;
+  max-height: 150px;
+  padding: 9px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.highlight-annotation-form.compact .highlight-annotation-input {
+  min-height: 62px;
+  max-height: 120px;
+}
+
+.highlight-annotation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
 .command-button {
   min-height: 34px;
   padding: 0 12px;

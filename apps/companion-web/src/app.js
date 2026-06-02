@@ -2,6 +2,7 @@ import {
   WORKSPACE_SCHEMA,
   CAPTURE_DRAFT_LIMIT,
   MAX_INBOX_PATCH_BYTES,
+  MAX_CAPTURE_TEXT_LENGTH,
   MAX_MIRROR_BUNDLE_BYTES,
   MAX_REVIEW_PROGRESS_PATCH_BYTES,
   MAX_SEARCH_QUERY_LENGTH,
@@ -60,6 +61,7 @@ import {
   setCaptureQuestionResolved,
   stripSourceTimestamp,
   timestampToSeconds,
+  updateCaptureThought,
   updateSession,
   workspaceBackupFingerprint,
   workspaceStorageNotice,
@@ -197,6 +199,7 @@ let lastImportReceipt = null;
 let dismissedReturnNudgeKey = "";
 let pendingCaptureUndo = null;
 let pendingCaptureUndoTimer = null;
+let activeHighlightAnnotation = null;
 const revealedReviewCards = new Set();
 
 pruneCurrentCaptureDrafts();
@@ -4123,6 +4126,14 @@ function renderCaptureStack(session) {
       });
       actions.append(openButton);
     }
+    if (captureIsQuoteOnly(capture)) {
+      const thoughtButton = textEl("button", "mini-button primary", "Add thought");
+      thoughtButton.type = "button";
+      thoughtButton.dataset.highlightAnnotationTrigger = capture.id;
+      thoughtButton.dataset.highlightAnnotationContext = "stack";
+      thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "stack"));
+      actions.append(thoughtButton);
+    }
     const noteButton = textEl("button", "mini-button", "Note");
     noteButton.type = "button";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
@@ -4136,6 +4147,9 @@ function renderCaptureStack(session) {
     actions.append(cardButton);
     actions.append(captureDeleteButton(session, capture, linkedReviewCounts.get(capture.id) || 0));
     row.append(actions);
+    if (isActiveHighlightAnnotation(session.id, capture.id, "stack")) {
+      row.append(renderHighlightAnnotationForm(session, capture, "stack"));
+    }
     list.append(row);
   });
   dom.captureStack.append(list);
@@ -4435,6 +4449,108 @@ function addCaptureToNotes(captureId) {
   persistAndRender("Capture added to notes");
 }
 
+function isActiveHighlightAnnotation(sessionId, captureId, context) {
+  return activeHighlightAnnotation?.sessionId === sessionId
+    && activeHighlightAnnotation?.captureId === captureId
+    && activeHighlightAnnotation?.context === context;
+}
+
+function startHighlightAnnotation(sessionId, captureId, context = "stack") {
+  activeHighlightAnnotation = { sessionId, captureId, context };
+  render();
+  focusHighlightAnnotationInput(captureId, context);
+  requestAnimationFrame(() => focusHighlightAnnotationInput(captureId, context));
+}
+
+function focusHighlightAnnotationInput(captureId, context) {
+  const input = document.querySelector(`[data-highlight-annotation-id="${CSS.escape(captureId)}"][data-highlight-annotation-context="${CSS.escape(context)}"] textarea`);
+  input?.focus();
+}
+
+function cancelHighlightAnnotation(captureId, context) {
+  activeHighlightAnnotation = null;
+  render();
+  focusHighlightAnnotationTrigger(captureId, context);
+  requestAnimationFrame(() => focusHighlightAnnotationTrigger(captureId, context));
+}
+
+function focusHighlightAnnotationTrigger(captureId, context) {
+  const trigger = document.querySelector(`[data-highlight-annotation-trigger="${CSS.escape(captureId)}"][data-highlight-annotation-context="${CSS.escape(context)}"]`);
+  trigger?.focus();
+}
+
+function renderHighlightAnnotationForm(session, capture, context = "details") {
+  const form = document.createElement("form");
+  form.className = `highlight-annotation-form ${context === "stack" ? "compact" : ""}`.trim();
+  form.dataset.highlightAnnotationId = capture.id;
+  form.dataset.highlightAnnotationContext = context;
+  form.append(textEl("div", "highlight-annotation-label", "Add why this highlight matters"));
+  const input = document.createElement("textarea");
+  input.className = "highlight-annotation-input";
+  input.maxLength = MAX_CAPTURE_TEXT_LENGTH;
+  input.placeholder = "What does this help you understand, remember, or question?";
+  input.setAttribute("aria-label", "Thought for this saved highlight");
+  input.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    cancelHighlightAnnotation(capture.id, context);
+  });
+  form.append(input);
+  const actions = document.createElement("div");
+  actions.className = "highlight-annotation-actions";
+  const cancel = textEl("button", "mini-button", "Cancel");
+  cancel.type = "button";
+  cancel.addEventListener("click", () => cancelHighlightAnnotation(capture.id, context));
+  const save = textEl("button", "mini-button primary", "Save thought");
+  save.type = "submit";
+  actions.append(cancel, save);
+  form.append(actions);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    saveHighlightAnnotation(session.id, capture.id, input.value);
+  });
+  return form;
+}
+
+function saveHighlightAnnotation(sessionId, captureId, thought) {
+  const text = String(thought || "").trim();
+  if (!text) {
+    showToast("Add a thought before saving");
+    const input = document.querySelector(`[data-highlight-annotation-id="${CSS.escape(captureId)}"] textarea`);
+    input?.focus();
+    return;
+  }
+  const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
+  const sourceCapture = sourceSession?.captures.find((capture) => capture.id === captureId);
+  if (!sourceSession || !sourceCapture) {
+    activeHighlightAnnotation = null;
+    showToast("Highlight no longer exists");
+    render();
+    return;
+  }
+  const previousWorkspace = workspace;
+  workspace = updateCaptureThought(workspace, sourceSession.id, sourceCapture.id, text);
+  if (workspace === previousWorkspace) {
+    activeHighlightAnnotation = null;
+    showToast("Thought already saved");
+    render();
+    return;
+  }
+  const updatedSession = workspace.sessions.find((session) => session.id === sourceSession.id) || getActiveSession(workspace);
+  const updatedCapture = updatedSession.captures.find((capture) => capture.id === sourceCapture.id) || sourceCapture;
+  activeHighlightAnnotation = null;
+  activeTab = "captures";
+  setActivity(updatedSession, {
+    title: "Highlight annotated",
+    detail: `${summarizeCapture(updatedCapture)} · Thought added to the saved highlight; the source page is unchanged.`,
+    tab: "captures",
+    targetId: updatedCapture.id,
+    actionLabel: "View highlight"
+  });
+  persistAndRender("Highlight annotated");
+  scrollActivityTarget({ tab: "captures", targetId: updatedCapture.id });
+}
+
 function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspace).id) {
   const targetSession = workspace.sessions.find((session) => session.id === sessionId);
   if (!targetSession) {
@@ -4610,6 +4726,9 @@ function renderCaptures() {
       renderMarkdown(thought, capture.thought);
       item.append(thought);
     }
+    if (isActiveHighlightAnnotation(session.id, capture.id, "details")) {
+      item.append(renderHighlightAnnotationForm(session, capture, "details"));
+    }
 
     const footer = document.createElement("div");
     footer.className = "item-footer";
@@ -4626,6 +4745,16 @@ function renderCaptures() {
         window.open(sourceHref, "_blank", "noopener,noreferrer");
       });
       actions.append(openButton);
+    }
+    if (captureIsQuoteOnly(capture)) {
+      const thoughtButton = document.createElement("button");
+      thoughtButton.className = "mini-button primary";
+      thoughtButton.type = "button";
+      thoughtButton.textContent = "Add thought";
+      thoughtButton.dataset.highlightAnnotationTrigger = capture.id;
+      thoughtButton.dataset.highlightAnnotationContext = "details";
+      thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "details"));
+      actions.append(thoughtButton);
     }
     const noteButton = document.createElement("button");
     noteButton.className = "mini-button";
