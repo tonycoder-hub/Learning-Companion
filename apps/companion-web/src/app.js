@@ -4100,6 +4100,7 @@ function renderCaptureStack(session) {
     const isQuestion = captureHasQuestion(capture);
     const isOpenQuestion = captureHasOpenQuestion(capture);
     const isParkedQuestion = captureHasParkedQuestion(capture);
+    const isInNotes = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
     row.append(
       textEl("div", "capture-stack-meta", [
         capture.timestamp || "No time",
@@ -4114,6 +4115,9 @@ function renderCaptureStack(session) {
         isOpenQuestion ? "capture-stack-chip" : "capture-stack-chip resolved",
         isOpenQuestion ? "Question" : isParkedQuestion ? "Parked" : "Answered"
       ));
+    }
+    if (isInNotes) {
+      row.append(textEl("span", "capture-stack-chip note", "In Notes"));
     }
     const actions = document.createElement("div");
     actions.className = "capture-stack-actions";
@@ -4134,7 +4138,7 @@ function renderCaptureStack(session) {
       thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "stack"));
       actions.append(thoughtButton);
     }
-    const noteButton = textEl("button", "mini-button", "Note");
+    const noteButton = textEl("button", "mini-button", isInNotes ? "Update note" : "Note");
     noteButton.type = "button";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
@@ -4437,16 +4441,17 @@ function addCaptureToNotes(captureId) {
     return;
   }
   const { session, capture } = target;
+  const hadNoteBlock = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
   const updatedNotes = upsertCaptureNoteBlock(session.notesMarkdown, capture);
   workspace = updateSession(workspace, session.id, { notesMarkdown: updatedNotes });
   notesMode = "preview";
   setActivity(getActiveSession(workspace), {
-    title: "Capture added to notes",
+    title: hadNoteBlock ? "Capture note updated" : "Capture added to notes",
     detail: summarizeCapture(capture),
     tab: "captures",
     targetId: capture.id
   });
-  persistAndRender("Capture added to notes");
+  persistAndRender(hadNoteBlock ? "Capture note updated" : "Capture added to notes");
 }
 
 function isActiveHighlightAnnotation(sessionId, captureId, context) {
@@ -4720,6 +4725,7 @@ function renderCaptures() {
     const item = document.createElement("article");
     item.className = "item-card";
     item.dataset.captureId = capture.id;
+    const isInNotes = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
     item.append(textEl("div", "item-meta", [
       capture.timestamp || "No time",
       capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
@@ -4731,6 +4737,9 @@ function renderCaptures() {
       thought.className = "capture-thought markdown-lite";
       renderMarkdown(thought, capture.thought);
       item.append(thought);
+    }
+    if (isInNotes) {
+      item.append(textEl("span", "capture-note-chip", "In Notes"));
     }
     if (isActiveHighlightAnnotation(session.id, capture.id, "details")) {
       item.append(renderHighlightAnnotationForm(session, capture, "details"));
@@ -4765,7 +4774,7 @@ function renderCaptures() {
     const noteButton = document.createElement("button");
     noteButton.className = "mini-button";
     noteButton.type = "button";
-    noteButton.textContent = "Note";
+    noteButton.textContent = isInNotes ? "Update note" : "Note";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const promoteButton = document.createElement("button");

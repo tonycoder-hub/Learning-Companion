@@ -54,6 +54,7 @@ What changed in this continuation:
 - `npm run smoke:browser` gives Chrome target startup and the final post-save learning-flow block a slightly larger timeout budget, because that end-to-end browser path was flaking before any product assertion failed.
 - Mira returned `PASS_WITH_NOTES` for the backup-export copy slice. Accepted notes: prove the browser-smoke assertion exercises the non-directed branch, comment the two timeout budgets, statically pin `downloadBlob()` behind the explicit automation fallback, and document that `exported` is intentionally destination-agnostic.
 - Quote-only saves now surface as `Highlight saved` with next-step copy that says the highlight is local, the source page is unchanged, and the next useful moves are adding a thought or making a card. `Add thought` now opens an inline form in Recent Stack/Captures and updates the same capture in place, so annotation is a real local path rather than a duplicate Quick Capture. If the highlight was already inserted into Notes, annotation refreshes that existing generated note block instead of leaving durable notes stale. This absorbs the highlight-plus-annotation pattern from reader/clipper tools without adding browser automation, live sync, or a new schema field.
+- Captures with generated note blocks now show `In Notes`, and the button becomes `Update note`; browser smoke verifies the marker block remains idempotent.
 
 External review / critique absorbed:
 

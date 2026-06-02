@@ -70,6 +70,7 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 - Static Review/Inbox return panels now keep a persistent next-step cue that counts review events or draft captures staged in the return file to bring back to Mac, with screen-reader-friendly status updates.
 - Latest Mira/Seed review on the returned-work nudge was accepted for provenance-first copy, explicit dismiss, duplicate-only suppression, and review-only import-details routing. I rejected `synced` wording, 24-hour persistence, telemetry, and bottom-of-page demotion because they either overclaim live sync, add state without approval, or bury the immediate post-import learning action.
 - Workspace backup copy no longer frames backup verification around Downloads. The app, Mac manual QA, and morning demo script now frame this as an exported/selected file so Downloads is not the default mental model; `exported` is intentionally destination-agnostic across native save panels, browser pickers, and the gated automation fallback.
+- Captures with generated note blocks now show `In Notes` and expose `Update note` instead of another generic `Note` button, making the capture-to-notes state visible while keeping the marker block idempotent.
 
 ## Current Journey Assessment
 

@@ -1005,6 +1005,22 @@ textarea:focus {
   color: var(--muted);
 }
 
+.capture-stack-chip.note,
+.capture-note-chip {
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid rgba(82, 119, 76, 0.26);
+  border-radius: 999px;
+  background: #f0f6ea;
+  color: #52774c;
+  font-size: 11px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .capture-stack-actions {
   display: flex;
   flex-wrap: wrap;
