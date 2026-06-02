@@ -2102,10 +2102,12 @@ try {
   assert.match(result.mirrorReviewHtml, /learning-companion\.review-progress-patch\.v1/);
   assert.match(result.mirrorReviewHtml, /Return to Mac/);
   assert.match(result.mirrorReviewHtml, /Save Return JSON/);
+  assert.match(result.mirrorReviewHtml, /returnNextStep/);
   assert.equal(result.mirrorHasInboxHtml, true);
   assert.match(result.mirrorInboxHtml, /Learning Companion Inbox/);
   assert.match(result.mirrorInboxHtml, /Return to Mac/);
   assert.match(result.mirrorInboxHtml, /Save Return JSON/);
+  assert.match(result.mirrorInboxHtml, /returnNextStep/);
   assert.equal(result.mirrorTodayEscapesScript, true);
   assert.equal(result.mirrorReviewEscapesScript, true);
   assert.equal(result.mirrorHasMarkdown, true);
@@ -2168,18 +2170,27 @@ try {
       HTMLAnchorElement.prototype.click = originalClick;
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
+    const savedStatus = document.querySelector("#progressStatus").textContent;
+    const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
+    const readyNextStep = document.querySelector("#returnNextStep").textContent;
+    const reviewState = document.querySelector(".review-state").textContent;
+    const dirtyAfterSave = beforeUnloadPrevented();
+    document.querySelector("#clearProgressBtn").click();
+    const clearedNextStep = document.querySelector("#returnNextStep").textContent;
     return {
       heading: document.querySelector("h1").textContent,
       answerVisible: !document.querySelector(".answer").hidden,
       status: readyStatus,
       selectedStatus,
       selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.review-progress-patch.v1"'),
-      savedStatus: document.querySelector("#progressStatus").textContent,
-      returnFileHint: document.querySelector("#returnFileHint").textContent,
+      savedStatus,
+      returnFileHint: savedReturnFileHint,
+      returnNextStep: readyNextStep,
+      clearedNextStep,
       downloadName,
       dirtyBeforeSave,
-      dirtyAfterSave: beforeUnloadPrevented(),
-      state: document.querySelector(".review-state").textContent,
+      dirtyAfterSave,
+      state: reviewState,
       previewSchema: preview.schema,
       previewEventCount: preview.events.length,
       previewGrade: preview.events[0]?.grade || "",
@@ -2196,6 +2207,8 @@ try {
   assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(reviewRuntime.savedStatus, /Return JSON download requested/);
   assert.match(reviewRuntime.returnFileHint, /^Suggested file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested file: ", ""));
   assert.equal(reviewRuntime.dirtyBeforeSave, true);
@@ -2282,6 +2295,14 @@ try {
       HTMLAnchorElement.prototype.click = originalClick;
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
+    const savedStatus = document.querySelector("#statusOutput").textContent;
+    const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
+    const readyNextStep = document.querySelector("#returnNextStep").textContent;
+    const readyDraftCount = document.querySelectorAll("#draftList .capture").length;
+    const dirtyAfterSave = beforeUnloadPrevented();
+    document.querySelector("#clearDraftsBtn").click();
+    const clearedNextStep = document.querySelector("#returnNextStep").textContent;
+    const clearedDraftCount = document.querySelectorAll("#draftList .capture").length;
     return {
       heading: document.querySelector("h1").textContent,
       topicOptions: document.querySelectorAll("#topicSelect option").length,
@@ -2290,7 +2311,7 @@ try {
       status: readyStatus,
       selectedStatus,
       selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.mobile-inbox-patch.v1"'),
-      draftCount: document.querySelectorAll("#draftList .capture").length,
+      draftCount: readyDraftCount,
       previewSchema: preview.schema,
       previewTargetTitle: preview.target.topicTitle,
       previewCaptureCount: preview.captures.length,
@@ -2298,11 +2319,14 @@ try {
       previewThought: preview.captures[0]?.thought || "",
       previewSourceUrl: preview.captures[0]?.sourceUrl || "",
       storedDraftCount: storedDrafts.length,
-      savedStatus: document.querySelector("#statusOutput").textContent,
-      returnFileHint: document.querySelector("#returnFileHint").textContent,
+      savedStatus,
+      returnFileHint: savedReturnFileHint,
+      returnNextStep: readyNextStep,
+      clearedNextStep,
+      clearedDraftCount,
       downloadName,
       dirtyBeforeSave,
-      dirtyAfterSave: beforeUnloadPrevented()
+      dirtyAfterSave
     };
   })()`);
 
@@ -2315,6 +2339,9 @@ try {
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(inboxRuntime.savedStatus, /Return JSON download requested/);
   assert.match(inboxRuntime.returnFileHint, /^Suggested file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
+  assert.equal(inboxRuntime.clearedDraftCount, 0);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(inboxRuntime.downloadName, inboxRuntime.returnFileHint.replace("Suggested file: ", ""));
   assert.equal(inboxRuntime.dirtyBeforeSave, true);
@@ -3986,7 +4013,7 @@ async function connectCdp(url) {
         pending.set(messageId, { resolveMessage, rejectMessage });
       });
     },
-    evaluate(expression, timeoutMs = 15000) {
+    evaluate(expression, timeoutMs = 25000) {
       return withTimeout(this.send("Runtime.evaluate", {
         expression,
         awaitPromise: true,

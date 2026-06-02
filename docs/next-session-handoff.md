@@ -539,6 +539,15 @@ Latest absorbed Mira notes for native sidecar capture:
 - Defer transient rail acknowledgement for the latest save; persistent flow state stays in the rail, while ephemeral save feedback stays in the activity strip.
 - Native macOS Accessibility/Automation GUI QA remains a manual gate; current evidence covers the Web bridge path plus SwiftPM build.
 
+Latest absorbed Mira notes for static Return next-step cue:
+
+- Keep the persistent cue because phone/Windows users need a stable answer to "what is staged in the file I must bring back to Mac?"
+- Change user-facing cue copy from `Return JSON` jargon to `return file`, while keeping schema/docs terminology precise.
+- Avoid implying Copy/Save always succeeds; the cue now says to use Copy or Save to take the return file back to Mac, while existing status/fallback paths report failures.
+- Add `role="status"` and `aria-live="polite"` to the cue because it is the "do not lose work" anchor on static device pages.
+- Browser smoke now asserts both increment and clear/decrement behavior for review progress and inbox drafts.
+- Real Harmony/Windows Copy/Save success remains a manual/device gate, not claimed by this local smoke.
+
 ## Next Local Work
 
 1. Continue the study loop:
