@@ -90,7 +90,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Return Files can import multiple inbox/review return JSON files in one picker action and reports per-file batch counts for inbox additions, review grades, duplicates, and failures. Batch import applies inbox returns before review returns and continues past wrong-type files with per-file errors.
-- Return Files receipts warn with `mirror base changed` when a phone/Windows return JSON came from an older return-base fingerprint, while still allowing append-only captures or version-matched review events to merge safely.
+- Return Files receipts warn with `mirror base changed` when a phone/Windows return JSON came from an older return-base fingerprint, name the affected files in batch imports, and still allow append-only captures or version-matched review events to merge safely.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
 - Today tab surfaces Return Files counts, latest receipt, and the manual device-labeled path inside Device Flow: export a mirror on Mac, transfer it yourself through USB, AirDrop, email, file share, or manual Feishu Drive upload, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON on Mac. The export action opens the Export tab directly at the Mirror Folder controls, and mirror saves leave a handoff receipt.
 - Portable import/export of the full workspace JSON and mirror bundle.

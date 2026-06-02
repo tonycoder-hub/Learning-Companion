@@ -1200,6 +1200,8 @@ try {
   assert.match(result.batchReceiptText, /Return JSON imported/);
   assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /2 mirror bases changed/);
+  assert.match(result.batchReceiptText, /learning-companion-inbox-patch-20260529-0902-002\.json/);
+  assert.match(result.batchReceiptText, /learning-companion-review-progress-patch-20260529-0906-missing\.json/);
   assert.match(result.batchReceiptText, /inbox: 1 added, 0 skipped/);
   assert.match(result.batchReceiptText, /review: 0 applied, 1 duplicate/);
   assert.match(result.batchReceiptText, /1 failed/);

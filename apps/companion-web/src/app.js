@@ -1873,6 +1873,7 @@ function emptyReturnFilesReceipt(fileCount) {
       totalEvents: 0
     },
     baseChangedFiles: 0,
+    baseChangedFileNames: [],
     errors: []
   };
 }
@@ -1881,7 +1882,7 @@ function addReturnFileImportResult(summary, fileName, result) {
   summary.processedFiles += 1;
   if (result.kind === "mobile-inbox-patch") {
     const receipt = result.receipt || {};
-    addReturnFileBaseStatus(summary, receipt);
+    addReturnFileBaseStatus(summary, fileName, receipt);
     summary.inbox.files += 1;
     summary.inbox.added += Number(receipt.added) || 0;
     summary.inbox.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
@@ -1892,7 +1893,7 @@ function addReturnFileImportResult(summary, fileName, result) {
   }
   if (result.kind === "review-progress-patch") {
     const receipt = result.receipt || {};
-    addReturnFileBaseStatus(summary, receipt);
+    addReturnFileBaseStatus(summary, fileName, receipt);
     summary.review.files += 1;
     summary.review.applied += Number(receipt.applied) || 0;
     summary.review.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
@@ -1905,9 +1906,10 @@ function addReturnFileImportResult(summary, fileName, result) {
   addReturnFileImportError(summary, fileName, "Unsupported return file.");
 }
 
-function addReturnFileBaseStatus(summary, receipt) {
+function addReturnFileBaseStatus(summary, fileName, receipt) {
   if (receipt?.sourceFingerprintMatches === false) {
     summary.baseChangedFiles += 1;
+    summary.baseChangedFileNames.push(String(fileName || "").slice(0, 120));
   }
 }
 
@@ -1993,7 +1995,7 @@ function formatReturnFilesReceipt(receipt) {
   if (!receipt) return "";
   const parts = [`${receipt.processedFiles}/${receipt.fileCount} files processed`];
   if (receipt.baseChangedFiles) {
-    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed`);
+    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)}`);
   }
   if (receipt.inbox?.files) {
     const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
@@ -2014,6 +2016,16 @@ function formatReturnFilesReceipt(receipt) {
     parts.push(`${receipt.failedFiles} failed${detail}`);
   }
   return parts.join(" · ");
+}
+
+function formatBaseChangedFileNames(fileNames = []) {
+  const names = fileNames
+    .map((name) => String(name || "").trim())
+    .filter(Boolean)
+    .slice(0, 3);
+  if (!names.length) return "";
+  const hidden = Math.max(0, fileNames.length - names.length);
+  return ` (${names.join(", ")}${hidden ? `, +${hidden} more` : ""})`;
 }
 
 function returnFilesActivityTitle(receipt) {
