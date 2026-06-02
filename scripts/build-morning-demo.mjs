@@ -44,6 +44,7 @@ const REVIEW_REPORT_FILE = "review-start-here.html";
 const DEMO_SCRIPT_FILE = "DEMO_SCRIPT.md";
 const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
+const WINDOWS_STATIC_QA_FILE = "WINDOWS_STATIC_QA.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 const HARMONY_SCAFFOLD_REPORT_FILE = "HARMONY_SCAFFOLD_REPORT.json";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
@@ -468,7 +469,15 @@ const macManualQaMarkdown = buildMacManualQaMarkdown({
   sampleMirrorZipFile,
   feishuUploadReport
 });
-const macManualQaStatus = summarizeMacManualQa(macManualQaMarkdown);
+const macManualQaStatus = summarizeManualQa(macManualQaMarkdown);
+const windowsStaticQaMarkdown = buildWindowsStaticQaMarkdown({
+  sampleMirrorZipFile
+});
+const windowsStaticQaStatus = summarizeManualQa(windowsStaticQaMarkdown);
+assert.match(windowsStaticQaMarkdown, /Return-ready mirror/);
+assert.match(windowsStaticQaMarkdown, /review\.html/);
+assert.match(windowsStaticQaMarkdown, /inbox\.html/);
+assert.match(windowsStaticQaMarkdown, /returnBaseFingerprint/);
 
 await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   mirrorBundle,
@@ -486,6 +495,7 @@ await writeText(join(OUT_DIR, "MORNING_REVIEW.md"), buildMorningReviewMarkdown({
   determinismReport,
   harmonyReaderView,
   harmonyScaffoldReport,
+  windowsStaticQaStatus,
   inboxReceipt: inboxResult.receipt,
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
@@ -505,9 +515,11 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   harmonyReaderView,
   harmonyScaffoldReport,
   unsupportedInboxPatchRejected,
-  macManualQaStatus
+  macManualQaStatus,
+  windowsStaticQaStatus
 }));
 await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), macManualQaMarkdown);
+await writeText(join(OUT_DIR, WINDOWS_STATIC_QA_FILE), windowsStaticQaMarkdown);
 await writeText(
   join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE),
   `${buildEvidenceBadgeMarkdown(HARMONY_DEVECO_HANDOFF_FILE)}${await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8")}`
@@ -546,6 +558,7 @@ assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
 assert.match(reviewReportHtml, /href="DEMO_SCRIPT\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
+assert.match(reviewReportHtml, /href="WINDOWS_STATIC_QA\.md"/);
 assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
 assert.match(reviewReportHtml, /href="EVIDENCE_TIERS\.json"/);
 assert.match(reviewReportHtml, /href="DEFERRED_GATES\.json"/);
@@ -565,6 +578,7 @@ assert.match(reviewReportHtml, /rejected-kept-current/);
 assert.match(reviewReportHtml, /Focus Loop/);
 assert.match(reviewReportHtml, /Question Closure/);
 assert.match(reviewReportHtml, /Question Queue Health/);
+assert.match(reviewReportHtml, /Windows Static Return/);
 assert.match(reviewReportHtml, /Evidence Boundary/);
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
 
@@ -588,7 +602,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
     { area: "Mac", stage: "internal-build", proof: "offline pack generated; native/browser gates are split to avoid sandbox-only failures" },
     { area: "Feishu", stage: "dry-run", proof: "local upload plan/report; no network call was made" },
     { area: "HarmonyOS", stage: "schema-prototype", proof: "local reader view smoke only, including open-question contract evidence" },
-    { area: "Windows", stage: "portable-fixture", proof: "static mirror files only" }
+    { area: "Windows", stage: "portable-fixture", proof: `static mirror files plus pending receipt ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total} filled` }
   ],
   notProven: [
     "live Feishu Drive write",
@@ -608,6 +622,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   workspace: SAMPLE_WORKSPACE_FILE,
   reviewReport: REVIEW_REPORT_FILE,
   macManualQa: MAC_MANUAL_QA_FILE,
+  windowsStaticQa: WINDOWS_STATIC_QA_FILE,
   harmonyDevEcoHandoff: HARMONY_DEVECO_HANDOFF_FILE,
   harmonyScaffoldReport: HARMONY_SCAFFOLD_REPORT_FILE,
   evidenceTiers: EVIDENCE_TIERS_FILE,
@@ -634,6 +649,13 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   determinism: determinismReport ? DETERMINISM_FILE : null,
   harmonyReaderView: SAMPLE_HARMONY_READER_FILE,
   macManualQaStatus,
+  windowsStaticQaReceipt: buildManualQaReceiptSummary({
+    file: WINDOWS_STATIC_QA_FILE,
+    evidenceTier: "PENDING_USER_GATE",
+    evidenceStatus: windowsStaticQaStatus.filled === 0 ? "NOT_RUN" : "PARTIAL",
+    receiptOnly: windowsStaticQaStatus.filled === 0,
+    status: windowsStaticQaStatus
+  }),
   mobileInboxPatch: `patches/${SAMPLE_MOBILE_INBOX_PATCH_FILE}`,
   reviewProgressPatch: `patches/${SAMPLE_REVIEW_PROGRESS_PATCH_FILE}`,
   assertions: {
@@ -874,11 +896,15 @@ function buildStageMarkdown({
   harmonyReaderView,
   harmonyScaffoldReport,
   unsupportedInboxPatchRejected,
-  macManualQaStatus
+  macManualQaStatus,
+  windowsStaticQaStatus
 }) {
   const macQaGate = macManualQaStatus.nt === macManualQaStatus.total
     ? `NOT_RUN(0/${macManualQaStatus.total})`
     : `PARTIAL(${macManualQaStatus.filled}/${macManualQaStatus.total})`;
+  const windowsQaGate = windowsStaticQaStatus.nt === windowsStaticQaStatus.total
+    ? `RECEIPT_ONLY NOT_RUN(0/${windowsStaticQaStatus.total})`
+    : `PARTIAL(${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total})`;
   const openQuestionLabel = formatCount(harmonyReaderView.workspace.openQuestionCount, "open question");
   const parkedQuestionLabel = formatCount(harmonyReaderView.workspace.parkedQuestionCount || 0, "parked question");
   const unresolvedQuestionLabel = formatCount(harmonyReaderView.workspace.unresolvedQuestionCount || harmonyReaderView.workspace.openQuestionCount, "unresolved question");
@@ -901,7 +927,7 @@ function buildStageMarkdown({
     `| Deferred gates | pending-user-gate | ${deferredGates.summary.pending}/${deferredGates.summary.total} approval/device/signing gates are explicitly tracked in \`${DEFERRED_GATES_FILE}\`. | Completion evidence for those gates. |`,
     `| Morning determinism | ${determinismReport ? "executed-byte-compare" : "SKIPPED(child-run)"} | ${determinismReport ? `${determinismReport.summary.comparedFiles} files compared across two isolated runs; ${determinismReport.summary.differences} differences.` : "Skipped inside determinism child run."} | Runtime environment outside this repo. |`,
     `| HarmonyOS | schema-prototype + scaffold | Reader view has ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, ${openQuestionLabel}, ${parkedQuestionLabel}, and ${unresolvedQuestionLabel}; DevEco scaffold report checks ${harmonyScaffoldReport.fileCount} files. | SDK compile, real device import, storage, export, or UX. |`,
-    "| Windows | portable-fixture | Static mirror HTML/Markdown/JSON files are generated. | Manual Windows browser/file roundtrip. |",
+    `| Windows | portable-fixture + pending receipt | Static mirror HTML/Markdown/JSON files are generated; RECEIPT_ONLY manual receipt ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total} filled. | Manual Windows browser/file roundtrip. |`,
     `| Patch intake | Mac-import-verified fixture | Inbox duplicate handling, review conflict handling, and unsupported inbox patch rejection: ${unsupportedInboxPatchRejected ? "covered" : "missing"}. | Off-Mac generated patch imported on Mac. |`,
     "",
     "## Named Gates",
@@ -909,6 +935,7 @@ function buildStageMarkdown({
     "| Gate | Status | Evidence / next action |",
     "| --- | --- | --- |",
     `| mac_manual_qa | ${macQaGate} | Fill \`${MAC_MANUAL_QA_FILE}\` during real dogfood. |`,
+    `| windows_static_qa | ${windowsQaGate} | Fill \`${WINDOWS_STATIC_QA_FILE}\` during a real Windows browser/manual return pass. |`,
     ...deferredGates.gates.map((gate) => `| ${gate.id} | ${gate.status} | ${gate.nextEvidence} |`),
     "| mac_native_build | SEPARATE_NATIVE_GATE | Run `npm run check:morning:native`; SwiftPM may require toolchain/cache access outside restricted sandboxes. |",
     "| local_browser_smoke | SEPARATE_BROWSER_GATE | Run `npm run check:morning:browser` in a shell that can bind `127.0.0.1`; the headline `check:morning` gate is offline. |",
@@ -976,7 +1003,7 @@ function buildDeferredGatesManifest(options = {}) {
   };
 }
 
-function summarizeMacManualQa(markdown) {
+function summarizeManualQa(markdown) {
   const results = markdown
     .split("\n")
     .filter((line) => line.startsWith("| ") && !line.includes("| ---") && !line.includes("| Area |"))
@@ -990,6 +1017,27 @@ function summarizeMacManualQa(markdown) {
     fail: count("FAIL"),
     blocked: count("BLOCKED"),
     nt
+  };
+}
+
+function buildManualQaReceiptSummary({
+  file,
+  evidenceTier,
+  evidenceStatus,
+  receiptOnly,
+  status
+}) {
+  return {
+    file,
+    evidenceTier,
+    evidenceStatus,
+    receiptOnly,
+    total: status.total,
+    filled: status.filled,
+    pass: status.pass,
+    fail: status.fail,
+    blocked: status.blocked,
+    nt: status.nt
   };
 }
 
@@ -1050,7 +1098,52 @@ function buildMacManualQaMarkdown({
     "",
     "- Permission prompts are expected for Accessibility or browser Automation. If a prompt appears, record it instead of treating it as a product failure.",
     "- If a step needs a user approval tonight, mark `BLOCKED` and continue with the rest.",
-    "- Real HarmonyOS and Windows runs belong in a later device roundtrip receipt.",
+    `- Real Windows static mirror runs belong in \`${WINDOWS_STATIC_QA_FILE}\`; real HarmonyOS runs still belong in a later device roundtrip receipt.`,
+    ""
+  ].join("\n");
+}
+
+function buildWindowsStaticQaMarkdown({
+  sampleMirrorZipFile
+}) {
+  return [
+    "# Learning Companion Windows Static QA Receipt",
+    "",
+    buildEvidenceBadgeMarkdown(WINDOWS_STATIC_QA_FILE).trim(),
+    "",
+    "Stage: portable-fixture manual QA. PENDING RECEIPT, not QA evidence: this file is not evidence until a real Windows browser run fills the Result column.",
+    "",
+    "Use this during a Windows Edge/Chrome static mirror pass. Use `PASS`, `FAIL`, `BLOCKED`, or `NT` in the Result column.",
+    "",
+    "## Preconditions",
+    "",
+    "- Run `npm run demo:morning` from the repository root.",
+    `- Transfer or extract \`dist/morning-demo/${sampleMirrorZipFile}\`, or copy \`dist/morning-demo/mirror-folder/\`, onto the Windows machine.`,
+    "- Open `mirror-folder/index.html` from local disk in Edge or Chrome.",
+    "- Do not sign in to Feishu or claim live sync; this is local file transport only.",
+    "- Do not mark this receipt complete while every Result row is still `NT`.",
+    "- Keep the returned JSON files in a temporary folder until they are imported on Mac, then archive or delete them deliberately.",
+    "",
+    "## Test Matrix",
+    "",
+    "| Area | Steps | Expected | Result | Notes |",
+    "| --- | --- | --- | --- | --- |",
+    "| Launch mirror home | Open `mirror-folder/index.html` from the extracted folder. | Page loads from local disk, shows the Manual Return checklist and the `Return-ready mirror` badge, and does not require network access. | NT |  |",
+    "| Read Today | Open the Today link from the mirror home, then open `TODAY.md` directly from the folder. | Resume Here, due review, open questions, parked questions, and recent captures are readable without the Mac app. | NT |  |",
+    "| Pre-return fingerprint check | Before saving Return JSON, inspect the Review/Inbox JSON preview or copied text for `source.returnBaseFingerprint`. | The value is present before Windows work is moved back to Mac; if it is missing, record legacy compatibility and re-export before the next Windows pass. | NT |  |",
+    "| Review return JSON | Open `mirror-folder/review.html`, reveal a due card, mark Good, then use Copy, Manual Copy, or Save Return JSON. | The page shows the `Return-ready mirror` badge, suggests a timestamped filename, and the JSON uses `learning-companion.review-progress-patch.v1` with `source.returnBaseFingerprint`. | NT |  |",
+    "| Inbox return JSON | Open `mirror-folder/inbox.html`, add a quote and thought, then use Copy, Manual Copy, or Save Return JSON. | The page suggests one stable timestamped filename for that draft, and the JSON uses `learning-companion.mobile-inbox-patch.v1` with `source.returnBaseFingerprint`. | NT |  |",
+    "| Unsaved leave warning | Make an unsaved review or inbox change, then close the tab or navigate away. | Browser warns before leaving local unsaved work. | NT |  |",
+    "| Manual transfer back | Move the review and inbox Return JSON files back to Mac, then import them with Return Files. | Mac shows `Return JSON imported`, new captures or review updates rejoin Learning Flow, and the receipt names stale/legacy mirror checks if applicable. | NT |  |",
+    "| Batch partial-import guard | Import one valid Windows Return JSON together with one wrong file such as `sample-workspace.json` through Return Files. | Mac imports only the valid append-only return, reports the wrong file as failed or unsupported, and does not overwrite the workspace. | NT |  |",
+    "| Wrong file guard | Try importing `sample-workspace.json` or `sample-feishu-mirror.json` through Return Files after the Windows pass. | Mac reports an unsupported or failed return file without overwriting the workspace. | NT |  |",
+    "| Static boundary | If available, repeat the launch while offline or inspect network activity in the browser. | Local mirror pages remain readable; no row treats Feishu Drive as live sync. | NT |  |",
+    "",
+    "## Notes",
+    "",
+    "- `BLOCKED` is the right result when Windows browser policy prevents local file access, clipboard, downloads, or return-file transfer.",
+    "- A passing Windows static pass proves only the local mirror/manual return loop. It does not prove Feishu live write, HarmonyOS behavior, or Mac signing.",
+    "- If a return file lacks `source.returnBaseFingerprint`, record it as legacy compatibility and re-export the mirror before the next Windows pass.",
     ""
   ].join("\n");
 }
@@ -1086,13 +1179,14 @@ function buildDemoScriptMarkdown({
     "## 25-40s: Check Cross-End Boundaries",
     "",
     `- Open \`mirror-folder/review.html\` and \`mirror-folder/inbox.html\`; they are static patch exporters for phone/Windows/manual transport.`,
+    `- Open \`${WINDOWS_STATIC_QA_FILE}\` before claiming Windows usability; it is the pending receipt for local browser launch, Review/Inbox Return JSON, and Mac Return Files import.`,
     `- Open \`${sampleMirrorZipFile}\` or \`sample-feishu-mirror.json\`; mirror integrity checked ${mirrorIntegrityReport.summary.internalLinks} internal links with ${mirrorIntegrityReport.summary.brokenLinks} broken.`,
     `- Open \`HARMONY_SCAFFOLD_REPORT.json\`; it checks ${harmonyScaffoldReport.fileCount} scaffold files, not an SDK compile.`,
     "",
     "## 40-55s: Check Local Data Honesty",
     "",
     "- In the app, add a real capture, confirm the local storage notice appears, then export workspace and verify the downloaded JSON file yourself.",
-    "- Use `MAC_MANUAL_QA.md` for GUI rows; leave anything approval/device-bound as `NT` or `BLOCKED` rather than treating it as passed.",
+    `- Use \`MAC_MANUAL_QA.md\` and \`${WINDOWS_STATIC_QA_FILE}\` for manual rows; leave anything approval/device-bound as \`NT\` or \`BLOCKED\` rather than treating it as passed.`,
     "",
     "## 55-60s: Decide The Next Gate",
     "",
@@ -1118,6 +1212,7 @@ function buildMorningReviewMarkdown({
   determinismReport,
   harmonyReaderView,
   harmonyScaffoldReport,
+  windowsStaticQaStatus,
   inboxReceipt,
   duplicateInboxReceipt,
   reviewReceipt,
@@ -1142,12 +1237,13 @@ function buildMorningReviewMarkdown({
     "0. Open `dist/morning-demo/review-start-here.html` for a clickable review dashboard.",
     "0a. Read `dist/morning-demo/STAGE.md` before interpreting any artifact as a capability claim.",
     "0b. Use `dist/morning-demo/MAC_MANUAL_QA.md` to record Mac GUI dogfood results.",
-    "0c. Use `dist/morning-demo/HARMONY_DEVECO_HANDOFF.md` as the phone-app scaffold contract.",
-    "0d. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
-    "0e. Read `dist/morning-demo/CAPTURE_RESUME_RECEIPT.json` if you want the exact model evidence that due review blocks a fresh Quick Capture draft from owning the Focus Brief.",
-    `0f. Read \`dist/morning-demo/${SOURCE_TIME_LINKS_RECEIPT_FILE}\` for the local source-time parser evidence; it does not prove real video-site playback.`,
-    "0g. Check the first-run `Start Here` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
-    "0h. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
+    `0c. Use \`dist/morning-demo/${WINDOWS_STATIC_QA_FILE}\` to record the Windows static mirror and Return Files loop; current rows filled: ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total}.`,
+    "0d. Use `dist/morning-demo/HARMONY_DEVECO_HANDOFF.md` as the phone-app scaffold contract.",
+    "0e. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
+    "0f. Read `dist/morning-demo/CAPTURE_RESUME_RECEIPT.json` if you want the exact model evidence that due review blocks a fresh Quick Capture draft from owning the Focus Brief.",
+    `0g. Read \`dist/morning-demo/${SOURCE_TIME_LINKS_RECEIPT_FILE}\` for the local source-time parser evidence; it does not prove real video-site playback.`,
+    "0h. Check the first-run `Start Here` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
+    "0i. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
@@ -1168,6 +1264,7 @@ function buildMorningReviewMarkdown({
     `- Evidence tiers: \`${EVIDENCE_TIERS_FILE}\` (machine-readable claim labels for generated artifacts)`,
     `- Deferred gates: \`${DEFERRED_GATES_FILE}\` (${deferredGates.summary.pending} approval/device/signing gates still pending)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
+    `- Windows static QA receipt: \`${WINDOWS_STATIC_QA_FILE}\` (fill during real Windows folder/review/inbox/Return Files pass; ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total} rows filled now)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract, import file guard, reader session handoff, and device gates)`,
     `- HarmonyOS scaffold report: \`${HARMONY_SCAFFOLD_REPORT_FILE}\` (${harmonyScaffoldReport.fileCount} scaffold files checked, including reader session/page wiring; no SDK compile claimed)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
@@ -1208,7 +1305,7 @@ function buildMorningReviewMarkdown({
     "",
     "- No live Feishu Drive write; only local dry-run files and hashed wouldSend envelopes are generated.",
     "- No real HarmonyOS device import/export; only the schema reader and DevEco scaffold contract are checked.",
-    "- No Windows machine roundtrip; the static mirror is generated and link-checked locally.",
+    `- No Windows machine roundtrip; the static mirror is generated/link-checked locally and \`${WINDOWS_STATIC_QA_FILE}\` remains a pending receipt.`,
     "- No signed/notarized Mac package; the shell remains an internal build.",
     "- No completed Mac GUI QA; `MAC_MANUAL_QA.md` rows stay `NT` until a real dogfood pass.",
     "- No executed local browser smoke in this run; `npm run check:morning:browser` remains a separate permissioned gate.",
@@ -1227,6 +1324,7 @@ function buildMorningReviewMarkdown({
     `- Source time links sample: ${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} parser/jump cases passed; providers ${sourceTimeLinksReceipt.providers.join(", ")}; unsupported hosts preserved: ${sourceTimeLinksReceipt.summary.unsupportedPreserved}; live-site verified: ${sourceTimeLinksReceipt.summary.liveSiteVerified}.`,
     `- Patch intake negative sample: ${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed; malformed rejected: ${patchIntakeNegativeReceipt.summary.malformedRejected}, oversized rejected: ${patchIntakeNegativeReceipt.summary.oversizedRejected}, duplicate review skipped: ${patchIntakeNegativeReceipt.summary.duplicateReviewSkipped}, stale review conflict skipped: ${patchIntakeNegativeReceipt.summary.staleReviewConflictSkipped}.`,
     `- Mirror integrity sample: ${mirrorIntegrityReport.summary.fileCount} files, ${mirrorIntegrityReport.summary.internalLinks} internal links, ${mirrorIntegrityReport.summary.brokenLinks} broken links.`,
+    `- Windows static QA sample: ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total} manual rows filled; this is intentionally pending until a real Windows run.`,
     `- Adversarial gate sample: ${adversarialGateReport.checks.map((check) => `${check.name}=${check.expectedFailureObserved}`).join(", ")}.`,
     determinismReport ? `- Morning determinism sample: ${determinismReport.summary.comparedFiles} files compared across two isolated runs, ${determinismReport.summary.differences} differences.` : "",
     `- Harmony reader sample: ${harmonyReaderView.topics.length} topics, ${harmonyReaderView.dueReview.length} due cards, ${openQuestionLabel}, ${parkedQuestionLabel}, ${unresolvedQuestionLabel}.`,
@@ -1242,7 +1340,7 @@ function buildMorningReviewMarkdown({
     "- HarmonyOS browser behavior needs a real device roundtrip.",
     "- localStorage is temporary; the app prompts after committed learning data changes or a stale seven-day export, but real file exports are still the user's durability checkpoint.",
     "- Mac shell is still a thin WKWebView wrapper, not a signed production app.",
-    "- The sample ZIP has not been opened on Windows or HarmonyOS in this generator.",
+    `- The sample ZIP has not been opened on Windows or HarmonyOS in this generator; \`${WINDOWS_STATIC_QA_FILE}\` is a fillable receipt, not a pass.`,
     "- Source time links have not been clicked against live YouTube, Bilibili, or Vimeo playback pages in this generator.",
     "",
     "## Current Evidence",
@@ -1289,6 +1387,7 @@ function buildReviewStartHereHtml({
     ["Evidence tiers", EVIDENCE_TIERS_FILE, "Machine-readable evidence tier for each generated artifact."],
     ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
+    ["Windows Static QA Receipt", WINDOWS_STATIC_QA_FILE, "PENDING RECEIPT, not QA evidence; fill this during real Windows Edge/Chrome mirror launch, Review/Inbox Return JSON, and Mac Return Files import."],
     ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, reader session handoff, patch boundary, and device test gates."],
     ["HarmonyOS Scaffold Report", HARMONY_SCAFFOLD_REPORT_FILE, `${harmonyScaffoldReport.fileCount} scaffold files checked; reader session/page wiring covered; no SDK compile claimed.`],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
@@ -1335,13 +1434,13 @@ function buildReviewStartHereHtml({
     ["Capture to resume", "executed-model-loop", `${captureResumeReceipt.roundTrip.addedCaptureCount} captures visible in Today; Focus Brief ${captureResumeReceipt.roundTrip.focusBriefNextAction}; draft over due review ${captureResumeReceipt.draftFocus.cases.dueReviewBeatsFreshDraft.shouldOverride}`, "native GUI selection"],
     ["Source time links", "executed-local-parser", `${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} provider/edge cases`, "live video-site playback QA is not proven"],
     ["Patch intake negatives", "executed-negative-fixture", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed`, "real off-Mac patch origination"],
-    ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, "Windows manual run"],
+    ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, `Windows manual rows live in ${WINDOWS_STATIC_QA_FILE}`],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
     ["Feishu", "dry-run", "local upload plan/report; no network call was made", "live Drive write"],
     ["HarmonyOS", "schema-prototype + scaffold", `${harmonyReaderView.topics.length} topic reader view; ${openQuestionLabel}; ${parkedQuestionLabel}; ${harmonyScaffoldReport.fileCount} scaffold files; reader session protects accepted view after rejected imports`, "SDK compile, real device picker, storage, and roundtrip"],
-    ["Windows", "portable-fixture", "static mirror HTML/Markdown/JSON", "manual Windows run"],
+    ["Windows", "portable-fixture + pending receipt", `static mirror HTML/Markdown/JSON; ${WINDOWS_STATIC_QA_FILE} is generated for manual evidence`, "manual Windows run"],
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
   const inspectRows = [
@@ -1386,7 +1485,12 @@ function buildReviewStartHereHtml({
       "mirror-folder/index.html"
     ],
     [
-      "9. Evidence Boundary",
+      "9. Windows Static Return",
+      `Use ${WINDOWS_STATIC_QA_FILE} for the actual Windows folder launch, Review/Inbox Return JSON creation, and Mac Return Files import before treating the Windows loop as usable.`,
+      WINDOWS_STATIC_QA_FILE
+    ],
+    [
+      "10. Evidence Boundary",
       `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
       DEFERRED_GATES_FILE
     ]
@@ -1504,7 +1608,7 @@ function buildReviewStartHereHtml({
       <h2>Current Gaps</h2>
       <ul>
         <li>Live Feishu OpenAPI sync is not implemented; upload plan is local only.</li>
-        <li>HarmonyOS and Windows behavior still need real-device verification.</li>
+        <li>HarmonyOS behavior still needs real-device verification; Windows still needs the manual static receipt in <a href="${escapeHtml(WINDOWS_STATIC_QA_FILE)}">${escapeHtml(WINDOWS_STATIC_QA_FILE)}</a>.</li>
         <li>The Mac shell is an internal WKWebView shell, not a signed production app.</li>
         <li>Native selected-text capture has no live GUI matrix in this generator.</li>
         <li>Latest Today draft-resume browser assertions still need the separate local browser smoke gate.</li>
@@ -1549,6 +1653,9 @@ function getEvidenceTierForPath(path) {
   const normalized = String(path).replace(/^dist\/morning-demo\//, "");
   if (normalized === MAC_MANUAL_QA_FILE) {
     return evidenceTier("PENDING_USER_GATE", "Manual QA rows are intentionally `NT` until Tony runs the Mac dogfood flow.");
+  }
+  if (normalized === WINDOWS_STATIC_QA_FILE) {
+    return evidenceTier("PENDING_USER_GATE", "Manual QA rows are intentionally `NT` until Tony runs the Windows static mirror and Return Files loop.");
   }
   if (normalized === HARMONY_DEVECO_HANDOFF_FILE) {
     return evidenceTier("HANDOFF_ONLY", "DevEco/ArkTS scaffold guidance and interface contract only; no HarmonyOS device run is claimed.");

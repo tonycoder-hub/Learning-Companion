@@ -84,9 +84,9 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Credential-free Feishu mirror bundle with README, workspace restore payload, and per-session Markdown/JSON sidecars.
 - Credential-free Feishu mirror ZIP containing the same readable folder files, including derived `index.html`, `TODAY.md`, `review.html`, and `inbox.html`.
 - Import can restore either a raw workspace JSON, a Feishu mirror bundle, a mobile inbox patch, or a review progress patch from both the browser file input and Mac native import menu.
-- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view with open-question evidence, sample mobile inbox patch, sample review progress patch, `SOURCE_TIME_LINKS_RECEIPT.json`, `MORNING_REVIEW.md`, `STAGE.md`, `MAC_MANUAL_QA.md`, `HARMONY_DEVECO_HANDOFF.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
+- Morning demo pack generator creates a fixture-only representative workspace, extracted mirror folder, ZIP, Feishu upload plan/local files/dry-run report, HarmonyOS reader view with open-question evidence, sample mobile inbox patch, sample review progress patch, `SOURCE_TIME_LINKS_RECEIPT.json`, `MORNING_REVIEW.md`, `STAGE.md`, `MAC_MANUAL_QA.md`, `WINDOWS_STATIC_QA.md`, `HARMONY_DEVECO_HANDOFF.md`, and a provenance/hash `SUMMARY.json` with credential sweep results.
 - Morning review dashboard self-labels as cross-end fixture-ready, includes a stage matrix, and enumerates what is not proven: live Feishu sync, real HarmonyOS behavior, Windows manual QA, off-Mac patch origination, and signed Mac packaging.
-- `STAGE.md` includes named gates for Mac manual QA, Feishu live write, Harmony device, Windows manual run, Mac signing, and patch intake fixture status.
+- `STAGE.md` includes named gates for Mac manual QA, Windows static QA, Feishu live write, Harmony device, Windows manual run, Mac signing, and patch intake fixture status. `WINDOWS_STATIC_QA.md` is explicitly a pending receipt, not QA evidence, until a real Windows browser/manual return pass fills the rows.
 - Copyable browser capture bookmarklet from the Export tab, including active video time.
 - Full workspace JSON import/export.
 - Browser bookmarklet and URL inbound capture contract.

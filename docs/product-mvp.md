@@ -87,6 +87,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Answer import receipts report when an existing question review card is ready to refresh from the new answer evidence.
 - Mirror bundle includes static `review.html` for due-card review on phone or Windows, with timestamped append-only return JSON export for Mac import and an unsaved-progress leave warning.
 - Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and timestamped append-only return JSON export for Mac import, plus an unsaved-draft leave warning.
+- Morning review packs include `WINDOWS_STATIC_QA.md` as a pending receipt for the Windows static mirror/manual return loop, so Windows usability is not claimed until local folder launch, Review/Inbox Return JSON, and Mac Return Files import are filled against a real Windows browser.
 - Import can merge mobile inbox patch JSON with id/title/active fallback, duplicate protection, stripped-link counts, and a visible receipt.
 - Import can merge review progress patch JSON with optimistic card-version conflict handling and a visible receipt.
 - Return Files can import multiple inbox/review return JSON files in one picker action and reports per-file batch counts for inbox additions, review grades, duplicates, and failures. Batch import applies inbox returns before review returns and continues past wrong-type files with per-file errors.

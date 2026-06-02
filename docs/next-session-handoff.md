@@ -44,6 +44,7 @@ What changed in this continuation:
 - Quick Capture context now uses explicit source actions: `Resume @ time` for timestamped sources, `Open source` for untimed URLs, and `Set source` for empty topics. `Set source` focuses the URL field and pulses the source strip, which keeps this as a local Mac focus aid rather than a native-permission feature.
 - Old Return JSON files still import through the legacy mirror check, but the in-app receipt, returned-work nudge, and Device Flow now say to re-export the mirror before the next phone/Windows pass.
 - Newly generated static mirror pages (`index.html`, `review.html`, `inbox.html`) show a `Return-ready mirror` badge explaining that Review/Inbox Return JSON includes the Mac return-base check while remaining static/no-live-sync.
+- The morning pack now generates `WINDOWS_STATIC_QA.md` as a `PENDING_USER_GATE` receipt for Windows Edge/Chrome static mirror launch, Review/Inbox Return JSON creation, and Mac Return Files import. It is a pending receipt, not QA evidence, until a real Windows pass fills the rows.
 
 External review / critique absorbed:
 
@@ -62,7 +63,7 @@ Latest verification:
 
 Next useful slices:
 
-- Record a Windows-browser manual run for extracted mirror `index.html`, `review.html`, and `inbox.html`.
+- Record a Windows-browser manual run for extracted mirror `index.html`, `review.html`, and `inbox.html` by filling `dist/morning-demo/WINDOWS_STATIC_QA.md`.
 - Do not add background folder scanning or Downloads automation without a separate user-approved design.
 - Do not turn Device Flow handoff status into a hard import validator. Return JSON validation remains based on the file's own `source.returnBaseFingerprint`; the local handoff state is just user guidance.
 

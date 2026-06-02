@@ -77,6 +77,7 @@ Windows:
 
 - Usable only as a static mirror reader/reviewer through exported HTML files.
 - Return path is append-only JSON file export, then manual transfer/import on Mac.
+- The morning pack now includes `WINDOWS_STATIC_QA.md` as a pending receipt for the real Windows Edge/Chrome folder launch, `review.html`/`inbox.html` Return JSON creation, and Mac Return Files import. It stays `PENDING_USER_GATE` until a real Windows pass fills the rows.
 
 Feishu:
 
@@ -87,6 +88,6 @@ Feishu:
 
 1. Fill Mac manual QA rows for capture, source context, native saves, import, and relaunch.
 2. Add the same post-save receipt coverage for Mac-shell native NSSavePanel manual QA.
-3. Verify the static mirror on a real Windows browser and record limitations.
+3. Verify the static mirror on a real Windows browser and fill `dist/morning-demo/WINDOWS_STATIC_QA.md`.
 4. Compile the Harmony scaffold in DevEco before calling the phone path usable.
 5. Retry Mira once the SSH broker is healthy, but do not block local progress on that path.

@@ -25,6 +25,7 @@ const files = {
   reviewStartHere: "review-start-here.html",
   mirrorHome: "mirror-folder/index.html",
   manualQa: "MAC_MANUAL_QA.md",
+  windowsStaticQa: "WINDOWS_STATIC_QA.md",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
   feishuReport: "feishu-upload/feishu-upload-report.json"
 };
@@ -47,6 +48,8 @@ const reviewStartHere = readText(files.reviewStartHere);
 const mirrorHome = readText(files.mirrorHome);
 const sourceTimeLinksRaw = readText(files.sourceTimeLinks);
 const manualQa = readText(files.manualQa);
+const windowsStaticQa = readText(files.windowsStaticQa);
+const windowsStaticQaResults = parseManualQaResults(windowsStaticQa);
 const feishuPlan = readJson(files.feishuPlan);
 const feishuReport = readJson(files.feishuReport);
 
@@ -66,6 +69,13 @@ assert.equal(summary.assertions.harmonyScaffoldOk, true);
 assert.equal(summary.assertions.harmonyReaderOpenQuestions, 1);
 assert.equal(summary.assertions.harmonyReaderOpenQuestionPreviewCount, 1);
 assert.equal(summary.assertions.harmonyReaderAnsweredQuestionFlags >= 1, true);
+assert.equal(summary.windowsStaticQa, files.windowsStaticQa);
+assert.equal(summary.windowsStaticQaReceipt.evidenceTier, "PENDING_USER_GATE");
+assert.equal(summary.windowsStaticQaReceipt.evidenceStatus, "NOT_RUN");
+assert.equal(summary.windowsStaticQaReceipt.receiptOnly, true);
+assert.equal(summary.windowsStaticQaReceipt.filled, 0);
+assert.equal(summary.windowsStaticQaReceipt.total, 10);
+assert.equal(summary.windowsStaticQaReceipt.nt, 10);
 
 assert.equal(evidence.schema, "learning-companion.evidence-tiers.v1");
 assert.equal(evidence.summary.artifactCount > 0, true);
@@ -74,6 +84,13 @@ assert.equal(evidence.artifacts.every((artifact) => {
   return Boolean(artifact.path && artifact.sha256 && artifact.bytes > 0);
 }), true);
 assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.demoScript), true);
+assert.equal(evidence.artifacts.some((artifact) => {
+  if (artifact.path !== files.windowsStaticQa) {
+    return false;
+  }
+  assertEvidence(artifact.evidence, "PENDING_USER_GATE", files.windowsStaticQa);
+  return true;
+}), true);
 
 assert.equal(deferredGates.schema, "learning-companion.deferred-gates.v1");
 assertEvidence(deferredGates.evidence, "PENDING_USER_GATE", files.deferredGates);
@@ -184,6 +201,7 @@ assert.match(morningReview, /^## What Tony Will Not See Working Tonight$/m);
 assert.match(morningReview, /DEMO_SCRIPT\.md/);
 assert.match(morningReview, /CAPTURE_RESUME_RECEIPT\.json/);
 assert.match(morningReview, /SOURCE_TIME_LINKS_RECEIPT\.json/);
+assert.match(morningReview, /WINDOWS_STATIC_QA\.md/);
 assert.match(morningReview, /No executed local browser smoke in this run/);
 assert.match(morningReview, /Live video-site playback QA is not proven/);
 assert.match(morningReview, /When the separate browser gate is allowed/);
@@ -194,6 +212,9 @@ assert.match(morningReview, /2 unresolved questions/);
 assert.match(morningReview, /1 original question resolved/);
 assert.match(stage, /1 open question/);
 assert.match(stage, /1 parked question/);
+assert.match(stage, /windows_static_qa/);
+assert.match(stage, /RECEIPT_ONLY NOT_RUN\(0\/10\)/);
+assert.match(stage, /WINDOWS_STATIC_QA\.md/);
 assert.match(reviewStartHere, /1 open question/);
 assert.match(reviewStartHere, /1 parked question/);
 assert.match(reviewStartHere, /What To Inspect First/);
@@ -207,12 +228,15 @@ assert.match(reviewStartHere, /rejected-kept-current/);
 assert.match(reviewStartHere, /Focus Loop/);
 assert.match(reviewStartHere, /Question Closure/);
 assert.match(reviewStartHere, /Question Queue Health/);
+assert.match(reviewStartHere, /Windows Static Return/);
+assert.match(reviewStartHere, /WINDOWS_STATIC_QA\.md/);
 assert.match(reviewStartHere, /Evidence Boundary/);
 assert.match(mirrorHome, /Open Question Preview/);
 assert.match(mirrorHome, /1 open question/);
 assert.match(mirrorHome, /How should I compare Rust traits with TypeScript interfaces\?/);
 assert.match(demoScript, /Do not treat dry-run Feishu files/);
 assert.match(demoScript, /Source time receipt/);
+assert.match(demoScript, /WINDOWS_STATIC_QA\.md/);
 assert.match(demoScript, /live video-site playback QA is not proven/);
 assert.match(stage, /Live video-site playback QA is not proven/);
 assert.match(reviewStartHere, /live video-site playback QA is not proven/i);
@@ -241,6 +265,23 @@ assert.match(manualQa, /Question close loop/);
 assert.match(manualQa, /Park moves it to Parked Questions/);
 assert.match(manualQa, /Answer starts an `Answer:` Quick Capture draft/);
 assert.match(manualQa, /Make card creates a review card/);
+assert.match(windowsStaticQa, /^# Learning Companion Windows Static QA Receipt$/m);
+assert.match(windowsStaticQa, /EVIDENCE: PENDING_USER_GATE/);
+assert.match(windowsStaticQa, /PENDING RECEIPT, not QA evidence/);
+assert.match(windowsStaticQa, /Return-ready mirror/);
+assert.match(windowsStaticQa, /review\.html/);
+assert.match(windowsStaticQa, /inbox\.html/);
+assert.match(windowsStaticQa, /source\.returnBaseFingerprint/);
+assert.match(windowsStaticQa, /Pre-return fingerprint check/);
+assert.match(windowsStaticQa, /Batch partial-import guard/);
+assert.match(windowsStaticQa, /Return JSON imported/);
+assert.match(windowsStaticQa, /Wrong file guard/);
+assert.match(windowsStaticQa, /PASS`, `FAIL`, `BLOCKED`, or `NT`/);
+assert.equal(windowsStaticQaResults.length, 10);
+assert.deepEqual([...new Set(windowsStaticQaResults)], ["NT"]);
+for (const line of windowsStaticQa.split("\n").filter((item) => item.includes("QA evidence"))) {
+  assert.match(line, /not QA evidence/);
+}
 
 console.log("morning_receipts_ok");
 
@@ -259,6 +300,13 @@ function readJson(path) {
 
 function readText(path) {
   return readFileSync(join(ROOT, path), "utf8");
+}
+
+function parseManualQaResults(markdown) {
+  return markdown
+    .split("\n")
+    .filter((line) => line.startsWith("| ") && !line.includes("| ---") && !line.includes("| Area |"))
+    .map((line) => line.split("|").map((part) => part.trim())[4] || "");
 }
 
 function sha256(value) {
