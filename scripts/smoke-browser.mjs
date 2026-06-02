@@ -1017,6 +1017,24 @@ try {
       .click();
     const noteInsertions = (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length;
     const noteHasSource = document.querySelector("#notesEditor").value.includes("t=492s");
+    const noteAnchorVisible = Boolean(document.querySelector("#notesPreview [data-note-capture-id]"));
+    const noteActionLabel = document.querySelector("#activityDetailsBtn").textContent;
+    document.querySelector("#activityDetailsBtn").click();
+    const noteTargetPulsed = Boolean(document.querySelector("#notesPreview [data-note-capture-id].pulse"));
+    const noteTarget = document.querySelector("#notesPreview [data-note-capture-id]");
+    const noteFocused = document.activeElement === noteTarget;
+    const noteTargetAria = noteTarget?.getAttribute("aria-label") || "";
+    const notesBeforeMarkerProbe = document.querySelector("#notesEditor").value;
+    document.querySelector("#notesEditBtn").click();
+    setValue("#notesEditor", notesBeforeMarkerProbe + "\\n\\n<!-- learning-companion:capture:manual_unbalanced:start -->\\nVisible after unbalanced marker");
+    document.querySelector("#notesPreviewBtn").click();
+    const markerProbePreview = document.querySelector("#notesPreview");
+    const unbalancedMarkerProbe = {
+      text: markerProbePreview.textContent,
+      anchors: markerProbePreview.querySelectorAll('[data-note-capture-id="manual_unbalanced"]').length
+    };
+    setValue("#notesEditor", notesBeforeMarkerProbe);
+    document.querySelector("#notesPreviewBtn").click();
     setValue("#searchInput", "lifetime");
     const searchResults = [...document.querySelectorAll("#searchResults .search-result")];
     const firstSearchResult = searchResults[0];
@@ -1543,6 +1561,12 @@ try {
           invalidFallbackNudge,
           noteInsertions,
           noteHasSource,
+          noteAnchorVisible,
+          noteActionLabel,
+          noteTargetPulsed,
+          noteFocused,
+          noteTargetAria,
+          unbalancedMarkerProbe,
           searchBeforeOpen,
           searchAfterOpen,
           searchAfterFirstEscape,
@@ -1993,6 +2017,14 @@ try {
   });
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
+  assert.equal(result.noteAnchorVisible, true);
+  assert.equal(result.noteActionLabel, "View note");
+  assert.equal(result.noteTargetPulsed, true);
+  assert.equal(result.noteFocused, true);
+  assert.equal(result.noteTargetAria, "Generated capture note");
+  assert.match(result.unbalancedMarkerProbe.text, /learning-companion:capture:manual_unbalanced:start/);
+  assert.match(result.unbalancedMarkerProbe.text, /Visible after unbalanced marker/);
+  assert.equal(result.unbalancedMarkerProbe.anchors, 0);
   assert.ok(result.searchBeforeOpen.count >= 1);
   assert.equal(result.searchBeforeOpen.type, "Capture");
   assert.match(result.searchBeforeOpen.excerpt, /lifetime/);

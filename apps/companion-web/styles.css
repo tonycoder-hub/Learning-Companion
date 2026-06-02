@@ -1137,6 +1137,16 @@ textarea:focus {
   color: var(--blue);
 }
 
+.notes-preview .note-capture-block {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-left: 3px solid rgba(82, 119, 76, 0.38);
+  background: #fbfcf7;
+  scroll-margin: 18px;
+}
+
 .capture-thought,
 .review-answer {
   font-size: 14px;

@@ -2041,6 +2041,7 @@ function setActivity(session, activity) {
     tab: activity.tab || "captures",
     targetId: activity.targetId || "",
     targetSection: activity.targetSection || "",
+    targetPane: activity.targetPane || "",
     actionLabel: activity.actionLabel || ""
   };
 }
@@ -2423,17 +2424,32 @@ function clearCaptureDraftActivity(sessionId) {
 function showActivityDetails() {
   const activity = getActivity(getActiveSession(workspace));
   activeTab = activity.tab;
+  if (activity.targetPane === "notes") {
+    notesMode = "preview";
+  }
   if (uiPrefs.sidecarLayout) {
     uiPrefs = { ...uiPrefs, sidecarLayout: false };
     saveUiPrefs();
     renderShellMode();
   }
+  renderNotesMode();
   renderInspector();
   scrollActivityTarget(activity);
   renderActivity(getActiveSession(workspace));
 }
 
 function scrollActivityTarget(activity) {
+  if (activity.targetPane === "notes") {
+    const target = activity.targetId
+      ? document.querySelector(`[data-note-capture-id="${CSS.escape(activity.targetId)}"]`)
+      : null;
+    const fallback = document.querySelector(".editor-pane");
+    const node = target || fallback;
+    node?.scrollIntoView({ behavior: "smooth", block: "center" });
+    pulseNode(node);
+    target?.focus({ preventScroll: true });
+    return;
+  }
   if (activity.targetSection) {
     const section = document.querySelector(`[data-today-section="${CSS.escape(activity.targetSection)}"]`);
     const drawer = section?.closest("details");
@@ -4449,9 +4465,12 @@ function addCaptureToNotes(captureId) {
     title: hadNoteBlock ? "Capture note updated" : "Capture added to notes",
     detail: summarizeCapture(capture),
     tab: "captures",
-    targetId: capture.id
+    targetId: capture.id,
+    targetPane: "notes",
+    actionLabel: "View note"
   });
   persistAndRender(hadNoteBlock ? "Capture note updated" : "Capture added to notes");
+  scrollActivityTarget({ targetPane: "notes", targetId: capture.id });
 }
 
 function isActiveHighlightAnnotation(sessionId, captureId, context) {

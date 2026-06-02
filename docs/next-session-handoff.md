@@ -17,6 +17,8 @@ The product bias is a study cockpit, not a generic note app. Every feature shoul
 
 Current branch is `main`, ahead of `origin/main` with local product commits.
 
+Local scratch rule: keep all Codex/Mira/Seed/smoke temporary artifacts under the project-ignored `.codex-tmp/` directory. Do not use `/private/tmp`, `/tmp`, `$TMPDIR`, or Downloads for new working files unless the user explicitly re-approves that path in the moment.
+
 Latest commits:
 
 - `feat: distinguish quote-only highlights` (current slice)
@@ -55,6 +57,7 @@ What changed in this continuation:
 - Mira returned `PASS_WITH_NOTES` for the backup-export copy slice. Accepted notes: prove the browser-smoke assertion exercises the non-directed branch, comment the two timeout budgets, statically pin `downloadBlob()` behind the explicit automation fallback, and document that `exported` is intentionally destination-agnostic.
 - Quote-only saves now surface as `Highlight saved` with next-step copy that says the highlight is local, the source page is unchanged, and the next useful moves are adding a thought or making a card. `Add thought` now opens an inline form in Recent Stack/Captures and updates the same capture in place, so annotation is a real local path rather than a duplicate Quick Capture. If the highlight was already inserted into Notes, annotation refreshes that existing generated note block instead of leaving durable notes stale. This absorbs the highlight-plus-annotation pattern from reader/clipper tools without adding browser automation, live sync, or a new schema field.
 - Captures with generated note blocks now show `In Notes`, and the button becomes `Update note`; browser smoke verifies the marker block remains idempotent.
+- Note activities now complete the durable-notes loop: `View note` switches Notes to preview, scrolls/pulses/focuses the generated capture block, and the preview hides only valid paired system markers. Unbalanced or hand-pasted marker text remains visible and cannot swallow following user notes.
 
 External review / critique absorbed:
 

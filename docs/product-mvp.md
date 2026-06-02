@@ -54,6 +54,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Browser inbound capture routes clips to an existing normalized source match before falling back to the active topic.
 - One-click capture insertion into Notes, without duplicate blocks.
 - Captures that already have a generated Notes block show `In Notes`, and the action becomes `Update note`, so the user can see whether the capture has entered durable notes.
+- The `Note` / `Update note` receipt now becomes `View note` and opens the real generated block inside Notes preview, focusing the block without exposing the hidden marker lines. Unpaired or hand-pasted capture markers render as ordinary note text instead of swallowing the user's following notes.
 - Confirmed cleanup for mistaken captures and review cards.
 - Synthesis draft generation from captures, questions, and review cards.
 - Captured questions stay visible as Focus Brief signals and Recent Stack chips before being folded into synthesis.
