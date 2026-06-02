@@ -1659,6 +1659,7 @@ try {
       answerVisible: !document.querySelector(".answer").hidden,
       status: readyStatus,
       savedStatus: document.querySelector("#progressStatus").textContent,
+      returnFileHint: document.querySelector("#returnFileHint").textContent,
       downloadName,
       dirtyBeforeSave,
       dirtyAfterSave: beforeUnloadPrevented(),
@@ -1676,7 +1677,9 @@ try {
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
   assert.match(reviewRuntime.savedStatus, /Return JSON download requested/);
+  assert.match(reviewRuntime.returnFileHint, /^Suggested file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested file: ", ""));
   assert.equal(reviewRuntime.dirtyBeforeSave, true);
   assert.equal(reviewRuntime.dirtyAfterSave, false);
   assert.equal(reviewRuntime.state, "Marked good");
@@ -1718,7 +1721,7 @@ try {
   })()`);
   const reviewGuardDownloadCountAfter = readdirSync(downloadPath).length;
   assert.equal(reviewGuardRuntime.downloadName, "");
-  assert.match(reviewGuardRuntime.status, /Save picker unavailable in this automated browser/);
+  assert.match(reviewGuardRuntime.status, /Save picker unavailable here/);
   assert.equal(reviewGuardRuntime.dirtyAfterBlockedSave, true);
   assert.equal(reviewGuardDownloadCountAfter, reviewGuardDownloadCountBefore);
 
@@ -1745,7 +1748,7 @@ try {
     setValue("#sourceUrlInput", "javascript:alert(1)");
     document.querySelector("#addCaptureBtn").click();
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
-    const storageKey = Object.keys(localStorage).find((key) => key.startsWith("learning-companion.inbox."));
+    const storageKey = Object.keys(localStorage).find((key) => key.startsWith("learning-companion.inbox.") && !key.endsWith(".return-file"));
     const storedDrafts = storageKey ? JSON.parse(localStorage.getItem(storageKey) || "[]") : [];
     const readyStatus = document.querySelector("#statusOutput").textContent;
     const dirtyBeforeSave = beforeUnloadPrevented();
@@ -1773,6 +1776,7 @@ try {
       previewSourceUrl: preview.captures[0]?.sourceUrl || "",
       storedDraftCount: storedDrafts.length,
       savedStatus: document.querySelector("#statusOutput").textContent,
+      returnFileHint: document.querySelector("#returnFileHint").textContent,
       downloadName,
       dirtyBeforeSave,
       dirtyAfterSave: beforeUnloadPrevented()
@@ -1785,7 +1789,9 @@ try {
   assert.notEqual(inboxRuntime.selectedTopicId, "");
   assert.equal(inboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
   assert.match(inboxRuntime.savedStatus, /Return JSON download requested/);
+  assert.match(inboxRuntime.returnFileHint, /^Suggested file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.equal(inboxRuntime.downloadName, inboxRuntime.returnFileHint.replace("Suggested file: ", ""));
   assert.equal(inboxRuntime.dirtyBeforeSave, true);
   assert.equal(inboxRuntime.dirtyAfterSave, false);
   assert.equal(inboxRuntime.draftCount, 1);

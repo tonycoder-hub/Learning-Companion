@@ -323,12 +323,12 @@ Latest local export work separates real saves from temporary downloads:
 - Browser Save/Export buttons now prefer `window.showSaveFilePicker()` when the runtime supports it, so real Chromium users can choose the destination instead of silently filling Downloads.
 - Inside the Mac shell, text-based web Save buttons now use a WK message bridge to call native NSSavePanel and report completion back into the web app; workspace JSON, review pack, current-session Markdown/JSON, Today, and mirror JSON all use this path.
 - The native bridge sanitizes suggested filenames, limits text exports to 25 MB, maps common content types to `UTType`, and returns `false` on cancel so the web UI does not claim a save.
-- Normal user browsers without the File System Access API may still fall back to `<a download>`, because a plain web page cannot silently choose `/tmp`.
-- Webdriver/controlled browser sessions no longer silently fall back to Downloads. They must use Copy, a picker/native bridge, or an explicit smoke-only download flag.
+- Browsers without the File System Access API no longer silently fall back to Downloads. They must use Copy, a picker/native bridge, or an explicit smoke-only download flag.
 - Static `review.html` and `inbox.html` now make `Copy Return JSON` the primary action; `Save Return JSON` is secondary and picker-first.
+- Static return pages keep a stable per-draft return id and show `Suggested file: ...`, so Copy and Save refer to the same timestamped Return JSON name.
 - Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup requested - verify downloaded file`.
-- Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy for fallback saves.
-- ZIP export is intentionally not sent through the text bridge; it continues through save picker/download fallback to avoid large binary payloads in the WK message body.
+- Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy only for explicit smoke fallback saves.
+- ZIP export is intentionally not sent through the text bridge; it continues through save picker or explicit smoke fallback to avoid large binary payloads in the WK message body.
 - `npm run smoke:browser` now creates a private `$TMPDIR/lc-browser-smoke-*/` root with separate Chrome profile and `downloads/` directory.
 - Chrome's CDP download behavior is set to that temporary download path, and the page receives an explicit `window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = true` harness flag before the test clicks export/return buttons.
 - Browser smoke also includes a negative return-file save case: when that explicit flag is absent in a controlled session, clicking `Save Return JSON` creates no download file and surfaces Copy guidance.

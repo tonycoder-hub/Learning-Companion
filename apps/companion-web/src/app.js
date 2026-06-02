@@ -4206,7 +4206,7 @@ function saveBlobFile(filename, blob, type) {
       });
   }
   if (!shouldUseFallbackDownload()) {
-    showToast("Save picker unavailable in this browser; use Copy or the Mac app export.");
+    showToast("Save picker unavailable here; use Copy or the Mac app export.");
     return false;
   }
   downloadBlob(filename, blob);
@@ -4256,12 +4256,11 @@ function saveTextFileWithNative(filename, text, type) {
 
 function canUseFileSavePicker() {
   return typeof window.showSaveFilePicker === "function"
-    && navigator.webdriver !== true
     && !allowsAutomatedDownloadFallback();
 }
 
 function shouldUseFallbackDownload() {
-  return navigator.webdriver !== true || allowsAutomatedDownloadFallback();
+  return allowsAutomatedDownloadFallback();
 }
 
 function allowsAutomatedDownloadFallback() {
