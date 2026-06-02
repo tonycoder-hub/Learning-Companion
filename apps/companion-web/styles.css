@@ -1227,6 +1227,15 @@ textarea:focus {
   background: #fff6ef;
 }
 
+.learning-flow-step.is-wide {
+  grid-column: 1 / -1;
+}
+
+.learning-flow-step.is-source {
+  border-color: rgba(49, 95, 130, 0.25);
+  background: #f5f9fc;
+}
+
 .learning-flow-step.is-question,
 .learning-flow-step.is-capture {
   border-color: rgba(47, 111, 94, 0.26);

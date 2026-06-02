@@ -213,6 +213,14 @@ Latest local work folds first-run Start Here into Learning Flow:
 - Browser smoke pins the Learning Flow copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
 
+Latest local work makes the Mac learning route start from the source:
+
+- Today > Learning Flow now starts with `Read source`, followed by `Capture on Mac` and `Close the loop`.
+- A linked source without a timestamp stays compact as `Source linked`; a timestamped source becomes `Resume @ time`; a missing source becomes `Needs source` and focuses the Source URL field.
+- The source step uses existing `buildResumeSource()` and `promptForSource()` paths, so it does not add workspace schema, sync state, or playback verification claims.
+- Browser smoke pins source/capture/loop ordering, the no-source `Set source` focus path, timestamped `Resume source`, action aria labels, and the `.codex-tmp/browser-smoke` download route.
+- Mira follow-up accepted the direction after deduping the source-ready state; Seed's second review misread the diff as a non-existent `href`/4th-step implementation, so those findings were rejected.
+
 Latest local work adds clipboard-assisted source setup:
 
 - The URL field now has a visible `Paste Source` button. It reads clipboard text only after the user clicks, extracts the first safe `http/https` URL, derives an editable source title, infers material type locally when safe, and pulls supported video timestamps into Time.

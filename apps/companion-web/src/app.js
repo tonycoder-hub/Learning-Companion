@@ -3409,7 +3409,9 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
   const track = document.createElement("div");
   track.className = "learning-flow-track";
   track.append(
+    renderLearningFlowStep(resolveSourceSessionState()),
     renderLearningFlowStep({
+      kind: "capture",
       label: "Capture on Mac",
       status: captureFlowStatus(pack, draftItems),
       detail: "Keep the browser source open and catch quote, thought, time, or question.",
@@ -3431,6 +3433,8 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
 function renderLearningFlowStep(step) {
   const node = document.createElement("div");
   node.className = ["learning-flow-step", step.tone ? `is-${step.tone}` : ""].filter(Boolean).join(" ");
+  if (step.kind) node.dataset.learningFlowStep = step.kind;
+  if (step.wide) node.classList.add("is-wide");
   node.append(
     textEl("span", "learning-flow-step-label", step.label),
     textEl("strong", "", step.status),
@@ -3438,9 +3442,63 @@ function renderLearningFlowStep(step) {
   );
   const action = textEl("button", "mini-button", step.actionLabel);
   action.type = "button";
+  action.title = step.actionTitle || step.detail;
+  action.setAttribute("aria-label", step.actionAriaLabel || `${step.actionLabel}: ${step.detail}`);
   action.addEventListener("click", step.action);
   node.append(action);
   return node;
+}
+
+function resolveSourceSessionState() {
+  const session = getActiveSession(workspace);
+  const draft = getCaptureDraft(session.id);
+  const timestamp = dom.timestampInput.value || draft.timestamp || "";
+  const resume = buildResumeSource(session, timestamp);
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || "No source";
+  if (resume.href) {
+    return {
+      kind: "source",
+      label: "Read source",
+      status: resume.timestamp ? `Resume @ ${resume.timestamp}` : "Source linked",
+      detail: resume.timestamp
+        ? `${sourceLabel} · open the saved moment beside Quick Capture.`
+        : `${sourceLabel} · open it beside Quick Capture before writing the next point.`,
+      actionLabel: resume.timestamp ? "Resume source" : "Open source",
+      actionAriaLabel: `${resume.timestamp ? `Resume ${sourceLabel} at ${resume.timestamp}` : `Open ${sourceLabel}`} beside Quick Capture`,
+      action: resumeSourceFromLearningFlow,
+      wide: Boolean(resume.timestamp),
+      tone: "source"
+    };
+  }
+  return {
+    kind: "source",
+    label: "Read source",
+    status: "Needs source",
+    detail: "Bind the browser URL or video before this study thread leaves the desk.",
+    actionLabel: "Set source",
+    actionAriaLabel: "Set source URL for this learning flow",
+    action: () => promptForSource(session),
+    wide: true,
+    tone: "source"
+  };
+}
+
+function resumeSourceFromLearningFlow() {
+  const session = getActiveSession(workspace);
+  const draft = getCaptureDraft(session.id);
+  const resume = buildResumeSource(session, dom.timestampInput.value || draft.timestamp || "");
+  if (!resume.href) {
+    promptForSource(session);
+    return;
+  }
+  setActivity(session, {
+    title: resume.timestamp ? `Source resumed @ ${resume.timestamp}` : "Source opened",
+    detail: `${resume.title || readableSourceHost(resume.url) || "Source"} · keep this app beside it and capture the next point.`,
+    tab: "captures",
+    targetId: ""
+  });
+  renderActivity(session);
+  window.open(resume.href, "_blank", "noopener,noreferrer");
 }
 
 function captureFlowStatus(pack, draftItems = []) {
@@ -3462,6 +3520,7 @@ function resolveCloseLoopState(pack, draftItems = []) {
       detail: `${dueItem.sessionTitle} · review the next due card before adding more material.`,
       actionLabel: "Review",
       action: () => startReviewAtItem(dueItem),
+      kind: "loop",
       tone: "review"
     };
   }
@@ -3474,6 +3533,7 @@ function resolveCloseLoopState(pack, draftItems = []) {
       detail: `${questionItem.sessionTitle} · answer, park, resolve, or turn it into a card.`,
       actionLabel: "Answer",
       action: () => answerQuestionFromToday(questionItem.capture.id, questionItem.sessionId),
+      kind: "loop",
       tone: "question"
     };
   }
@@ -3486,6 +3546,7 @@ function resolveCloseLoopState(pack, draftItems = []) {
       detail: `${draftItem.session.title} · finish the waiting capture before opening another thread.`,
       actionLabel: "Resume",
       action: () => resumeCaptureDraft(draftItem.session.id),
+      kind: "loop",
       tone: "parked"
     };
   }
@@ -3498,6 +3559,7 @@ function resolveCloseLoopState(pack, draftItems = []) {
       detail: `${parkedItem.sessionTitle} · resume a saved question when this study block has room.`,
       actionLabel: "Resume",
       action: () => setQuestionParked(parkedItem.capture.id, parkedItem.sessionId, false),
+      kind: "loop",
       tone: "parked"
     };
   }
@@ -3508,6 +3570,7 @@ function resolveCloseLoopState(pack, draftItems = []) {
     detail: "No due cards or open questions are blocking the next capture.",
     actionLabel: "Inspect",
     action: () => jumpToTodaySection("question_health"),
+    kind: "loop",
     tone: "clear"
   };
 }

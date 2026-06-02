@@ -123,6 +123,14 @@ try {
     const card = document.querySelector(".start-here-inline");
     const before = {
       text: panel?.textContent || "",
+      sourceStep: panel?.querySelector('[data-learning-flow-step="source"]')?.textContent || "",
+      sourceActionAria: panel?.querySelector('[data-learning-flow-step="source"] button')?.getAttribute("aria-label") || "",
+      sourceWide: panel?.querySelector('[data-learning-flow-step="source"]')?.classList.contains("is-wide") === true,
+      firstFlowKind: panel?.querySelector(".learning-flow-track")?.firstElementChild?.dataset.learningFlowStep || "",
+      flowSteps: [...(panel?.querySelectorAll("[data-learning-flow-step]") || [])].map((step) => ({
+        kind: step.dataset.learningFlowStep,
+        text: step.textContent
+      })),
       buttons: [...(card?.querySelectorAll("button") || [])].map((button) => ({
         action: button.dataset.startAction,
         text: button.textContent
@@ -138,6 +146,13 @@ try {
     };
   })()`);
   assert.match(firstRun.text, /Learning Flow/);
+  assert.match(firstRun.sourceStep, /Read source/);
+  assert.match(firstRun.sourceStep, /Source linked/);
+  assert.match(firstRun.sourceStep, /Open source/);
+  assert.match(firstRun.sourceActionAria, /Open Product design desk/);
+  assert.equal(firstRun.sourceWide, false);
+  assert.equal(firstRun.firstFlowKind, "source");
+  assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(firstRun.text, /Capture on Mac/);
   assert.match(firstRun.text, /Close the loop/);
   assert.match(firstRun.text, /Start Here/);
@@ -151,6 +166,75 @@ try {
   assert.equal(firstRun.activeElement, "quoteInput");
   assert.equal(firstRun.capturePanePulsed, true);
   assert.equal(firstRun.activity, "Ready to capture");
+  await sleep(50);
+
+  const noSourceFlowStep = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const before = window.learningCompanionNative.exportWorkspaceJson();
+    const workspace = JSON.parse(before);
+    const noSourceSession = {
+      ...workspace.sessions[0],
+      id: "no_source_learning_flow",
+      title: "No source learning flow",
+      sourceTitle: "",
+      sourceUrl: "",
+      materialType: "doc",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...workspace,
+      activeSessionId: noSourceSession.id,
+      sessions: [noSourceSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="today"]').click();
+    const sourceStep = document.querySelector('[data-learning-flow-step="source"]');
+    sourceStep?.querySelector("button")?.click();
+    const result = {
+      text: sourceStep?.textContent || "",
+      button: sourceStep?.querySelector("button")?.textContent || "",
+      actionAria: sourceStep?.querySelector("button")?.getAttribute("aria-label") || "",
+      isWide: sourceStep?.classList.contains("is-wide") === true,
+      activeElement: document.activeElement?.id || "",
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true
+    };
+    setValue("#sourceTitle", "Transition source");
+    setValue("#sourceUrl", "https://example.com/transition-source");
+    document.querySelector('[data-tab="today"]').click();
+    const collapsedSourceStep = document.querySelector('[data-learning-flow-step="source"]');
+    result.afterSetSource = {
+      text: collapsedSourceStep?.textContent || "",
+      isWide: collapsedSourceStep?.classList.contains("is-wide") === true,
+      button: collapsedSourceStep?.querySelector("button")?.textContent || ""
+    };
+    window.learningCompanionNative.importWorkspaceJson(before);
+    document.querySelector('[data-tab="today"]').click();
+    return result;
+  })()`);
+  assert.match(noSourceFlowStep.text, /Read source/);
+  assert.match(noSourceFlowStep.text, /Needs source/);
+  assert.equal(noSourceFlowStep.button, "Set source");
+  assert.equal(noSourceFlowStep.actionAria, "Set source URL for this learning flow");
+  assert.equal(noSourceFlowStep.isWide, true);
+  assert.equal(noSourceFlowStep.activeElement, "sourceUrl");
+  assert.equal(noSourceFlowStep.activeTab, "captures");
+  assert.equal(noSourceFlowStep.activityTitle, "Add a source");
+  assert.match(noSourceFlowStep.activityDetail, /Paste the browser page or video URL/);
+  assert.equal(noSourceFlowStep.sourceStripPulsed, true);
+  assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);
+  assert.equal(noSourceFlowStep.afterSetSource.isWide, false);
+  assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");
 
   const sidecarLayout = await cdp.evaluate(`(() => {
     const shell = document.querySelector(".app-shell");
@@ -328,6 +412,38 @@ try {
   assert.equal(pastedSource.quotePlaceholder, "Transcript line or key phrase at this moment");
   assert.equal(pastedSource.thoughtPlaceholder, "Your question, takeaway, or answer for this moment");
   assert.equal(pastedSource.sourceStripPulsed, true);
+
+  const sourceFlowStep = await cdp.evaluate(`(() => {
+    document.querySelector('[data-tab="today"]').click();
+    let opened = "";
+    const nativeOpen = window.open;
+    window.open = (href) => {
+      opened = href;
+      return null;
+    };
+    const sourceStep = document.querySelector('[data-learning-flow-step="source"]');
+    sourceStep?.querySelector("button")?.click();
+    window.open = nativeOpen;
+    return {
+      text: sourceStep?.textContent || "",
+      button: sourceStep?.querySelector("button")?.textContent || "",
+      actionAria: sourceStep?.querySelector("button")?.getAttribute("aria-label") || "",
+      isWide: sourceStep?.classList.contains("is-wide") === true,
+      opened,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
+  })()`);
+  assert.match(sourceFlowStep.text, /Read source/);
+  assert.match(sourceFlowStep.text, /Resume @ 01:35/);
+  assert.equal(sourceFlowStep.button, "Resume source");
+  assert.match(sourceFlowStep.actionAria, /Resume Lecture Notes at 01:35/);
+  assert.equal(sourceFlowStep.isWide, true);
+  assert.match(sourceFlowStep.opened, /youtube\.com\/watch\?v=paste123/);
+  assert.match(sourceFlowStep.opened, /t=95/);
+  assert.equal(sourceFlowStep.activityTitle, "Source resumed @ 01:35");
+  assert.match(sourceFlowStep.activityDetail, /keep this app beside it/);
+  await sleep(50);
 
   const sourceGuidanceStates = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
@@ -3759,8 +3875,8 @@ async function connectCdp(url) {
         pending.set(messageId, { resolveMessage, rejectMessage });
       });
     },
-    evaluate(expression) {
-      return this.send("Runtime.evaluate", {
+    evaluate(expression, timeoutMs = 15000) {
+      return withTimeout(this.send("Runtime.evaluate", {
         expression,
         awaitPromise: true,
         returnByValue: true
@@ -3771,7 +3887,7 @@ async function connectCdp(url) {
             || "Evaluation failed.");
         }
         return result.result.value;
-      });
+      }), timeoutMs, `Runtime.evaluate timed out: ${String(expression).slice(0, 120).replace(/\s+/g, " ")}`);
     },
     on(method, callback) {
       listeners.set(method, [...(listeners.get(method) || []), callback]);
@@ -3780,6 +3896,16 @@ async function connectCdp(url) {
       socket.close();
     }
   };
+}
+
+function withTimeout(promise, timeoutMs, message) {
+  let timeout;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+    })
+  ]).finally(() => clearTimeout(timeout));
 }
 
 async function waitForCdpValue(cdp, expression, predicate, timeoutMs = 3000) {
