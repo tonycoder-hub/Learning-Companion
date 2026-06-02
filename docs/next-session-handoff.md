@@ -39,6 +39,7 @@ What changed in this continuation:
 - The return-base projection ignores ordinary non-question Mac captures, so normal Mac-side note-taking after mirror export does not stale phone/Windows Return JSON.
 - Batch receipts now name which return files came from a changed mirror base.
 - Mirror `index.html` has a three-step Manual Return checklist: Read Today, work in Review/Inbox, return JSON back to Mac.
+- Mirror `index.html` also has a `Next from this export` action that routes phone/Windows users to Review when cards are due, prefilled Inbox answer mode when questions are open, or plain Inbox capture when the queue is clear, with the export timestamp shown at the action. Due+question states keep the open-question count visible as a secondary line.
 - Return File imports now route the Mac UI back to Today, open Device Flow, and pulse the receipt panel.
 - Device Flow now keeps a local handoff status in `uiPrefs`: `Mirror current`, `Mac changed since mirror export`, `Waiting for return file`, and `Last return imported`. This is local Mac state only and is intentionally not written into workspace or mirror exports.
 - Quick Capture context now uses explicit source actions: `Resume @ time` for timestamped sources, `Open source` for untimed URLs, and `Set source` for empty topics. `Set source` focuses the URL field and pulses the source strip, which keeps this as a local Mac focus aid rather than a native-permission feature.

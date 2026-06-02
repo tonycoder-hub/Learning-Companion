@@ -1514,6 +1514,11 @@ assert.match(questionTodayMarkdown, /Questions can also appear under Recent Capt
 assert.match(questionTodayMarkdown, /Question Loop/);
 assert.match(questionTodayMarkdown, /Question loop has active work/);
 assert.match(questionTodayMarkdown, /Backlog: 1 unresolved question/);
+const mixedMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
+assert.match(mixedMirrorIndexHtml, /Next from this export/);
+assert.match(mixedMirrorIndexHtml, /Review due cards/);
+assert.match(mixedMirrorIndexHtml, /Also: 1 open question in Inbox\./);
+assert.doesNotMatch(mixedMirrorIndexHtml, /<strong>Answer next question/);
 const overflowResolvedCaptures = Array.from({ length: 6 }, (_, index) => ({
   id: `resolved_overflow_${index}`,
   quote: "",
@@ -1618,16 +1623,33 @@ const priorPromotedQuestion = promoteCapture(priorSessionAnswerWorkspace, "prior
 const priorPromotedCard = getActiveSession(priorPromotedQuestion).reviewCards[0];
 assert.equal(priorPromotedCard.evidenceCaptureId, "");
 assert.doesNotMatch(priorPromotedCard.answer, /same-session linking prevents/);
-const questionMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
+const questionOnlyMirrorWorkspace = workspaceFromPortableData({
+  ...questionTodayWorkspace,
+  sessions: questionTodayWorkspace.sessions.map((item) => ({ ...item, reviewCards: [] }))
+});
+const questionOnlyMirrorPack = buildTodayPack(questionOnlyMirrorWorkspace, frozenToday, {
+  dueLimit: 1,
+  questionLimit: 1,
+  recentLimit: 1
+});
+assert.equal(questionOnlyMirrorPack.stats.due, 0);
+assert.equal(questionOnlyMirrorPack.stats.questions, 1);
+const questionMirrorIndexHtml = generateMirrorIndexHtml(questionOnlyMirrorWorkspace, frozenToday);
+assert.match(questionMirrorIndexHtml, /Next from this export/);
+assert.match(questionMirrorIndexHtml, /Answer next question/);
 assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);
 assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(questionMirrorIndexHtml, /Draft answer in inbox/);
+const nextQuestionHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)"><strong>Answer next question/)?.[1]?.replace(/&amp;/g, "&") || "";
+const nextQuestionParams = new URLSearchParams(nextQuestionHref.split("?")[1] || "");
+assert.equal(nextQuestionParams.get("answerToCaptureId"), questionOnlyMirrorPack.questionItems[0].capture.id);
+assert.equal(nextQuestionParams.get("thought"), "Answer:");
 const questionAnswerHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
 const questionAnswerParams = new URLSearchParams(questionAnswerHref.split("?")[1] || "");
 assert.equal(questionAnswerParams.get("topicId"), algorithmsSession.id);
-assert.equal(questionAnswerParams.get("answerToCaptureId"), questionTodayPack.questionItems[0].capture.id);
+assert.equal(questionAnswerParams.get("answerToCaptureId"), questionOnlyMirrorPack.questionItems[0].capture.id);
 assert.equal(questionAnswerParams.get("quote"), "Which invariant breaks if the heap is stale?");
 assert.equal(questionAnswerParams.get("thought"), "Answer:");
 assert.equal(questionAnswerParams.get("timestamp"), "14:05");
@@ -1647,6 +1669,17 @@ assert.doesNotMatch(hostileAnswerParams.get("quote") || "", /[\r\n]/);
 assert.equal(hostileAnswerParams.get("thought"), "Answer:");
 assert.match(hostileAnswerParams.get("tags") || "", /answer/);
 assert.doesNotMatch(hostileMirrorIndexHtml, /<script>alert/);
+const hostileQuestionOnlyMirrorHtml = generateMirrorIndexHtml(workspaceFromPortableData({
+  ...hostileQuestionWorkspace,
+  sessions: hostileQuestionWorkspace.sessions.map((item) => ({ ...item, reviewCards: [] }))
+}), frozenToday);
+assert.match(hostileQuestionOnlyMirrorHtml, /Answer next question/);
+assert.doesNotMatch(hostileQuestionOnlyMirrorHtml, /<script>alert/);
+const hostileNextHref = hostileQuestionOnlyMirrorHtml.match(/href="(inbox\.html\?[^"]+)"><strong>Answer next question/)?.[1]?.replace(/&amp;/g, "&") || "";
+const hostileNextParams = new URLSearchParams(hostileNextHref.split("?")[1] || "");
+assert.match(hostileNextParams.get("quote") || "", /Can mirror links carry <script>alert\("x"\)<\/script> & #hash \?q=1emoji 😀 RTL שלום/);
+assert.doesNotMatch(hostileNextParams.get("quote") || "", /[\r\n]/);
+assert.equal(hostileNextParams.get("thought"), "Answer:");
 let overflowMirrorQuestionWorkspace = addCapture(questionTodayWorkspace, algorithmsSession.id, {
   quote: "HTML-like study input should stay inert in the mirror home.",
   thought: "What about <script>alert(\"x\")</script> & \"quotes\"?",
@@ -1913,6 +1946,11 @@ assert.match(mirrorIndexHtml, /href="TODAY\.md"/);
 assert.match(mirrorIndexHtml, /href="review\.html"/);
 assert.match(mirrorIndexHtml, /href="inbox\.html"/);
 assert.match(mirrorIndexHtml, /href="workspace\.json"/);
+assert.match(mirrorIndexHtml, /Next from this export/);
+assert.match(mirrorIndexHtml, /Review due cards/);
+assert.match(mirrorIndexHtml, /2 due cards/);
+assert.match(mirrorIndexHtml, /As of 2099-01-02T08:00:00\+08:00/);
+assert.match(mirrorIndexHtml, /device-next-link:focus-visible/);
 assert.match(mirrorIndexHtml, /Manual Return/);
 assert.match(mirrorIndexHtml, /Read Today/);
 assert.match(mirrorIndexHtml, /Work here/);
@@ -1933,6 +1971,20 @@ assert.match(mirrorIndexHtml, /Return-ready mirror/);
 assert.match(mirrorIndexHtml, /Mac return-base check/);
 assert.equal(mirrorIndexHtml.includes("<script"), false);
 assert.equal(mirrorIndexHtml, generateMirrorIndexHtml(multiReviewWorkspace, frozenToday));
+const emptyMirrorIndexHtml = generateMirrorIndexHtml(createDefaultWorkspace(), frozenToday);
+assert.match(emptyMirrorIndexHtml, /Next from this export/);
+assert.match(emptyMirrorIndexHtml, /Capture on this device/);
+assert.match(emptyMirrorIndexHtml, /href="inbox\.html"><strong>Capture on this device/);
+assert.match(emptyMirrorIndexHtml, /No due cards or open questions; return by JSON/);
+const bareQuestionBase = createDefaultWorkspace();
+const bareQuestionSession = getActiveSession(bareQuestionBase);
+const bareQuestionWorkspace = addCapture(bareQuestionBase, bareQuestionSession.id, {
+  thought: "Question:",
+  tags: "question"
+}, { now: "2099-01-02T00:40:00.000Z" });
+const bareQuestionMirrorIndexHtml = generateMirrorIndexHtml(bareQuestionWorkspace, frozenToday);
+assert.match(bareQuestionMirrorIndexHtml, /Capture on this device/);
+assert.doesNotMatch(bareQuestionMirrorIndexHtml, /Answer next question/);
 
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");
@@ -1955,6 +2007,9 @@ assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role
 assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && file.content.includes("Learning Companion Inbox")), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && /Due Review/.test(file.content)), true);
 assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);
+const mirrorHome = mirror.files.find((file) => file.path === "index.html")?.content || "";
+const mirrorDeviceHref = mirrorHome.match(/class="device-next-link" href="([^"]+)"/)?.[1]?.replace(/&amp;/g, "&") || "";
+assert.equal(mirror.files.some((file) => file.path === mirrorDeviceHref.split("?")[0]), true);
 assert.equal(mirror.files.every((file) => file.encoding === "utf-8"), true);
 assert.equal(mirror.files.every((file) => /^fnv1a-[a-f0-9]{8}$/.test(file.contentFingerprint)), true);
 assert.equal(/^fnv1a-[a-f0-9]{8}$/.test(mirror.manifest.bundleFingerprint), true);

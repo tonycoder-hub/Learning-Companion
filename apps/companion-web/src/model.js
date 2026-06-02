@@ -2827,6 +2827,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const latestLine = brief.latestCapture
     ? `${htmlText(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` <span>@ ${htmlText(brief.latestCapture.timestamp)}</span>` : ""}`
     : "No captures yet.";
+  const mirrorDeviceAction = buildMirrorDeviceAction(pack);
 
   return [
     "<!doctype html>",
@@ -2858,6 +2859,13 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    .steps { margin: 0; padding-left: 22px; }",
     "    .steps li { padding-left: 2px; }",
     "    .steps strong { display: block; color: #2f6f5e; }",
+    "    .device-next-panel { border-left: 4px solid #2f6f5e; background: #eef6f3; }",
+    "    .device-next-link { display: grid; gap: 5px; color: #202124; text-decoration: none; }",
+    "    .device-next-link:focus-visible { outline: 3px solid #315f82; outline-offset: 3px; }",
+    "    .device-next-link:hover strong, .device-next-link:focus-visible strong { text-decoration: underline; }",
+    "    .device-next-link strong { color: #2f6f5e; }",
+    "    .device-next-link span, .device-next-link small { color: #4b5358; }",
+    "    .device-next-secondary { color: #697077; font-size: 13px; }",
     "    ul { margin: 0; padding-left: 20px; }",
     "    li { margin: 8px 0; }",
     "    .sessions { display: grid; gap: 8px; }",
@@ -2879,6 +2887,11 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "      <a class=\"action\" href=\"inbox.html\"><strong>Inbox</strong><span>Capture on mobile or Windows, then save return JSON</span></a>",
     "      <a class=\"action\" href=\"workspace.json\"><strong>Restore</strong><span>Canonical workspace JSON</span></a>",
     "    </nav>",
+    "    <section class=\"panel device-next-panel\" aria-label=\"Next from this export\">",
+    "      <h2>Next from this export</h2>",
+    `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"><strong>${htmlText(mirrorDeviceAction.label)}</strong><span>${htmlText(mirrorDeviceAction.detail)}</span><small>${htmlText(mirrorDeviceAction.meta)} · As of ${htmlText(pack.generatedAt)} · Static mirror. Save Return JSON when done.</small></a>`,
+    ...(mirrorDeviceAction.secondary ? [`      <span class="device-next-secondary">${htmlText(mirrorDeviceAction.secondary)}</span>`] : []),
+    "    </section>",
     "    <section class=\"panel\">",
     "      <h2>Manual Return</h2>",
     "      <ol class=\"steps\">",
@@ -2918,6 +2931,41 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "</html>",
     ""
   ].join("\n");
+}
+
+function buildMirrorDeviceAction(pack) {
+  if (pack.dueItems.length) {
+    return {
+      href: "review.html",
+      label: "Review due cards",
+      detail: "Grade the due queue here, then save Return JSON for Mac.",
+      meta: formatCount(pack.stats.due, "due card"),
+      secondary: pack.stats.questions ? `Also: ${formatCount(pack.stats.questions, "open question")} in Inbox.` : ""
+    };
+  }
+  if (pack.questionItems.length) {
+    const item = pack.questionItems[0];
+    return {
+      href: buildInboxAnswerHref(item.sessionId, item.capture),
+      label: "Answer next question",
+      detail: summarizeMirrorDeviceAction(item.capture?.thought || item.capture?.quote || "Open question"),
+      meta: formatCount(pack.stats.questions, "open question"),
+      secondary: ""
+    };
+  }
+  return {
+    href: "inbox.html",
+    label: "Capture on this device",
+    detail: "Add a note here, then save Return JSON for Mac.",
+    meta: "No due cards or open questions; return by JSON",
+    secondary: ""
+  };
+}
+
+function summarizeMirrorDeviceAction(value) {
+  const text = cleanText(value, 140);
+  if (!text) return "Use Inbox for a quick append-only capture.";
+  return text.length > 120 ? `${text.slice(0, 117).trimEnd()}...` : text;
 }
 
 export function getSynthesisStats(session) {

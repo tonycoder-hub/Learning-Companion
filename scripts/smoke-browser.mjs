@@ -1442,7 +1442,7 @@ try {
           mirrorFileCount: restoredMirror.manifest.fileCount,
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
-          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes("Return-ready mirror") && file.content.includes("Mac return-base check") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
+          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes("Next from this export") && file.content.includes("Return-ready mirror") && file.content.includes("Mac return-base check") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
           mirrorIndexHtml: restoredMirror.files.find((file) => file.path === "index.html")?.content || "",
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
@@ -1939,6 +1939,10 @@ try {
   assert.match(result.mirrorBundleFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.equal(result.mirrorHasIndex, true);
   assert.match(result.mirrorIndexHtml, /Manual Return/);
+  assert.match(result.mirrorIndexHtml, /Next from this export/);
+  assert.match(result.mirrorIndexHtml, /Review due cards|Answer next question|Capture on this device/);
+  assert.match(result.mirrorIndexHtml, /As of \d{4}-\d{2}-\d{2}T/);
+  assert.match(result.mirrorIndexHtml, /device-next-link:focus-visible/);
   assert.match(result.mirrorIndexHtml, /Read Today/);
   assert.match(result.mirrorIndexHtml, /Work here/);
   assert.match(result.mirrorIndexHtml, /Return JSON back to Mac/);
