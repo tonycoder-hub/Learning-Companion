@@ -499,6 +499,9 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
+document.querySelectorAll("[data-capture-starter]").forEach((button) => {
+  button.addEventListener("click", () => applyCaptureStarter(button.dataset.captureStarter));
+});
 dom.reanchorCaptureDraftBtn?.addEventListener("click", reanchorCurrentCaptureDraft);
 dom.clearCaptureDraftBtn?.addEventListener("click", clearCurrentCaptureDraft);
 [dom.quoteInput, dom.thoughtInput, dom.timestampInput].forEach((node) => {
@@ -1668,11 +1671,19 @@ function captureDraftIntent(session) {
     answersQuestionCaptureId
   };
   const answerPrefix = /^(?:a|answer)\s*[:：]/i.test(thought);
+  const questionPrefix = /^(?:q|question)\s*[:：]/i.test(thought);
+  const takeawayPrefix = /^takeaway\s*[:：]/i.test(thought);
   if (!quote && !thought) {
     const guidance = captureGuidanceFor(session, buildResumeSource(session, dom.timestampInput.value));
     return {
       label: guidance.intent,
       title: guidance.intentTitle
+    };
+  }
+  if (questionPrefix && !captureHasQuestion(draftCapture)) {
+    return {
+      label: "Question draft",
+      title: "Finish the question before saving it to Open Questions."
     };
   }
   if (answerPrefix && !captureHasReviewReadyAnswer(draftCapture)) {
@@ -1689,6 +1700,12 @@ function captureDraftIntent(session) {
       title: answersQuestionCaptureId
         ? "This capture will answer the linked question."
         : "This capture can appear in Answers Today."
+    };
+  }
+  if (takeawayPrefix) {
+    return {
+      label: "Takeaway",
+      title: "This will save as a takeaway thought."
     };
   }
   if (captureHasQuestion(draftCapture)) {
@@ -1771,6 +1788,76 @@ function textSourceIntentLabel(materialType) {
   if (materialType === "book") return "Book excerpt";
   if (materialType === "article") return "Article excerpt";
   return "Doc excerpt";
+}
+
+function applyCaptureStarter(kind) {
+  const starter = captureStarterDefinition(kind);
+  if (!starter) return;
+  const session = getActiveSession(workspace);
+  dom.thoughtInput.value = starterTextFor(dom.thoughtInput.value, starter.prefix);
+  saveCurrentCaptureDraft();
+  setActivity(session, {
+    title: `${starter.label} draft started`,
+    detail: captureStarterActivityDetail(starter, session),
+    tab: "captures",
+    targetId: ""
+  });
+  renderCaptureContext(session);
+  renderActivity(session);
+  renderFocusBrief();
+  if (activeTab === "today") renderToday();
+  dom.thoughtInput.focus();
+  dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
+}
+
+function captureStarterDefinition(kind) {
+  if (kind === "question") {
+    return {
+      kind,
+      label: "Question",
+      prefix: "Question: ",
+      detail: "Local draft started. Press Capture when the question is specific."
+    };
+  }
+  if (kind === "answer") {
+    return {
+      kind,
+      label: "Answer",
+      prefix: "Answer: ",
+      detail: "Local draft started. Linked answers can close questions once they have enough detail."
+    };
+  }
+  if (kind === "takeaway") {
+    return {
+      kind,
+      label: "Takeaway",
+      prefix: "Takeaway: ",
+      detail: "Local draft started. Press Capture to save the point you want to keep."
+    };
+  }
+  return null;
+}
+
+function captureStarterActivityDetail(starter, session) {
+  if (starter.kind !== "answer") return starter.detail;
+  const draft = getCaptureDraft(session.id);
+  if (draft.answersQuestionCaptureId) {
+    return "Local answer draft started for the linked question.";
+  }
+  const resume = buildResumeSource(session, dom.timestampInput.value);
+  const hasSource = Boolean(resume.href || session.sourceTitle);
+  if (!hasSource) {
+    return "Local answer draft started. Not linked yet; press Capture to save it as an answer note.";
+  }
+  return starter.detail;
+}
+
+function starterTextFor(value, prefix) {
+  const text = String(value || "");
+  const trimmed = text.trimStart();
+  if (!trimmed) return prefix;
+  const body = trimmed.replace(/^(?:q|question|a|answer|takeaway)\s*[:：]\s*/i, "").trimStart();
+  return `${prefix}${body}`;
 }
 
 function answerDraftTargetForThought(targetId, thought, options = {}) {

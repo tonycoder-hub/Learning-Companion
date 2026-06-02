@@ -369,6 +369,83 @@ try {
   assert.equal(sourceGuidanceStates.noSource.quotePlaceholder, "Paste a quote, transcript line, or key idea");
   assert.equal(sourceGuidanceStates.noSource.thoughtPlaceholder, "Your note, question, or synthesis");
 
+  const starterFlow = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const readState = () => ({
+      thought: document.querySelector("#thoughtInput").value,
+      intent: document.querySelector("#captureContextIntent").textContent,
+      intentTitle: document.querySelector("#captureContextIntent").title,
+      activeElement: document.activeElement?.id || "",
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      buttonTitles: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.title),
+      buttonAria: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.getAttribute("aria-label"))
+    });
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "");
+    document.querySelector('[data-capture-starter="question"]').click();
+    const question = readState();
+    setValue("#thoughtInput", "ownership prevents data races");
+    document.querySelector('[data-capture-starter="question"]').click();
+    const questionExisting = readState();
+    document.querySelector('[data-capture-starter="question"]').click();
+    const questionRepeat = readState();
+    document.querySelector('[data-capture-starter="answer"]').click();
+    const answer = readState();
+    setValue("#thoughtInput", "Why ownership matters?");
+    document.querySelector('[data-capture-starter="takeaway"]').click();
+    const takeaway = readState();
+    setValue("#thoughtInput", "Question：full-width colon body");
+    document.querySelector('[data-capture-starter="answer"]').click();
+    const fullWidthColon = readState();
+    setValue("#thoughtInput", "   leading spaces matter");
+    document.querySelector('[data-capture-starter="question"]').click();
+    const leadingWhitespace = readState();
+    setValue("#thoughtInput", "This remains useful. Why does the proof need compactness? It limits cases.");
+    document.querySelector('[data-capture-starter="takeaway"]').click();
+    const multiSentenceTakeaway = readState();
+    return { question, questionExisting, questionRepeat, answer, takeaway, fullWidthColon, leadingWhitespace, multiSentenceTakeaway };
+  })()`);
+  assert.equal(starterFlow.question.thought, "Question: ");
+  assert.equal(starterFlow.question.intent, "Question draft");
+  assert.equal(starterFlow.question.intentTitle, "Finish the question before saving it to Open Questions.");
+  assert.equal(starterFlow.question.activeElement, "thoughtInput");
+  assert.equal(starterFlow.question.activityTitle, "Question draft started");
+  assert.match(starterFlow.question.activityDetail, /Local draft started/);
+  assert.deepEqual(starterFlow.question.buttonTitles, [
+    "Start a local question draft",
+    "Start a local answer draft",
+    "Start a local takeaway draft"
+  ]);
+  assert.deepEqual(starterFlow.question.buttonAria, [
+    "Start a local question draft",
+    "Start a local answer draft",
+    "Start a local takeaway draft"
+  ]);
+  assert.equal(starterFlow.questionExisting.thought, "Question: ownership prevents data races");
+  assert.equal(starterFlow.questionExisting.intent, "Question draft");
+  assert.equal(starterFlow.questionRepeat.thought, "Question: ownership prevents data races");
+  assert.equal(starterFlow.answer.thought, "Answer: ownership prevents data races");
+  assert.equal(starterFlow.answer.intent, "Answer");
+  assert.equal(starterFlow.answer.activeElement, "thoughtInput");
+  assert.equal(starterFlow.answer.activityTitle, "Answer draft started");
+  assert.match(starterFlow.answer.activityDetail, /Not linked yet/);
+  assert.equal(starterFlow.takeaway.thought, "Takeaway: Why ownership matters?");
+  assert.equal(starterFlow.takeaway.intent, "Takeaway");
+  assert.equal(starterFlow.takeaway.activeElement, "thoughtInput");
+  assert.equal(starterFlow.takeaway.activityTitle, "Takeaway draft started");
+  assert.match(starterFlow.takeaway.activityDetail, /Local draft started/);
+  assert.equal(starterFlow.fullWidthColon.thought, "Answer: full-width colon body");
+  assert.equal(starterFlow.fullWidthColon.intent, "Answer");
+  assert.equal(starterFlow.leadingWhitespace.thought, "Question: leading spaces matter");
+  assert.equal(starterFlow.leadingWhitespace.intent, "Question draft");
+  assert.equal(starterFlow.multiSentenceTakeaway.thought, "Takeaway: This remains useful. Why does the proof need compactness? It limits cases.");
+  assert.equal(starterFlow.multiSentenceTakeaway.intent, "Takeaway");
+
   const rejectedClipboardSource = await cdp.evaluate(`(async () => {
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
@@ -3386,6 +3463,13 @@ try {
     const handoffSummary = document.querySelector(".device-flow-summary");
     document.querySelector('[data-focus-mode="capture"]').click();
     const captureContext = document.querySelector("#captureContext");
+    const captureStarters = document.querySelector("#captureStarters");
+    const captureStarterLabel = document.querySelector(".capture-starter-label");
+    const starterButtons = [...document.querySelectorAll("[data-capture-starter]")].map((button) => ({
+      text: button.textContent,
+      width: Math.ceil(button.getBoundingClientRect().width),
+      height: Math.ceil(button.getBoundingClientRect().height)
+    }));
     const timeRow = document.querySelector(".time-input-row");
     return {
       innerWidth: window.innerWidth,
@@ -3405,6 +3489,11 @@ try {
       captureContextVisible: getComputedStyle(captureContext).display !== "none",
       captureContextWidth: Math.ceil(captureContext.getBoundingClientRect().width),
       captureContextScrollWidth: captureContext.scrollWidth,
+      captureStartersVisible: getComputedStyle(captureStarters).display !== "none",
+      captureStartersWidth: Math.ceil(captureStarters.getBoundingClientRect().width),
+      captureStartersScrollWidth: captureStarters.scrollWidth,
+      captureStarterLabel: captureStarterLabel?.textContent || "",
+      starterButtons,
       timeRowWidth: Math.ceil(timeRow.getBoundingClientRect().width),
       timeRowScrollWidth: timeRow.scrollWidth,
       timeBackWidth: Math.ceil(document.querySelector("#timeBackBtn").getBoundingClientRect().width),
@@ -3422,9 +3511,17 @@ try {
   assert.ok(mobileLayout.handoffSummaryParentWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.handoffSummaryScrollWidth <= mobileLayout.handoffSummaryWidth + 2);
   assert.equal(mobileLayout.captureContextVisible, true);
+  assert.equal(mobileLayout.captureStartersVisible, true);
+  assert.equal(mobileLayout.captureStarterLabel, "Start draft");
   assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextScrollWidth <= mobileLayout.captureContextWidth + 2);
+  assert.ok(mobileLayout.captureStartersWidth <= mobileLayout.innerWidth - 24);
+  assert.ok(mobileLayout.captureStartersScrollWidth <= mobileLayout.captureStartersWidth + 2);
+  assert.deepEqual(mobileLayout.starterButtons.map((button) => button.text), ["Question", "Answer", "Takeaway"]);
+  mobileLayout.starterButtons.forEach((button) => {
+    assert.ok(button.height >= 32);
+  });
   assert.ok(mobileLayout.timeRowWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.timeRowScrollWidth <= mobileLayout.timeRowWidth + 2);
   assert.ok(mobileLayout.timeBackWidth >= 44);

@@ -222,8 +222,10 @@ Latest local work adds source-aware Quick Capture starters:
 
 - Empty Quick Capture state now follows the bound source context: timestamped videos show `Video moment`, untimed videos show `Video note`, text sources show `Article excerpt`, `Doc excerpt`, or `Book excerpt`, and source-less topics fall back to generic `Ready`.
 - Quote/thought placeholders change with that same context, so a video moment asks for a transcript/key phrase and question/takeaway/answer, while text sources ask for an excerpt and takeaway/question/application.
+- The capture pane now has `Question`, `Answer`, and `Takeaway` starter buttons under a visible `Start draft` label. They only seed/convert the local Thought draft prefix and focus the field; Capture/Card still decide what gets committed.
+- Uncommitted starter drafts stay local to the Mac/web instance and are excluded from Harmony/Windows static mirrors, Return JSON, workspace JSON, and Feishu mirror exports.
 - The helper is local and resume-driven only; it does not read the browser, transcripts, cookies, sessions, or any external source state.
-- Browser smoke now covers Paste Source video guidance, source-time staging guidance, article/book text guidance, and source-cleared fallback to `Ready`.
+- Browser smoke now covers Paste Source video guidance, source-time staging guidance, article/book text guidance, starter button draft behavior, mobile starter-row no-overflow, and source-cleared fallback to `Ready`.
 - Mira returned `PASS_WITH_NOTES`; accepted P1 fixes were distinct article/doc/book labels and removing hidden DOM reads from `captureGuidanceFor`. Deferred notes: sourceTitle-only still counts as source context for manual title-first setup, and visual cross-viewport confirmation remains manual QA.
 
 Local agent temp convention:

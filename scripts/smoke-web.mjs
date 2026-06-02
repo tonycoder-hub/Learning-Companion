@@ -139,6 +139,8 @@ assert.match(appJs, /handleCaptureContextSourceAction/);
 assert.match(appJs, /promptForSource/);
 assert.match(appJs, /Resume @/);
 assert.match(appJs, /Set source URL/);
+assert.match(indexHtml, /data-capture-starter="question"/);
+assert.match(appJs, /applyCaptureStarter/);
 assert.match(appJs, /renderTodaySectionMap/);
 assert.match(appJs, /renderLearningFlowPanel/);
 assert.match(appJs, /renderReturnedWorkNudge/);
