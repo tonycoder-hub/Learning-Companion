@@ -22,7 +22,7 @@ Importers restore from `workspace.json` first. They may use derived files for di
 
 The Mac import picker accepts one full workspace/mirror restore at a time, or multiple `inbox.html` / `review.html` return JSON files together. Multi-file import rejects non-return payloads and produces a combined `learning-companion.return-files-receipt.v1` summary instead of replacing the workspace. Multi-file return imports apply inbox patches before review patches, then use `createdAt`, `patchId`, and filename as a stable order inside each type. For the combined receipt, `processedFiles + failedFiles === fileCount`; duplicate-only files count as processed, not failed.
 
-Return JSON files may carry `source.workspaceFingerprint`, copied from the mirror base that generated `inbox.html` or `review.html`. Mac import treats that fingerprint as advisory drift telemetry: if it differs from the current workspace base, the receipt reports `mirror base changed` but still imports append-only inbox captures or review events under the normal duplicate/conflict rules. Missing or matching source fingerprints do not block import.
+Return JSON files may carry `source.returnBaseFingerprint`, copied from the mirror base that generated `inbox.html` or `review.html`. Mac import treats that fingerprint as advisory drift telemetry: if it differs from the current return-base projection, the receipt reports `mirror base changed` but still imports append-only inbox captures or review events under the normal duplicate/conflict rules. Older return files that only carry `source.workspaceFingerprint` fall back to full-workspace comparison; missing or matching source fingerprints do not block import.
 
 ## Snapshot Semantics
 
@@ -36,7 +36,16 @@ Virtual paths are POSIX-style relative paths. They must not contain leading `/`,
 
 `contentFingerprint` and `bundleFingerprint` are non-cryptographic FNV-1a labels for accidental-change detection. They are not security hashes and must not be used as tamper-proof signatures.
 
-`source.workspaceFingerprint` on return patches uses the same non-cryptographic label family. It is only a user-facing stale-mirror signal, not an authorization check or conflict resolver.
+`source.workspaceFingerprint` on return patches uses the same non-cryptographic label family as the full mirror snapshot.
+
+`source.returnBaseFingerprint` is a narrower non-cryptographic FNV-1a label for manual return-file drift detection. Its projection is:
+
+- workspace schema version and active session id;
+- every session id and title, because inbox patch target routing can fall back from id to title to active session;
+- question capture ids plus open, parked, and resolved state, because mobile answer patches may resolve a same-topic question;
+- review card ids, source/evidence capture ids, `updatedAt`, `lastReviewedAt`, `dueAt`, and strength, because review progress patches apply only against unchanged card versions.
+
+The projection intentionally excludes ordinary non-question captures, notes, synthesis text, storage/export metadata, and workspace `updatedAt`, so normal Mac-side capture after mirror export does not automatically make a phone/Windows return file look stale. It is only a user-facing stale-mirror signal, not an authorization check or conflict resolver.
 
 ## Uploader Boundary
 

@@ -22,6 +22,7 @@ import {
   buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
+  buildReturnBaseFingerprint,
   buildResumeSource,
   buildSourceJumpUrl,
   buildTodayPack,
@@ -434,6 +435,7 @@ assert.equal(inboxResult.receipt.answeredQuestions, 0);
 assert.equal(inboxResult.receipt.skippedAnswerTargets, 0);
 assert.equal(inboxResult.receipt.sourceWorkspaceFingerprint, "fnv1a-test");
 assert.equal(inboxResult.receipt.currentWorkspaceFingerprint, `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(workspace), null, 2))}`);
+assert.equal(inboxResult.receipt.sourceFingerprintBasis, "workspace");
 assert.equal(inboxResult.receipt.sourceFingerprintMatches, false);
 assert.equal(importedInboxCapture.sourceProvenance, "inbox");
 assert.equal(importedInboxCapture.sourceUrl, "");
@@ -447,6 +449,29 @@ const matchingInboxResult = applyMobileInboxPatch(workspace, {
   captures: []
 });
 assert.equal(matchingInboxResult.receipt.sourceFingerprintMatches, true);
+const matchingInboxReturnBaseFingerprint = buildReturnBaseFingerprint(workspace);
+const matchingInboxReturnBaseResult = applyMobileInboxPatch(workspace, {
+  ...inboxPatch,
+  patchId: "patch_mobile_matching_return_base",
+  source: { ...inboxPatch.source, returnBaseFingerprint: matchingInboxReturnBaseFingerprint },
+  captures: []
+});
+assert.equal(matchingInboxReturnBaseResult.receipt.sourceReturnBaseFingerprint, matchingInboxReturnBaseFingerprint);
+assert.equal(matchingInboxReturnBaseResult.receipt.currentReturnBaseFingerprint, matchingInboxReturnBaseFingerprint);
+assert.equal(matchingInboxReturnBaseResult.receipt.sourceFingerprintBasis, "return-base");
+assert.equal(matchingInboxReturnBaseResult.receipt.sourceFingerprintMatches, true);
+const unrelatedMacCaptureWorkspace = addCapture(workspace, session.id, {
+  quote: "Unrelated Mac capture after mirror export.",
+  thought: "This should not stale the phone return base.",
+  timestamp: "09:30"
+});
+const unrelatedMacCaptureReturnResult = applyMobileInboxPatch(unrelatedMacCaptureWorkspace, {
+  ...inboxPatch,
+  patchId: "patch_mobile_unrelated_mac_capture",
+  source: { ...inboxPatch.source, returnBaseFingerprint: matchingInboxReturnBaseFingerprint },
+  captures: []
+});
+assert.equal(unrelatedMacCaptureReturnResult.receipt.sourceFingerprintMatches, true);
 const legacyInboxResult = applyMobileInboxPatch(workspace, {
   ...inboxPatch,
   patchId: "patch_mobile_legacy_base",
@@ -560,6 +585,14 @@ let questionLifecycleWorkspace = sanitizeWorkspace({
   sessions: [questionSession]
 });
 const questionCaptureId = questionSession.captures[0].id;
+const questionReturnBaseFingerprint = buildReturnBaseFingerprint(questionLifecycleWorkspace);
+assert.equal(buildReturnBaseFingerprint(questionLifecycleWorkspace), questionReturnBaseFingerprint);
+assert.notEqual(buildReturnBaseFingerprint(setCaptureQuestionResolved(
+  questionLifecycleWorkspace,
+  questionSession.id,
+  questionCaptureId,
+  true
+)), questionReturnBaseFingerprint);
 let parkedQuestionWorkspace = setCaptureQuestionParked(
   questionLifecycleWorkspace,
   questionSession.id,
@@ -1620,6 +1653,7 @@ const reviewHtml = generateReviewHtml(multiReviewWorkspace, frozenToday);
 assert.match(reviewHtml, /Learning Companion Review Pack/);
 assert.match(reviewHtml, /Content-Security-Policy/);
 assert.match(reviewHtml, /learning-companion-workspace-fingerprint/);
+assert.match(reviewHtml, /returnBaseFingerprint/);
 assert.match(reviewHtml, /learning-companion\.review-progress-patch\.v1/);
 assert.match(reviewHtml, /Return to Mac/);
 assert.match(reviewHtml, /timestamped review return JSON/);
@@ -1673,6 +1707,7 @@ assert.equal(reviewProgressResult.receipt.applied, 1);
 assert.equal(reviewProgressResult.receipt.skippedDuplicate, 1);
 assert.equal(reviewProgressResult.receipt.sourceWorkspaceFingerprint, "fnv1a-test");
 assert.equal(reviewProgressResult.receipt.currentWorkspaceFingerprint, `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(multiReviewWorkspace), null, 2))}`);
+assert.equal(reviewProgressResult.receipt.sourceFingerprintBasis, "workspace");
 assert.equal(reviewProgressResult.receipt.sourceFingerprintMatches, false);
 assert.equal(reviewProgressResult.workspace.importedReviewPatches.includes("review_patch_001"), true);
 assert.equal(reviewedCard.strength, reviewProgressItem.card.strength + 1);
@@ -1682,10 +1717,12 @@ const matchingReviewProgressResult = applyReviewProgressPatch(multiReviewWorkspa
   patchId: "review_patch_matching_base",
   source: {
     ...reviewProgressPatch.source,
-    workspaceFingerprint: `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(multiReviewWorkspace), null, 2))}`
+    workspaceFingerprint: `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(multiReviewWorkspace), null, 2))}`,
+    returnBaseFingerprint: buildReturnBaseFingerprint(multiReviewWorkspace)
   },
   events: [{ ...reviewProgressPatch.events[0], id: "review_event_matching_base" }]
 }, frozenToday);
+assert.equal(matchingReviewProgressResult.receipt.sourceFingerprintBasis, "return-base");
 assert.equal(matchingReviewProgressResult.receipt.sourceFingerprintMatches, true);
 const duplicateReviewProgressResult = applyReviewProgressPatch(reviewProgressResult.workspace, reviewProgressPatch);
 assert.equal(duplicateReviewProgressResult.receipt.targetResolution, "duplicate-patch");
@@ -1749,6 +1786,7 @@ assert.equal(maliciousReviewHtml.includes("<script>alert"), false);
 const inboxHtml = generateInboxHtml(multiReviewWorkspace, frozenToday);
 assert.match(inboxHtml, /Learning Companion Inbox/);
 assert.match(inboxHtml, /learning-companion\.mobile-inbox-patch\.v1/);
+assert.match(inboxHtml, /returnBaseFingerprint/);
 assert.match(inboxHtml, /Return to Mac/);
 assert.match(inboxHtml, /timestamped inbox return JSON/);
 assert.match(inboxHtml, /Save Return JSON/);
@@ -1834,7 +1872,8 @@ assert.equal(mirror.manifest.fileCount, 6 + workspace.sessions.length * 2);
 assert.equal(mirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
 assert.equal(mirror.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
-assert.equal(mirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint)), true);
+assert.equal(mirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceReturnBaseFingerprint)), true);
+assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceReturnBaseFingerprint)), true);
 assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && file.content.includes("Learning Companion Inbox")), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && /Due Review/.test(file.content)), true);
 assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);

@@ -459,6 +459,42 @@ export function workspaceBackupFingerprint(value) {
   return workspaceFingerprint(JSON.stringify(stableWorkspace));
 }
 
+export function buildReturnBaseFingerprint(workspace) {
+  const safeWorkspace = sanitizeWorkspace(workspace);
+  return fingerprintText(JSON.stringify({
+    schema: "learning-companion.return-base-fingerprint.v1",
+    workspaceSchemaVersion: safeWorkspace.schemaVersion,
+    activeSessionId: safeWorkspace.activeSessionId,
+    sessions: safeWorkspace.sessions.map((session) => ({
+      id: session.id,
+      title: session.title,
+      questionCaptures: session.captures
+        .filter((capture) => captureHasQuestion(capture)
+          || capture.questionResolvedAt
+          || capture.questionParkedAt)
+        .map((capture) => ({
+          id: capture.id,
+          question: captureHasQuestion(capture),
+          open: captureHasOpenQuestion(capture),
+          parked: captureHasParkedQuestion(capture),
+          resolved: captureHasResolvedQuestion(capture)
+        }))
+        .sort((a, b) => String(a.id || "").localeCompare(String(b.id || ""))),
+      reviewCards: session.reviewCards
+        .map((card) => ({
+          id: card.id,
+          sourceCaptureId: card.sourceCaptureId || "",
+          evidenceCaptureId: card.evidenceCaptureId || "",
+          updatedAt: card.updatedAt || card.createdAt || "",
+          lastReviewedAt: card.lastReviewedAt || null,
+          dueAt: card.dueAt || "",
+          strength: Number(card.strength) || 0
+        }))
+        .sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")))
+    }))
+  }));
+}
+
 export function hasBackupWorthyWorkspace(value) {
   return Boolean(
     value?.sessions?.length > 1 ||
@@ -2211,12 +2247,14 @@ export function generateReviewHtml(workspace, now = new Date()) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
+  const returnBaseFingerprint = buildReturnBaseFingerprint(cleanWorkspace);
   const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 50, recentLimit: 1 });
   const seed = JSON.stringify({
     schema: "learning-companion.review-progress-seed.v1",
     appVersion: WORKSPACE_SCHEMA_VERSION,
     generatedAt: pack.generatedAt,
     workspaceFingerprint,
+    returnBaseFingerprint,
     cards: pack.dueItems.map(({ sessionId, sessionTitle, card }) => ({
       sessionId,
       sessionTitle,
@@ -2366,7 +2404,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      event.returnValue = '';",
     "    });",
     "    function buildPatch() {",
-    "      return { schema: PATCH_SCHEMA, appVersion: seed.appVersion, patchId: makeId('review_patch'), createdAt: new Date().toISOString(), source: { generatedBy: 'review.html', workspaceFingerprint: seed.workspaceFingerprint }, events: Object.values(progress.events) };",
+    "      return { schema: PATCH_SCHEMA, appVersion: seed.appVersion, patchId: makeId('review_patch'), createdAt: new Date().toISOString(), source: { generatedBy: 'review.html', workspaceFingerprint: seed.workspaceFingerprint, returnBaseFingerprint: seed.returnBaseFingerprint }, events: Object.values(progress.events) };",
     "    }",
     "    function renderProgress() {",
     "      document.querySelectorAll('.card').forEach((cardEl) => {",
@@ -2401,6 +2439,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
+  const returnBaseFingerprint = buildReturnBaseFingerprint(cleanWorkspace);
   const topics = cleanWorkspace.sessions.map((session) => ({
     id: session.id,
     title: session.title,
@@ -2414,6 +2453,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     appVersion: WORKSPACE_SCHEMA_VERSION,
     generatedAt: formatLocalIso(now),
     workspaceFingerprint,
+    returnBaseFingerprint,
     activeSessionId: cleanWorkspace.activeSessionId,
     topics
   }).replace(/</g, "\\u003c");
@@ -2571,7 +2611,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "        appVersion: seed.appVersion,",
     "        patchId: makeId('inbox_patch'),",
     "        createdAt: new Date().toISOString(),",
-    "        source: { generatedBy: 'inbox.html', workspaceFingerprint: seed.workspaceFingerprint, topicId: seed.activeSessionId, topicTitle: seed.topics.find((item) => item.id === seed.activeSessionId)?.title || '' },",
+    "        source: { generatedBy: 'inbox.html', workspaceFingerprint: seed.workspaceFingerprint, returnBaseFingerprint: seed.returnBaseFingerprint, topicId: seed.activeSessionId, topicTitle: seed.topics.find((item) => item.id === seed.activeSessionId)?.title || '' },",
     "        target: { topicId: topic.id, topicTitle: topic.title },",
     "        captures: topicDrafts.map((item) => ({",
     "          id: item.id,",
@@ -2899,6 +2939,7 @@ export function buildMirrorBundle(workspace, options = {}) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
+  const returnBaseFingerprint = buildReturnBaseFingerprint(cleanWorkspace);
   const files = [];
   const sessionFiles = cleanWorkspace.sessions.flatMap((session) => {
     const paths = getMirrorSessionPaths(session);
@@ -2945,6 +2986,7 @@ export function buildMirrorBundle(workspace, options = {}) {
       mediaType: "text/html",
       role: "portable-review",
       sourceFingerprint: workspaceFingerprint,
+      sourceReturnBaseFingerprint: returnBaseFingerprint,
       content: generateReviewHtml(cleanWorkspace, new Date(exportedAt))
     }),
     makeMirrorFile({
@@ -2952,6 +2994,7 @@ export function buildMirrorBundle(workspace, options = {}) {
       mediaType: "text/html",
       role: "mobile-inbox",
       sourceFingerprint: workspaceFingerprint,
+      sourceReturnBaseFingerprint: returnBaseFingerprint,
       content: generateInboxHtml(cleanWorkspace, new Date(exportedAt))
     }),
     makeMirrorFile({
@@ -3140,16 +3183,28 @@ function resolveInboxPatchTarget(workspace, patch) {
 }
 
 function buildPatchFingerprintStatus(patch, workspace) {
+  const sourceReturnBaseFingerprint = cleanText(patch?.source?.returnBaseFingerprint, 64);
+  const currentReturnBaseFingerprint = workspace ? buildReturnBaseFingerprint(workspace) : "";
   const sourceWorkspaceFingerprint = cleanText(patch?.source?.workspaceFingerprint, 64);
   const currentWorkspaceFingerprint = workspace
     ? `fnv1a-${workspaceFingerprint(JSON.stringify(workspace, null, 2))}`
     : "";
+  let sourceFingerprintMatches = null;
+  let sourceFingerprintBasis = "missing";
+  if (sourceReturnBaseFingerprint) {
+    sourceFingerprintMatches = sourceReturnBaseFingerprint === currentReturnBaseFingerprint;
+    sourceFingerprintBasis = "return-base";
+  } else if (sourceWorkspaceFingerprint) {
+    sourceFingerprintMatches = sourceWorkspaceFingerprint === currentWorkspaceFingerprint;
+    sourceFingerprintBasis = "workspace";
+  }
   return {
+    sourceReturnBaseFingerprint,
+    currentReturnBaseFingerprint,
     sourceWorkspaceFingerprint,
     currentWorkspaceFingerprint,
-    sourceFingerprintMatches: sourceWorkspaceFingerprint
-      ? sourceWorkspaceFingerprint === currentWorkspaceFingerprint
-      : null
+    sourceFingerprintBasis,
+    sourceFingerprintMatches
   };
 }
 
@@ -3443,7 +3498,7 @@ function generateMirrorReadme(workspace, sessionFiles) {
   return lines.join("\n").trim() + "\n";
 }
 
-function makeMirrorFile({ path, mediaType, role, sessionId = "", sourceFingerprint = "", content }) {
+function makeMirrorFile({ path, mediaType, role, sessionId = "", sourceFingerprint = "", sourceReturnBaseFingerprint = "", content }) {
   const safePath = normalizeMirrorPath(path);
   const bytes = byteLength(content);
   if (bytes > MAX_MIRROR_FILE_BYTES) {
@@ -3456,6 +3511,7 @@ function makeMirrorFile({ path, mediaType, role, sessionId = "", sourceFingerpri
     role,
     sessionId,
     sourceFingerprint,
+    sourceReturnBaseFingerprint,
     bytes,
     contentFingerprint: fingerprintText(content),
     content
