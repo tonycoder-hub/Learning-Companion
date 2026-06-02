@@ -247,6 +247,9 @@ try {
       inspectorDisplay: getComputedStyle(inspector).display,
       toggleDisplay: getComputedStyle(toggle).display,
       metricsDisplay: getComputedStyle(document.querySelector(".metrics-row")).display,
+      focusBriefColumns: getComputedStyle(document.querySelector(".focus-brief")).gridTemplateColumns,
+      focusBriefFactsDisplay: getComputedStyle(document.querySelector(".focus-brief-facts")).display,
+      focusBriefSignalsDisplay: getComputedStyle(document.querySelector(".focus-brief-signals")).display,
       activityDisplay: getComputedStyle(document.querySelector(".activity-strip")).display,
       activityAction: document.querySelector("#activityDetailsBtn").textContent,
       sidecarRailHidden: document.querySelector("#sidecarRail").hidden,
@@ -334,11 +337,16 @@ try {
   assert.equal(sidecarLayout.before.shellCompact, false);
   assert.equal(sidecarLayout.before.sidecarRailHidden, true);
   assert.notEqual(sidecarLayout.before.metricsDisplay, "none");
+  assert.notEqual(sidecarLayout.before.focusBriefFactsDisplay, "none");
+  assert.notEqual(sidecarLayout.before.focusBriefSignalsDisplay, "none");
   assert.equal(sidecarLayout.afterEditableShortcut.shellCompact, false);
   assert.equal(sidecarLayout.afterPanelShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterPanelShortcut.sidebarDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.inspectorDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.metricsDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.focusBriefFactsDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.focusBriefSignalsDisplay, "none");
+  assert.match(sidecarLayout.afterPanelShortcut.focusBriefColumns, / /);
   assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Exit + Details");
@@ -379,6 +387,8 @@ try {
   assert.match(sidecarLayout.afterCaptureDestination.activityDetail, /Captures save to Learning Companion MVP/);
   assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
   assert.notEqual(sidecarLayout.afterActivityDetails.metricsDisplay, "none");
+  assert.notEqual(sidecarLayout.afterActivityDetails.focusBriefFactsDisplay, "none");
+  assert.notEqual(sidecarLayout.afterActivityDetails.focusBriefSignalsDisplay, "none");
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
   assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");
   assert.equal(sidecarLayout.afterActivityDetails.sidecarRailHidden, true);

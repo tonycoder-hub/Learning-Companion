@@ -66,6 +66,16 @@ button {
   display: none;
 }
 
+.app-shell.sidecar-layout .focus-brief {
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 64px;
+}
+
+.app-shell.sidecar-layout .focus-brief-facts,
+.app-shell.sidecar-layout .focus-brief-signals {
+  display: none;
+}
+
 .sidebar,
 .inspector {
   min-width: 0;

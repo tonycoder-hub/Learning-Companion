@@ -48,7 +48,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Saving Quick Capture now leaves a type-aware local receipt: saved questions can jump to Today > Open Questions, linked answers to Closed Today, unlinked answers to Answers Today, takeaways back to the capture stack, and Capture+Card/Cloze to Review. The receipt is Mac/web navigation feedback only; it does not create a live cross-device sync claim.
 - Quick capture for quote + note + tags, with per-session draft recovery and a Today resume entry while switching learning contexts.
 - Keyboard-first capture focus that returns from Today, Review, Export, or hidden side panels to Quick Capture without leaving sidecar layout.
-- Sidecar focus rail that appears only after the side panels are hidden, keeping `Source`, `Capture`, and `Loop` actions reachable while the app sits beside a browser video or document; sidecar layout hides the metric row so the rail replaces dashboard density instead of stacking on top of it.
+- Sidecar focus rail that appears only after the side panels are hidden, keeping `Source`, `Capture`, and `Loop` actions reachable while the app sits beside a browser video or document; sidecar layout hides the metric row and collapses Focus Brief facts/signals so the rail replaces dashboard density instead of stacking on top of it.
 - Capture-level source snapshots and source/time jump links.
 - Browser inbound capture routes clips to an existing normalized source match before falling back to the active topic.
 - One-click capture insertion into Notes, without duplicate blocks.

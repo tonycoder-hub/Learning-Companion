@@ -181,6 +181,8 @@ assert.match(appCss, /\.learning-flow-step\.is-source/);
 assert.match(appCss, /\.sidecar-rail/);
 assert.match(appCss, /\.sidecar-rail-button/);
 assert.match(appCss, /\.app-shell\.sidecar-layout \.metrics-row/);
+assert.match(appCss, /\.app-shell\.sidecar-layout \.focus-brief/);
+assert.match(appCss, /\.app-shell\.sidecar-layout \.focus-brief-facts/);
 assert.match(appCss, /\.returned-work-card/);
 assert.match(appCss, /\.manual-transfer-badge/);
 assert.match(appCss, /\.device-flow-badges/);

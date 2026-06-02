@@ -225,9 +225,10 @@ Latest local work makes sidecar focus keep the same route:
 
 - When sidecar layout hides the sidebar and inspector, the activity strip now shows a compact `Source` / `Capture` / `Loop` rail.
 - The rail reuses `resolveSourceSessionState()`, `focusQuickCapture()`, and `resolveCloseLoopState()`, so it is a focused view of the existing Learning Flow rather than another dashboard model.
-- The rail stays hidden in the full three-column desk. Sidecar mode hides the dashboard metric row, and the rail is `aria-live="off"` so it does not turn the activity live region into a noisy action dump.
-- Browser smoke pins its sidecar-only visibility, source/capture/loop order, hidden metrics, clear-loop `Today` label, and disappearance after `Exit + Details`.
+- The rail stays hidden in the full three-column desk. Sidecar mode hides the dashboard metric row and Focus Brief fact/signal chips; the rail is `aria-live="off"` so it does not turn the activity live region into a noisy action dump.
+- Browser smoke pins its sidecar-only visibility, source/capture/loop order, hidden metrics, collapsed Focus Brief facts/signals, clear-loop `Today` label, and disappearance after `Exit + Details`.
 - Mira returned `PASS_WITH_NOTES`; accepted fixes were hierarchy reduction, explicit clear-loop exit copy, and live-region containment. Deferred: keyboard rail navigation and local telemetry.
+- Mira follow-up returned `PASS` after the Focus Brief compacting change; its only remaining notes were optional narrow-width visual baseline and future keyboard rail navigation.
 - Seed/Workflow was attempted twice on `ark/seed-code-0530`: a 2-worker batch returned one timeout and one tool-call-only response, and a narrower retry timed out with empty output. No Seed finding was accepted for this slice.
 
 Latest local work adds clipboard-assisted source setup:
