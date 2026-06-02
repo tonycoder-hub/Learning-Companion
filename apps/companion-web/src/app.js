@@ -487,8 +487,8 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
-dom.reanchorCaptureDraftBtn.addEventListener("click", reanchorCurrentCaptureDraft);
-dom.clearCaptureDraftBtn.addEventListener("click", clearCurrentCaptureDraft);
+dom.reanchorCaptureDraftBtn?.addEventListener("click", reanchorCurrentCaptureDraft);
+dom.clearCaptureDraftBtn?.addEventListener("click", clearCurrentCaptureDraft);
 [dom.quoteInput, dom.thoughtInput, dom.timestampInput].forEach((node) => {
   node.addEventListener("input", saveCurrentCaptureDraft);
   node.addEventListener("change", saveCurrentCaptureDraft);
@@ -845,10 +845,14 @@ function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) 
   dom.captureDraftStatus.title = sourceChanged
     ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
     : "";
-  dom.reanchorCaptureDraftBtn.hidden = !sourceChanged;
-  dom.reanchorCaptureDraftBtn.title = sourceChanged ? "Use the current source for this local draft" : "";
-  dom.reanchorCaptureDraftBtn.setAttribute("aria-label", "Use current source for this draft");
-  dom.clearCaptureDraftBtn.hidden = !hasDraft;
+  if (dom.reanchorCaptureDraftBtn) {
+    dom.reanchorCaptureDraftBtn.hidden = !sourceChanged;
+    dom.reanchorCaptureDraftBtn.title = sourceChanged ? "Use the current source for this local draft" : "";
+    dom.reanchorCaptureDraftBtn.setAttribute("aria-label", "Use current source for this draft");
+  }
+  if (dom.clearCaptureDraftBtn) {
+    dom.clearCaptureDraftBtn.hidden = !hasDraft;
+  }
 }
 
 function captureDraftSourceChanged(session, draft) {
@@ -4001,6 +4005,10 @@ function saveBlobFile(filename, blob, type) {
         return false;
       });
   }
+  if (!shouldUseFallbackDownload()) {
+    showToast("Save picker unavailable in this browser; use Copy or the Mac app export.");
+    return false;
+  }
   downloadBlob(filename, blob);
   return true;
 }
@@ -4049,7 +4057,15 @@ function saveTextFileWithNative(filename, text, type) {
 function canUseFileSavePicker() {
   return typeof window.showSaveFilePicker === "function"
     && navigator.webdriver !== true
-    && !/HeadlessChrome/i.test(navigator.userAgent || "");
+    && !allowsAutomatedDownloadFallback();
+}
+
+function shouldUseFallbackDownload() {
+  return navigator.webdriver !== true || allowsAutomatedDownloadFallback();
+}
+
+function allowsAutomatedDownloadFallback() {
+  return window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ === true;
 }
 
 function filePickerType(filename, type) {

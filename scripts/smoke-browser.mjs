@@ -76,6 +76,9 @@ try {
   cdp.on("Runtime.exceptionThrown", (event) => exceptions.push(event));
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
+  await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: "window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = true;"
+  });
   await cdp.send("Browser.setDownloadBehavior", {
     behavior: "allow",
     downloadPath
@@ -1615,7 +1618,7 @@ try {
   virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review.html` });
   await sleep(300);
-  const reviewRuntime = await cdp.evaluate(`(() => {
+  const reviewRuntime = await cdp.evaluate(`(async () => {
     const beforeUnloadPrevented = () => {
       const event = new Event("beforeunload", { cancelable: true });
       window.dispatchEvent(event);
@@ -1634,6 +1637,7 @@ try {
     } finally {
       HTMLAnchorElement.prototype.click = originalClick;
     }
+    await new Promise((resolve) => setTimeout(resolve, 0));
     return {
       heading: document.querySelector("h1").textContent,
       answerVisible: !document.querySelector(".answer").hidden,
@@ -1655,7 +1659,7 @@ try {
   assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
-  assert.match(reviewRuntime.savedStatus, /Return JSON saved/);
+  assert.match(reviewRuntime.savedStatus, /Return JSON download requested/);
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(reviewRuntime.dirtyBeforeSave, true);
   assert.equal(reviewRuntime.dirtyAfterSave, false);
@@ -1666,11 +1670,47 @@ try {
   assert.equal(reviewRuntime.hasBaseUpdatedAt, true);
   assert.match(reviewRuntime.storageKey, /^learning-companion\.review-progress\./);
 
+  const reviewGuardDownloadCountBefore = readdirSync(downloadPath).length;
+  virtualRoutes.set("/mirror-review-guard.html", result.mirrorReviewHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-guard.html` });
+  await sleep(300);
+  const reviewGuardRuntime = await cdp.evaluate(`(async () => {
+    window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = false;
+    Object.defineProperty(navigator, 'webdriver', { value: true, configurable: true });
+    Object.defineProperty(window, 'showSaveFilePicker', { value: undefined, configurable: true });
+    const beforeUnloadPrevented = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    document.querySelector('[data-reveal]')?.click();
+    document.querySelector('[data-grade="good"]')?.click();
+    let downloadName = "";
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { downloadName = this.download; };
+    try {
+      document.querySelector("#downloadProgressBtn").click();
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return {
+      status: document.querySelector("#progressStatus").textContent,
+      downloadName,
+      dirtyAfterBlockedSave: beforeUnloadPrevented()
+    };
+  })()`);
+  const reviewGuardDownloadCountAfter = readdirSync(downloadPath).length;
+  assert.equal(reviewGuardRuntime.downloadName, "");
+  assert.match(reviewGuardRuntime.status, /Save picker unavailable in this automated browser/);
+  assert.equal(reviewGuardRuntime.dirtyAfterBlockedSave, true);
+  assert.equal(reviewGuardDownloadCountAfter, reviewGuardDownloadCountBefore);
+
   const exceptionsBeforeInboxRuntime = exceptions.length;
   virtualRoutes.set("/mirror-inbox.html", result.mirrorInboxHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html` });
   await sleep(300);
-  const inboxRuntime = await cdp.evaluate(`(() => {
+  const inboxRuntime = await cdp.evaluate(`(async () => {
     const beforeUnloadPrevented = () => {
       const event = new Event("beforeunload", { cancelable: true });
       window.dispatchEvent(event);
@@ -1701,6 +1741,7 @@ try {
     } finally {
       HTMLAnchorElement.prototype.click = originalClick;
     }
+    await new Promise((resolve) => setTimeout(resolve, 0));
     return {
       heading: document.querySelector("h1").textContent,
       topicOptions: document.querySelectorAll("#topicSelect option").length,
@@ -1727,7 +1768,7 @@ try {
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
   assert.equal(inboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
-  assert.match(inboxRuntime.savedStatus, /Return JSON saved/);
+  assert.match(inboxRuntime.savedStatus, /Return JSON download requested/);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(inboxRuntime.dirtyBeforeSave, true);
   assert.equal(inboxRuntime.dirtyAfterSave, false);
