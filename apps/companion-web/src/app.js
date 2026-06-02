@@ -1199,21 +1199,111 @@ function capture(promoteToReview) {
   const updated = getActiveSession(workspace);
   const isCloze = promoteToReview === "cloze";
   const isLinkedAnswer = Boolean(answersQuestionCaptureId);
+  const savedCapture = updated.captures[0];
+  const savedCard = promoteToReview ? updated.reviewCards[0] : null;
   setCaptureDraft(session.id, {
     timestamp: dom.timestampInput.value,
     sourceTitle: updated.sourceTitle,
     sourceUrl: updated.sourceUrl
   });
-  setActivity(updated, {
-    title: isCloze ? "Cloze card saved" : promoteToReview ? "Capture and card saved" : isLinkedAnswer ? "Answer saved" : "Capture saved",
-    detail: summarizeCapture(updated.captures[0]),
-    tab: promoteToReview ? "review" : "captures",
-    targetId: promoteToReview ? updated.reviewCards[0]?.id : updated.captures[0]?.id
-  });
+  setActivity(updated, captureSaveActivity(updated, savedCapture, {
+    isCloze,
+    isLinkedAnswer,
+    savedCard,
+    promotedToReview: Boolean(promoteToReview)
+  }));
   dom.quoteInput.value = "";
   dom.thoughtInput.value = "";
-  persistAndRender(promoteToReview ? "Capture + card saved" : isLinkedAnswer ? "Answer saved" : "Capture saved");
+  persistAndRender(captureSaveToast(savedCapture, { isCloze, isLinkedAnswer, promotedToReview: Boolean(promoteToReview) }));
   dom.quoteInput.focus();
+}
+
+function captureSaveActivity(session, capture, options = {}) {
+  if (options.isCloze) {
+    return {
+      title: "Cloze card saved",
+      detail: `${summarizeCapture(capture)} · Review card is due now. Reveal it from Review when you are ready.`,
+      tab: "review",
+      targetId: options.savedCard?.id || "",
+      actionLabel: "Review"
+    };
+  }
+  if (options.promotedToReview) {
+    return {
+      title: "Capture and card saved",
+      detail: `${summarizeCapture(capture)} · A review card was created, so the point can come back when it is due.`,
+      tab: "review",
+      targetId: options.savedCard?.id || "",
+      actionLabel: "Review"
+    };
+  }
+  if (captureHasQuestion(capture)) {
+    return {
+      title: "Question saved",
+      detail: "Added to Open Questions. Next: answer it, park it, make a card, or resolve it from Today.",
+      tab: "today",
+      targetId: "",
+      targetSection: "open_questions",
+      actionLabel: "Questions"
+    };
+  }
+  if (captureHasAnswer(capture)) {
+    const linked = Boolean(options.isLinkedAnswer);
+    return {
+      title: linked ? "Answer saved" : "Answer note saved",
+      detail: linked
+        ? "Closed the linked question and kept this answer as evidence in Answers Today."
+        : "Saved in Answers Today. It did not close a question because no question was linked.",
+      tab: "today",
+      targetId: "",
+      targetSection: linked ? "closed_questions" : "answers_today",
+      actionLabel: linked ? "Closed" : "Answers"
+    };
+  }
+  if (captureHasTakeawayPrefix(capture)) {
+    return {
+      title: "Takeaway saved",
+      detail: "Kept as a takeaway. Turn it into a card if it needs recall, or build synthesis after a few captures.",
+      tab: "captures",
+      targetId: capture?.id || "",
+      actionLabel: "Capture"
+    };
+  }
+  if (captureHasStarterPrefix(capture, "question")) {
+    return {
+      title: "Question draft saved",
+      detail: "Saved as a capture because the Question draft still needs a body before entering Open Questions.",
+      tab: "captures",
+      targetId: capture?.id || "",
+      actionLabel: "Capture"
+    };
+  }
+  return {
+    title: "Capture saved",
+    detail: `${summarizeCapture(capture)} · Keep reading, make a card when recall matters, or build synthesis later.`,
+    tab: "captures",
+    targetId: capture?.id || "",
+    actionLabel: "Capture"
+  };
+}
+
+function captureSaveToast(capture, options = {}) {
+  if (options.isCloze || options.promotedToReview) return "Capture + card saved";
+  if (captureHasQuestion(capture)) return "Question saved";
+  if (captureHasAnswer(capture)) return options.isLinkedAnswer ? "Answer saved" : "Answer note saved";
+  if (captureHasTakeawayPrefix(capture)) return "Takeaway saved";
+  return "Capture saved";
+}
+
+function captureHasTakeawayPrefix(capture) {
+  return captureHasStarterPrefix(capture, "takeaway");
+}
+
+function captureHasStarterPrefix(capture, kind) {
+  const thought = String(capture?.thought || "").trimStart();
+  if (kind === "question") return /^(?:q|question)\s*[:：]/i.test(thought);
+  if (kind === "takeaway") return /^takeaway\s*[:：]/i.test(thought);
+  return false;
 }
 
 function captureTextFromNative(text, options = {}) {
@@ -1862,12 +1952,7 @@ function captureStarterActivityDetail(starter, session) {
   if (draft.answersQuestionCaptureId) {
     return "Local answer draft started for the linked question.";
   }
-  const resume = buildResumeSource(session, dom.timestampInput.value);
-  const hasSource = Boolean(resume.href || session.sourceTitle);
-  if (!hasSource) {
-    return "Local answer draft started. Not linked yet; press Capture to save it as an answer note.";
-  }
-  return starter.detail;
+  return "Local answer draft started. Not linked yet; press Capture to save it as an answer note.";
 }
 
 function starterTextFor(value, prefix) {
@@ -1929,16 +2014,18 @@ function setActivity(session, activity) {
     title: String(activity.title || "Ready"),
     detail: String(activity.detail || ""),
     tab: activity.tab || "captures",
-    targetId: activity.targetId || ""
+    targetId: activity.targetId || "",
+    targetSection: activity.targetSection || "",
+    actionLabel: activity.actionLabel || ""
   };
 }
 
 function renderActivity(session) {
   const activity = getActivity(session);
   const canUndoCaptureDelete = pendingCaptureUndo?.sessionId === session.id;
-  const baseAction = activity.tab === "review"
+  const baseAction = activity.actionLabel || (activity.tab === "review"
     ? "Review"
-    : activity.tab === "export" ? "Export" : "Details";
+    : activity.tab === "export" ? "Export" : activity.tab === "today" ? "Today" : "Details");
   const actionText = uiPrefs.sidecarLayout ? `Exit + ${baseAction}` : baseAction;
   const actionLabel = uiPrefs.sidecarLayout
     ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
@@ -2241,6 +2328,14 @@ function showActivityDetails() {
 }
 
 function scrollActivityTarget(activity) {
+  if (activity.targetSection) {
+    const section = document.querySelector(`[data-today-section="${CSS.escape(activity.targetSection)}"]`);
+    const drawer = section?.closest("details");
+    if (drawer && !drawer.open) drawer.open = true;
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+    pulseNode(section);
+    return;
+  }
   if (!activity.targetId) return;
   const selector = activity.tab === "review"
     ? `[data-card-id="${CSS.escape(activity.targetId)}"]`

@@ -142,6 +142,14 @@ assert.match(appJs, /Set source URL/);
 assert.match(indexHtml, /data-capture-starter="question"/);
 assert.match(appJs, /applyCaptureStarter/);
 assert.match(appJs, /renderCaptureStarters/);
+assert.match(appJs, /captureSaveActivity/);
+assert.match(appJs, /targetSection: "open_questions"/);
+assert.match(appJs, /targetSection: linked \? "closed_questions" : "answers_today"/);
+assert.match(appJs, /Saved in Answers Today\. It did not close a question because no question was linked\./);
+assert.match(appJs, /Turn it into a card if it needs recall/);
+assert.match(appJs, /Question draft still needs a body/);
+const captureSaveActivityBody = appJs.match(/function captureSaveActivity[\s\S]*?\n}\n\nfunction captureSaveToast/)?.[0] || "";
+assert.equal((captureSaveActivityBody.match(/actionLabel:/g) || []).length, 7);
 assert.match(appJs, /renderTodaySectionMap/);
 assert.match(appJs, /renderLearningFlowPanel/);
 assert.match(appJs, /renderReturnedWorkNudge/);
@@ -1179,6 +1187,9 @@ assert.equal(captureHasQuestion(statementSession.captures[0]), false);
 assert.equal(getSynthesisStats(statementSession).questions, 0);
 assert.equal(statementBrief.stats.questions, 0);
 assert.equal(statementBrief.warnings.some((warning) => warning.kind === "open_questions"), false);
+assert.equal(captureHasQuestion({ thought: "Question: why ownership matters" }), true);
+assert.equal(captureHasQuestion({ thought: "Q: ownership matters" }), true);
+assert.equal(captureHasQuestion({ thought: "Question: " }), false);
 
 const urlCodeSession = createSession({
   title: "Question false positives",

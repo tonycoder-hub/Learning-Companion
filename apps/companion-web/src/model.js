@@ -3493,13 +3493,15 @@ function isFocusSynthesisDue(capturesSinceLastSynthesis, hasCurrentSynthesis) {
   return capturesSinceLastSynthesis >= FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD && !hasCurrentSynthesis;
 }
 
-// Ignore incidental question marks in code or URLs; the remaining prose is the study question signal.
+// Ignore incidental question marks in code or URLs; an explicit Question: prefix is also a study question signal.
 function isQuestionText(value) {
   const text = String(value || "")
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/`[^`\n]*`/g, " ")
     .replace(/\bhttps?:\/\/\S+/gi, " ")
     .replace(/\bwww\.\S+/gi, " ");
+  const prefixed = text.match(/^(?:q|question)\s*[:：]\s*(.+)$/i);
+  if (prefixed) return Boolean(prefixed[1].trim());
   return /[?？]/.test(text);
 }
 

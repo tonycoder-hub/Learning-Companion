@@ -341,6 +341,12 @@ try {
       quotePlaceholder: document.querySelector("#quoteInput").placeholder,
       thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder
     });
+    const sourceBefore = {
+      title: document.querySelector("#sourceTitle").value,
+      url: document.querySelector("#sourceUrl").value,
+      type: document.querySelector("#materialType").value,
+      timestamp: document.querySelector("#timestampInput").value
+    };
     setValue("#quoteInput", "");
     setValue("#thoughtInput", "");
     setValue("#timestampInput", "");
@@ -356,6 +362,10 @@ try {
     setValue("#sourceUrl", "");
     setValue("#materialType", "article");
     const noSource = readGuidance();
+    setValue("#sourceTitle", sourceBefore.title);
+    setValue("#sourceUrl", sourceBefore.url);
+    setValue("#materialType", sourceBefore.type);
+    setValue("#timestampInput", sourceBefore.timestamp);
     return { article, book, noSource };
   })()`);
   assert.equal(sourceGuidanceStates.article.intent, "Article excerpt");
@@ -437,7 +447,7 @@ try {
     { kind: "takeaway", pressed: "false", active: false }
   ]);
   assert.equal(starterFlow.questionExisting.thought, "Question: ownership prevents data races");
-  assert.equal(starterFlow.questionExisting.intent, "Question draft");
+  assert.equal(starterFlow.questionExisting.intent, "Question");
   assert.equal(starterFlow.questionRepeat.thought, "Question: ownership prevents data races");
   assert.equal(starterFlow.answer.thought, "Answer: ownership prevents data races");
   assert.equal(starterFlow.answer.intent, "Answer");
@@ -462,7 +472,7 @@ try {
   assert.equal(starterFlow.fullWidthColon.thought, "Answer: full-width colon body");
   assert.equal(starterFlow.fullWidthColon.intent, "Answer");
   assert.equal(starterFlow.leadingWhitespace.thought, "Question: leading spaces matter");
-  assert.equal(starterFlow.leadingWhitespace.intent, "Question draft");
+  assert.equal(starterFlow.leadingWhitespace.intent, "Question");
   assert.equal(starterFlow.multiSentenceTakeaway.thought, "Takeaway: This remains useful. Why does the proof need compactness? It limits cases.");
   assert.equal(starterFlow.multiSentenceTakeaway.intent, "Takeaway");
 
@@ -903,6 +913,11 @@ try {
     const start = quote.value.indexOf("durable");
     quote.setSelectionRange(start, start + "durable".length);
     document.querySelector("#captureClozeBtn").click();
+    const clozeActivity = {
+      title: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      action: document.querySelector("#activityDetailsBtn").textContent
+    };
     const dueBeforeGood = document.querySelector("#dueMetric").textContent;
     const gradeVisibleBeforeReveal = Boolean(document.querySelector('[data-grade="good"]'));
     document.querySelector('[data-tab="review"]').click();
@@ -1380,6 +1395,7 @@ try {
           searchAfterOpen,
           searchAfterFirstEscape,
           searchAfterSecondEscape,
+          clozeActivity,
           activityOpenedReviewTab,
           activityTargetPulsed,
           activityAfterSynthesis,
@@ -1758,6 +1774,9 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.equal(result.clozeActivity.title, "Cloze card saved");
+  assert.match(result.clozeActivity.detail, /durable/);
+  assert.equal(result.clozeActivity.action, "Review");
   assert.match(result.captureStackAfterCard.header, /Recent Stack/);
   assert.match(result.captureStackAfterCard.header, /1 shown · 1 total/);
   assert.equal(result.captureStackAfterCard.rows, 1);
@@ -3548,6 +3567,7 @@ try {
   assert.ok(mobileLayout.timeForwardWidth >= 44);
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
+  await assertPostSaveFlow(cdp);
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {
@@ -3555,6 +3575,112 @@ try {
   await waitForProcessExit(chrome, 3000);
   server.close();
   rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+}
+
+async function assertPostSaveFlow(cdp) {
+  const postSaveFlow = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const readActivity = () => ({
+      title: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      action: document.querySelector("#activityDetailsBtn").textContent,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
+    });
+    const openQuestionButton = () => {
+      const questionCard = [...document.querySelectorAll(".question-card")]
+        .find((card) => card.textContent.includes("Why does ownership matter?"));
+      return [...(questionCard?.querySelectorAll("button") || [])]
+        .find((button) => button.textContent === "Answer");
+    };
+    document.querySelector('[data-focus-mode="capture"]')?.click();
+    setValue("#sourceTitle", "Post-save flow fixture");
+    setValue("#sourceUrl", "https://example.com/post-save-flow");
+    setValue("#materialType", "article");
+    setValue("#timestampInput", "");
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Question: Why does ownership matter?");
+    document.querySelector("#captureBtn").click();
+    const questionSaved = readActivity();
+    document.querySelector("#activityDetailsBtn").click();
+    const questionDetails = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      drawerOpen: document.querySelector("[data-today-detail-drawer='study_details']")?.open === true,
+      openQuestionText: document.querySelector("[data-today-section='open_questions']")?.textContent || "",
+      openQuestionPulsed: document.querySelector("[data-today-section='open_questions']")?.classList.contains("pulse") === true
+    };
+    openQuestionButton()?.click();
+    setValue("#thoughtInput", "Answer: Ownership matters because the compiler can prove a single owner controls mutation.");
+    document.querySelector("#captureBtn").click();
+    const linkedAnswerSaved = readActivity();
+    const linkedQuestionState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const question = session?.captures.find((capture) => capture.thought === "Question: Why does ownership matter?");
+      return {
+        resolved: Boolean(question?.questionResolvedAt),
+        parked: Boolean(question?.questionParkedAt)
+      };
+    })();
+    document.querySelector("#activityDetailsBtn").click();
+    const linkedAnswerDetails = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      drawerOpen: document.querySelector("[data-today-detail-drawer='study_details']")?.open === true,
+      closedQuestionText: document.querySelector("[data-today-section='closed_questions']")?.textContent || "",
+      closedQuestionPulsed: document.querySelector("[data-today-section='closed_questions']")?.classList.contains("pulse") === true
+    };
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Answer: This unlinked answer is useful but does not close a question.");
+    document.querySelector("#captureBtn").click();
+    const unlinkedAnswerSaved = readActivity();
+    document.querySelector("#activityDetailsBtn").click();
+    const unlinkedAnswerDetails = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      drawerOpen: document.querySelector("[data-today-detail-drawer='study_details']")?.open === true,
+      answersText: document.querySelector("[data-today-section='answers_today']")?.textContent || "",
+      answersPulsed: document.querySelector("[data-today-section='answers_today']")?.classList.contains("pulse") === true
+    };
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Takeaway: Ownership makes the reader check aliasing before mutation.");
+    document.querySelector("#captureBtn").click();
+    const takeawaySaved = readActivity();
+    setValue("#quoteInput", "Plain capture quote.");
+    setValue("#thoughtInput", "Plain capture thought.");
+    document.querySelector("#captureBtn").click();
+    const ordinarySaved = readActivity();
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, ordinarySaved };
+  })()`);
+  assert.equal(postSaveFlow.questionSaved.title, "Question saved");
+  assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
+  assert.equal(postSaveFlow.questionSaved.action, "Questions");
+  assert.equal(postSaveFlow.questionDetails.activeTab, "today");
+  assert.equal(postSaveFlow.questionDetails.drawerOpen, true);
+  assert.match(postSaveFlow.questionDetails.openQuestionText, /Open Questions/);
+  assert.equal(postSaveFlow.questionDetails.openQuestionPulsed, true);
+  assert.equal(postSaveFlow.linkedAnswerSaved.title, "Answer saved");
+  assert.match(postSaveFlow.linkedAnswerSaved.detail, /Closed the linked question/);
+  assert.equal(postSaveFlow.linkedAnswerSaved.action, "Closed");
+  assert.deepEqual(postSaveFlow.linkedQuestionState, { resolved: true, parked: false });
+  assert.equal(postSaveFlow.linkedAnswerDetails.activeTab, "today");
+  assert.equal(postSaveFlow.linkedAnswerDetails.drawerOpen, true);
+  assert.match(postSaveFlow.linkedAnswerDetails.closedQuestionText, /Closed Today/);
+  assert.equal(postSaveFlow.linkedAnswerDetails.closedQuestionPulsed, true);
+  assert.equal(postSaveFlow.unlinkedAnswerSaved.title, "Answer note saved");
+  assert.match(postSaveFlow.unlinkedAnswerSaved.detail, /did not close a question/);
+  assert.equal(postSaveFlow.unlinkedAnswerSaved.action, "Answers");
+  assert.equal(postSaveFlow.unlinkedAnswerDetails.activeTab, "today");
+  assert.equal(postSaveFlow.unlinkedAnswerDetails.drawerOpen, true);
+  assert.match(postSaveFlow.unlinkedAnswerDetails.answersText, /Answers Today/);
+  assert.equal(postSaveFlow.unlinkedAnswerDetails.answersPulsed, true);
+  assert.equal(postSaveFlow.takeawaySaved.title, "Takeaway saved");
+  assert.match(postSaveFlow.takeawaySaved.detail, /Turn it into a card/);
+  assert.equal(postSaveFlow.takeawaySaved.action, "Capture");
+  assert.equal(postSaveFlow.ordinarySaved.title, "Capture saved");
+  assert.match(postSaveFlow.ordinarySaved.detail, /Keep reading/);
+  assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
 }
 
 async function waitForTarget(port) {
