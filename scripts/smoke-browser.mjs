@@ -3929,6 +3929,15 @@ async function assertPostSaveFlow(cdp) {
     })();
     const addThoughtButtonFor = (captureId) => [...document.querySelectorAll("#captureStack .capture-stack-row button")]
       .find((button) => button.textContent === "Add thought" && button.dataset.highlightAnnotationTrigger === captureId);
+    const highlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
+      .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    [...(highlightRow?.querySelectorAll("button") || [])]
+      .find((button) => button.textContent === "Note")
+      ?.click();
+    const noteBeforeAnnotation = {
+      text: document.querySelector("#notesEditor").value,
+      blockCount: (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length
+    };
     addThoughtButtonFor(highlightBefore.id)?.click();
     const annotationFormVisible = document.querySelector(".highlight-annotation-form")?.textContent.includes("Add why this highlight matters") === true;
     const annotationFocusOnOpen = document.activeElement?.classList.contains("highlight-annotation-input") === true;
@@ -3962,7 +3971,28 @@ async function assertPostSaveFlow(cdp) {
         quote: capture?.quote || "",
         thought: capture?.thought || "",
         stackText: activeRow?.textContent || "",
-        addThoughtGone: ![...(activeRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "Add thought")
+        addThoughtGone: ![...(activeRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "Add thought"),
+        noteBeforeAnnotation,
+        noteAfterAnnotation: {
+          text: session.notesMarkdown || "",
+          blockCount: ((session.notesMarkdown || "").match(/learning-companion:capture:/g) || []).length
+        }
+      };
+    })();
+    addThoughtButtonFor(highlightBefore.previousId)?.click();
+    const noNoteAnnotationInput = document.querySelector(".highlight-annotation-form textarea");
+    noNoteAnnotationInput.value = "This annotation should stay out of notes.";
+    noNoteAnnotationInput.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector(".highlight-annotation-form button[type='submit']").click();
+    const noNoteHighlightAnnotated = readActivity();
+    const noNoteHighlightState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session.captures.find((item) => item.id === highlightBefore.previousId);
+      return {
+        thought: capture?.thought || "",
+        notesText: session.notesMarkdown || "",
+        markerCount: ((session.notesMarkdown || "").match(/learning-companion:capture:/g) || []).length
       };
     })();
     setValue("#quoteInput", "Plain capture quote.");
@@ -3973,7 +4003,7 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
     const quoteQuestionSaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightAnnotated, highlightAnnotationState, ordinarySaved, quoteQuestionSaved };
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightAnnotated, highlightAnnotationState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
   })()`, 45000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
@@ -4019,6 +4049,17 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightAnnotationState.thought, "This annotation must stay attached to the existing highlight.");
   assert.match(postSaveFlow.highlightAnnotationState.stackText, /annotation must stay attached/);
   assert.equal(postSaveFlow.highlightAnnotationState.addThoughtGone, true);
+  assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /This sentence is worth keeping as a highlight\./);
+  assert.doesNotMatch(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /annotation must stay attached/);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.blockCount, 2);
+  assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This sentence is worth keeping as a highlight\./);
+  assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This annotation must stay attached to the existing highlight\./);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.blockCount, 2);
+  assert.equal(postSaveFlow.noNoteHighlightAnnotated.title, "Highlight annotated");
+  assert.doesNotMatch(postSaveFlow.noNoteHighlightAnnotated.detail, /generated note block/);
+  assert.equal(postSaveFlow.noNoteHighlightState.thought, "This annotation should stay out of notes.");
+  assert.doesNotMatch(postSaveFlow.noNoteHighlightState.notesText, /This annotation should stay out of notes/);
+  assert.equal(postSaveFlow.noNoteHighlightState.markerCount, 2);
   assert.equal(postSaveFlow.ordinarySaved.title, "Capture saved");
   assert.match(postSaveFlow.ordinarySaved.detail, /Keep reading/);
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");

@@ -4538,11 +4538,17 @@ function saveHighlightAnnotation(sessionId, captureId, thought) {
   }
   const updatedSession = workspace.sessions.find((session) => session.id === sourceSession.id) || getActiveSession(workspace);
   const updatedCapture = updatedSession.captures.find((capture) => capture.id === sourceCapture.id) || sourceCapture;
+  const existingNoteBlockUpdated = hasCaptureNoteBlock(updatedSession.notesMarkdown, updatedCapture.id);
+  if (existingNoteBlockUpdated) {
+    workspace = updateSession(workspace, updatedSession.id, {
+      notesMarkdown: upsertCaptureNoteBlock(updatedSession.notesMarkdown, updatedCapture)
+    });
+  }
   activeHighlightAnnotation = null;
   activeTab = "captures";
   setActivity(updatedSession, {
     title: "Highlight annotated",
-    detail: `${summarizeCapture(updatedCapture)} · Thought added to the saved highlight; the source page is unchanged.`,
+    detail: `${summarizeCapture(updatedCapture)} · Thought added to the saved highlight${existingNoteBlockUpdated ? "; its generated note block was refreshed" : ""}; the source page is unchanged.`,
     tab: "captures",
     targetId: updatedCapture.id,
     actionLabel: "View highlight"
@@ -5306,6 +5312,11 @@ function upsertCaptureNoteBlock(notesMarkdown, capture) {
   const notes = String(notesMarkdown || "").trim();
   if (existing.test(notes)) return notes.replace(existing, `\n\n${block}`).trim();
   return [notes, block].filter(Boolean).join("\n\n");
+}
+
+function hasCaptureNoteBlock(notesMarkdown, captureId) {
+  return new RegExp(`<!-- learning-companion:capture:${escapeRegExp(captureId)}:start -->[\\s\\S]*?<!-- learning-companion:capture:${escapeRegExp(captureId)}:end -->`)
+    .test(String(notesMarkdown || ""));
 }
 
 function formatCaptureNoteSource(capture) {
