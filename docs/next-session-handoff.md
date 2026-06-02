@@ -43,6 +43,7 @@ What changed in this continuation:
 - Device Flow now keeps a local handoff status in `uiPrefs`: `Mirror current`, `Mac changed since mirror export`, `Waiting for return file`, and `Last return imported`. This is local Mac state only and is intentionally not written into workspace or mirror exports.
 - Quick Capture context now uses explicit source actions: `Resume @ time` for timestamped sources, `Open source` for untimed URLs, and `Set source` for empty topics. `Set source` focuses the URL field and pulses the source strip, which keeps this as a local Mac focus aid rather than a native-permission feature.
 - Old Return JSON files still import through the legacy mirror check, but the in-app receipt, returned-work nudge, and Device Flow now say to re-export the mirror before the next phone/Windows pass.
+- Newly generated static mirror pages (`index.html`, `review.html`, `inbox.html`) show a `Return-ready mirror` badge explaining that Review/Inbox Return JSON includes the Mac return-base check while remaining static/no-live-sync.
 
 External review / critique absorbed:
 

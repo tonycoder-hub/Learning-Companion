@@ -2243,6 +2243,23 @@ export function generateReviewPackMarkdown(workspaceData) {
   ].join("\n");
 }
 
+function returnReadyBadgeCss() {
+  return [
+    "    .return-ready-badge { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #b9d7cb; border-radius: 8px; background: #f0faf5; }",
+    "    .return-ready-badge strong { color: #2f6f5e; }",
+    "    .return-ready-badge span { color: #4b5358; font-size: 13px; line-height: 1.4; }"
+  ];
+}
+
+function returnReadyBadgeHtml() {
+  return [
+    "    <section class=\"return-ready-badge\" aria-label=\"Return-ready mirror\">",
+    "      <strong>Return-ready mirror</strong>",
+    "      <span>Review and Inbox return JSON from this mirror includes the Mac return-base check. Static mirror only; no live sync.</span>",
+    "    </section>"
+  ];
+}
+
 export function generateReviewHtml(workspace, now = new Date()) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
@@ -2296,6 +2313,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">',
     `  <meta name="learning-companion-source" content="workspace.json">`,
     `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
+    `  <meta name="learning-companion-return-base-fingerprint" content="${htmlAttribute(returnBaseFingerprint)}">`,
     `  <meta name="learning-companion-generated-at" content="${htmlAttribute(pack.generatedAt)}">`,
     "  <title>Learning Companion Review Pack</title>",
     "  <style>",
@@ -2308,6 +2326,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "    .summary, .meta, .empty, output { color: #697077; font-size: 13px; }",
     "    .return-note { display: grid; gap: 6px; margin: 14px 0; padding: 12px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
     "    .return-note strong { color: #2f6f5e; }",
+    ...returnReadyBadgeCss(),
     "    code { border: 1px solid #e7e2d5; border-radius: 6px; padding: 1px 5px; background: #fbfaf6; }",
     "    .card { display: grid; gap: 12px; margin: 12px 0; padding: 14px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
     "    button { min-height: 36px; border: 1px solid #2f6f5e; border-radius: 8px; background: #2f6f5e; color: white; font-weight: 700; }",
@@ -2326,6 +2345,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      <h1>Learning Companion Review Pack</h1>",
     `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.due)} due ${pack.stats.due === 1 ? "card" : "cards"} · static mirror, not live sync</p>`,
     "    </header>",
+    ...returnReadyBadgeHtml(),
     "    <section class=\"return-note\" aria-label=\"Return to Mac\">",
     "      <strong>Return to Mac</strong>",
     "      <span>Grade cards here, then save the timestamped review return JSON. Move that JSON back to the Mac and import it from Today &gt; Return Files.</span>",
@@ -2501,6 +2521,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'">',
     `  <meta name="learning-companion-source" content="workspace.json">`,
     `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
+    `  <meta name="learning-companion-return-base-fingerprint" content="${htmlAttribute(returnBaseFingerprint)}">`,
     `  <meta name="learning-companion-generated-at" content="${htmlAttribute(formatLocalIso(now))}">`,
     "  <title>Learning Companion Inbox</title>",
     "  <style>",
@@ -2511,6 +2532,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    h1 { font-size: 24px; } h2 { font-size: 16px; }",
     "    .summary, label, .meta, output { color: #697077; font-size: 13px; }",
     "    .panel { display: grid; gap: 10px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; padding: 14px; }",
+    ...returnReadyBadgeCss(),
     "    label { display: grid; gap: 5px; }",
     "    input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #dcd8cc; border-radius: 8px; padding: 10px; font: inherit; }",
     "    textarea { min-height: 96px; resize: vertical; }",
@@ -2530,6 +2552,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      <h1>Learning Companion Inbox</h1>",
     `      <p class="summary">Generated at ${htmlText(formatLocalIso(now))} · static mirror, not live sync.</p>`,
     "    </header>",
+    ...returnReadyBadgeHtml(),
     "    <section class=\"panel\" aria-label=\"Return to Mac\">",
     "      <h2>Return to Mac</h2>",
     "      <p class=\"summary\">Add captures here, then save the timestamped inbox return JSON. Move that JSON back to the Mac and import it from Today &gt; Return Files.</p>",
@@ -2764,6 +2787,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
+  const returnBaseFingerprint = buildReturnBaseFingerprint(cleanWorkspace);
   const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 6, recentLimit: 4 });
   const brief = pack.focusBrief;
   const sessionLinks = cleanWorkspace.sessions.map((session) => {
@@ -2814,6 +2838,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">',
     `  <meta name="learning-companion-source" content="workspace.json">`,
     `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
+    `  <meta name="learning-companion-return-base-fingerprint" content="${htmlAttribute(returnBaseFingerprint)}">`,
     `  <meta name="learning-companion-generated-at" content="${htmlAttribute(pack.generatedAt)}">`,
     "  <title>Learning Companion Mirror</title>",
     "  <style>",
@@ -2829,6 +2854,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    .action { display: grid; gap: 5px; text-decoration: none; color: #202124; }",
     "    .action strong { color: #2f6f5e; }",
     "    .panel { display: grid; gap: 10px; }",
+    ...returnReadyBadgeCss(),
     "    .steps { margin: 0; padding-left: 22px; }",
     "    .steps li { padding-left: 2px; }",
     "    .steps strong { display: block; color: #2f6f5e; }",
@@ -2846,6 +2872,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "      <h1>Learning Companion Mirror</h1>",
     `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(formatCount(pack.stats.sessions, "session"))} · ${htmlText(formatCount(pack.stats.questions, "open question"))} · ${htmlText(formatCount(pack.stats.due, "due card"))} · source of truth: workspace.json</p>`,
     "    </header>",
+    ...returnReadyBadgeHtml(),
     "    <nav class=\"actions\" aria-label=\"Mirror entry points\">",
     "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review, open questions, and recent captures</span></a>",
     "      <a class=\"action\" href=\"review.html\"><strong>Review</strong><span>Grade cards, then save return JSON</span></a>",
