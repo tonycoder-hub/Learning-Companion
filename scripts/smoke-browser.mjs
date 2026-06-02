@@ -383,7 +383,12 @@ try {
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent,
       buttonTitles: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.title),
-      buttonAria: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.getAttribute("aria-label"))
+      buttonAria: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.getAttribute("aria-label")),
+      buttonPressed: [...document.querySelectorAll("[data-capture-starter]")].map((button) => ({
+        kind: button.dataset.captureStarter,
+        pressed: button.getAttribute("aria-pressed"),
+        active: button.classList.contains("is-active")
+      }))
     });
     setValue("#quoteInput", "");
     setValue("#thoughtInput", "");
@@ -426,6 +431,11 @@ try {
     "Start a local answer draft",
     "Start a local takeaway draft"
   ]);
+  assert.deepEqual(starterFlow.question.buttonPressed, [
+    { kind: "question", pressed: "true", active: true },
+    { kind: "answer", pressed: "false", active: false },
+    { kind: "takeaway", pressed: "false", active: false }
+  ]);
   assert.equal(starterFlow.questionExisting.thought, "Question: ownership prevents data races");
   assert.equal(starterFlow.questionExisting.intent, "Question draft");
   assert.equal(starterFlow.questionRepeat.thought, "Question: ownership prevents data races");
@@ -434,11 +444,21 @@ try {
   assert.equal(starterFlow.answer.activeElement, "thoughtInput");
   assert.equal(starterFlow.answer.activityTitle, "Answer draft started");
   assert.match(starterFlow.answer.activityDetail, /Not linked yet/);
+  assert.deepEqual(starterFlow.answer.buttonPressed, [
+    { kind: "question", pressed: "false", active: false },
+    { kind: "answer", pressed: "true", active: true },
+    { kind: "takeaway", pressed: "false", active: false }
+  ]);
   assert.equal(starterFlow.takeaway.thought, "Takeaway: Why ownership matters?");
   assert.equal(starterFlow.takeaway.intent, "Takeaway");
   assert.equal(starterFlow.takeaway.activeElement, "thoughtInput");
   assert.equal(starterFlow.takeaway.activityTitle, "Takeaway draft started");
   assert.match(starterFlow.takeaway.activityDetail, /Local draft started/);
+  assert.deepEqual(starterFlow.takeaway.buttonPressed, [
+    { kind: "question", pressed: "false", active: false },
+    { kind: "answer", pressed: "false", active: false },
+    { kind: "takeaway", pressed: "true", active: true }
+  ]);
   assert.equal(starterFlow.fullWidthColon.thought, "Answer: full-width colon body");
   assert.equal(starterFlow.fullWidthColon.intent, "Answer");
   assert.equal(starterFlow.leadingWhitespace.thought, "Question: leading spaces matter");

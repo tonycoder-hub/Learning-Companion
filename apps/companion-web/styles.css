@@ -787,6 +787,13 @@ textarea:focus {
   color: var(--green);
 }
 
+.starter-button.is-active,
+.starter-button[aria-pressed="true"] {
+  border-color: rgba(47, 111, 94, 0.34);
+  background: #eef6f3;
+  color: var(--green);
+}
+
 .starter-button:focus-visible {
   outline: 2px solid rgba(49, 95, 130, 0.35);
   outline-offset: 2px;

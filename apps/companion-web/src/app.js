@@ -1651,6 +1651,7 @@ function renderCaptureContext(session) {
   dom.captureContextOpenBtn.title = resume.href ? title : "Set source URL";
   dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Set source URL");
   renderCaptureGuidance(session, resume);
+  renderCaptureStarters();
 }
 
 function captureContextOpenLabel(resume) {
@@ -1736,6 +1737,23 @@ function renderCaptureGuidance(session, resume) {
   const guidance = captureGuidanceFor(session, resume);
   dom.quoteInput.placeholder = guidance.quotePlaceholder;
   dom.thoughtInput.placeholder = guidance.thoughtPlaceholder;
+}
+
+function renderCaptureStarters() {
+  const activeKind = activeCaptureStarterKind(dom.thoughtInput.value);
+  document.querySelectorAll("[data-capture-starter]").forEach((button) => {
+    const active = button.dataset.captureStarter === activeKind;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function activeCaptureStarterKind(value) {
+  const thought = String(value || "").trimStart();
+  if (/^(?:q|question)\s*[:：]/i.test(thought)) return "question";
+  if (/^(?:a|answer)\s*[:：]/i.test(thought)) return "answer";
+  if (/^takeaway\s*[:：]/i.test(thought)) return "takeaway";
+  return "";
 }
 
 function captureGuidanceFor(session, resume) {
