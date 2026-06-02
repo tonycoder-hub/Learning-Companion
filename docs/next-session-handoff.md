@@ -19,6 +19,7 @@ Current branch is `main`, ahead of `origin/main` with local product commits.
 
 Latest commits:
 
+- `feat: distinguish quote-only highlights` (current slice)
 - `fix: avoid downloads wording for backup exports` (current slice)
 - `fix: keep controlled downloads out of downloads`
 - `f7f8474 feat: label legacy return file checks`
@@ -52,6 +53,7 @@ What changed in this continuation:
 - Mac manual QA and the generated morning demo script now ask reviewers to verify the exported JSON file instead of assuming a Downloads-based path.
 - `npm run smoke:browser` gives Chrome target startup and the final post-save learning-flow block a slightly larger timeout budget, because that end-to-end browser path was flaking before any product assertion failed.
 - Mira returned `PASS_WITH_NOTES` for the backup-export copy slice. Accepted notes: prove the browser-smoke assertion exercises the non-directed branch, comment the two timeout budgets, statically pin `downloadBlob()` behind the explicit automation fallback, and document that `exported` is intentionally destination-agnostic.
+- Quote-only saves now surface as `Highlight saved` with next-step copy that says the highlight is local, the source page is unchanged, and the next useful moves are adding a thought or making a card. This absorbs the highlight-plus-annotation pattern from reader/clipper tools without adding browser automation, live sync, or a new schema field.
 
 External review / critique absorbed:
 

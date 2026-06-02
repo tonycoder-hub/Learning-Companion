@@ -3910,11 +3910,19 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Takeaway: Ownership makes the reader check aliasing before mutation.");
     document.querySelector("#captureBtn").click();
     const takeawaySaved = readActivity();
+    setValue("#quoteInput", "This sentence is worth keeping as a highlight.");
+    setValue("#thoughtInput", "");
+    document.querySelector("#captureBtn").click();
+    const highlightSaved = readActivity();
     setValue("#quoteInput", "Plain capture quote.");
     setValue("#thoughtInput", "Plain capture thought.");
     document.querySelector("#captureBtn").click();
     const ordinarySaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, ordinarySaved };
+    setValue("#quoteInput", "Quote should not steal question semantics.");
+    setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
+    document.querySelector("#captureBtn").click();
+    const quoteQuestionSaved = readActivity();
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, ordinarySaved, quoteQuestionSaved };
   })()`, 45000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
@@ -3941,9 +3949,16 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.takeawaySaved.title, "Takeaway saved");
   assert.match(postSaveFlow.takeawaySaved.detail, /Turn it into a card/);
   assert.equal(postSaveFlow.takeawaySaved.action, "Capture");
+  assert.equal(postSaveFlow.highlightSaved.title, "Highlight saved");
+  assert.match(postSaveFlow.highlightSaved.detail, /Saved locally as a highlight/);
+  assert.match(postSaveFlow.highlightSaved.detail, /source page is unchanged/);
+  assert.match(postSaveFlow.highlightSaved.detail, /make a card/);
+  assert.equal(postSaveFlow.highlightSaved.action, "View highlight");
   assert.equal(postSaveFlow.ordinarySaved.title, "Capture saved");
   assert.match(postSaveFlow.ordinarySaved.detail, /Keep reading/);
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
+  assert.equal(postSaveFlow.quoteQuestionSaved.title, "Question saved");
+  assert.equal(postSaveFlow.quoteQuestionSaved.action, "Questions");
 }
 
 async function waitForTarget(port) {

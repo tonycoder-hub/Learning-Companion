@@ -1270,6 +1270,15 @@ function captureSaveActivity(session, capture, options = {}) {
       actionLabel: "Capture"
     };
   }
+  if (captureIsQuoteOnly(capture)) {
+    return {
+      title: "Highlight saved",
+      detail: `${summarizeCapture(capture)} · Saved locally as a highlight; the source page is unchanged. Add a thought or make a card when recall matters.`,
+      tab: "captures",
+      targetId: capture?.id || "",
+      actionLabel: "View highlight"
+    };
+  }
   if (captureHasStarterPrefix(capture, "question")) {
     return {
       title: "Question draft saved",
@@ -1293,11 +1302,22 @@ function captureSaveToast(capture, options = {}) {
   if (captureHasQuestion(capture)) return "Question saved";
   if (captureHasAnswer(capture)) return options.isLinkedAnswer ? "Answer saved" : "Answer note saved";
   if (captureHasTakeawayPrefix(capture)) return "Takeaway saved";
+  if (captureIsQuoteOnly(capture)) return "Highlight saved";
   return "Capture saved";
 }
 
 function captureHasTakeawayPrefix(capture) {
   return captureHasStarterPrefix(capture, "takeaway");
+}
+
+function captureIsQuoteOnly(capture) {
+  return Boolean(
+    String(capture?.quote || "").trim()
+    && !String(capture?.thought || "").trim()
+    && !capture?.answersQuestionCaptureId
+    && !capture?.questionResolvedAt
+    && !capture?.questionParkedAt
+  );
 }
 
 function captureHasStarterPrefix(capture, kind) {
