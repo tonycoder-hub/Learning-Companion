@@ -110,6 +110,7 @@ const dom = {
   activityDetail: document.querySelector("#activityDetail"),
   activityUndoBtn: document.querySelector("#activityUndoBtn"),
   activityDetailsBtn: document.querySelector("#activityDetailsBtn"),
+  sidecarRail: document.querySelector("#sidecarRail"),
   focusBriefKicker: document.querySelector("#focusBriefKicker"),
   focusBriefAction: document.querySelector("#focusBriefAction"),
   focusBriefDetail: document.querySelector("#focusBriefDetail"),
@@ -2039,6 +2040,87 @@ function renderActivity(session) {
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
+  renderSidecarRail(session);
+}
+
+function renderSidecarRail(session) {
+  clearChildren(dom.sidecarRail);
+  dom.sidecarRail.hidden = !uiPrefs.sidecarLayout;
+  if (!uiPrefs.sidecarLayout) return;
+  resolveSidecarRailSteps(session).forEach((step) => dom.sidecarRail.append(renderSidecarRailButton(step)));
+}
+
+function resolveSidecarRailSteps(session = getActiveSession(workspace)) {
+  const pack = buildTodayPack(workspace, new Date(), { dueLimit: 1, questionLimit: 1, parkedQuestionLimit: 1, resolvedQuestionLimit: 1, recentLimit: 1 });
+  const draftItems = getCaptureDraftItems();
+  return [
+    sidecarRailStep(resolveSourceSessionState(), "Source"),
+    resolveSidecarCaptureRailStep(pack, draftItems, session),
+    sidecarRailStep(resolveCloseLoopState(pack, draftItems), "Loop")
+  ];
+}
+
+function sidecarRailStep(step, label) {
+  const clearLoop = step.kind === "loop" && step.status === "Clear";
+  return {
+    ...step,
+    label,
+    actionLabel: clearLoop ? "Open Today" : step.actionLabel,
+    actionAriaLabel: clearLoop ? "Open Today details and exit sidecar layout" : step.actionAriaLabel,
+    railDetail: step.status,
+    railAction: clearLoop ? "Today" : step.actionLabel
+  };
+}
+
+function resolveSidecarCaptureRailStep(pack, draftItems, session) {
+  const draft = getCaptureDraft(session.id);
+  const hasDraft = hasCaptureDraft(draft);
+  return {
+    kind: "capture",
+    label: "Capture",
+    status: hasDraft ? "Draft waiting" : captureFlowStatus(pack, draftItems),
+    detail: hasDraft ? summarizeCaptureDraft(draft) : "Focus Quick Capture for the next quote or thought.",
+    railDetail: hasDraft ? "Draft waiting" : "Ready beside source",
+    railAction: hasDraft ? "Resume" : "Focus",
+    actionLabel: hasDraft ? "Resume capture" : "Focus capture",
+    actionAriaLabel: hasDraft ? "Resume the waiting Quick Capture draft" : "Focus Quick Capture in sidecar layout",
+    action: focusQuickCapture,
+    tone: "capture"
+  };
+}
+
+function renderSidecarRailButton(step) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = ["sidecar-rail-button", step.tone ? `is-${step.tone}` : ""].filter(Boolean).join(" ");
+  button.dataset.sidecarRailStep = step.kind || step.label.toLowerCase();
+  button.title = step.detail;
+  button.setAttribute("aria-label", step.actionAriaLabel || `${step.actionLabel}: ${step.detail}`);
+  button.append(
+    textEl("span", "", step.label),
+    textEl("strong", "", step.railDetail || step.status),
+    textEl("small", "", step.railAction || step.actionLabel)
+  );
+  button.addEventListener("click", () => {
+    if (step.kind === "loop" && step.status === "Clear") {
+      openTodayFromSidecar();
+      return;
+    }
+    step.action();
+  });
+  return button;
+}
+
+function openTodayFromSidecar(sectionName = "") {
+  activeTab = "today";
+  if (uiPrefs.sidecarLayout) {
+    uiPrefs = { ...uiPrefs, sidecarLayout: false };
+    saveUiPrefs();
+    renderShellMode();
+  }
+  renderInspector();
+  if (sectionName) jumpToTodaySection(sectionName);
+  renderActivity(getActiveSession(workspace));
 }
 
 function renderFocusBrief() {

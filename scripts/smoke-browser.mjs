@@ -246,8 +246,17 @@ try {
       sidebarDisplay: getComputedStyle(sidebar).display,
       inspectorDisplay: getComputedStyle(inspector).display,
       toggleDisplay: getComputedStyle(toggle).display,
+      metricsDisplay: getComputedStyle(document.querySelector(".metrics-row")).display,
       activityDisplay: getComputedStyle(document.querySelector(".activity-strip")).display,
       activityAction: document.querySelector("#activityDetailsBtn").textContent,
+      sidecarRailHidden: document.querySelector("#sidecarRail").hidden,
+      sidecarRailDisplay: getComputedStyle(document.querySelector("#sidecarRail")).display,
+      sidecarRailLive: document.querySelector("#sidecarRail").getAttribute("aria-live") || "",
+      sidecarRailSteps: [...document.querySelectorAll("[data-sidecar-rail-step]")].map((step) => ({
+        kind: step.dataset.sidecarRailStep,
+        text: step.textContent,
+        aria: step.getAttribute("aria-label") || ""
+      })),
       activeId: document.activeElement?.id || "",
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       pressed: toggle.getAttribute("aria-pressed"),
@@ -323,13 +332,25 @@ try {
   })()`);
 
   assert.equal(sidecarLayout.before.shellCompact, false);
+  assert.equal(sidecarLayout.before.sidecarRailHidden, true);
+  assert.notEqual(sidecarLayout.before.metricsDisplay, "none");
   assert.equal(sidecarLayout.afterEditableShortcut.shellCompact, false);
   assert.equal(sidecarLayout.afterPanelShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterPanelShortcut.sidebarDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.inspectorDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.metricsDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Exit + Details");
+  assert.equal(sidecarLayout.afterPanelShortcut.sidecarRailHidden, false);
+  assert.equal(sidecarLayout.afterPanelShortcut.sidecarRailDisplay, "grid");
+  assert.equal(sidecarLayout.afterPanelShortcut.sidecarRailLive, "off");
+  assert.deepEqual(sidecarLayout.afterPanelShortcut.sidecarRailSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[0].text, /Source/);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[1].text, /Capture/);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[2].text, /Loop/);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[2].text, /Today/);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[2].aria, /exit sidecar layout/);
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
@@ -357,8 +378,10 @@ try {
   assert.equal(sidecarLayout.afterCaptureDestination.activityTitle, "Capture destination shown");
   assert.match(sidecarLayout.afterCaptureDestination.activityDetail, /Captures save to Learning Companion MVP/);
   assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
+  assert.notEqual(sidecarLayout.afterActivityDetails.metricsDisplay, "none");
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
   assert.equal(sidecarLayout.afterActivityDetails.activityAction, "Details");
+  assert.equal(sidecarLayout.afterActivityDetails.sidecarRailHidden, true);
 
   const pastedSource = await cdp.evaluate(`(async () => {
     const setValue = (selector, value) => {

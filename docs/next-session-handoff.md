@@ -221,6 +221,15 @@ Latest local work makes the Mac learning route start from the source:
 - Browser smoke pins source/capture/loop ordering, the no-source `Set source` focus path, timestamped `Resume source`, action aria labels, and the `.codex-tmp/browser-smoke` download route.
 - Mira follow-up accepted the direction after deduping the source-ready state; Seed's second review misread the diff as a non-existent `href`/4th-step implementation, so those findings were rejected.
 
+Latest local work makes sidecar focus keep the same route:
+
+- When sidecar layout hides the sidebar and inspector, the activity strip now shows a compact `Source` / `Capture` / `Loop` rail.
+- The rail reuses `resolveSourceSessionState()`, `focusQuickCapture()`, and `resolveCloseLoopState()`, so it is a focused view of the existing Learning Flow rather than another dashboard model.
+- The rail stays hidden in the full three-column desk. Sidecar mode hides the dashboard metric row, and the rail is `aria-live="off"` so it does not turn the activity live region into a noisy action dump.
+- Browser smoke pins its sidecar-only visibility, source/capture/loop order, hidden metrics, clear-loop `Today` label, and disappearance after `Exit + Details`.
+- Mira returned `PASS_WITH_NOTES`; accepted fixes were hierarchy reduction, explicit clear-loop exit copy, and live-region containment. Deferred: keyboard rail navigation and local telemetry.
+- Seed/Workflow was attempted twice on `ark/seed-code-0530`: a 2-worker batch returned one timeout and one tool-call-only response, and a narrower retry timed out with empty output. No Seed finding was accepted for this slice.
+
 Latest local work adds clipboard-assisted source setup:
 
 - The URL field now has a visible `Paste Source` button. It reads clipboard text only after the user clicks, extracts the first safe `http/https` URL, derives an editable source title, infers material type locally when safe, and pulls supported video timestamps into Time.

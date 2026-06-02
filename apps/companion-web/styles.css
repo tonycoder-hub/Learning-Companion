@@ -62,6 +62,10 @@ button {
   margin: 0 auto;
 }
 
+.app-shell.sidecar-layout .metrics-row {
+  display: none;
+}
+
 .sidebar,
 .inspector {
   min-width: 0;
@@ -449,6 +453,66 @@ textarea:focus {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.sidecar-rail {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.sidecar-rail[hidden] {
+  display: none;
+}
+
+.sidecar-rail-button {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  min-height: 56px;
+  padding: 8px 10px;
+  text-align: left;
+  border: 1px solid rgba(96, 108, 118, 0.18);
+  border-radius: 8px;
+  background: #fffefa;
+  color: var(--ink);
+}
+
+.sidecar-rail-button span,
+.sidecar-rail-button small,
+.sidecar-rail-button strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidecar-rail-button span,
+.sidecar-rail-button small {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.sidecar-rail-button strong {
+  font-size: 13px;
+}
+
+.sidecar-rail-button.is-source {
+  border-color: rgba(49, 95, 130, 0.26);
+  background: #f5f9fc;
+}
+
+.sidecar-rail-button.is-capture,
+.sidecar-rail-button.is-question,
+.sidecar-rail-button.is-review {
+  border-color: rgba(47, 111, 94, 0.26);
+  background: #f7fbf8;
+}
+
+.sidecar-rail-button.is-parked {
+  border-color: rgba(167, 96, 23, 0.28);
+  background: #fff9eb;
 }
 
 .activity-copy strong {
@@ -1718,6 +1782,10 @@ textarea:focus {
   .input-with-button {
     width: var(--mobile-content-width);
     max-width: var(--mobile-content-width);
+  }
+
+  .sidecar-rail {
+    grid-template-columns: 1fr;
   }
 
   .focus-brief {
