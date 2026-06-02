@@ -52,6 +52,9 @@ export function buildHarmonyScaffoldReport(options = {}) {
   const readerNextActionFields = extractArktsInterfaceFields(files.get("entry/src/main/ets/model/workspace.ets"), "HarmonyReaderNextAction");
   const jsReaderSessionText = readFileSync("apps/companion-harmony/src/import-session.mjs", "utf8");
   const arktsReaderSessionText = files.get("entry/src/main/ets/services/readerSessionState.ets");
+  const topicDetailText = files.get("entry/src/main/ets/pages/TopicDetail.ets");
+  const topicDetailOpenQuestionBranch = textBetween(topicDetailText, "if (selectedSection === 'open_questions')", "if (selectedSection === 'answers_today')");
+  const topicDetailAnswersTodayBranch = textBetween(topicDetailText, "if (selectedSection === 'answers_today')", "Text('Read-only topic detail");
   const readerSessionStatusLiterals = [
     "empty",
     "accepted-pending-persist",
@@ -95,7 +98,9 @@ export function buildHarmonyScaffoldReport(options = {}) {
     check("reader_session_state", /ReaderSessionState/.test(arktsReaderSessionText) && /accepted-pending-persist/.test(arktsReaderSessionText) && /rejected-kept-current/.test(arktsReaderSessionText) && /pending-device-persistence/.test(arktsReaderSessionText)),
     check("reader_session_status_parity", readerSessionStatusLiterals.every((literal) => jsReaderSessionText.includes(literal) && arktsReaderSessionText.includes(literal))),
     check("index_uses_reader_session", /createScaffoldReaderSession/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /summarizeReaderSessionState/.test(files.get("entry/src/main/ets/pages/Index.ets")) && /importStatus\.message/.test(files.get("entry/src/main/ets/pages/Index.ets"))),
-    check("topic_detail_uses_reader_session", /createScaffoldReaderSession/.test(files.get("entry/src/main/ets/pages/TopicDetail.ets")) && /latestCapture/.test(files.get("entry/src/main/ets/pages/TopicDetail.ets")) && /append-only patch JSON/.test(files.get("entry/src/main/ets/pages/TopicDetail.ets"))),
+    check("topic_detail_uses_reader_session", /createScaffoldReaderSession/.test(topicDetailText) && /latestCapture/.test(topicDetailText) && /append-only patch JSON/.test(topicDetailText)),
+    check("topic_detail_route_sections", /router\.getParams\(\)/.test(topicDetailText) && /interface TopicDetailRouteParams/.test(topicDetailText) && /readTopicDetailRouteParams/.test(topicDetailText) && /routeTopicId/.test(topicDetailText) && /topicId/.test(topicDetailText) && /Open Questions Across Topics/.test(topicDetailText) && /Answers Today Across Topics/.test(topicDetailText) && /No open questions in the imported reader view/.test(topicDetailText) && /No answers today in the imported reader view/.test(topicDetailText)),
+    check("topic_detail_section_mapping", /readerView\.openQuestions/.test(topicDetailOpenQuestionBranch) && !/readerView\.answersToday/.test(topicDetailOpenQuestionBranch) && /readerView\.answersToday/.test(topicDetailAnswersTodayBranch) && !/readerView\.openQuestions/.test(topicDetailAnswersTodayBranch)),
     check("review_queue_uses_reader_session", /createScaffoldReaderSession/.test(files.get("entry/src/main/ets/pages/ReviewQueue.ets")) && /dueReview/.test(files.get("entry/src/main/ets/pages/ReviewQueue.ets")) && /review-progress patches/.test(files.get("entry/src/main/ets/pages/ReviewQueue.ets"))),
     check("inbox_patch_export", /buildInboxPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("review_patch_export", /buildReviewProgressPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
@@ -179,6 +184,14 @@ function extractArktsInterfaceFields(text, interfaceName) {
   const match = text.match(new RegExp(`export interface ${interfaceName} \\{([\\s\\S]*?)\\n\\}`));
   if (!match) return [];
   return [...match[1].matchAll(/^\s*([a-zA-Z_][a-zA-Z0-9_]*)\??\s*:/gm)].map((item) => item[1]);
+}
+
+function textBetween(text, start, end) {
+  const startIndex = text.indexOf(start);
+  if (startIndex === -1) return "";
+  const endIndex = text.indexOf(end, startIndex + start.length);
+  if (endIndex === -1) return text.slice(startIndex);
+  return text.slice(startIndex, endIndex);
 }
 
 function extractJsMirrorBundleSchema() {

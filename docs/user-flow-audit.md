@@ -84,7 +84,7 @@ Desktop/Mac:
 Harmony phone:
 
 - Not a usable app yet.
-- Current evidence is schema/scaffold only. The reader view now computes `readerNextAction` and optional `secondaryAction`, and the ArkTS Index scaffold renders them as `Phone Next` plus one secondary button when the primary action hides another useful lane. The next useful step is still DevEco compile plus file-picker/import smoke on device.
+- Current evidence is schema/scaffold only. The reader view now computes `readerNextAction` and optional `secondaryAction`, the ArkTS Index scaffold renders them as `Phone Next` plus one secondary button when the primary action hides another useful lane, and TopicDetail consumes `topicId` plus `section` params so those buttons land on the intended open-question or answers-today scaffold section. Those secondary sections are now explicitly across-topic lanes to avoid implying topic-filtered lists that the current reader view does not provide. The next useful step is still DevEco compile plus file-picker/import smoke on device.
 
 Windows:
 
