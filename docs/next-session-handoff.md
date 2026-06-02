@@ -13,6 +13,52 @@ Build a Mac-first learning companion for browser-based study. The core loop is:
 
 The product bias is a study cockpit, not a generic note app. Every feature should help the user decide what to inspect, capture, close, or review next.
 
+## 2026-06-02 Continuation Snapshot
+
+Current branch is `main`, clean, ahead of `origin/main` by 10 commits.
+
+Latest commits:
+
+- `73671c5 feat: reconnect return imports to today flow`
+- `b9b6375 feat: add mirror return checklist`
+- `028fd6a feat: name stale return files in batch receipts`
+- `0e6fa06 feat: narrow return file base drift checks`
+- `b2a2e2a feat: flag stale return file bases`
+- `46e261c feat: fold today ledgers into study details`
+- `64787f5 feat: add learning flow to today`
+
+What changed in this continuation:
+
+- Today now has one primary `Learning Flow` panel instead of separate onboarding/next-move/device cards.
+- Dense ledgers moved into a `Study Details` drawer with count badges and section-map jumps that open the drawer before scrolling.
+- Return Files import now exposes stale mirror-base drift through receipt fields and `mirror base changed` copy.
+- New static `inbox.html` / `review.html` Return JSON carries `source.returnBaseFingerprint`; old files still fall back to `source.workspaceFingerprint`.
+- The return-base projection ignores ordinary non-question Mac captures, so normal Mac-side note-taking after mirror export does not stale phone/Windows Return JSON.
+- Batch receipts now name which return files came from a changed mirror base.
+- Mirror `index.html` has a three-step Manual Return checklist: Read Today, work in Review/Inbox, return JSON back to Mac.
+- Return File imports now route the Mac UI back to Today, open Device Flow, and pulse the receipt panel.
+
+External review / critique absorbed:
+
+- Mira broker is healthy again through the restricted Hermes SSH path; latest targeted reviews returned `PASS_WITH_NOTES` with `cleanup_succeeded=true` and `logid_present=true`.
+- Accepted Mira's critique that full-workspace stale-base fingerprints were too noisy; implemented the narrower return-base projection.
+- Accepted Mira's per-file batch receipt critique; batch stale-base receipts now show affected filenames.
+- Seed/Doubao criticized the post-return chain as disconnected. Accepted the "rejoin Learning Flow" point, but rejected background Downloads/LC_Returns scanning because it conflicts with the no-Downloads automation boundary and would need approval/permissions.
+
+Latest verification:
+
+- `npm run smoke` -> `smoke_web_ok`
+- `npm run smoke:browser` -> `smoke_browser_ok`
+- `npm run check:morning` -> `morning_offline_check_ok`
+- `npm run mac:build` -> SwiftPM build complete
+- `git diff --check` -> clean before the latest commits
+
+Next useful slices:
+
+- Add a small Today/Device Flow affordance that explains legacy `workspace` basis vs new `return-base` basis only when the user hits an old return file.
+- Record a Windows-browser manual run for extracted mirror `index.html`, `review.html`, and `inbox.html`.
+- Do not add background folder scanning or Downloads automation without a separate user-approved design.
+
 ## Current Branch State
 
 Branch: `product/mvp-learning-sidecar`
