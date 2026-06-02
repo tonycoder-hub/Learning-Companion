@@ -113,6 +113,7 @@ const dom = {
   activityUndoBtn: document.querySelector("#activityUndoBtn"),
   activityDetailsBtn: document.querySelector("#activityDetailsBtn"),
   sidecarRail: document.querySelector("#sidecarRail"),
+  focusBrief: document.querySelector(".focus-brief"),
   focusBriefKicker: document.querySelector("#focusBriefKicker"),
   focusBriefAction: document.querySelector("#focusBriefAction"),
   focusBriefDetail: document.querySelector("#focusBriefDetail"),
@@ -2018,6 +2019,7 @@ function setSidecarLayout(enabled) {
   uiPrefs = { ...uiPrefs, sidecarLayout: next };
   saveUiPrefs();
   renderShellMode();
+  renderFocusBrief();
   renderActivity(getActiveSession(workspace));
   if (willHidePanels && isInSidePanel(active)) {
     dom.sidecarLayoutBtn.focus();
@@ -2164,9 +2166,11 @@ function renderFocusBrief() {
   const brief = buildFocusBrief(session, workspace);
   const draft = getCaptureDraft(session.id);
   if (canDraftOwnFocusBrief(draft, brief)) {
+    setFocusBriefCompressed(false);
     renderCaptureDraftFocusBrief(session, draft, brief);
     return;
   }
+  setFocusBriefCompressed(shouldCompressSidecarFocusBrief(brief, draft));
   const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
     ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
     : `${brief.stats.dueCards} due`;
@@ -2206,6 +2210,19 @@ function renderFocusBrief() {
   } else {
     dom.focusBriefSignals.append(textEl("span", "focus-signal", "Ready"));
   }
+}
+
+function shouldCompressSidecarFocusBrief(brief, draft) {
+  // In sidecar, the rail plus Quick Capture already cover plain capture-ready state.
+  const warnings = Array.isArray(brief.warnings) ? brief.warnings : [];
+  return uiPrefs.sidecarLayout
+    && brief.nextAction.kind === "capture"
+    && !hasCaptureDraft(draft)
+    && !warnings.length;
+}
+
+function setFocusBriefCompressed(compressed) {
+  dom.focusBrief.classList.toggle("is-sidecar-redundant", Boolean(compressed));
 }
 
 function renderCaptureDraftFocusBrief(session, draft, brief) {

@@ -71,6 +71,10 @@ button {
   min-height: 64px;
 }
 
+.app-shell.sidecar-layout .focus-brief.is-sidecar-redundant {
+  display: none;
+}
+
 .app-shell.sidecar-layout .focus-brief-facts,
 .app-shell.sidecar-layout .focus-brief-signals {
   display: none;

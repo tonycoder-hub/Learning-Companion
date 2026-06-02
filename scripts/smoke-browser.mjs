@@ -247,6 +247,8 @@ try {
       inspectorDisplay: getComputedStyle(inspector).display,
       toggleDisplay: getComputedStyle(toggle).display,
       metricsDisplay: getComputedStyle(document.querySelector(".metrics-row")).display,
+      focusBriefDisplay: getComputedStyle(document.querySelector(".focus-brief")).display,
+      focusBriefCompressed: document.querySelector(".focus-brief").classList.contains("is-sidecar-redundant"),
       focusBriefColumns: getComputedStyle(document.querySelector(".focus-brief")).gridTemplateColumns,
       focusBriefFactsDisplay: getComputedStyle(document.querySelector(".focus-brief-facts")).display,
       focusBriefSignalsDisplay: getComputedStyle(document.querySelector(".focus-brief-signals")).display,
@@ -338,6 +340,8 @@ try {
   assert.equal(sidecarLayout.before.shellCompact, false);
   assert.equal(sidecarLayout.before.sidecarRailHidden, true);
   assert.notEqual(sidecarLayout.before.metricsDisplay, "none");
+  assert.notEqual(sidecarLayout.before.focusBriefDisplay, "none");
+  assert.equal(sidecarLayout.before.focusBriefCompressed, false);
   assert.notEqual(sidecarLayout.before.focusBriefFactsDisplay, "none");
   assert.notEqual(sidecarLayout.before.focusBriefSignalsDisplay, "none");
   assert.equal(sidecarLayout.afterEditableShortcut.shellCompact, false);
@@ -345,9 +349,10 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.sidebarDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.inspectorDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.metricsDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.focusBriefDisplay, "none");
+  assert.equal(sidecarLayout.afterPanelShortcut.focusBriefCompressed, true);
   assert.equal(sidecarLayout.afterPanelShortcut.focusBriefFactsDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.focusBriefSignalsDisplay, "none");
-  assert.match(sidecarLayout.afterPanelShortcut.focusBriefColumns, / /);
   assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Capture");
@@ -378,6 +383,8 @@ try {
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityTitle, "Capture draft ready");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityAction, "Resume");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityAria, "Focus Quick Capture");
+  assert.notEqual(sidecarLayout.afterDraftFocusCaptureShortcut.focusBriefDisplay, "none");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.focusBriefCompressed, false);
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.defaultPrevented, true);
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.dispatchResult, false);
   assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.activeId, "thoughtInput");
@@ -392,6 +399,8 @@ try {
   assert.match(sidecarLayout.afterCaptureDestination.activityDetail, /Captures save to Learning Companion MVP/);
   assert.equal(sidecarLayout.afterActivityDetails.shellCompact, false);
   assert.notEqual(sidecarLayout.afterActivityDetails.metricsDisplay, "none");
+  assert.notEqual(sidecarLayout.afterActivityDetails.focusBriefDisplay, "none");
+  assert.equal(sidecarLayout.afterActivityDetails.focusBriefCompressed, false);
   assert.notEqual(sidecarLayout.afterActivityDetails.focusBriefFactsDisplay, "none");
   assert.notEqual(sidecarLayout.afterActivityDetails.focusBriefSignalsDisplay, "none");
   assert.equal(sidecarLayout.afterActivityDetails.activeTab, "captures");
@@ -1104,6 +1113,12 @@ try {
     const deskReviewGradeVisibleAfterInspectorReveal = !document.querySelector("#deskReviewGoodBtn").hidden;
     const deskPreservedInspectorReveal = document.querySelector("#deskReviewAnswer").textContent.includes("Ownership lets Rust");
     document.querySelector("#sidecarLayoutBtn").click();
+    const dueFocusBriefInSidecar = {
+      visible: getComputedStyle(document.querySelector(".focus-brief")).display !== "none",
+      compressed: document.querySelector(".focus-brief").classList.contains("is-sidecar-redundant"),
+      action: document.querySelector("#focusBriefAction").textContent,
+      kicker: document.querySelector("#focusBriefKicker").textContent
+    };
     const deskReviewVisibleInSidecar = getComputedStyle(document.querySelector("#deskReviewPane")).display !== "none"
       && getComputedStyle(document.querySelector(".inspector")).display === "none";
     document.querySelector("#sidecarLayoutBtn").click();
@@ -1656,6 +1671,7 @@ try {
           deskReviewGradeVisibleAfterInspectorReveal,
           inspectorRevealVisible,
           deskPreservedInspectorReveal,
+          dueFocusBriefInSidecar,
           deskReviewVisibleInSidecar,
           schemaVersion: restoredWorkspace.schemaVersion,
           clientId: restoredWorkspace.clientId
@@ -1946,6 +1962,10 @@ try {
   assert.match(result.deskReviewPrompt, /compiler-enforced lifetimes/);
   assert.equal(result.deskReviewGradeVisibleAfterInspectorReveal, true);
   assert.equal(result.deskPreservedInspectorReveal, true);
+  assert.equal(result.dueFocusBriefInSidecar.visible, true);
+  assert.equal(result.dueFocusBriefInSidecar.compressed, false);
+  assert.match(result.dueFocusBriefInSidecar.action, /Review 2 (workspace )?due cards/);
+  assert.match(result.dueFocusBriefInSidecar.kicker, /2 due/);
   assert.equal(result.deskReviewVisibleInSidecar, true);
   assert.equal(result.answerVisibleAfterReveal, true);
   assert.equal(result.dueMetric, "1");
@@ -3198,6 +3218,8 @@ try {
     document.querySelector("#sidecarLayoutBtn").click();
     const beforeQuestionSignalClick = {
       shellCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      focusBriefVisible: getComputedStyle(document.querySelector(".focus-brief")).display !== "none",
+      focusBriefCompressed: document.querySelector(".focus-brief").classList.contains("is-sidecar-redundant"),
       tagName: questionSignal?.tagName || "",
       ariaLabel: questionSignal?.getAttribute("aria-label") || "",
       action: document.querySelector("#focusBriefAction").textContent
@@ -3464,12 +3486,12 @@ try {
   assert.match(questionFlow.todayText, /Question Queue Health/);
   assert.match(questionFlow.todayText, /Question Loop/);
   assert.match(questionFlow.todayText, /compactness assumption/);
-  assert.deepEqual(questionFlow.questionSignalClick.before, {
-    shellCompact: true,
-    tagName: "BUTTON",
-    ariaLabel: "Open questions",
-    action: "Review 2 workspace due cards"
-  });
+  assert.equal(questionFlow.questionSignalClick.before.shellCompact, true);
+  assert.equal(questionFlow.questionSignalClick.before.focusBriefVisible, true);
+  assert.equal(questionFlow.questionSignalClick.before.focusBriefCompressed, false);
+  assert.equal(questionFlow.questionSignalClick.before.tagName, "BUTTON");
+  assert.equal(questionFlow.questionSignalClick.before.ariaLabel, "Open questions");
+  assert.match(questionFlow.questionSignalClick.before.action, /Review 2 (workspace )?due cards/);
   assert.equal(questionFlow.questionSignalClick.after.shellCompact, false);
   assert.equal(questionFlow.questionSignalClick.after.activeTab, "today");
   assert.equal(questionFlow.questionSignalClick.after.sectionPulsed, true);
