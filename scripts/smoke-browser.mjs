@@ -1638,7 +1638,7 @@ try {
           mirrorFileCount: restoredMirror.manifest.fileCount,
           mirrorCanonical: restoredMirror.canonical,
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
-          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes("Next from this export") && file.content.includes("Return-ready mirror") && file.content.includes("Mac return-base check") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
+          mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes("Next from this export") && file.content.includes("Return-ready mirror") && file.content.includes("Mac return-base check") && file.content.includes("source.returnBaseFingerprint") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
           mirrorIndexHtml: restoredMirror.files.find((file) => file.path === "index.html")?.content || "",
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
@@ -1712,14 +1712,14 @@ try {
   assert.match(result.reviewReceiptBeforeInbox, /1 missing/);
   assert.match(result.reviewReceiptBeforeInbox, /mirror base changed/);
   assert.match(result.reviewReceiptBeforeInbox, /legacy mirror check/);
-  assert.match(result.reviewReceiptBeforeInbox, /old return JSON/);
+  assert.match(result.reviewReceiptBeforeInbox, /older return file from previous mirror export/);
   assert.match(result.reviewReceiptBeforeInbox, /re-export mirror before next device pass/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /Review progress imported/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /0 applied/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /1 duplicate/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /mirror base changed/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /legacy mirror check/);
-  assert.match(result.duplicateReviewReceiptBeforeInbox, /old return JSON/);
+  assert.match(result.duplicateReviewReceiptBeforeInbox, /older return file from previous mirror export/);
   assert.equal(result.duplicateReturnNudgeBeforeInbox, false);
   assert.equal(result.inboxCaptureMetric, "5");
   assert.match(result.singleInboxReceiptText, /1 added, 0 skipped/);
@@ -1728,19 +1728,19 @@ try {
   assert.match(result.singleInboxReceiptText, /invalid: 1/);
   assert.match(result.singleInboxReceiptText, /mirror base changed/);
   assert.match(result.singleInboxReceiptText, /legacy mirror check/);
-  assert.match(result.singleInboxReceiptText, /old return JSON/);
+  assert.match(result.singleInboxReceiptText, /older return file from previous mirror export/);
   assert.match(result.singleInboxReceiptText, /re-export mirror before next device pass/);
   assert.match(result.singleInboxReceiptText, /topic id matched/);
   assert.equal(result.singleInboxActiveTab, "today");
-  assert.match(result.singleReturnedWorkText, /old return JSON - re-export mirror before next device pass/);
-  assert.doesNotMatch(result.singleReturnedWorkText, /1 old return files/);
-  assert.match(result.singleHandoffText, /1 old return file - re-export mirror before next device pass/);
-  assert.doesNotMatch(result.singleHandoffText, /1 old return files/);
-  assert.match(result.batchReceiptText, /Return JSON imported/);
+  assert.match(result.singleReturnedWorkText, /older return file from previous mirror export - re-export mirror before next device pass/);
+  assert.doesNotMatch(result.singleReturnedWorkText, /1 older return files/);
+  assert.match(result.singleHandoffText, /1 older return file from previous mirror export - re-export mirror before next device pass/);
+  assert.doesNotMatch(result.singleHandoffText, /1 older return files/);
+  assert.match(result.batchReceiptText, /Return files imported/);
   assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /2 mirror bases changed/);
   assert.match(result.batchReceiptText, /2 legacy mirror checks/);
-  assert.match(result.batchReceiptText, /old return JSON/);
+  assert.match(result.batchReceiptText, /older return files from previous mirror export/);
   assert.match(result.batchReceiptText, /re-export mirror before next device pass/);
   assert.match(result.batchReceiptText, /learning-companion-inbox-patch-20260529-0902-002\.json/);
   assert.match(result.batchReceiptText, /learning-companion-review-progress-patch-20260529-0906-missing\.json/);
@@ -1748,7 +1748,7 @@ try {
   assert.match(result.batchReceiptText, /review: 0 applied, 1 duplicate/);
   assert.match(result.batchReceiptText, /1 failed/);
   assert.match(result.batchReceiptText, /workspace-return-mistake\.json/);
-  assert.equal(result.batchActivityTitle, "Return JSON imported (1 inbox, 1 review)");
+  assert.equal(result.batchActivityTitle, "Return files imported (1 inbox, 1 review)");
   assert.match(result.batchActivityDetail, /2\/3 files processed/);
   assert.equal(result.activeTabAfterBatchImport, "today");
   assert.equal(result.handoffOpenAfterBatchImport, true);
@@ -1756,7 +1756,7 @@ try {
   assert.match(result.returnedWorkText, /Returned from phone\/Windows/);
   assert.match(result.returnedWorkText, /1 new capture from phone or Windows/);
   assert.match(result.returnedWorkText, /3 return files checked/);
-  assert.match(result.returnedWorkText, /2 old return files - re-export mirror before next device pass/);
+  assert.match(result.returnedWorkText, /2 older return files from previous mirror export - re-export mirror before next device pass/);
   assert.match(result.returnedWorkText, /2 succeeded/);
   assert.match(result.returnedWorkText, /1 returned capture/);
   assert.match(result.returnedWorkText, /1 failed - open Import details/);
@@ -1783,14 +1783,14 @@ try {
   assert.match(result.handoffText, /Export mirror on this Mac/);
   assert.match(result.handoffText, /USB, AirDrop, email, or any file share/);
   assert.match(result.handoffText, /manual Feishu Drive upload/);
-  assert.match(result.handoffText, /On phone or Windows, open inbox\.html or review\.html and save inbox\/review return JSON/);
-  assert.match(result.handoffText, /Back on this Mac, import one or many return JSON files at once/);
+  assert.match(result.handoffText, /On phone or Windows, open inbox\.html or review\.html and save inbox\/review return files/);
+  assert.match(result.handoffText, /Back on this Mac, import one or many return files at once/);
   assert.match(result.handoffText, /No live Feishu sync/);
   assert.match(result.handoffText, /No mirror exported yet/);
   assert.match(result.handoffText, /Last return imported/);
   assert.match(result.handoffText, /2 files/);
   assert.match(result.handoffText, /1 new/);
-  assert.match(result.handoffText, /2 old return files - re-export mirror before next device pass/);
+  assert.match(result.handoffText, /2 older return files from previous mirror export - re-export mirror before next device pass/);
   assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
@@ -2156,19 +2156,26 @@ try {
   assert.match(result.mirrorIndexHtml, /device-next-link:focus-visible/);
   assert.match(result.mirrorIndexHtml, /Read Today/);
   assert.match(result.mirrorIndexHtml, /Work here/);
-  assert.match(result.mirrorIndexHtml, /Return JSON back to Mac/);
+  assert.match(result.mirrorIndexHtml, /Return file back to Mac/);
+  assert.doesNotMatch(result.mirrorIndexHtml, /Return JSON back to Mac/);
   assert.match(result.mirrorIndexHtml, /Today &gt; Return Files/);
   assert.equal(result.mirrorHasWorkspace, true);
   assert.equal(result.mirrorHasToday, true);
   assert.equal(result.mirrorHasReviewHtml, true);
   assert.match(result.mirrorReviewHtml, /learning-companion\.review-progress-patch\.v1/);
   assert.match(result.mirrorReviewHtml, /Return to Mac/);
-  assert.match(result.mirrorReviewHtml, /Save Return JSON/);
+  assert.match(result.mirrorReviewHtml, /Save Return File/);
+  assert.doesNotMatch(result.mirrorReviewHtml, /Save Return JSON/);
+  assert.doesNotMatch(result.mirrorReviewHtml, /Copy Return JSON/);
+  assert.doesNotMatch(result.mirrorReviewHtml, /Return JSON file/);
   assert.match(result.mirrorReviewHtml, /returnNextStep/);
   assert.equal(result.mirrorHasInboxHtml, true);
   assert.match(result.mirrorInboxHtml, /Learning Companion Inbox/);
   assert.match(result.mirrorInboxHtml, /Return to Mac/);
-  assert.match(result.mirrorInboxHtml, /Save Return JSON/);
+  assert.match(result.mirrorInboxHtml, /Save Return File/);
+  assert.doesNotMatch(result.mirrorInboxHtml, /Save Return JSON/);
+  assert.doesNotMatch(result.mirrorInboxHtml, /Copy Return JSON/);
+  assert.doesNotMatch(result.mirrorInboxHtml, /Return JSON file/);
   assert.match(result.mirrorInboxHtml, /returnNextStep/);
   assert.equal(result.mirrorTodayEscapesScript, true);
   assert.equal(result.mirrorReviewEscapesScript, true);
@@ -2197,7 +2204,7 @@ try {
     }, 20);
   }))()`);
   assert.equal(mirrorSaveReceipt.activityTitle, "Mirror JSON handoff ready");
-  assert.equal(mirrorSaveReceipt.activityDetail, "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return JSON.");
+  assert.equal(mirrorSaveReceipt.activityDetail, "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return file.");
   assert.equal(mirrorSaveReceipt.toast, "Mirror download requested");
   assert.match(mirrorSaveReceipt.handoffText, /Mirror current/);
   assert.match(mirrorSaveReceipt.handoffText, /Waiting for return file/);
@@ -2265,14 +2272,14 @@ try {
   assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
-  assert.match(reviewRuntime.selectedStatus, /Return JSON selected/);
+  assert.match(reviewRuntime.selectedStatus, /Return file selected/);
   assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
-  assert.match(reviewRuntime.savedStatus, /Return JSON download requested/);
-  assert.match(reviewRuntime.returnFileHint, /^Suggested file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.match(reviewRuntime.savedStatus, /Return file download requested/);
+  assert.match(reviewRuntime.returnFileHint, /^Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
-  assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested file: ", ""));
+  assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
   assert.equal(reviewRuntime.dirtyBeforeSave, true);
   assert.equal(reviewRuntime.dirtyAfterSave, false);
   assert.equal(reviewRuntime.state, "Marked good");
@@ -2396,16 +2403,16 @@ try {
   assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
-  assert.equal(inboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
-  assert.match(inboxRuntime.selectedStatus, /Return JSON selected/);
+  assert.equal(inboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
+  assert.match(inboxRuntime.selectedStatus, /Return file selected/);
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
-  assert.match(inboxRuntime.savedStatus, /Return JSON download requested/);
-  assert.match(inboxRuntime.returnFileHint, /^Suggested file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.match(inboxRuntime.savedStatus, /Return file download requested/);
+  assert.match(inboxRuntime.returnFileHint, /^Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
   assert.equal(inboxRuntime.clearedDraftCount, 0);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
-  assert.equal(inboxRuntime.downloadName, inboxRuntime.returnFileHint.replace("Suggested file: ", ""));
+  assert.equal(inboxRuntime.downloadName, inboxRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
   assert.equal(inboxRuntime.dirtyBeforeSave, true);
   assert.equal(inboxRuntime.dirtyAfterSave, false);
   assert.equal(inboxRuntime.draftCount, 1);
@@ -2458,7 +2465,7 @@ try {
       answersQuestionCaptureId: capture?.answersQuestionCaptureId || ""
     };
   })()`);
-  assert.equal(inboxAnswerPatchRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
+  assert.equal(inboxAnswerPatchRuntime.status, "Capture added to return draft. Save the return file when ready.");
   assert.equal(inboxAnswerPatchRuntime.answersQuestionCaptureId, "capture_question_runtime");
 
   const hostileMirrorQuote = `Can inbox prefill keep <script>alert("x")</script> & #hash ?q=1 emoji 😀 RTL שלום ${"x".repeat(1024)}?`;
@@ -2501,7 +2508,7 @@ try {
   assert.equal(hostileInboxRuntime.preAdd.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.preAdd.quoteField, hostileMirrorQuote);
   assert.equal(hostileInboxRuntime.preAdd.sourceUrlField, "");
-  assert.equal(hostileInboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
+  assert.equal(hostileInboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
   assert.equal(hostileInboxRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.quoteField, "");
   assert.equal(hostileInboxRuntime.captureQuote, hostileMirrorQuote);
@@ -2642,8 +2649,7 @@ try {
 
   const urlWithTitleCollision = `${appUrl}?sourceTitle=${encodeURIComponent("External course page")}&sourceUrl=${encodeURIComponent("https://example.com/not-the-scratch-source")}&quote=${encodeURIComponent("URL should block title fallback")}&capture=1`;
   await cdp.send("Page.navigate", { url: urlWithTitleCollision });
-  await sleep(300);
-  const urlTitleCollision = await cdp.evaluate(`(() => {
+  const urlTitleCollision = await waitForCdpValue(cdp, `(() => {
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     const decoy = workspace.sessions.find((item) => item.title === "Scratch decoy");
@@ -2654,7 +2660,8 @@ try {
       decoyCaptures: decoy?.captures.length || 0,
       activityDetail: document.querySelector("#activityDetail").textContent
     };
-  })()`);
+  })()`, (value) => value.activeSourceUrl === "https://example.com/not-the-scratch-source"
+    && value.latestQuote === "URL should block title fallback");
 
   assert.equal(urlTitleCollision.activeTitle, "Learning Companion MVP");
   assert.equal(urlTitleCollision.activeSourceUrl, "https://example.com/not-the-scratch-source");
@@ -2679,8 +2686,7 @@ try {
   })()`);
   const stagedMatchedUrl = `${appUrl}?sourceTitle=${encodeURIComponent("Loose paper")}&quote=${encodeURIComponent("Staged title-only clip")}&thought=${encodeURIComponent("Do not auto-save this")}&t=00:11`;
   await cdp.send("Page.navigate", { url: stagedMatchedUrl });
-  await sleep(300);
-  const stagedMatched = await cdp.evaluate(`(() => {
+  const stagedMatched = await waitForCdpValue(cdp, `(() => {
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     return {
@@ -2692,7 +2698,8 @@ try {
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent
     };
-  })()`);
+  })()`, (value) => value.activeTitle === "Title-only target"
+    && value.quoteValue === "Staged title-only clip");
 
   assert.equal(stagedMatched.activeTitle, "Title-only target");
   assert.equal(stagedMatched.captureCount, 0);
@@ -2719,8 +2726,7 @@ try {
   })()`);
   const queryOrderInboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("Deep link article")}&sourceUrl=${encodeURIComponent("https://example.com/deep?b=2&a=1&UTM_Source=clip")}&quote=${encodeURIComponent("Query order matched capture")}&thought=${encodeURIComponent("Query order should not break source matching")}`;
   await cdp.send("Page.navigate", { url: queryOrderInboundUrl });
-  await sleep(300);
-  const queryOrderInbound = await cdp.evaluate(`(() => {
+  const queryOrderInbound = await waitForCdpValue(cdp, `(() => {
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     const decoy = workspace.sessions.find((item) => item.title === "Query order decoy");
@@ -2731,7 +2737,8 @@ try {
       decoyCaptures: decoy?.captures.length || 0,
       activityDetail: document.querySelector("#activityDetail").textContent
     };
-  })()`);
+  })()`, (value) => value.activeTitle === "Query order target"
+    && value.latestQuote === "Query order matched capture");
 
   assert.equal(queryOrderInbound.activeTitle, "Query order target");
   assert.equal(queryOrderInbound.sessionSourceUrl, "https://example.com/deep?a=1&b=2");

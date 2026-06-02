@@ -269,7 +269,7 @@ async function importReturnFiles(files) {
     try {
       const imported = await readImportFile(file);
       if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
-        throw new Error("Multi-file import only accepts inbox or review return JSON.");
+        throw new Error("Multi-file import only accepts inbox or review return files.");
       }
       returnFiles.push({
         fileName: file.name,
@@ -2543,7 +2543,7 @@ function renderImportReceipt() {
 }
 
 function importReceiptTitle(receipt) {
-  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return "Return JSON imported";
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return "Return files imported";
   if (receipt?.schema === "learning-companion.review-progress-receipt.v1") return "Review progress imported";
   if (receipt?.schema === "learning-companion.import-error-receipt.v1") return "Import issue";
   return "Mobile inbox imported";
@@ -2725,7 +2725,7 @@ function formatReturnFilesReceipt(receipt) {
     parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)}`);
   }
   if (receipt.legacyBasisFiles) {
-    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)} - old return JSON, re-export mirror before next device pass`);
+    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)} - older return ${receipt.legacyBasisFiles === 1 ? "file" : "files"} from previous mirror export, re-export mirror before next device pass`);
   }
   if (receipt.inbox?.files) {
     const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
@@ -2750,7 +2750,7 @@ function formatReturnFilesReceipt(receipt) {
 
 function formatLegacyBasisNote(receipt) {
   return receipt?.sourceFingerprintBasis === "workspace"
-    ? " · legacy mirror check (old return JSON; re-export mirror before next device pass)"
+    ? " · legacy mirror check (older return file from previous mirror export; re-export mirror before next device pass)"
     : "";
 }
 
@@ -2767,8 +2767,8 @@ function formatBaseChangedFileNames(fileNames = []) {
 function returnFilesActivityTitle(receipt) {
   const inbox = Number(receipt?.inbox?.files) || 0;
   const review = Number(receipt?.review?.files) || 0;
-  if (!inbox && !review) return "Return JSON import issue";
-  return `Return JSON imported (${inbox} inbox, ${review} review)`;
+  if (!inbox && !review) return "Return file import issue";
+  return `Return files imported (${inbox} inbox, ${review} review)`;
 }
 
 function renderMetrics() {
@@ -3846,13 +3846,13 @@ function returnedFailedDetail(receipt) {
 
 function returnedBasisDetail(receipt) {
   if (receipt?.schema !== "learning-companion.return-files-receipt.v1") {
-    if (receipt?.sourceFingerprintBasis === "workspace") return "old return JSON - re-export mirror before next device pass";
+    if (receipt?.sourceFingerprintBasis === "workspace") return "older return file from previous mirror export - re-export mirror before next device pass";
     if (receipt?.sourceFingerprintMatches === false) return "mirror base changed";
     return "";
   }
   const parts = [];
   if (receipt.legacyBasisFiles) {
-    parts.push(`${oldReturnFileCountLabel(receipt.legacyBasisFiles)} - re-export mirror before next device pass`);
+    parts.push(`${oldReturnFileCountLabel(receipt.legacyBasisFiles)} from previous mirror export - re-export mirror before next device pass`);
   }
   if (receipt.baseChangedFiles) {
     parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed`);
@@ -3862,7 +3862,7 @@ function returnedBasisDetail(receipt) {
 
 function oldReturnFileCountLabel(count) {
   const value = Number(count) || 0;
-  return `${value} old return ${value === 1 ? "file" : "files"}`;
+  return `${value} older return ${value === 1 ? "file" : "files"}`;
 }
 
 function returnNudgeKey(receipt) {
@@ -4300,7 +4300,7 @@ function renderReturnFilesPanel() {
   const detail = textEl(
     "p",
     "handoff-detail",
-    lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return JSON back."
+    lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return files back."
   );
   const handoffState = renderMirrorHandoffStatus();
   const steps = document.createElement("ol");
@@ -4308,8 +4308,8 @@ function renderReturnFilesPanel() {
   [
     "Export mirror on this Mac.",
     "Transfer it yourself through USB, AirDrop, email, or any file share, including a manual Feishu Drive upload.",
-    "On phone or Windows, open inbox.html or review.html and save inbox/review return JSON.",
-    "Back on this Mac, import one or many return JSON files at once."
+    "On phone or Windows, open inbox.html or review.html and save inbox/review return files.",
+    "Back on this Mac, import one or many return files at once."
   ].forEach((step) => {
     steps.append(textEl("li", "", step));
   });
@@ -4375,12 +4375,12 @@ function renderMirrorHandoffStatus() {
   } else if (waitingForReturn) {
     grid.append(renderHandoffStateItem(
       "Waiting for return file",
-      "Import Return JSON when you are back at this Mac."
+      "Import the return file when you are back at this Mac."
     ));
   } else {
     grid.append(renderHandoffStateItem(
       "No return imported yet",
-      "Use Review or Inbox on the mirror, then bring Return JSON back."
+      "Use Review or Inbox on the mirror, then bring return files back."
     ));
   }
   return grid;
@@ -4412,7 +4412,7 @@ function mirrorReturnImportDetail(importState) {
   ];
   if (importState.baseChangedFiles) parts.push(`${importState.baseChangedFiles} changed base`);
   if (importState.legacyBasisFiles) {
-    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles)} - re-export mirror before next device pass`);
+    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles)} from previous mirror export - re-export mirror before next device pass`);
   }
   return parts.join(" · ");
 }
@@ -5094,7 +5094,7 @@ function recordReturnFileExportReceipt(kind) {
   const session = getActiveSession(workspace);
   setActivity(session, {
     title: `${kind} handoff ready`,
-    detail: `Move the ${kind} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return JSON.`,
+    detail: `Move the ${kind} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return file.`,
     tab: "export",
     targetId: ""
   });

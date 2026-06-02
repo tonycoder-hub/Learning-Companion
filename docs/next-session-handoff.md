@@ -19,6 +19,8 @@ Current branch is `main`, ahead of `origin/main` with local product commits.
 
 Local scratch rule: keep all Codex/Mira/Seed/smoke temporary artifacts under the project-ignored `.codex-tmp/` directory. Do not use `/private/tmp`, `/tmp`, `$TMPDIR`, or Downloads for new working files unless the user explicitly re-approves that path in the moment.
 
+No-delete night rule: Tony asked not to delete files tonight. `npm run smoke` and `npm run smoke:browser` both delete their own temporary run directories, so the current Return File copy slice only ran non-deleting verification (`git diff --check`, `node --check`, and static copy scans). Full smoke should be rerun tomorrow after deletion is approved.
+
 Latest commits:
 
 - `feat: distinguish quote-only highlights` (current slice)
@@ -39,10 +41,10 @@ What changed in this continuation:
 - Today now has one primary `Learning Flow` panel instead of separate onboarding/next-move/device cards.
 - Dense ledgers moved into a `Study Details` drawer with count badges and section-map jumps that open the drawer before scrolling.
 - Return Files import now exposes stale mirror-base drift through receipt fields and `mirror base changed` copy.
-- New static `inbox.html` / `review.html` Return JSON carries `source.returnBaseFingerprint`; old files still fall back to `source.workspaceFingerprint`.
-- The return-base projection ignores ordinary non-question Mac captures, so normal Mac-side note-taking after mirror export does not stale phone/Windows Return JSON.
+- New static `inbox.html` / `review.html` return files carry `source.returnBaseFingerprint`; old files still fall back to `source.workspaceFingerprint`.
+- The return-base projection ignores ordinary non-question Mac captures, so normal Mac-side note-taking after mirror export does not stale phone/Windows return files.
 - Batch receipts now name which return files came from a changed mirror base.
-- Mirror `index.html` has a three-step Manual Return checklist: Read Today, work in Review/Inbox, return JSON back to Mac.
+- Mirror `index.html` has a three-step Manual Return checklist: Read Today, work in Review/Inbox, return files back to Mac.
 - Mirror `index.html` also has a `Next from this export` action that routes phone/Windows users to Review when cards are due, prefilled Inbox answer mode when questions are open, or plain Inbox capture when the queue is clear, with the export timestamp shown at the action. Due+question states keep the open-question count visible as a secondary line.
 - Harmony reader view now includes a shared `readerNextAction` contract rendered as `Phone Next` in the ArkTS Index scaffold. It routes imported snapshots to review, question answering, answers-today review, topic resume, or import guidance without claiming DevEco/device verification.
 - Harmony `readerNextAction` now also has optional `secondaryAction`, rendered as a second Index button when the primary phone action hides another useful lane such as due review plus open questions. This remains JSON/scaffold evidence only, not a DevEco compile or device run.
@@ -50,9 +52,9 @@ What changed in this continuation:
 - Return File imports now route the Mac UI back to Today, open Device Flow, and pulse the receipt panel.
 - Device Flow now keeps a local handoff status in `uiPrefs`: `Mirror current`, `Mac changed since mirror export`, `Waiting for return file`, and `Last return imported`. This is local Mac state only and is intentionally not written into workspace or mirror exports.
 - Quick Capture context now uses explicit source actions: `Resume @ time` for timestamped sources, `Open source` for untimed URLs, and `Set source` for empty topics. `Set source` focuses the URL field and pulses the source strip, which keeps this as a local Mac focus aid rather than a native-permission feature.
-- Old Return JSON files still import through the legacy mirror check, but the in-app receipt, returned-work nudge, and Device Flow now say to re-export the mirror before the next phone/Windows pass.
-- Newly generated static mirror pages (`index.html`, `review.html`, `inbox.html`) show a `Return-ready mirror` badge explaining that Review/Inbox Return JSON includes the Mac return-base check while remaining static/no-live-sync.
-- The morning pack now generates `WINDOWS_STATIC_QA.md` as a `PENDING_USER_GATE` receipt for Windows Edge/Chrome static mirror launch, Review/Inbox Return JSON creation, and Mac Return Files import. It is a pending receipt, not QA evidence, until a real Windows pass fills the rows.
+- Old return files still import through the legacy mirror check, but the in-app receipt, returned-work nudge, and Device Flow now say to re-export the mirror before the next phone/Windows pass.
+- Newly generated static mirror pages (`index.html`, `review.html`, `inbox.html`) show a `Return-ready mirror` badge explaining that Review/Inbox return files include the Mac return-base check via `source.returnBaseFingerprint` while remaining static/no-live-sync.
+- The morning pack now generates `WINDOWS_STATIC_QA.md` as a `PENDING_USER_GATE` receipt for Windows Edge/Chrome static mirror launch, Review/Inbox return-file creation, and Mac Return Files import. It is a pending receipt, not QA evidence, until a real Windows pass fills the rows.
 - Workspace backup receipts now avoid steering users toward Downloads: directed saves still say `Backup saved - verify the selected file`, and fallback export copy says `Backup export requested - verify the exported file`.
 - Mac manual QA and the generated morning demo script now ask reviewers to verify the exported JSON file instead of assuming a Downloads-based path.
 - `npm run smoke:browser` gives Chrome target startup and the final post-save learning-flow block a slightly larger timeout budget, because that end-to-end browser path was flaking before any product assertion failed.
@@ -389,16 +391,16 @@ Latest local export work separates real saves from temporary downloads:
 - Inside the Mac shell, text-based web Save buttons now use a WK message bridge to call native NSSavePanel and report completion back into the web app; workspace JSON, review pack, current-session Markdown/JSON, Today, and mirror JSON all use this path.
 - The native bridge sanitizes suggested filenames, limits text exports to 25 MB, maps common content types to `UTType`, and returns `false` on cancel so the web UI does not claim a save.
 - Browsers without the File System Access API no longer silently fall back to Downloads. They must use Copy, a picker/native bridge, or an explicit smoke-only download flag.
-- Static `review.html` and `inbox.html` now make `Copy Return JSON` the primary action; `Save Return JSON` is secondary and picker-first.
-- Static return pages keep a stable per-draft return id and show `Suggested file: ...`, so Copy and Save refer to the same timestamped Return JSON name.
-- Static return pages also expose `Manual Copy`, which only selects the preview Return JSON when clipboard or picker permissions are unavailable; it does not write the clipboard, download a file, or start any background scan.
+- Static `review.html` and `inbox.html` now make `Copy Return File` the primary action; `Save Return File` is secondary and picker-first.
+- Static return pages keep a stable per-draft return id and show `Suggested JSON file: ...`, so Copy and Save refer to the same timestamped return filename while the primary action still says Return File.
+- Static return pages also expose `Manual Copy`, which only selects the preview return-file JSON when clipboard or picker permissions are unavailable; it does not write the clipboard, download a file, or start any background scan.
 - Return imports with new work now show `Returned from phone/Windows` inside Learning Flow. The nudge is in-memory only, suppresses duplicate-only receipts, names captures/review updates separately, exposes `Import details`, and can be dismissed without altering workspace or mirror data.
 - Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup export requested - verify the exported file`.
 - Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy only for explicit smoke fallback saves.
 - ZIP export is intentionally not sent through the text bridge; it continues through save picker or explicit smoke fallback to avoid large binary payloads in the WK message body.
 - `npm run smoke:browser` now creates a private ignored `.codex-tmp/browser-smoke/*/` root with separate Chrome profile and `downloads/` directory.
 - Chrome's CDP download behavior is set to that temporary download path, and the page receives an explicit `window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = true` harness flag before the test clicks export/return buttons.
-- Browser smoke also includes a negative return-file save case: when that explicit flag is absent in a controlled session, clicking `Save Return JSON` creates no download file and surfaces Copy guidance.
+- Browser smoke also includes a negative return-file save case: when that explicit flag is absent in a controlled session, clicking `Save Return File` creates no download file and surfaces Copy guidance.
 - The script waits for Chrome to exit before deleting the current smoke root, and a startup janitor removes stale `lc-browser-smoke-*` roots older than 30 minutes.
 - A plain web page still cannot write arbitrary files into a chosen local scratch directory; `.codex-tmp/` routing is only for automated smoke fallback downloads. The Mac shell `File > Export Workspace...` remains the native NSSavePanel path.
 
@@ -557,7 +559,7 @@ Latest absorbed Mira notes for native sidecar capture:
 Latest absorbed Mira notes for static Return next-step cue:
 
 - Keep the persistent cue because phone/Windows users need a stable answer to "what is staged in the file I must bring back to Mac?"
-- Change user-facing cue copy from `Return JSON` jargon to `return file`, while keeping schema/docs terminology precise.
+- User-facing cue copy now says `return file` instead of `Return JSON`; schema/docs terminology remains precise where the JSON payload itself matters.
 - Avoid implying Copy/Save always succeeds; the cue now says to use Copy or Save to take the return file back to Mac, while existing status/fallback paths report failures.
 - Add `role="status"` and `aria-live="polite"` to the cue because it is the "do not lose work" anchor on static device pages.
 - Browser smoke now asserts both increment and clear/decrement behavior for review progress and inbox drafts.

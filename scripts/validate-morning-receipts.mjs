@@ -280,7 +280,7 @@ assert.match(windowsStaticQa, /inbox\.html/);
 assert.match(windowsStaticQa, /source\.returnBaseFingerprint/);
 assert.match(windowsStaticQa, /Pre-return fingerprint check/);
 assert.match(windowsStaticQa, /Batch partial-import guard/);
-assert.match(windowsStaticQa, /Return JSON imported/);
+assert.match(windowsStaticQa, /Return files imported/);
 assert.match(windowsStaticQa, /Wrong file guard/);
 assert.match(windowsStaticQa, /PASS`, `FAIL`, `BLOCKED`, or `NT`/);
 assert.equal(windowsStaticQaResults.length, 10);
