@@ -1129,6 +1129,33 @@ textarea:focus {
   color: var(--muted);
 }
 
+.handoff-state-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.handoff-state-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(74, 62, 46, 0.12);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.handoff-state-item strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.handoff-state-item span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .learning-flow-track {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1365,6 +1392,10 @@ textarea:focus {
 
 @media (max-width: 620px) {
   .learning-flow-track {
+    grid-template-columns: 1fr;
+  }
+
+  .handoff-state-grid {
     grid-template-columns: 1fr;
   }
 

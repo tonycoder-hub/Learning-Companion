@@ -245,7 +245,7 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
-  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 2);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 3);
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeTab, "captures");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeId, "quoteInput");
@@ -1246,6 +1246,10 @@ try {
   assert.match(result.handoffText, /On phone or Windows, open inbox\.html or review\.html and save inbox\/review return JSON/);
   assert.match(result.handoffText, /Back on this Mac, import one or many return JSON files at once/);
   assert.match(result.handoffText, /No live Feishu sync/);
+  assert.match(result.handoffText, /No mirror exported yet/);
+  assert.match(result.handoffText, /Last return imported/);
+  assert.match(result.handoffText, /2 files/);
+  assert.match(result.handoffText, /1 new/);
   assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
@@ -1601,18 +1605,30 @@ try {
 
   const mirrorSaveReceipt = await cdp.evaluate(`(() => new Promise((resolve) => {
     document.querySelector('[data-tab="export"]').click();
+    const mirrorExportBeforeSave = document.querySelector("#mirrorExport").value;
     document.querySelector("#downloadMirrorBtn").click();
-    setTimeout(() => resolve({
-      activityTitle: document.querySelector("#activityTitle").textContent,
-      activityDetail: document.querySelector("#activityDetail").textContent,
-      toast: document.querySelector("#toast").textContent
-    }), 20);
+    setTimeout(() => {
+      document.querySelector('[data-tab="today"]').click();
+      const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      resolve({
+        activityTitle: document.querySelector("#activityTitle").textContent,
+        activityDetail: document.querySelector("#activityDetail").textContent,
+        toast: document.querySelector("#toast").textContent,
+        handoffText: document.querySelector(".handoff-card")?.textContent || "",
+        mirrorHandoffKind: prefs.mirrorHandoff?.kind || "",
+        mirrorHandoffHasFingerprint: /^fnv1a-[a-f0-9]{8}$/.test(prefs.mirrorHandoff?.returnBaseFingerprint || ""),
+        mirrorExportLeaksHandoff: mirrorExportBeforeSave.includes("mirrorHandoff")
+      });
+    }, 20);
   }))()`);
-  assert.deepEqual(mirrorSaveReceipt, {
-    activityTitle: "Mirror JSON handoff ready",
-    activityDetail: "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return JSON.",
-    toast: "Mirror download requested"
-  });
+  assert.equal(mirrorSaveReceipt.activityTitle, "Mirror JSON handoff ready");
+  assert.equal(mirrorSaveReceipt.activityDetail, "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return JSON.");
+  assert.equal(mirrorSaveReceipt.toast, "Mirror download requested");
+  assert.match(mirrorSaveReceipt.handoffText, /Mirror current/);
+  assert.match(mirrorSaveReceipt.handoffText, /Waiting for return file/);
+  assert.equal(mirrorSaveReceipt.mirrorHandoffKind, "Mirror JSON");
+  assert.equal(mirrorSaveReceipt.mirrorHandoffHasFingerprint, true);
+  assert.equal(mirrorSaveReceipt.mirrorExportLeaksHandoff, false);
 
   const exceptionsBeforeReviewRuntime = exceptions.length;
   virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);

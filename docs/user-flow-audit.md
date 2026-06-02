@@ -51,6 +51,8 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 - The separate `Start Here`, `Next Move`, and `Return Files` cards have been consolidated into one `Learning Flow` panel. The high-frequency Mac track shows `Capture on Mac` and `Close the loop`; the cross-device route is a lower-frequency `Device Flow` drawer labeled `Manual transfer`.
 - The detail-heavy Today ledgers (`Open Questions`, `Parked Questions`, `Answers Today`, `Closed Today`, and `Recent Captures`) now live in a `Study Details` drawer with open/parked/recent count badges. Section-map and queue actions open the drawer before jumping so the information stays reachable without flattening the first screen.
 - Browser smoke now pins the `Learning Flow`, `Next Move`, `Device Flow`, and `Study Details` drawer behavior, including all five nested section-map jumps.
+- Device Flow now has a local handoff status, not a sync claim: it records the latest Mirror JSON/ZIP export in `uiPrefs`, compares that return-base fingerprint to the current Mac state, shows `Mirror current` or `Mac changed since mirror export`, and derives `Waiting for return file` from export/import times instead of persisting a brittle flag.
+- The same local state records the latest Return JSON import with file/new-item counts. It stays out of workspace JSON and mirror exports, preserving the portable data contract.
 
 ## Current Journey Assessment
 

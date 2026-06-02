@@ -14,6 +14,7 @@ import {
   buildFocusBrief,
   buildMirrorBundle,
   buildMirrorZip,
+  buildReturnBaseFingerprint,
   buildResumeSource,
   buildSourceJumpUrl,
   buildTodayPack,
@@ -68,7 +69,7 @@ import { renderMarkdown } from "./markdown.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
-const UI_PREFS_SCHEMA_VERSION = 2;
+const UI_PREFS_SCHEMA_VERSION = 3;
 const CAPTURE_DELETE_UNDO_MS = 10000;
 const nativeSaveRequests = new Map();
 
@@ -281,6 +282,7 @@ async function importReturnFiles(files) {
   }
   summary.importedAt = new Date().toISOString();
   lastImportReceipt = summary;
+  recordMirrorReturnImport(summary);
   setActivity(getActiveSession(workspace), {
     title: returnFilesActivityTitle(summary),
     detail: formatReturnFilesReceipt(summary),
@@ -328,6 +330,7 @@ function importPortableData(imported, options = {}) {
   if (isMobileInboxPatch(imported)) {
     const result = applyMobileInboxPatch(workspace, imported);
     workspace = result.workspace;
+    recordMirrorReturnImport(result.receipt);
     if (!quiet) {
       lastImportReceipt = result.receipt;
       setActivity(getActiveSession(workspace), {
@@ -349,6 +352,7 @@ function importPortableData(imported, options = {}) {
   if (isReviewProgressPatch(imported)) {
     const result = applyReviewProgressPatch(workspace, imported);
     workspace = result.workspace;
+    recordMirrorReturnImport(result.receipt);
     if (!quiet) {
       lastImportReceipt = result.receipt;
       setActivity(getActiveSession(workspace), {
@@ -676,7 +680,8 @@ function loadUiPrefs() {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       sidecarLayout: Boolean(parsed.sidecarLayout),
       captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts),
-      workspaceBackup: normalizeWorkspaceBackup(parsed.workspaceBackup)
+      workspaceBackup: normalizeWorkspaceBackup(parsed.workspaceBackup),
+      mirrorHandoff: normalizeMirrorHandoff(parsed.mirrorHandoff)
     };
   } catch {
     return defaultUiPrefs();
@@ -689,7 +694,8 @@ function saveUiPrefs() {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       sidecarLayout: Boolean(uiPrefs.sidecarLayout),
       captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts),
-      workspaceBackup: normalizeWorkspaceBackup(uiPrefs.workspaceBackup)
+      workspaceBackup: normalizeWorkspaceBackup(uiPrefs.workspaceBackup),
+      mirrorHandoff: normalizeMirrorHandoff(uiPrefs.mirrorHandoff)
     }));
   } catch {
     // Layout preference is non-critical; workspace persistence handles its own warning path.
@@ -701,7 +707,8 @@ function defaultUiPrefs() {
     schemaVersion: UI_PREFS_SCHEMA_VERSION,
     sidecarLayout: false,
     captureDrafts: {},
-    workspaceBackup: null
+    workspaceBackup: null,
+    mirrorHandoff: null
   };
 }
 
@@ -715,6 +722,50 @@ function normalizeWorkspaceBackup(value) {
 
 function cleanBackupText(value, limit) {
   return String(value || "").replace(/[^a-zA-Z0-9:._-]/g, "").slice(0, limit);
+}
+
+function normalizeMirrorHandoff(value) {
+  if (!value || typeof value !== "object") return null;
+  const returnBaseFingerprint = cleanBackupText(value.returnBaseFingerprint, 64);
+  const exportedAt = cleanBackupText(value.exportedAt, 32);
+  const kind = normalizeMirrorKind(value.kind);
+  const lastReturnImport = normalizeMirrorReturnImport(value.lastReturnImport);
+  const exportState = returnBaseFingerprint && exportedAt && kind
+    ? { returnBaseFingerprint, exportedAt, kind }
+    : {};
+  if (!Object.keys(exportState).length && !lastReturnImport) return null;
+  return {
+    ...exportState,
+    ...(lastReturnImport ? { lastReturnImport } : {})
+  };
+}
+
+function normalizeMirrorReturnImport(value) {
+  if (!value || typeof value !== "object") return null;
+  const importedAt = cleanBackupText(value.importedAt, 32);
+  if (!importedAt) return null;
+  return {
+    importedAt,
+    sourceFingerprint: cleanBackupText(value.sourceFingerprint, 64),
+    fileCount: clampSmallCount(value.fileCount),
+    newItems: clampSmallCount(value.newItems),
+    baseChangedFiles: clampSmallCount(value.baseChangedFiles),
+    legacyBasisFiles: clampSmallCount(value.legacyBasisFiles)
+  };
+}
+
+function normalizeMirrorKind(value) {
+  const raw = String(value || "").replace(/\s+/g, " ").trim().slice(0, 32);
+  const compact = raw.replace(/\s/g, "");
+  if (compact === "MirrorJSON") return "Mirror JSON";
+  if (compact === "MirrorZIP") return "Mirror ZIP";
+  return raw;
+}
+
+function clampSmallCount(value) {
+  const count = Number(value);
+  if (!Number.isFinite(count) || count <= 0) return 0;
+  return Math.min(999, Math.floor(count));
 }
 
 function normalizeCaptureDrafts(value) {
@@ -1894,6 +1945,7 @@ function emptyReturnFilesReceipt(fileCount) {
     baseChangedFileNames: [],
     legacyBasisFiles: 0,
     legacyBasisFileNames: [],
+    sourceReturnBaseFingerprints: [],
     errors: []
   };
 }
@@ -1927,6 +1979,10 @@ function addReturnFileImportResult(summary, fileName, result) {
 }
 
 function addReturnFileBaseStatus(summary, fileName, receipt) {
+  const sourceReturnBaseFingerprint = cleanBackupText(receipt?.sourceReturnBaseFingerprint, 64);
+  if (sourceReturnBaseFingerprint && !summary.sourceReturnBaseFingerprints.includes(sourceReturnBaseFingerprint)) {
+    summary.sourceReturnBaseFingerprints.push(sourceReturnBaseFingerprint);
+  }
   if (receipt?.sourceFingerprintBasis === "workspace") {
     summary.legacyBasisFiles += 1;
     summary.legacyBasisFileNames.push(String(fileName || "").slice(0, 120));
@@ -3363,6 +3419,7 @@ function renderReturnFilesPanel() {
     "handoff-detail",
     lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return JSON back."
   );
+  const handoffState = renderMirrorHandoffStatus();
   const steps = document.createElement("ol");
   steps.className = "return-files-steps";
   [
@@ -3385,8 +3442,97 @@ function renderReturnFilesPanel() {
   exportMirror.dataset.returnFilesStep = "export";
   exportMirror.addEventListener("click", openReturnFilesMirrorExport);
   footer.append(exportMirror, importPatch);
-  panel.append(summary, detail, steps, boundary, footer);
+  panel.append(summary, detail, handoffState, steps, boundary, footer);
   return panel;
+}
+
+function renderMirrorHandoffStatus() {
+  const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
+  const currentFingerprint = buildReturnBaseFingerprint(workspace);
+  const grid = document.createElement("div");
+  grid.className = "handoff-state-grid";
+
+  const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
+  if (!hasExport) {
+    grid.append(renderHandoffStateItem(
+      "No mirror exported yet",
+      "Export to take Today to phone or Windows."
+    ));
+  } else if (state.returnBaseFingerprint === currentFingerprint) {
+    grid.append(renderHandoffStateItem(
+      "Mirror current",
+      `${state.kind} exported ${formatRelativeLocalTime(state.exportedAt)}. Ready to open inbox.html or review.html.`
+    ));
+  } else {
+    grid.append(renderHandoffStateItem(
+      "Mac changed since mirror export",
+      "Re-export before another phone or Windows study pass."
+    ));
+  }
+
+  const waitingForReturn = hasExport && !returnImportCoversExport(state);
+  if (state?.lastReturnImport && !waitingForReturn) {
+    grid.append(renderHandoffStateItem(
+      "Last return imported",
+      mirrorReturnImportDetail(state.lastReturnImport)
+    ));
+  } else if (waitingForReturn) {
+    grid.append(renderHandoffStateItem(
+      "Waiting for return file",
+      "Import Return JSON when you are back at this Mac."
+    ));
+  } else {
+    grid.append(renderHandoffStateItem(
+      "No return imported yet",
+      "Use Review or Inbox on the mirror, then bring Return JSON back."
+    ));
+  }
+  return grid;
+}
+
+function returnImportCoversExport(state) {
+  if (!state?.exportedAt || !state?.lastReturnImport?.importedAt) return false;
+  const exportedAt = new Date(state.exportedAt).getTime();
+  const importedAt = new Date(state.lastReturnImport.importedAt).getTime();
+  if (!Number.isFinite(exportedAt) || !Number.isFinite(importedAt)) return false;
+  return importedAt >= exportedAt;
+}
+
+function renderHandoffStateItem(title, detail) {
+  const node = document.createElement("div");
+  node.className = "handoff-state-item";
+  node.append(
+    textEl("strong", "", title),
+    textEl("span", "", detail)
+  );
+  return node;
+}
+
+function mirrorReturnImportDetail(importState) {
+  const parts = [
+    formatRelativeLocalTime(importState.importedAt),
+    `${importState.fileCount || 0} ${importState.fileCount === 1 ? "file" : "files"}`,
+    `${importState.newItems || 0} new`
+  ];
+  if (importState.baseChangedFiles) parts.push(`${importState.baseChangedFiles} changed base`);
+  if (importState.legacyBasisFiles) parts.push(`${importState.legacyBasisFiles} legacy check`);
+  return parts.join(" · ");
+}
+
+function formatRelativeLocalTime(value) {
+  const date = new Date(value || "");
+  const time = date.getTime();
+  if (!Number.isFinite(time)) return "time unknown";
+  const elapsedMs = Date.now() - time;
+  if (elapsedMs < 0) return date.toLocaleString();
+  const elapsedMinutes = Math.floor(elapsedMs / 60000);
+  if (elapsedMinutes < 1) return "just now";
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  const elapsedHours = Math.floor(elapsedMinutes / 60);
+  if (elapsedHours < 24) return `${elapsedHours}h ago`;
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays}d ago`;
+  return date.toLocaleDateString();
 }
 
 function openReturnFilesMirrorExport() {
@@ -3917,6 +4063,7 @@ function markWorkspaceExported() {
 }
 
 function recordReturnFileExportReceipt(kind) {
+  recordMirrorExport(kind);
   const session = getActiveSession(workspace);
   setActivity(session, {
     title: `${kind} handoff ready`,
@@ -3925,6 +4072,59 @@ function recordReturnFileExportReceipt(kind) {
     targetId: ""
   });
   renderActivity(session);
+}
+
+function recordMirrorExport(kind) {
+  uiPrefs = {
+    ...uiPrefs,
+    mirrorHandoff: normalizeMirrorHandoff({
+      ...(uiPrefs.mirrorHandoff || {}),
+      returnBaseFingerprint: buildReturnBaseFingerprint(workspace),
+      exportedAt: new Date().toISOString(),
+      kind
+    })
+  };
+  saveUiPrefs();
+}
+
+function recordMirrorReturnImport(receipt) {
+  const importState = mirrorReturnImportState(receipt);
+  if (!importState) return;
+  uiPrefs = {
+    ...uiPrefs,
+    mirrorHandoff: normalizeMirrorHandoff({
+      ...(uiPrefs.mirrorHandoff || {}),
+      lastReturnImport: importState
+    })
+  };
+  saveUiPrefs();
+}
+
+function mirrorReturnImportState(receipt) {
+  if (!receipt || typeof receipt !== "object") return null;
+  const importedAt = cleanBackupText(receipt.importedAt || new Date().toISOString(), 32);
+  if (!importedAt) return null;
+  if (receipt.schema === "learning-companion.return-files-receipt.v1") {
+    const fingerprints = Array.isArray(receipt.sourceReturnBaseFingerprints)
+      ? receipt.sourceReturnBaseFingerprints.filter(Boolean)
+      : [];
+    return {
+      importedAt,
+      sourceFingerprint: fingerprints.length === 1 ? fingerprints[0] : fingerprints.length ? "multiple" : "",
+      fileCount: Number(receipt.processedFiles) || 0,
+      newItems: (Number(receipt.inbox?.added) || 0) + (Number(receipt.review?.applied) || 0),
+      baseChangedFiles: Number(receipt.baseChangedFiles) || 0,
+      legacyBasisFiles: Number(receipt.legacyBasisFiles) || 0
+    };
+  }
+  return {
+    importedAt,
+    sourceFingerprint: receipt.sourceReturnBaseFingerprint || receipt.sourceFingerprint || "",
+    fileCount: 1,
+    newItems: (Number(receipt.added) || 0) + (Number(receipt.applied) || 0),
+    baseChangedFiles: receipt.sourceFingerprintMatches === false ? 1 : 0,
+    legacyBasisFiles: receipt.sourceFingerprintBasis === "workspace" ? 1 : 0
+  };
 }
 
 function workspaceJson() {

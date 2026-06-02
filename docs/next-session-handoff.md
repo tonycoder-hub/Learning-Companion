@@ -40,6 +40,7 @@ What changed in this continuation:
 - Batch receipts now name which return files came from a changed mirror base.
 - Mirror `index.html` has a three-step Manual Return checklist: Read Today, work in Review/Inbox, return JSON back to Mac.
 - Return File imports now route the Mac UI back to Today, open Device Flow, and pulse the receipt panel.
+- Device Flow now keeps a local handoff status in `uiPrefs`: `Mirror current`, `Mac changed since mirror export`, `Waiting for return file`, and `Last return imported`. This is local Mac state only and is intentionally not written into workspace or mirror exports.
 
 External review / critique absorbed:
 
@@ -61,6 +62,7 @@ Next useful slices:
 - Add a small Today/Device Flow affordance that explains legacy `workspace` basis vs new `return-base` basis only when the user hits an old return file.
 - Record a Windows-browser manual run for extracted mirror `index.html`, `review.html`, and `inbox.html`.
 - Do not add background folder scanning or Downloads automation without a separate user-approved design.
+- Do not turn Device Flow handoff status into a hard import validator. Return JSON validation remains based on the file's own `source.returnBaseFingerprint`; the local handoff state is just user guidance.
 
 ## Current Branch State
 
