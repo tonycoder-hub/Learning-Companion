@@ -1359,7 +1359,8 @@ function captureTextFromNative(text, options = {}) {
       ? `${summarizeCapture(capture)} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`
       : summarizeCapture(capture),
     tab: activeTab,
-    targetId: promoteToReview ? updated.reviewCards[0]?.id : capture?.id
+    targetId: promoteToReview ? updated.reviewCards[0]?.id : capture?.id,
+    actionLabel: promoteToReview ? "Review card" : "Saved capture"
   });
   persistAndRender(activityTitle);
   return {

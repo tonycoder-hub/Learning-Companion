@@ -3499,6 +3499,8 @@ try {
   assert.match(questionFlow.afterAnswerReopen.focusFacts, /1 open/);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
+    // Keep this bridge-heavy scenario isolated from the later mobile layout smoke.
+    const beforeNativeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
       node.value = value;
@@ -3517,6 +3519,15 @@ try {
       captureSource: "clipboard-fallback"
     });
     const fallbackActivityTitle = document.querySelector("#activityTitle").textContent;
+    const promotedResult = window.learningCompanionNative.captureClipboardText("Native promoted review bridge capture.", {
+      promoteToReview: true
+    });
+    const promotedActivityAction = document.querySelector("#activityDetailsBtn").textContent;
+    const promotedActivityAria = document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "";
+    const promotedActiveTab = document.querySelector(".tab.active")?.dataset.tab || "";
+    const promotedWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const promotedSession = promotedWorkspace.sessions.find((item) => item.id === promotedWorkspace.activeSessionId);
+    const promotedReviewCardId = promotedSession?.reviewCards[0]?.id || "";
     document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Native source target");
     setValue("#sourceTitle", "Native original page");
@@ -3532,6 +3543,37 @@ try {
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
     const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
     const decoy = workspace.sessions.find((item) => item.title === "Native source decoy");
+    const matchedActivityTitle = document.querySelector("#activityTitle").textContent;
+    const matchedActivityDetail = document.querySelector("#activityDetail").textContent;
+    const matchedActivityAction = document.querySelector("#activityDetailsBtn").textContent;
+    const matchedActiveTabUi = document.querySelector(".tab.active")?.dataset.tab || "";
+    const sidecarOn = window.learningCompanionNative.setSidecarLayout(true);
+    const sidecarCapture = window.learningCompanionNative.captureClipboardText("Native sidecar focus capture.", {
+      captureSource: "selected-text"
+    });
+    const sidecarRailSteps = [...document.querySelectorAll("[data-sidecar-rail-step]")].map((step) => ({
+      kind: step.dataset.sidecarRailStep,
+      text: step.textContent,
+      aria: step.getAttribute("aria-label") || ""
+    }));
+    const sidecarState = {
+      sidecarStillCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      sidecarActivityTitle: document.querySelector("#activityTitle").textContent,
+      sidecarActivityAction: document.querySelector("#activityDetailsBtn").textContent,
+      sidecarActivityAria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
+      sidecarActiveTabUi: document.querySelector(".tab.active")?.dataset.tab || "",
+      sidecarRailHidden: document.querySelector("#sidecarRail").hidden,
+      sidecarRailSteps
+    };
+    document.querySelector("#activityDetailsBtn").click();
+    const sidecarActionTarget = document.querySelector('[data-capture-id="' + CSS.escape(sidecarCapture.captureId) + '"]');
+    const sidecarActionState = {
+      afterActionCompact: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+      afterActionActiveTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      afterActionTargetPulsed: sidecarActionTarget?.classList.contains("pulse") === true
+    };
+    const sidecarOff = window.learningCompanionNative.setSidecarLayout(false);
+    const restoreResult = window.learningCompanionNative.importWorkspaceJson(beforeNativeWorkspaceJson);
     return {
       ok: result.ok,
       browserOk: browserResult.ok,
@@ -3542,6 +3584,12 @@ try {
       selectedActivityTitle,
       fallbackCaptureSource: fallbackResult.captureSource,
       fallbackActivityTitle,
+      promotedOk: promotedResult.ok,
+      promotedReviewCardId: promotedResult.reviewCardId,
+      promotedLatestReviewCardId: promotedReviewCardId,
+      promotedActivityAction,
+      promotedActivityAria,
+      promotedActiveTab,
       matchedOk: matchedResult.ok,
       matchedResolution: matchedResult.resolution,
       activeTab: result.activeTab,
@@ -3554,9 +3602,16 @@ try {
       sessionSourceTitle: session.sourceTitle,
       sessionSourceUrl: session.sourceUrl,
       decoyCaptures: decoy?.captures.length || 0,
-      activityTitle: document.querySelector("#activityTitle").textContent,
-      activityDetail: document.querySelector("#activityDetail").textContent,
-      activeTabUi: document.querySelector(".tab.active")?.dataset.tab || ""
+      activityTitle: matchedActivityTitle,
+      activityDetail: matchedActivityDetail,
+      activityAction: matchedActivityAction,
+      activeTabUi: matchedActiveTabUi,
+      sidecarOnOk: sidecarOn.ok === true && sidecarOn.sidecarLayout === true,
+      sidecarCaptureOk: sidecarCapture.ok === true,
+      ...sidecarState,
+      ...sidecarActionState,
+      sidecarOffOk: sidecarOff.ok === true && sidecarOff.sidecarLayout === false,
+      restoreOk: restoreResult.ok === true
     };
   })()`);
 
@@ -3569,6 +3624,12 @@ try {
   assert.equal(nativeClipboardCapture.selectedActivityTitle, "Selected text capture saved");
   assert.equal(nativeClipboardCapture.fallbackCaptureSource, "clipboard-fallback");
   assert.equal(nativeClipboardCapture.fallbackActivityTitle, "Clipboard fallback capture saved");
+  assert.equal(nativeClipboardCapture.promotedOk, true);
+  assert.equal(nativeClipboardCapture.promotedReviewCardId, nativeClipboardCapture.promotedLatestReviewCardId);
+  assert.match(nativeClipboardCapture.promotedReviewCardId, /^card_/);
+  assert.equal(nativeClipboardCapture.promotedActivityAction, "Review card");
+  assert.equal(nativeClipboardCapture.promotedActivityAria, "Open review card");
+  assert.equal(nativeClipboardCapture.promotedActiveTab, "review");
   assert.equal(nativeClipboardCapture.matchedOk, true);
   assert.equal(nativeClipboardCapture.matchedResolution, "matched-source-url");
   assert.equal(nativeClipboardCapture.activeTab, "captures");
@@ -3584,7 +3645,24 @@ try {
   assert.equal(nativeClipboardCapture.activityTitle, "Clipboard capture saved");
   assert.match(nativeClipboardCapture.activityDetail, /Native matched source/);
   assert.match(nativeClipboardCapture.activityDetail, /matched existing source URL/);
+  assert.equal(nativeClipboardCapture.activityAction, "Saved capture");
   assert.equal(nativeClipboardCapture.activeTabUi, "captures");
+  assert.equal(nativeClipboardCapture.sidecarOnOk, true);
+  assert.equal(nativeClipboardCapture.sidecarCaptureOk, true);
+  assert.equal(nativeClipboardCapture.sidecarStillCompact, true);
+  assert.equal(nativeClipboardCapture.sidecarActivityTitle, "Selected text capture saved");
+  assert.equal(nativeClipboardCapture.sidecarActivityAction, "Exit + Saved capture");
+  assert.equal(nativeClipboardCapture.sidecarActivityAria, "Open saved capture and exit sidecar layout");
+  assert.equal(nativeClipboardCapture.sidecarActiveTabUi, "captures");
+  assert.equal(nativeClipboardCapture.sidecarRailHidden, false);
+  assert.deepEqual(nativeClipboardCapture.sidecarRailSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.match(nativeClipboardCapture.sidecarRailSteps[1].text, /Capture/);
+  assert.match(nativeClipboardCapture.sidecarRailSteps[1].text, /Focus/);
+  assert.equal(nativeClipboardCapture.afterActionCompact, false);
+  assert.equal(nativeClipboardCapture.afterActionActiveTab, "captures");
+  assert.equal(nativeClipboardCapture.afterActionTargetPulsed, true);
+  assert.equal(nativeClipboardCapture.sidecarOffOk, true);
+  assert.equal(nativeClipboardCapture.restoreOk, true);
 
   const draftDriftFocusBrief = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {

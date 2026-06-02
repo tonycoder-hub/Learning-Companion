@@ -530,6 +530,15 @@ Latest absorbed Mira notes for Recent Stack delete:
 - Pin the cancel path, direct stack delete, and unrelated revealed-review preservation in browser smoke.
 - Track broader undo history as a future mistake-recovery improvement before this delete helper spreads to more surfaces; the first local one-step capture-delete undo has landed.
 
+Latest absorbed Mira notes for native sidecar capture:
+
+- Keep the native bridge sidecar invariant: a selected-text or clipboard capture from the Mac shell should stay in compact sidecar mode, keep the Capture tab active, and keep the Source / Capture / Loop rail visible.
+- Replace the verb-shaped native capture action label with an artifact-shaped label: normal native saves now point to `Saved capture`, while promoted native saves point to `Review card`.
+- Pin click-through behavior in browser smoke so the sidecar activity action exits sidecar and highlights the saved capture by `targetId`.
+- Pin the promoted native branch so the new `actionLabel` ternary is covered by both capture and review-card paths.
+- Defer transient rail acknowledgement for the latest save; persistent flow state stays in the rail, while ephemeral save feedback stays in the activity strip.
+- Native macOS Accessibility/Automation GUI QA remains a manual gate; current evidence covers the Web bridge path plus SwiftPM build.
+
 ## Next Local Work
 
 1. Continue the study loop:
