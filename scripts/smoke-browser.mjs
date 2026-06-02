@@ -292,6 +292,8 @@ try {
     setValue("#sourceTitle", "");
     setValue("#sourceUrl", "");
     setValue("#timestampInput", "");
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "");
     document.querySelector("#pasteSourceBtn").click();
     await new Promise((resolve) => setTimeout(resolve, 120));
     const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
@@ -306,6 +308,9 @@ try {
       activeElement: document.activeElement?.id || "",
       openSourceTitle: document.querySelector("#openSourceBtn").title,
       contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
+      captureIntent: document.querySelector("#captureContextIntent").textContent,
+      quotePlaceholder: document.querySelector("#quoteInput").placeholder,
+      thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder,
       sourceStripPulsed: document.querySelector(".source-strip").classList.contains("pulse")
     };
   })()`);
@@ -319,7 +324,50 @@ try {
   assert.equal(pastedSource.activeElement, "quoteInput");
   assert.equal(pastedSource.openSourceTitle, "Open source at 01:35");
   assert.equal(pastedSource.contextOpenText, "Resume @ 01:35");
+  assert.equal(pastedSource.captureIntent, "Video moment");
+  assert.equal(pastedSource.quotePlaceholder, "Transcript line or key phrase at this moment");
+  assert.equal(pastedSource.thoughtPlaceholder, "Your question, takeaway, or answer for this moment");
   assert.equal(pastedSource.sourceStripPulsed, true);
+
+  const sourceGuidanceStates = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const readGuidance = () => ({
+      intent: document.querySelector("#captureContextIntent").textContent,
+      intentTitle: document.querySelector("#captureContextIntent").title,
+      quotePlaceholder: document.querySelector("#quoteInput").placeholder,
+      thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder
+    });
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "");
+    setValue("#timestampInput", "");
+    setValue("#sourceTitle", "Concurrency article");
+    setValue("#sourceUrl", "https://example.com/concurrency-article");
+    setValue("#materialType", "article");
+    const article = readGuidance();
+    setValue("#sourceTitle", "Systems book");
+    setValue("#sourceUrl", "https://example.com/systems-book");
+    setValue("#materialType", "book");
+    const book = readGuidance();
+    setValue("#sourceTitle", "");
+    setValue("#sourceUrl", "");
+    setValue("#materialType", "article");
+    const noSource = readGuidance();
+    return { article, book, noSource };
+  })()`);
+  assert.equal(sourceGuidanceStates.article.intent, "Article excerpt");
+  assert.equal(sourceGuidanceStates.article.intentTitle, "Capture the sentence, section, or claim you are reading now.");
+  assert.equal(sourceGuidanceStates.article.quotePlaceholder, "Sentence, section excerpt, or key claim you are reading");
+  assert.equal(sourceGuidanceStates.article.thoughtPlaceholder, "Your takeaway, question, or how you would apply it");
+  assert.equal(sourceGuidanceStates.book.intent, "Book excerpt");
+  assert.equal(sourceGuidanceStates.book.quotePlaceholder, "Sentence, section excerpt, or key claim you are reading");
+  assert.equal(sourceGuidanceStates.noSource.intent, "Ready");
+  assert.equal(sourceGuidanceStates.noSource.intentTitle, "Add a quote or thought to capture.");
+  assert.equal(sourceGuidanceStates.noSource.quotePlaceholder, "Paste a quote, transcript line, or key idea");
+  assert.equal(sourceGuidanceStates.noSource.thoughtPlaceholder, "Your note, question, or synthesis");
 
   const rejectedClipboardSource = await cdp.evaluate(`(async () => {
     Object.defineProperty(navigator, "clipboard", {
@@ -427,6 +475,8 @@ try {
       contextTargetTitle: document.querySelector("#captureContextTarget").title,
       contextIntent: document.querySelector("#captureContextIntent").textContent,
       contextIntentTitle: document.querySelector("#captureContextIntent").title,
+      quotePlaceholder: document.querySelector("#quoteInput").placeholder,
+      thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder,
       contextSource: document.querySelector("#captureContextSource").textContent,
       contextTime: document.querySelector("#captureContextTime").textContent,
       contextOpenDisabled: document.querySelector("#captureContextOpenBtn").disabled,
@@ -1457,8 +1507,10 @@ try {
   assert.equal(result.sourceTimestampStage.timestampPulsed, true);
   assert.equal(result.sourceTimestampStage.contextTarget, "To Learning Companion MVP");
   assert.equal(result.sourceTimestampStage.contextTargetTitle, "Captures save to Learning Companion MVP");
-  assert.equal(result.sourceTimestampStage.contextIntent, "Ready");
-  assert.equal(result.sourceTimestampStage.contextIntentTitle, "Add a quote or thought to capture.");
+  assert.equal(result.sourceTimestampStage.contextIntent, "Video moment");
+  assert.equal(result.sourceTimestampStage.contextIntentTitle, "Capture the current video moment with the transcript line, question, or answer it triggered.");
+  assert.equal(result.sourceTimestampStage.quotePlaceholder, "Transcript line or key phrase at this moment");
+  assert.equal(result.sourceTimestampStage.thoughtPlaceholder, "Your question, takeaway, or answer for this moment");
   assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
   assert.equal(result.sourceTimestampStage.contextTime, "@ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);

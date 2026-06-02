@@ -1647,6 +1647,7 @@ function renderCaptureContext(session) {
   dom.captureContextOpenBtn.textContent = openLabel;
   dom.captureContextOpenBtn.title = resume.href ? title : "Set source URL";
   dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Set source URL");
+  renderCaptureGuidance(session, resume);
 }
 
 function captureContextOpenLabel(resume) {
@@ -1668,9 +1669,10 @@ function captureDraftIntent(session) {
   };
   const answerPrefix = /^(?:a|answer)\s*[:：]/i.test(thought);
   if (!quote && !thought) {
+    const guidance = captureGuidanceFor(session, buildResumeSource(session, dom.timestampInput.value));
     return {
-      label: "Ready",
-      title: "Add a quote or thought to capture."
+      label: guidance.intent,
+      title: guidance.intentTitle
     };
   }
   if (answerPrefix && !captureHasReviewReadyAnswer(draftCapture)) {
@@ -1711,6 +1713,64 @@ function captureDraftIntent(session) {
     label: "Capture",
     title: "This will save as a capture with quote and thought."
   };
+}
+
+function renderCaptureGuidance(session, resume) {
+  const guidance = captureGuidanceFor(session, resume);
+  dom.quoteInput.placeholder = guidance.quotePlaceholder;
+  dom.thoughtInput.placeholder = guidance.thoughtPlaceholder;
+}
+
+function captureGuidanceFor(session, resume) {
+  const materialType = session.materialType || "article";
+  const hasSource = Boolean(resume?.href || session.sourceUrl || session.sourceTitle);
+  const hasTime = Boolean(resume?.timestamp);
+  if (!hasSource) return defaultCaptureGuidance();
+  if (materialType === "video") {
+    return hasTime ? {
+      intent: "Video moment",
+      intentTitle: "Capture the current video moment with the transcript line, question, or answer it triggered.",
+      quotePlaceholder: "Transcript line or key phrase at this moment",
+      thoughtPlaceholder: "Your question, takeaway, or answer for this moment"
+    } : {
+      intent: "Video note",
+      intentTitle: "Capture a video point; add Time when the moment matters.",
+      quotePlaceholder: "Transcript line or key phrase from the video",
+      thoughtPlaceholder: "Question, takeaway, or answer from this segment"
+    };
+  }
+  if (materialType === "doc" || materialType === "article" || materialType === "book") {
+    return {
+      intent: textSourceIntentLabel(materialType),
+      intentTitle: "Capture the sentence, section, or claim you are reading now.",
+      quotePlaceholder: "Sentence, section excerpt, or key claim you are reading",
+      thoughtPlaceholder: "Your takeaway, question, or how you would apply it"
+    };
+  }
+  if (hasSource) {
+    return {
+      intent: "Source note",
+      intentTitle: "Capture the current source point before switching context.",
+      quotePlaceholder: "Source excerpt, line, or key idea",
+      thoughtPlaceholder: "Why it matters, what is unclear, or next step"
+    };
+  }
+  return defaultCaptureGuidance();
+}
+
+function defaultCaptureGuidance() {
+  return {
+    intent: "Ready",
+    intentTitle: "Add a quote or thought to capture.",
+    quotePlaceholder: "Paste a quote, transcript line, or key idea",
+    thoughtPlaceholder: "Your note, question, or synthesis"
+  };
+}
+
+function textSourceIntentLabel(materialType) {
+  if (materialType === "book") return "Book excerpt";
+  if (materialType === "article") return "Article excerpt";
+  return "Doc excerpt";
 }
 
 function answerDraftTargetForThought(targetId, thought, options = {}) {

@@ -218,11 +218,19 @@ Latest local work adds clipboard-assisted source setup:
 - This is not active browser automation: no browser cookie/session/profile access, no page scraping, and no background clipboard monitoring.
 - Browser smoke covers a copied YouTube URL with `t=95s`, confirming Source, URL, Video type, `01:35`, source-strip pulse, Quick Capture focus, non-URL rejection, and the existing-capture type guardrail.
 
+Latest local work adds source-aware Quick Capture starters:
+
+- Empty Quick Capture state now follows the bound source context: timestamped videos show `Video moment`, untimed videos show `Video note`, text sources show `Article excerpt`, `Doc excerpt`, or `Book excerpt`, and source-less topics fall back to generic `Ready`.
+- Quote/thought placeholders change with that same context, so a video moment asks for a transcript/key phrase and question/takeaway/answer, while text sources ask for an excerpt and takeaway/question/application.
+- The helper is local and resume-driven only; it does not read the browser, transcripts, cookies, sessions, or any external source state.
+- Browser smoke now covers Paste Source video guidance, source-time staging guidance, article/book text guidance, and source-cleared fallback to `Ready`.
+- Mira returned `PASS_WITH_NOTES`; accepted P1 fixes were distinct article/doc/book labels and removing hidden DOM reads from `captureGuidanceFor`. Deferred notes: sourceTitle-only still counts as source context for manual title-first setup, and visual cross-viewport confirmation remains manual QA.
+
 Local agent temp convention:
 
 - Use the project-local ignored `.codex-tmp/` directory for Seed batches, Mira packets/responses, transient receipts, and smoke scratch files.
 - Do not route new local temp artifacts through the macOS private temp root; on this machine that path triggers avoidable approval prompts.
-- External review TODO: the latest Mira SSH broker attempt for this design/temp-path slice returned `AUTH_EXPIRED`, so this slice is locally verified but not Mira-reviewed yet.
+- Mira packets/responses stay in `.codex-tmp/mira-review/`; do not commit them or route through system temp paths.
 
 Latest local work folds Today ledgers into Study Details:
 
