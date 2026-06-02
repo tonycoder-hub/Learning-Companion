@@ -252,6 +252,7 @@ try {
       focusBriefSignalsDisplay: getComputedStyle(document.querySelector(".focus-brief-signals")).display,
       activityDisplay: getComputedStyle(document.querySelector(".activity-strip")).display,
       activityAction: document.querySelector("#activityDetailsBtn").textContent,
+      activityAria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
       sidecarRailHidden: document.querySelector("#sidecarRail").hidden,
       sidecarRailDisplay: getComputedStyle(document.querySelector("#sidecarRail")).display,
       sidecarRailLive: document.querySelector("#sidecarRail").getAttribute("aria-live") || "",
@@ -349,7 +350,8 @@ try {
   assert.match(sidecarLayout.afterPanelShortcut.focusBriefColumns, / /);
   assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityDisplay, "grid");
-  assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Exit + Details");
+  assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Capture");
+  assert.equal(sidecarLayout.afterPanelShortcut.activityAria, "Focus Quick Capture");
   assert.equal(sidecarLayout.afterPanelShortcut.sidecarRailHidden, false);
   assert.equal(sidecarLayout.afterPanelShortcut.sidecarRailDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.sidecarRailLive, "off");
@@ -368,11 +370,14 @@ try {
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeId, "quoteInput");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityTitle, "Quick Capture ready");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.capturePanePulsed, true);
-  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityAction, "Exit + Details");
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityAction, "Capture");
+  assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityAria, "Focus Quick Capture");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activeTab, "captures");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activeId, "thoughtInput");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityTitle, "Capture draft ready");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityAction, "Resume");
+  assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activityAria, "Focus Quick Capture");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.defaultPrevented, true);
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.dispatchResult, false);
   assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.activeId, "thoughtInput");

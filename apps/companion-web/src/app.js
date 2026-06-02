@@ -2052,8 +2052,11 @@ function renderActivity(session) {
   const baseAction = activity.actionLabel || (activity.tab === "review"
     ? "Review"
     : activity.tab === "export" ? "Export" : activity.tab === "today" ? "Today" : "Details");
-  const actionText = uiPrefs.sidecarLayout ? `Exit + ${baseAction}` : baseAction;
-  const actionLabel = uiPrefs.sidecarLayout
+  const staysInSidecar = activityStaysInSidecar(activity);
+  const actionText = uiPrefs.sidecarLayout && !staysInSidecar ? `Exit + ${baseAction}` : baseAction;
+  const actionLabel = staysInSidecar
+    ? "Focus Quick Capture"
+    : uiPrefs.sidecarLayout
     ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
     : `Open ${baseAction.toLowerCase()}`;
   dom.activityTitle.textContent = activity.title;
@@ -2066,6 +2069,14 @@ function renderActivity(session) {
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
   renderSidecarRail(session);
+}
+
+function activityStaysInSidecar(activity) {
+  return uiPrefs.sidecarLayout && activityTargetsQuickCapture(activity);
+}
+
+function activityTargetsQuickCapture(activity) {
+  return activity.targetPane === "quickCapture";
 }
 
 function renderSidecarRail(session) {
@@ -2360,7 +2371,9 @@ function focusQuickCapture() {
     title,
     detail: hasDraft ? summarizeCaptureDraft(draft) : "Capture a quote, thought, or timestamp without leaving the study surface.",
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: hasDraft ? "Resume" : "Capture"
   });
   persistAndRender(title);
   const target = dom.quoteInput.value.trim() && !dom.thoughtInput.value.trim()
@@ -2385,7 +2398,9 @@ function getActivity(session) {
       title: "Capture draft waiting",
       detail: summarizeCaptureDraft(draft),
       tab: "captures",
-      targetId: ""
+      targetId: "",
+      targetPane: "quickCapture",
+      actionLabel: "Resume"
     };
   }
   const due = getDueReviewItems(workspace).length;
@@ -2410,7 +2425,9 @@ function getActivity(session) {
     title: "Ready to capture",
     detail: "Paste a quote or use the browser clipper.",
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture"
   };
 }
 
@@ -2423,6 +2440,10 @@ function clearCaptureDraftActivity(sessionId) {
 
 function showActivityDetails() {
   const activity = getActivity(getActiveSession(workspace));
+  if (activityTargetsQuickCapture(activity)) {
+    focusQuickCapture();
+    return;
+  }
   activeTab = activity.tab;
   if (activity.targetPane === "notes") {
     notesMode = "preview";
