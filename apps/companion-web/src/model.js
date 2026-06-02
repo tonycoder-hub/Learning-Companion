@@ -612,6 +612,7 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
         patch,
         patchId,
         workspace: safeWorkspace,
+        baseWorkspace: safeWorkspace,
         targetSession: getActiveSession(safeWorkspace),
         targetResolution: "duplicate-patch",
         added: 0,
@@ -757,6 +758,7 @@ export function applyMobileInboxPatch(workspace, patch, now = new Date()) {
       patch,
       patchId,
       workspace: finalWorkspace,
+      baseWorkspace: safeWorkspace,
       targetSession: finalTargetSession,
       targetResolution: target.resolution,
       added: importedCaptures.length,
@@ -792,7 +794,9 @@ export function applyReviewProgressPatch(workspace, patch, now = new Date()) {
     return {
       workspace: safeWorkspace,
       receipt: buildReviewProgressReceipt({
+        patch,
         patchId,
+        baseWorkspace: safeWorkspace,
         targetResolution: "duplicate-patch",
         applied: 0,
         skippedDuplicate: events.length,
@@ -854,7 +858,9 @@ export function applyReviewProgressPatch(workspace, patch, now = new Date()) {
   return {
     workspace: nextWorkspace,
     receipt: buildReviewProgressReceipt({
+      patch,
       patchId,
+      baseWorkspace: safeWorkspace,
       targetResolution: "event-import",
       applied,
       skippedDuplicate,
@@ -3133,10 +3139,25 @@ function resolveInboxPatchTarget(workspace, patch) {
   return { session: getActiveSession(workspace), resolution: "active-fallback" };
 }
 
+function buildPatchFingerprintStatus(patch, workspace) {
+  const sourceWorkspaceFingerprint = cleanText(patch?.source?.workspaceFingerprint, 64);
+  const currentWorkspaceFingerprint = workspace
+    ? `fnv1a-${workspaceFingerprint(JSON.stringify(workspace, null, 2))}`
+    : "";
+  return {
+    sourceWorkspaceFingerprint,
+    currentWorkspaceFingerprint,
+    sourceFingerprintMatches: sourceWorkspaceFingerprint
+      ? sourceWorkspaceFingerprint === currentWorkspaceFingerprint
+      : null
+  };
+}
+
 function buildInboxReceipt({
   patch,
   patchId,
   workspace,
+  baseWorkspace,
   targetSession,
   targetResolution,
   added,
@@ -3171,7 +3192,8 @@ function buildInboxReceipt({
       alreadyClosed: Number(answerTargetSkips.alreadyClosed) || 0
     },
     totalCaptures: Array.isArray(patch.captures) ? patch.captures.length : 0,
-    workspaceSessionCount: workspace.sessions.length
+    workspaceSessionCount: workspace.sessions.length,
+    ...buildPatchFingerprintStatus(patch, baseWorkspace || workspace)
   };
 }
 
@@ -3183,7 +3205,9 @@ function normalizeInboxCapturedAt(value, now = new Date()) {
 }
 
 function buildReviewProgressReceipt({
+  patch,
   patchId,
+  baseWorkspace,
   targetResolution,
   applied,
   skippedDuplicate = 0,
@@ -3203,7 +3227,8 @@ function buildReviewProgressReceipt({
     skippedMissing,
     skippedConflict,
     skippedInvalid,
-    totalEvents
+    totalEvents,
+    ...buildPatchFingerprintStatus(patch, baseWorkspace)
   };
 }
 

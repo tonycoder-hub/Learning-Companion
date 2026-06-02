@@ -1872,6 +1872,7 @@ function emptyReturnFilesReceipt(fileCount) {
       skippedInvalid: 0,
       totalEvents: 0
     },
+    baseChangedFiles: 0,
     errors: []
   };
 }
@@ -1880,6 +1881,7 @@ function addReturnFileImportResult(summary, fileName, result) {
   summary.processedFiles += 1;
   if (result.kind === "mobile-inbox-patch") {
     const receipt = result.receipt || {};
+    addReturnFileBaseStatus(summary, receipt);
     summary.inbox.files += 1;
     summary.inbox.added += Number(receipt.added) || 0;
     summary.inbox.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
@@ -1890,6 +1892,7 @@ function addReturnFileImportResult(summary, fileName, result) {
   }
   if (result.kind === "review-progress-patch") {
     const receipt = result.receipt || {};
+    addReturnFileBaseStatus(summary, receipt);
     summary.review.files += 1;
     summary.review.applied += Number(receipt.applied) || 0;
     summary.review.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
@@ -1900,6 +1903,12 @@ function addReturnFileImportResult(summary, fileName, result) {
     return;
   }
   addReturnFileImportError(summary, fileName, "Unsupported return file.");
+}
+
+function addReturnFileBaseStatus(summary, receipt) {
+  if (receipt?.sourceFingerprintMatches === false) {
+    summary.baseChangedFiles += 1;
+  }
 }
 
 function addReturnFileImportError(summary, fileName, message) {
@@ -1948,7 +1957,8 @@ function formatInboxReceipt(receipt) {
   const answerSkipped = receipt.skippedAnswerTargets
     ? ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips)}`
     : "";
-  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped} · ${resolution} · ${receipt.targetSessionTitle}`;
+  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed" : "";
+  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped}${baseChanged} · ${resolution} · ${receipt.targetSessionTitle}`;
 }
 
 function formatAnswerTargetSkips(skips = {}) {
@@ -1975,12 +1985,16 @@ function formatReviewProgressReceipt(receipt) {
   const missing = receipt.skippedMissing ? `, ${receipt.skippedMissing} missing` : "";
   const conflict = receipt.skippedConflict ? `, ${receipt.skippedConflict} stale` : "";
   const invalid = receipt.skippedInvalid ? `, ${receipt.skippedInvalid} invalid` : "";
-  return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events`;
+  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed" : "";
+  return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events${baseChanged}`;
 }
 
 function formatReturnFilesReceipt(receipt) {
   if (!receipt) return "";
   const parts = [`${receipt.processedFiles}/${receipt.fileCount} files processed`];
+  if (receipt.baseChangedFiles) {
+    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed`);
+  }
   if (receipt.inbox?.files) {
     const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
     const refreshable = receipt.inbox.refreshableReviewCards ? `, ${receipt.inbox.refreshableReviewCards} cards ready` : "";

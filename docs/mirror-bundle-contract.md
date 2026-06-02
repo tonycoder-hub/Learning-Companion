@@ -22,6 +22,8 @@ Importers restore from `workspace.json` first. They may use derived files for di
 
 The Mac import picker accepts one full workspace/mirror restore at a time, or multiple `inbox.html` / `review.html` return JSON files together. Multi-file import rejects non-return payloads and produces a combined `learning-companion.return-files-receipt.v1` summary instead of replacing the workspace. Multi-file return imports apply inbox patches before review patches, then use `createdAt`, `patchId`, and filename as a stable order inside each type. For the combined receipt, `processedFiles + failedFiles === fileCount`; duplicate-only files count as processed, not failed.
 
+Return JSON files may carry `source.workspaceFingerprint`, copied from the mirror base that generated `inbox.html` or `review.html`. Mac import treats that fingerprint as advisory drift telemetry: if it differs from the current workspace base, the receipt reports `mirror base changed` but still imports append-only inbox captures or review events under the normal duplicate/conflict rules. Missing or matching source fingerprints do not block import.
+
 ## Snapshot Semantics
 
 Each bundle is a full snapshot rebuilt from current app state. It is not an append-only log and not an incremental delta. A future uploader should translate a bundle into a Drive folder layout and remove stale generated files from previous snapshots.
@@ -33,6 +35,8 @@ Virtual paths are POSIX-style relative paths. They must not contain leading `/`,
 ## Fingerprints
 
 `contentFingerprint` and `bundleFingerprint` are non-cryptographic FNV-1a labels for accidental-change detection. They are not security hashes and must not be used as tamper-proof signatures.
+
+`source.workspaceFingerprint` on return patches uses the same non-cryptographic label family. It is only a user-facing stale-mirror signal, not an authorization check or conflict resolver.
 
 ## Uploader Boundary
 
@@ -70,6 +74,7 @@ Query-prefilled answer drafts are never an authority boundary. Values from the U
 - Answer-target skip reasons are reported as `answerTargetSkips.invalid`, `selfReference`, `patchReference`, `missing`, `nonQuestion`, and `alreadyClosed`.
 - Patch URLs are treated as untrusted and sanitized with the same http/https-only rule as normal captures.
 - The import receipt reports stripped source links when mobile patch URLs sanitize to empty.
+- The import receipt reports `mirror base changed` when the patch came from an older mirror base, then continues append-only import.
 - Patch size is checked against raw imported file bytes and the parsed payload cap.
 - Patch import never overwrites notes, review cards, or existing captures.
 
@@ -83,5 +88,6 @@ Query-prefilled answer drafts are never an authority boundary. Values from the U
 - The importer tracks patch ids in `workspace.importedReviewPatches`, pruned to the latest 200 ids.
 - Review events apply only when the current card `updatedAt` still matches the event `baseUpdatedAt`.
 - Stale/conflicting, missing, duplicate, or invalid events are skipped and counted in the visible receipt.
+- The import receipt reports `mirror base changed` when the patch came from an older mirror base, then still applies only events whose card `baseUpdatedAt` matches.
 - Patch size and event count are capped before import.
 - Patch import never overwrites notes, captures, session metadata, or the full workspace.

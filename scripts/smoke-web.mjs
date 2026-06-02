@@ -80,6 +80,7 @@ import {
   timestampToSeconds,
   updateSession,
   workspaceBackupFingerprint,
+  workspaceFingerprint,
   workspaceStorageNotice,
   workspaceFromPortableData
 } from "../apps/companion-web/src/model.js";
@@ -431,13 +432,33 @@ assert.equal(inboxResult.receipt.skippedDuplicate, 1);
 assert.equal(inboxResult.receipt.sanitizedSourceUrls, 1);
 assert.equal(inboxResult.receipt.answeredQuestions, 0);
 assert.equal(inboxResult.receipt.skippedAnswerTargets, 0);
+assert.equal(inboxResult.receipt.sourceWorkspaceFingerprint, "fnv1a-test");
+assert.equal(inboxResult.receipt.currentWorkspaceFingerprint, `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(workspace), null, 2))}`);
+assert.equal(inboxResult.receipt.sourceFingerprintMatches, false);
 assert.equal(importedInboxCapture.sourceProvenance, "inbox");
 assert.equal(importedInboxCapture.sourceUrl, "");
 assert.equal(importedInboxCapture.inboxCaptureId, "inbox_capture_001");
 assert.equal(inboxResult.workspace.importedPatches.includes("patch_mobile_001"), true);
+const matchingInboxFingerprint = `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(workspace), null, 2))}`;
+const matchingInboxResult = applyMobileInboxPatch(workspace, {
+  ...inboxPatch,
+  patchId: "patch_mobile_matching_base",
+  source: { ...inboxPatch.source, workspaceFingerprint: matchingInboxFingerprint },
+  captures: []
+});
+assert.equal(matchingInboxResult.receipt.sourceFingerprintMatches, true);
+const legacyInboxResult = applyMobileInboxPatch(workspace, {
+  ...inboxPatch,
+  patchId: "patch_mobile_legacy_base",
+  source: { generatedBy: "inbox.html", topicId: session.id, topicTitle: session.title },
+  captures: []
+});
+assert.equal(legacyInboxResult.receipt.sourceWorkspaceFingerprint, "");
+assert.equal(legacyInboxResult.receipt.sourceFingerprintMatches, null);
 const duplicateInboxResult = applyMobileInboxPatch(inboxResult.workspace, inboxPatch);
 assert.equal(duplicateInboxResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateInboxResult.receipt.added, 0);
+assert.equal(duplicateInboxResult.receipt.sourceFingerprintMatches, false);
 assert.equal(duplicateInboxResult.workspace.sessions.find((item) => item.id === session.id).captures.length, inboxSession.captures.length);
 
 const titlePatch = {
@@ -1650,12 +1671,26 @@ const reviewedSession = reviewProgressResult.workspace.sessions.find((item) => i
 const reviewedCard = reviewedSession.reviewCards.find((card) => card.id === reviewProgressItem.card.id);
 assert.equal(reviewProgressResult.receipt.applied, 1);
 assert.equal(reviewProgressResult.receipt.skippedDuplicate, 1);
+assert.equal(reviewProgressResult.receipt.sourceWorkspaceFingerprint, "fnv1a-test");
+assert.equal(reviewProgressResult.receipt.currentWorkspaceFingerprint, `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(multiReviewWorkspace), null, 2))}`);
+assert.equal(reviewProgressResult.receipt.sourceFingerprintMatches, false);
 assert.equal(reviewProgressResult.workspace.importedReviewPatches.includes("review_patch_001"), true);
 assert.equal(reviewedCard.strength, reviewProgressItem.card.strength + 1);
 assert.equal(reviewedCard.lastReviewedAt, "2099-01-02T08:01:00.000Z");
+const matchingReviewProgressResult = applyReviewProgressPatch(multiReviewWorkspace, {
+  ...reviewProgressPatch,
+  patchId: "review_patch_matching_base",
+  source: {
+    ...reviewProgressPatch.source,
+    workspaceFingerprint: `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(multiReviewWorkspace), null, 2))}`
+  },
+  events: [{ ...reviewProgressPatch.events[0], id: "review_event_matching_base" }]
+}, frozenToday);
+assert.equal(matchingReviewProgressResult.receipt.sourceFingerprintMatches, true);
 const duplicateReviewProgressResult = applyReviewProgressPatch(reviewProgressResult.workspace, reviewProgressPatch);
 assert.equal(duplicateReviewProgressResult.receipt.targetResolution, "duplicate-patch");
 assert.equal(duplicateReviewProgressResult.receipt.applied, 0);
+assert.equal(duplicateReviewProgressResult.receipt.sourceFingerprintMatches, false);
 const staleReviewProgressResult = applyReviewProgressPatch(reviewProgressResult.workspace, {
   ...reviewProgressPatch,
   patchId: "review_patch_002",
