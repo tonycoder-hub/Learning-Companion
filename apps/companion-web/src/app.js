@@ -1888,6 +1888,8 @@ function emptyReturnFilesReceipt(fileCount) {
     },
     baseChangedFiles: 0,
     baseChangedFileNames: [],
+    legacyBasisFiles: 0,
+    legacyBasisFileNames: [],
     errors: []
   };
 }
@@ -1921,6 +1923,10 @@ function addReturnFileImportResult(summary, fileName, result) {
 }
 
 function addReturnFileBaseStatus(summary, fileName, receipt) {
+  if (receipt?.sourceFingerprintBasis === "workspace") {
+    summary.legacyBasisFiles += 1;
+    summary.legacyBasisFileNames.push(String(fileName || "").slice(0, 120));
+  }
   if (receipt?.sourceFingerprintMatches === false) {
     summary.baseChangedFiles += 1;
     summary.baseChangedFileNames.push(String(fileName || "").slice(0, 120));
@@ -1974,7 +1980,8 @@ function formatInboxReceipt(receipt) {
     ? ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips)}`
     : "";
   const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed" : "";
-  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped}${baseChanged} · ${resolution} · ${receipt.targetSessionTitle}`;
+  const legacyBasis = formatLegacyBasisNote(receipt);
+  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped}${baseChanged}${legacyBasis} · ${resolution} · ${receipt.targetSessionTitle}`;
 }
 
 function formatAnswerTargetSkips(skips = {}) {
@@ -2002,7 +2009,8 @@ function formatReviewProgressReceipt(receipt) {
   const conflict = receipt.skippedConflict ? `, ${receipt.skippedConflict} stale` : "";
   const invalid = receipt.skippedInvalid ? `, ${receipt.skippedInvalid} invalid` : "";
   const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed" : "";
-  return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events${baseChanged}`;
+  const legacyBasis = formatLegacyBasisNote(receipt);
+  return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events${baseChanged}${legacyBasis}`;
 }
 
 function formatReturnFilesReceipt(receipt) {
@@ -2010,6 +2018,9 @@ function formatReturnFilesReceipt(receipt) {
   const parts = [`${receipt.processedFiles}/${receipt.fileCount} files processed`];
   if (receipt.baseChangedFiles) {
     parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)}`);
+  }
+  if (receipt.legacyBasisFiles) {
+    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)}`);
   }
   if (receipt.inbox?.files) {
     const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
@@ -2030,6 +2041,10 @@ function formatReturnFilesReceipt(receipt) {
     parts.push(`${receipt.failedFiles} failed${detail}`);
   }
   return parts.join(" · ");
+}
+
+function formatLegacyBasisNote(receipt) {
+  return receipt?.sourceFingerprintBasis === "workspace" ? " · legacy mirror check" : "";
 }
 
 function formatBaseChangedFileNames(fileNames = []) {

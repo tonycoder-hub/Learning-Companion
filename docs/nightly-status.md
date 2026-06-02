@@ -73,6 +73,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Mobile inbox patch import appends captures with patch/capture id dedupe, target-resolution fallback, unsafe URL stripping with receipt counts, and a visible import receipt.
 - Review progress patch import applies Again/Good events only when the card version still matches, and reports duplicates, missing cards, stale conflicts, and invalid events.
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patch files, so return-path problems remain inspectable after the toast fades.
+- Older Return JSON compatibility imports show `legacy mirror check` when the app had to compare the old full-workspace fingerprint instead of the newer return-base projection.
 - Markdown notes editor with autosave.
 - Safe read-mode preview for notes.
 - Safe formatting preview for capture thoughts and review answers.
