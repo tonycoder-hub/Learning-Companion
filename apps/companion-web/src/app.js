@@ -2971,7 +2971,7 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
       label: "Capture on Mac",
       status: captureFlowStatus(pack, draftItems),
       detail: "Keep the browser source open and catch quote, thought, time, or question.",
-      actionLabel: showStartHere ? "Capture first point" : "Capture",
+      actionLabel: showStartHere ? "Capture this thought" : "Capture",
       action: focusQuickCaptureFromStart,
       tone: "capture"
     }),
@@ -3255,7 +3255,7 @@ function renderStartHereInline() {
   card.className = "start-here-inline";
   card.append(
     textEl("div", "item-meta", "Start Here"),
-    textEl("p", "card-prompt", "Choose the first learning move.")
+    textEl("p", "card-prompt", "Start with what you are watching or reading.")
   );
   card.append(startHereActions());
   return card;
@@ -3341,15 +3341,15 @@ function todayPrimaryMove(pack, draftItems = []) {
 function startHereActions() {
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const capture = textEl("button", "mini-button primary", "Capture first point");
+  const capture = textEl("button", "mini-button primary", "Capture this thought");
   capture.type = "button";
   capture.dataset.startAction = "capture";
   capture.addEventListener("click", focusQuickCaptureFromStart);
-  const question = textEl("button", "mini-button", "Write first question");
+  const question = textEl("button", "mini-button", "Ask about this");
   question.type = "button";
   question.dataset.startAction = "question";
   question.addEventListener("click", seedFirstQuestionDraft);
-  const clipper = textEl("button", "mini-button", "Browser clipper");
+  const clipper = textEl("button", "mini-button", "Set up page clipper");
   clipper.type = "button";
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
@@ -3377,7 +3377,7 @@ function focusQuickCaptureFromStart() {
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
     title: "Ready to capture",
-    detail: "First point waiting in Quick Capture.",
+    detail: "Thought waiting in Quick Capture.",
     tab: "captures",
     targetId: ""
   });
@@ -3398,7 +3398,7 @@ function seedFirstQuestionDraft() {
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
     title: "Question draft started",
-    detail: "First question waiting in Quick Capture.",
+    detail: "Question waiting in Quick Capture (no source yet).",
     tab: "captures",
     targetId: ""
   });
@@ -3412,7 +3412,7 @@ function openBookmarkletHandoff() {
   const session = getActiveSession(workspace);
   activeTab = "export";
   setActivity(session, {
-    title: "Browser clipper ready",
+    title: "Current page clipper ready",
     detail: "Bookmarklet selected in Export.",
     tab: "export",
     targetId: ""
@@ -3608,7 +3608,7 @@ function renderReturnFilesPanel() {
   header.className = "handoff-header";
   header.append(
     textEl("strong", "", "Device Flow"),
-    textEl("span", "item-meta", `${inboxCount} inbox · ${reviewCount} review`)
+    textEl("span", "item-meta", deviceFlowSummaryLabel())
   );
   const badges = document.createElement("span");
   badges.className = "device-flow-badges";
@@ -3647,6 +3647,19 @@ function renderReturnFilesPanel() {
   footer.append(exportMirror, importPatch);
   panel.append(summary, detail, handoffState, steps, boundary, footer);
   return panel;
+}
+
+function deviceFlowSummaryLabel() {
+  const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
+  const currentFingerprint = buildReturnBaseFingerprint(workspace);
+  const inboxCount = workspace.importedPatches.length;
+  const reviewCount = workspace.importedReviewPatches.length;
+  const counts = `${inboxCount} inbox · ${reviewCount} review`;
+  const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
+  if (!hasExport) return `Next: export mirror · ${counts}`;
+  if (state.returnBaseFingerprint !== currentFingerprint) return `Mac changed · re-export mirror · ${counts}`;
+  if (returnImportCoversExport(state)) return `Return imported · ready for next export · ${counts}`;
+  return `Mirror ready · waiting for phone/Windows return · ${counts}`;
 }
 
 function renderMirrorHandoffStatus() {

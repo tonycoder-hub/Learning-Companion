@@ -2,7 +2,6 @@
 import { execFileSync } from "node:child_process";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 
 export const PERF_BUDGET_SCHEMA = "learning-companion.perf-budget-report.v1";
@@ -16,7 +15,9 @@ const DEFAULT_BUDGETS = Object.freeze({
 
 export function buildPerfBudgetReport(options = {}) {
   const repoRoot = resolve(options.repoRoot || process.cwd());
-  const outDir = options.outDir || mkdtempSync(join(tmpdir(), "learning-companion-perf-"));
+  const tempBase = join(repoRoot, ".codex-tmp/perf-budget");
+  if (!options.outDir) mkdirSync(tempBase, { recursive: true, mode: 0o700 });
+  const outDir = options.outDir || mkdtempSync(join(tempBase, "run-"));
   const ownsOutDir = !options.outDir;
   const started = process.hrtime.bigint();
   try {

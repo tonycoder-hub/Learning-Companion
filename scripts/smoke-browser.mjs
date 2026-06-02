@@ -4,10 +4,10 @@ import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
-import { tmpdir } from "node:os";
 
 const root = resolve("apps/companion-web");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const smokeBase = resolve(".codex-tmp/browser-smoke");
 const SMOKE_ROOT_PREFIX = "lc-browser-smoke-";
 const STALE_SMOKE_ROOT_MS = 30 * 60 * 1000;
 
@@ -49,9 +49,10 @@ const listenPort = await new Promise((resolvePort) => {
 });
 
 const debuggingPort = 9400 + Math.floor(Math.random() * 300);
-cleanupStaleSmokeRoots(tmpdir(), Date.now() - STALE_SMOKE_ROOT_MS);
+mkdirSync(smokeBase, { recursive: true, mode: 0o700 });
+cleanupStaleSmokeRoots(smokeBase, Date.now() - STALE_SMOKE_ROOT_MS);
 
-const smokeRoot = join(tmpdir(), `${SMOKE_ROOT_PREFIX}${Date.now()}`);
+const smokeRoot = join(smokeBase, `${SMOKE_ROOT_PREFIX}${Date.now()}`);
 const profile = join(smokeRoot, "profile");
 const downloadPath = join(smokeRoot, "downloads");
 mkdirSync(downloadPath, { recursive: true, mode: 0o700 });
@@ -76,6 +77,9 @@ try {
   cdp.on("Runtime.exceptionThrown", (event) => exceptions.push(event));
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
+  cdp.on("Page.javascriptDialogOpening", () => {
+    cdp.send("Page.handleJavaScriptDialog", { accept: true }).catch(() => {});
+  });
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: "window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = true;"
   });
@@ -137,11 +141,11 @@ try {
   assert.match(firstRun.text, /Capture on Mac/);
   assert.match(firstRun.text, /Close the loop/);
   assert.match(firstRun.text, /Start Here/);
-  assert.match(firstRun.text, /Choose the first learning move/);
+  assert.match(firstRun.text, /Start with what you are watching or reading/);
   assert.deepEqual(firstRun.buttons, [
-    { action: "capture", text: "Capture first point" },
-    { action: "question", text: "Write first question" },
-    { action: "clipper", text: "Browser clipper" }
+    { action: "capture", text: "Capture this thought" },
+    { action: "question", text: "Ask about this" },
+    { action: "clipper", text: "Set up page clipper" }
   ]);
   assert.equal(firstRun.activeTab, "captures");
   assert.equal(firstRun.activeElement, "quoteInput");
@@ -1293,6 +1297,7 @@ try {
   assert.equal(result.batchImportedPatch, true);
   assert.equal(result.batchImportedReviewPatch, true);
   assert.match(result.handoffText, /Device Flow/);
+  assert.match(result.handoffText, /Next: export mirror/);
   assert.match(result.handoffText, /Manual transfer/);
   assert.match(result.handoffText, /2 inbox · 1 review/);
   assert.match(result.handoffText, /2\/3 files processed/);
@@ -1979,20 +1984,33 @@ try {
   assert.equal(hostileInboxRuntime.captureSourceUrl, "");
   assert.equal(hostileInboxRuntime.captureAnswersQuestionCaptureId, "");
 
-  await cdp.send("Page.navigate", { url: appUrl });
-  await sleep(300);
+  await cdp.evaluate(`document.querySelector("#clearDraftsBtn")?.click()`);
   await cdp.evaluate(`(() => {
-    const setValue = (selector, value) => {
-      const node = document.querySelector(selector);
-      node.value = value;
-      node.dispatchEvent(new Event("input", { bubbles: true }));
+    const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const template = workspace.sessions.find((item) => item.title === "Learning Companion MVP") || workspace.sessions[0];
+    const decoy = {
+      ...template,
+      id: "smoke_decoy_session",
+      title: "Scratch decoy",
+      sourceTitle: "External course page",
+      sourceUrl: "https://example.com/scratch",
+      materialType: "article",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      updatedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
-    document.querySelector("#newSessionBtn").click();
-    setValue("#sessionTitle", "Scratch decoy");
-    setValue("#sourceTitle", "External course page");
-    setValue("#sourceUrl", "https://example.com/scratch");
+    workspace.sessions = [
+      decoy,
+      ...workspace.sessions.filter((item) => item.id !== decoy.id)
+    ];
+    workspace.activeSessionId = decoy.id;
+    localStorage.setItem("learning-companion.workspace.v1", JSON.stringify(workspace));
   })()`);
   const matchedInboundUrl = `${appUrl}?capture=1&sourceTitle=${encodeURIComponent("Changed browser title")}&sourceUrl=${encodeURIComponent("https://www.youtube.com/watch?v=rust123&t=42s&utm_source=clip")}&quote=${encodeURIComponent("Matched source bookmarklet capture")}&thought=${encodeURIComponent("Should route away from the decoy session")}&t=00:42`;
+  await cdp.send("Page.navigate", { url: "about:blank" });
+  await sleep(100);
   await cdp.send("Page.navigate", { url: matchedInboundUrl });
   await sleep(300);
   const matchedInbound = await waitForCdpValue(cdp, `(() => {
@@ -2001,6 +2019,9 @@ try {
     const decoy = workspace.sessions.find((item) => item.title === "Scratch decoy");
     const latest = session.captures[0] || {};
     return {
+      href: location.href,
+      search: location.search,
+      readyState: document.readyState,
       activeTitle: session.title,
       activeMaterialType: session.materialType,
       sessionSourceTitle: session.sourceTitle,
@@ -2014,7 +2035,7 @@ try {
       activityDetail: document.querySelector("#activityDetail").textContent,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
     };
-  })()`, (value) => value.latestQuote === "Matched source bookmarklet capture");
+  })()`, (value) => value.latestQuote === "Matched source bookmarklet capture", 10000);
 
   assert.equal(matchedInbound.activeTitle, "Learning Companion MVP");
   assert.equal(matchedInbound.activeMaterialType, "video");
@@ -3192,6 +3213,8 @@ try {
     const deskReviewWidth = Math.ceil(document.querySelector("#deskReviewPane").getBoundingClientRect().width);
     const deskReviewVisible = !document.querySelector("#deskReviewPane").hidden;
     const todayActive = document.querySelector(".tab.active")?.dataset.tab === "today";
+    const handoffSummaryMeta = document.querySelector(".device-flow-summary .item-meta");
+    const handoffSummary = document.querySelector(".device-flow-summary");
     document.querySelector('[data-focus-mode="capture"]').click();
     const captureContext = document.querySelector("#captureContext");
     const timeRow = document.querySelector(".time-input-row");
@@ -3205,6 +3228,11 @@ try {
       deskReviewWidth,
       deskReviewVisible,
       todayActive,
+      handoffSummaryText: handoffSummaryMeta?.textContent || "",
+      handoffSummaryVisible: Boolean(handoffSummaryMeta) && getComputedStyle(handoffSummaryMeta).display !== "none",
+      handoffSummaryWidth: Math.ceil(handoffSummaryMeta?.getBoundingClientRect().width || 0),
+      handoffSummaryScrollWidth: handoffSummaryMeta?.scrollWidth || 0,
+      handoffSummaryParentWidth: Math.ceil(handoffSummary?.getBoundingClientRect().width || 0),
       captureContextVisible: getComputedStyle(captureContext).display !== "none",
       captureContextWidth: Math.ceil(captureContext.getBoundingClientRect().width),
       captureContextScrollWidth: captureContext.scrollWidth,
@@ -3220,6 +3248,10 @@ try {
   assert.equal(mobileLayout.tabColumns, 2);
   assert.equal(mobileLayout.deskReviewVisible, true);
   assert.equal(mobileLayout.todayActive, true);
+  assert.equal(mobileLayout.handoffSummaryVisible, true);
+  assert.match(mobileLayout.handoffSummaryText, /Next: export mirror|Mac changed|Mirror ready|Return imported/);
+  assert.ok(mobileLayout.handoffSummaryParentWidth <= mobileLayout.innerWidth - 24);
+  assert.ok(mobileLayout.handoffSummaryScrollWidth <= mobileLayout.handoffSummaryWidth + 2);
   assert.equal(mobileLayout.captureContextVisible, true);
   assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextWidth <= mobileLayout.innerWidth - 24);

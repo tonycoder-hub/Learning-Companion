@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
-import { tmpdir } from "node:os";
 import { pathToFileURL } from "node:url";
 
 export const MORNING_DETERMINISM_SCHEMA = "learning-companion.morning-determinism-report.v1";
@@ -11,7 +10,9 @@ export const MORNING_DETERMINISM_SCHEMA = "learning-companion.morning-determinis
 export function buildMorningDeterminismReport(options = {}) {
   const repoRoot = resolve(options.repoRoot || process.cwd());
   const scriptPath = resolve(repoRoot, "scripts/build-morning-demo.mjs");
-  const tempRoot = mkdtempSync(join(tmpdir(), "learning-companion-determinism-"));
+  const tempBase = join(repoRoot, ".codex-tmp/morning-determinism");
+  mkdirSync(tempBase, { recursive: true, mode: 0o700 });
+  const tempRoot = mkdtempSync(join(tempBase, "run-"));
   const firstOut = join(tempRoot, "first");
   const secondOut = join(tempRoot, "second");
   try {

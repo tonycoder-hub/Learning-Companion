@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { compareOutputDirs } from "./morning-determinism-check.mjs";
 import { buildMirrorIntegrityReport } from "./mirror-integrity-check.mjs";
@@ -11,7 +10,9 @@ export const ADVERSARIAL_GATES_SCHEMA = "learning-companion.adversarial-gates-re
 
 export function buildAdversarialGateReport(options = {}) {
   const checkedAt = options.checkedAt || new Date().toISOString();
-  const tempRoot = mkdtempSync(join(tmpdir(), "learning-companion-adversarial-"));
+  const tempBase = resolve(".codex-tmp/adversarial-gate");
+  mkdirSync(tempBase, { recursive: true, mode: 0o700 });
+  const tempRoot = mkdtempSync(join(tempBase, "run-"));
   try {
     const deterministicFailure = buildDeterminismFailureCase(tempRoot, checkedAt);
     const mirrorFailure = buildMirrorFailureCase(tempRoot, checkedAt);

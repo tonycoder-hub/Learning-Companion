@@ -207,9 +207,15 @@ Latest local work adds a Today section map for density:
 Latest local work folds first-run Start Here into Learning Flow:
 
 - When the workspace has no captures, cards, due items, questions, answers, closed questions, or capture drafts, Today shows `Learning Flow` with `Capture on Mac`, `Close the loop`, and an embedded `Start Here` action row.
-- Actions are concrete and local: `Capture first point` focuses Quick Capture, `Write first question` seeds a `Question: ` draft, and `Browser clipper` opens Export with the bookmarklet selected.
+- Actions are concrete and local: `Capture this thought` focuses Quick Capture, `Ask about this` seeds a `Question: ` draft, and `Set up page clipper` opens Export with the bookmarklet selected.
 - Browser smoke pins the Learning Flow copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
+
+Local agent temp convention:
+
+- Use the project-local ignored `.codex-tmp/` directory for Seed batches, Mira packets/responses, transient receipts, and smoke scratch files.
+- Do not route new local temp artifacts through the macOS private temp root; on this machine that path triggers avoidable approval prompts.
+- External review TODO: the latest Mira SSH broker attempt for this design/temp-path slice returned `AUTH_EXPIRED`, so this slice is locally verified but not Mira-reviewed yet.
 
 Latest local work folds Today ledgers into Study Details:
 

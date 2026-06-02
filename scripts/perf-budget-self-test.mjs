@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { join, resolve } from "node:path";
 
-const outDir = mkdtempSync(join(tmpdir(), "learning-companion-perf-selftest-"));
+const tempBase = resolve(".codex-tmp/perf-budget-self-test");
+mkdirSync(tempBase, { recursive: true, mode: 0o700 });
+const outDir = mkdtempSync(join(tempBase, "run-"));
 const outFile = join(outDir, "PERF_BUDGET.json");
 
 try {

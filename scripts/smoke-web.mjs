@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import {
   WORKSPACE_SCHEMA,
   WORKSPACE_SCHEMA_VERSION,
@@ -92,6 +91,9 @@ import {
   buildFeishuUploadPlan,
   materializeMirrorBundle
 } from "./feishu-mirror-uploader.mjs";
+
+const tempBase = resolve(".codex-tmp/smoke-web");
+mkdirSync(tempBase, { recursive: true, mode: 0o700 });
 
 const manifest = JSON.parse(readFileSync("apps/companion-web/manifest.webmanifest", "utf8"));
 const indexHtml = readFileSync("apps/companion-web/index.html", "utf8");
@@ -1977,7 +1979,7 @@ assert.equal(uploadPlan.files.length, mirror.files.length);
 assert.equal(uploadPlan.files.every((file) => file.action === "upsert"), true);
 assert.equal(uploadPlan.files.some((file) => file.path === "TODAY.md" && file.role === "study-pack"), true);
 assert.equal(uploadPlan.files.some((file) => file.path === "workspace.json" && file.role === "workspace-restore"), true);
-const uploadOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-upload-"));
+const uploadOutDir = mkdtempSync(join(tempBase, "feishu-upload-"));
 try {
   const uploadResult = materializeMirrorBundle(mirror, uploadOutDir, { plan: uploadPlan });
   assert.equal(uploadResult.ok, true);
@@ -2044,17 +2046,19 @@ assert.throws(() => buildFeishuUploadDryRunReport({
   ...uploadPlan,
   files: uploadPlan.files.map((file, index) => index === 0 ? { ...file, action: "delete" } : file)
 }, "/tmp"), /Unsupported upload action/);
-const overwriteOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-overwrite-"));
+const overwriteOutDir = mkdtempSync(join(tempBase, "feishu-overwrite-"));
 try {
   materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan });
   assert.throws(() => materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan }), /already exists/);
 } finally {
   rmSync(overwriteOutDir, { recursive: true, force: true });
 }
-const symlinkOutDir = mkdtempSync(join(tmpdir(), "learning-companion-feishu-symlink-"));
+const symlinkOutDir = mkdtempSync(join(tempBase, "feishu-symlink-"));
 try {
   mkdirSync(join(symlinkOutDir, "files"), { recursive: true });
-  symlinkSync(tmpdir(), join(symlinkOutDir, "files", "sessions"), "dir");
+  const symlinkTarget = join(tempBase, "symlink-target");
+  mkdirSync(symlinkTarget, { recursive: true, mode: 0o700 });
+  symlinkSync(symlinkTarget, join(symlinkOutDir, "files", "sessions"), "dir");
   assert.throws(() => materializeMirrorBundle(mirror, symlinkOutDir, { plan: uploadPlan, force: true }), /symbolic link/);
 } finally {
   rmSync(symlinkOutDir, { recursive: true, force: true });
