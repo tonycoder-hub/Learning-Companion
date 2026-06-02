@@ -477,10 +477,10 @@ dom.notesPreviewBtn.addEventListener("click", () => {
   renderNotesMode();
 });
 
-dom.openSourceBtn.addEventListener("click", openCurrentSource);
+dom.openSourceBtn.addEventListener("click", resumeCurrentSource);
 dom.captureContextTarget.addEventListener("click", showCaptureDestination);
 dom.captureContextSource.addEventListener("click", showCaptureSource);
-dom.captureContextOpenBtn.addEventListener("click", openCurrentSource);
+dom.captureContextOpenBtn.addEventListener("click", handleCaptureContextSourceAction);
 dom.timeBackBtn.addEventListener("click", () => nudgeCaptureTime(-15));
 dom.timeForwardBtn.addEventListener("click", () => nudgeCaptureTime(15));
 
@@ -1367,10 +1367,35 @@ function render() {
   renderInspector();
 }
 
-function openCurrentSource() {
+function resumeCurrentSource() {
   const session = getActiveSession(workspace);
   const resume = buildResumeSource(session, dom.timestampInput.value);
-  if (resume.href) window.open(resume.href, "_blank", "noopener,noreferrer");
+  if (!resume.href) return;
+  window.open(resume.href, "_blank", "noopener,noreferrer");
+}
+
+function handleCaptureContextSourceAction() {
+  const session = getActiveSession(workspace);
+  const resume = buildResumeSource(session, dom.timestampInput.value);
+  if (resume.href) {
+    resumeCurrentSource();
+    return;
+  }
+  promptForSource(session);
+}
+
+function promptForSource(session = getActiveSession(workspace)) {
+  activeTab = "captures";
+  setActivity(session, {
+    title: "Add a source",
+    detail: "Paste the browser page or video URL so captures can resume from it.",
+    tab: "captures",
+    targetId: ""
+  });
+  renderInspector();
+  renderActivity(session);
+  dom.sourceUrl.focus();
+  pulseNode(document.querySelector(".source-strip"));
 }
 
 function nudgeCaptureTime(deltaSeconds) {
@@ -1419,6 +1444,7 @@ function renderCaptureContext(session) {
   const resume = buildResumeSource(session, dom.timestampInput.value);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "No source";
   const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
+  const openLabel = captureContextOpenLabel(resume);
   const targetLabel = `To ${session.title || "current topic"}`;
   dom.captureContextTarget.textContent = targetLabel;
   dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
@@ -1427,13 +1453,24 @@ function renderCaptureContext(session) {
   dom.captureContextIntent.textContent = intent.label;
   dom.captureContextIntent.title = intent.title;
   dom.captureContextSource.textContent = sourceLabel;
-  dom.captureContextSource.title = resume.url || sourceLabel;
-  dom.captureContextSource.setAttribute("aria-label", `Show capture source: ${sourceLabel}`);
+  dom.captureContextSource.title = resume.href
+    ? `Captures attach to ${sourceLabel}. ${title}.`
+    : "No source URL yet. Set one to resume the browser source later.";
+  dom.captureContextSource.setAttribute("aria-label", resume.href
+    ? `Show capture source: ${sourceLabel}`
+    : "Show capture source: no source URL yet");
   dom.captureContextTime.hidden = !resume.timestamp;
   dom.captureContextTime.textContent = resume.timestamp ? `@ ${resume.timestamp}` : "";
-  dom.captureContextOpenBtn.disabled = !resume.href;
-  dom.captureContextOpenBtn.title = resume.href ? title : "Add a source URL first";
-  dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Add a source URL first");
+  dom.captureContextOpenBtn.disabled = false;
+  dom.captureContextOpenBtn.textContent = openLabel;
+  dom.captureContextOpenBtn.title = resume.href ? title : "Set source URL";
+  dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Set source URL");
+}
+
+function captureContextOpenLabel(resume) {
+  if (!resume?.href) return "Set source";
+  if (resume.timestamp) return `Resume @ ${resume.timestamp}`;
+  return "Open source";
 }
 
 function captureDraftIntent(session) {

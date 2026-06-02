@@ -1689,6 +1689,26 @@ textarea:focus {
     flex-wrap: wrap;
   }
 
+  .capture-context {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .capture-context-target,
+  .capture-context-source {
+    grid-column: 1 / 2;
+  }
+
+  .capture-context-intent,
+  .capture-context-time {
+    grid-column: 2 / 3;
+    justify-self: end;
+  }
+
+  .capture-context .mini-button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
   .capture-actions {
     flex: 1;
     justify-content: flex-end;

@@ -309,7 +309,9 @@ try {
       contextSource: document.querySelector("#captureContextSource").textContent,
       contextTime: document.querySelector("#captureContextTime").textContent,
       contextOpenDisabled: document.querySelector("#captureContextOpenBtn").disabled,
+      contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
       contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
+      contextOpenAria: document.querySelector("#captureContextOpenBtn").getAttribute("aria-label"),
       contextOpened: sourceContextOpened
     };
     document.querySelector("#captureContextSource").click();
@@ -334,7 +336,9 @@ try {
     const sourceTimestampTyped = {
       timestamp: document.querySelector("#timestampInput").value,
       contextTime: document.querySelector("#captureContextTime").textContent,
+      contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
       contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
+      contextOpenAria: document.querySelector("#captureContextOpenBtn").getAttribute("aria-label"),
       contextOpened: typedTimestampContextOpened
     };
     document.querySelector("#timeBackBtn").click();
@@ -800,7 +804,12 @@ try {
       source: document.querySelector("#captureContextSource").textContent,
       timeHidden: document.querySelector("#captureContextTime").hidden,
       openDisabled: document.querySelector("#captureContextOpenBtn").disabled,
+      openText: document.querySelector("#captureContextOpenBtn").textContent,
       openLabel: document.querySelector("#captureContextOpenBtn").getAttribute("aria-label"),
+      activeElementAfterOpen: document.activeElement?.id || "",
+      activityTitleAfterOpen: document.querySelector("#activityTitle").textContent,
+      activityDetailAfterOpen: document.querySelector("#activityDetail").textContent,
+      sourceStripPulsedAfterOpen: document.querySelector(".source-strip").classList.contains("pulse"),
       opened: emptyContextOpened
     };
     const titleAfterNewSession = document.querySelector("#sessionTitle").value;
@@ -1314,7 +1323,9 @@ try {
   assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
   assert.equal(result.sourceTimestampStage.contextTime, "@ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
+  assert.equal(result.sourceTimestampStage.contextOpenText, "Resume @ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12");
+  assert.equal(result.sourceTimestampStage.contextOpenAria, "Open source at 08:12");
   assert.equal(result.sourceTimestampStage.contextOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
   assert.deepEqual(result.sourceContextShown, {
     activeElement: "sourceTitle",
@@ -1325,7 +1336,9 @@ try {
   });
   assert.equal(result.sourceTimestampTyped.timestamp, "12:30");
   assert.equal(result.sourceTimestampTyped.contextTime, "@ 12:30");
+  assert.equal(result.sourceTimestampTyped.contextOpenText, "Resume @ 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30");
+  assert.equal(result.sourceTimestampTyped.contextOpenAria, "Open source at 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpened, "https://www.youtube.com/watch?v=rust123&t=750s");
   assert.deepEqual(result.sourceTimestampNudge.afterTimeBack, {
     timestamp: "12:15",
@@ -1413,8 +1426,13 @@ try {
     intent: "Ready",
     source: "No source",
     timeHidden: true,
-    openDisabled: true,
-    openLabel: "Add a source URL first",
+    openDisabled: false,
+    openText: "Set source",
+    openLabel: "Set source URL",
+    activeElementAfterOpen: "sourceUrl",
+    activityTitleAfterOpen: "Add a source",
+    activityDetailAfterOpen: "Paste the browser page or video URL so captures can resume from it.",
+    sourceStripPulsedAfterOpen: true,
     opened: ""
   });
   assert.equal(result.captureDraftAfterSwitch.quote, "Draft quote before session switch.");
