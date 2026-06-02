@@ -167,6 +167,11 @@ assert.equal(HARMONY_READER_NEXT_ACTION_ROUTES.includes(workspaceView.readerNext
 assert.equal(workspaceView.readerNextAction.surface, "reader");
 assert.match(workspaceView.readerNextAction.meta, /1 due card from this import/);
 assert.match(workspaceView.readerNextAction.secondary, /Also: 14 open questions · 2 answers today\./);
+assert.equal(workspaceView.readerNextAction.secondaryAction.label, "Answer open questions");
+assert.equal(workspaceView.readerNextAction.secondaryAction.route, "pages/TopicDetail");
+assert.equal(workspaceView.readerNextAction.secondaryAction.routeLabel, "Open Questions");
+assert.equal(workspaceView.readerNextAction.secondaryAction.routeParams.section, "open_questions");
+assert.match(workspaceView.readerNextAction.secondaryAction.meta, /^\d+ open questions$/);
 assert.equal(workspaceView.readerNextAction.generatedAt, now.toISOString());
 assert.equal(Number.isFinite(Date.parse(workspaceView.readerNextAction.generatedAt)), true);
 assert.equal(workspaceView.activeTopic.openQuestionCount, 14);
@@ -268,10 +273,32 @@ assert.equal(questionOnlyView.readerNextAction.route, "pages/TopicDetail");
 assert.equal(HARMONY_READER_NEXT_ACTION_ROUTES.includes(questionOnlyView.readerNextAction.route), true);
 assert.match(questionOnlyView.readerNextAction.detail, /What should the phone reader answer first\?/);
 assert.match(questionOnlyView.readerNextAction.secondary, /append-only JSON/);
+assert.equal(questionOnlyView.readerNextAction.secondaryAction, undefined);
+
+let questionAndAnswerWorkspace = createDefaultWorkspace();
+const questionAndAnswerActive = getActiveSession(questionAndAnswerWorkspace);
+questionAndAnswerWorkspace = addCapture(questionAndAnswerWorkspace, questionAndAnswerActive.id, {
+  quote: "Question plus answer import should keep both lanes reachable.",
+  thought: "What should the phone reader answer next?",
+  tags: "harmony question"
+}, { now });
+questionAndAnswerWorkspace = addCapture(questionAndAnswerWorkspace, questionAndAnswerActive.id, {
+  quote: "An answer today can be reviewed after the open question.",
+  thought: "Answer: keep the already captured answer visible as a secondary lane.",
+  tags: "harmony answer"
+}, { now });
+const questionAndAnswerView = buildHarmonyReaderView(questionAndAnswerWorkspace, { now });
+assert.equal(questionAndAnswerView.readerNextAction.kind, "answer_question");
+assert.equal(questionAndAnswerView.readerNextAction.secondaryAction.label, "Read answers today");
+assert.equal(questionAndAnswerView.readerNextAction.secondaryAction.route, "pages/TopicDetail");
+assert.equal(questionAndAnswerView.readerNextAction.secondaryAction.routeLabel, "Open Answers");
+assert.equal(questionAndAnswerView.readerNextAction.secondaryAction.routeParams.section, "answers_today");
+assert.match(questionAndAnswerView.readerNextAction.secondaryAction.meta, /^\d+ answer today$/);
 
 const emptyReaderView = buildHarmonyReaderView(createDefaultWorkspace(), { now });
 assert.notEqual(emptyReaderView.readerNextAction, null);
 assert.equal(HARMONY_READER_NEXT_ACTION_ROUTES.includes(emptyReaderView.readerNextAction.route), true);
+assert.equal(emptyReaderView.readerNextAction.secondaryAction, undefined);
 
 const workspaceImport = importPortableForHarmony(workspace, { now });
 assert.equal(workspaceImport.ok, true);

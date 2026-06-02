@@ -181,7 +181,7 @@ function buildHarmonyReaderNextAction({
   openQuestionCount
 }) {
   if (dueReview.length) {
-    return {
+    return withReaderSecondaryAction({
       kind: "review_queue",
       label: "Review due cards",
       detail: dueReview[0]?.prompt || "Reveal the first due card from this import.",
@@ -194,10 +194,10 @@ function buildHarmonyReaderNextAction({
       }),
       generatedAt,
       surface: "reader"
-    };
+    }, readerSecondaryAction({ openQuestionCount, answerCount }));
   }
   if (openQuestions.length) {
-    return {
+    return withReaderSecondaryAction({
       kind: "answer_question",
       label: "Answer next question",
       detail: summarizePhoneAction(openQuestions[0]?.thought || openQuestions[0]?.quote || "Open question"),
@@ -210,7 +210,7 @@ function buildHarmonyReaderNextAction({
       ].filter(Boolean).join(" "),
       generatedAt,
       surface: "reader"
-    };
+    }, readerSecondaryAction({ answerCount }));
   }
   if (answersToday.length) {
     return {
@@ -249,6 +249,32 @@ function buildHarmonyReaderNextAction({
     generatedAt,
     surface: "reader"
   };
+}
+
+function withReaderSecondaryAction(action, secondaryAction) {
+  return secondaryAction ? { ...action, secondaryAction } : action;
+}
+
+function readerSecondaryAction({ openQuestionCount = 0, answerCount = 0 }) {
+  if (openQuestionCount) {
+    return {
+      label: "Answer open questions",
+      route: "pages/TopicDetail",
+      routeLabel: "Open Questions",
+      routeParams: { section: "open_questions" },
+      meta: formatCount(openQuestionCount, "open question")
+    };
+  }
+  if (answerCount) {
+    return {
+      label: "Read answers today",
+      route: "pages/TopicDetail",
+      routeLabel: "Open Answers",
+      routeParams: { section: "answers_today" },
+      meta: `${formatCount(answerCount, "answer")} today`
+    };
+  }
+  return null;
 }
 
 function deferredReaderNextLine({ openQuestionCount = 0, answerCount = 0 }) {

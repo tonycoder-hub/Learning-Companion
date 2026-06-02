@@ -44,13 +44,13 @@ The scaffold is intentionally separate from the executable JavaScript prototype 
 
 `answersToday` is a Mac-generated read-only projection. `answersToday[].answeredAt` is the Today attribution time for the generated view, and `answeredAtSource` records whether that time came from `capturedAt`, `createdAt`, or an inbox patch landing through `updatedAt`. `localDayWindow` belongs to the reader generator's local timezone and must not be silently recomputed as phone-local time.
 
-`readerNextAction` is the first landing action for reader surfaces. Its current fields are `kind`, `label`, `detail`, `route`, `routeLabel`, `meta`, `secondary`, `generatedAt`, and `surface: "reader"`. The scaffold route set is intentionally closed to `pages/ReviewQueue`, `pages/TopicDetail`, and `pages/ImportReceipt`.
+`readerNextAction` is the first landing action for reader surfaces. Its current fields are `kind`, `label`, `detail`, `route`, `routeLabel`, `meta`, `secondary`, optional `secondaryAction`, `generatedAt`, and `surface: "reader"`. `secondaryAction` gives the Index page one additional button when the primary action hides another useful lane, such as review due cards while open questions also exist. Its optional `routeParams.section` currently distinguishes `open_questions` and `answers_today` while staying inside the existing TopicDetail route. The scaffold route set is intentionally closed to `pages/ReviewQueue`, `pages/TopicDetail`, and `pages/ImportReceipt`.
 
 ## Screens
 
 | Screen | Purpose | Data |
 | --- | --- | --- |
-| Index | Phone Next, Resume Here, accepted import status, answers today, active open questions, parked questions, topic list, import button, latest intake status. | `ReaderSessionState.currentView`, `readerNextAction`, `importStatus`, `activeTopic`, `answersToday`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
+| Index | Phone Next, optional secondary Phone Next action, Resume Here, accepted import status, answers today, active open questions, parked questions, topic list, import button, latest intake status. | `ReaderSessionState.currentView`, `readerNextAction`, `readerNextAction.secondaryAction`, `importStatus`, `activeTopic`, `answersToday`, `openQuestions`, `parkedQuestions`, `topics`, `workspace` summary. |
 | TopicDetail | Source title/URL, latest capture, next action, and topic counts from the accepted reader session. | One topic from `ReaderSessionState.currentView.topics`. |
 | ReviewQueue | Read-only due cards with answer reveal from the accepted reader session. | `ReaderSessionState.currentView.dueReview`. |
 | ImportReceipt | Shows imported workspace/mirror metadata and limitations. | `source`, `workspace`, `limitations`. |

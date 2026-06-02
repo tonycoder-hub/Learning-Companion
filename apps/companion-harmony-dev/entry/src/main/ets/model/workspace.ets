@@ -49,8 +49,22 @@ export interface HarmonyReaderNextAction {
   routeLabel: string;
   meta: string;
   secondary: string;
+  secondaryAction?: HarmonyReaderSecondaryAction;
   generatedAt: string;
   surface: HarmonyReaderSurface;
+}
+
+export interface HarmonyReaderSecondaryAction {
+  label: string;
+  route: HarmonyReaderRoute;
+  routeLabel: string;
+  routeParams?: HarmonyReaderRouteParams;
+  meta: string;
+}
+
+export interface HarmonyReaderRouteParams {
+  section?: string;
+  topicId?: string;
 }
 
 export interface CapturePreview {

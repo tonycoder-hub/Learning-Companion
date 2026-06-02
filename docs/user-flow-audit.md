@@ -84,7 +84,7 @@ Desktop/Mac:
 Harmony phone:
 
 - Not a usable app yet.
-- Current evidence is schema/scaffold only. The reader view now computes `readerNextAction` and the ArkTS Index scaffold renders it as `Phone Next`, so the phone handoff has a clearer first action after import. The next useful step is still DevEco compile plus file-picker/import smoke on device.
+- Current evidence is schema/scaffold only. The reader view now computes `readerNextAction` and optional `secondaryAction`, and the ArkTS Index scaffold renders them as `Phone Next` plus one secondary button when the primary action hides another useful lane. The next useful step is still DevEco compile plus file-picker/import smoke on device.
 
 Windows:
 

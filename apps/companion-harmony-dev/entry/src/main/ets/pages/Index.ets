@@ -11,6 +11,7 @@ struct Index {
   build() {
     const readerView = this.readerSession.currentView || createScaffoldSampleReaderView();
     const readerNext = readerView.readerNextAction;
+    const secondaryAction = readerNext.secondaryAction;
     Column({ space: 14 }) {
       Text('Learning Companion')
         .fontSize(28)
@@ -35,6 +36,14 @@ struct Index {
       }
       Button(readerNext.routeLabel)
         .onClick(() => router.pushUrl({ url: readerNext.route }))
+      if (secondaryAction) {
+        const secondaryParams = secondaryAction.routeParams || {};
+        Text(secondaryAction.meta)
+          .fontSize(12)
+          .fontColor('#666154')
+        Button(secondaryAction.routeLabel)
+          .onClick(() => router.pushUrl({ url: secondaryAction.route, params: secondaryParams }))
+      }
       Text('Resume Here')
         .fontSize(18)
         .fontWeight(FontWeight.Medium)

@@ -35,4 +35,4 @@ Expected first DevEco tasks:
 - Live Feishu sync is not part of this scaffold.
 - Non-JSON files, oversized files, and patch files should show an import receipt instead of mutating reader state.
 - Failed imports must keep the previous `ReaderSessionState.currentView` visible.
-- Index, TopicDetail, and ReviewQueue should all render from `ReaderSessionState.currentView`, not from separate page-local placeholders. Index should keep `readerNextAction` above dense lists so the phone starts with one study action instead of a dashboard.
+- Index, TopicDetail, and ReviewQueue should all render from `ReaderSessionState.currentView`, not from separate page-local placeholders. Index should keep `readerNextAction` above dense lists so the phone starts with one study action instead of a dashboard; when `readerNextAction.secondaryAction` is present, render it as one additional button rather than another dashboard section.
