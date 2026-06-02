@@ -327,6 +327,7 @@ Latest local export work separates real saves from temporary downloads:
 - Static `review.html` and `inbox.html` now make `Copy Return JSON` the primary action; `Save Return JSON` is secondary and picker-first.
 - Static return pages keep a stable per-draft return id and show `Suggested file: ...`, so Copy and Save refer to the same timestamped Return JSON name.
 - Static return pages also expose `Manual Copy`, which only selects the preview Return JSON when clipboard or picker permissions are unavailable; it does not write the clipboard, download a file, or start any background scan.
+- Return imports with new work now show `Returned from phone/Windows` inside Learning Flow. The nudge is in-memory only, suppresses duplicate-only receipts, names captures/review updates separately, exposes `Import details`, and can be dismissed without altering workspace or mirror data.
 - Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup requested - verify downloaded file`.
 - Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy only for explicit smoke fallback saves.
 - ZIP export is intentionally not sent through the text bridge; it continues through save picker or explicit smoke fallback to avoid large binary payloads in the WK message body.

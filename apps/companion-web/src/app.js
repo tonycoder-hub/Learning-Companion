@@ -192,6 +192,7 @@ let activeSearchIndex = -1;
 let searchResultsCollapsed = false;
 let lastActivity = null;
 let lastImportReceipt = null;
+let dismissedReturnNudgeKey = "";
 let pendingCaptureUndo = null;
 let pendingCaptureUndoTimer = null;
 const revealedReviewCards = new Set();
@@ -215,8 +216,10 @@ dom.exportWorkspaceBtn.addEventListener("click", () => {
 
 dom.storageExportNowBtn.addEventListener("click", exportWorkspace);
 dom.importReceiptDismissBtn.addEventListener("click", () => {
+  dismissedReturnNudgeKey = returnNudgeKey(lastImportReceipt);
   lastImportReceipt = null;
   renderImportReceipt();
+  if (activeTab === "today") renderToday();
 });
 
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
@@ -282,6 +285,7 @@ async function importReturnFiles(files) {
   }
   summary.importedAt = new Date().toISOString();
   lastImportReceipt = summary;
+  dismissedReturnNudgeKey = "";
   recordMirrorReturnImport(summary);
   setActivity(getActiveSession(workspace), {
     title: returnFilesActivityTitle(summary),
@@ -333,6 +337,7 @@ function importPortableData(imported, options = {}) {
     recordMirrorReturnImport(result.receipt);
     if (!quiet) {
       lastImportReceipt = result.receipt;
+      dismissedReturnNudgeKey = "";
       setActivity(getActiveSession(workspace), {
         title: "Mobile inbox imported",
         detail: formatInboxReceipt(result.receipt),
@@ -355,6 +360,7 @@ function importPortableData(imported, options = {}) {
     recordMirrorReturnImport(result.receipt);
     if (!quiet) {
       lastImportReceipt = result.receipt;
+      dismissedReturnNudgeKey = "";
       setActivity(getActiveSession(workspace), {
         title: "Review progress imported",
         detail: formatImportReceipt(result.receipt),
@@ -2934,6 +2940,8 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
   );
   panel.append(track);
 
+  const returnNudge = renderReturnedWorkNudge(pack);
+  if (returnNudge) panel.append(returnNudge);
   panel.append(showStartHere ? renderStartHereInline() : renderTodayPrimaryAction(pack, draftItems));
   panel.append(renderReturnFilesPanel());
   return panel;
@@ -3021,6 +3029,140 @@ function resolveCloseLoopState(pack, draftItems = []) {
     action: () => jumpToTodaySection("question_health"),
     tone: "clear"
   };
+}
+
+function renderReturnedWorkNudge(pack) {
+  const nudge = returnedWorkNudge(pack);
+  if (!nudge) return null;
+  const card = document.createElement("article");
+  card.className = `returned-work-card is-${nudge.kind}`;
+  card.append(
+    textEl("div", "item-meta", "Returned from phone/Windows"),
+    textEl("p", "card-prompt", nudge.title),
+    textEl("p", "item-meta", nudge.detail)
+  );
+  const footer = document.createElement("div");
+  footer.className = "item-footer";
+  const action = textEl("button", "mini-button primary", nudge.actionLabel);
+  action.type = "button";
+  action.dataset.returnedWorkAction = nudge.kind;
+  action.addEventListener("click", nudge.run);
+  footer.append(action);
+  if (nudge.secondaryLabel && nudge.secondaryRun) {
+    const secondary = textEl("button", "mini-button", nudge.secondaryLabel);
+    secondary.type = "button";
+    secondary.dataset.returnedWorkSecondary = nudge.kind;
+    secondary.addEventListener("click", nudge.secondaryRun);
+    footer.append(secondary);
+  }
+  const dismiss = textEl("button", "mini-button", "Dismiss");
+  dismiss.type = "button";
+  dismiss.dataset.returnedWorkDismiss = "true";
+  dismiss.addEventListener("click", dismissReturnedWorkNudge);
+  footer.append(dismiss);
+  card.append(footer);
+  return card;
+}
+
+function returnedWorkNudge(pack) {
+  const receipt = lastImportReceipt;
+  if (!receipt || receipt.schema === "learning-companion.import-error-receipt.v1") return null;
+  const nudgeKey = returnNudgeKey(receipt);
+  if (dismissedReturnNudgeKey === nudgeKey) return null;
+  const work = returnReceiptNewWork(receipt);
+  if (!work.newItems) return null;
+  const fileDetail = returnedFileDetail(receipt);
+  const failedDetail = returnedFailedDetail(receipt);
+  const captureDetail = work.inboxAdded ? `${work.inboxAdded} returned ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
+  const reviewDetail = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"} applied` : "";
+  const detail = [fileDetail, captureDetail, reviewDetail, failedDetail].filter(Boolean).join(" · ");
+  if (work.inboxAdded) {
+    return {
+      kind: "inbox",
+      title: returnedWorkTitle(work),
+      detail,
+      actionLabel: "View captures",
+      run: () => jumpToTodaySection("recent_captures"),
+      secondaryLabel: "Import details",
+      secondaryRun: openLastReturnReceipt
+    };
+  }
+  return {
+    kind: "review",
+    title: returnedWorkTitle(work),
+    detail,
+    actionLabel: "Import details",
+    run: openLastReturnReceipt,
+    secondaryLabel: pack.dueItems.length ? "Due review" : "Due status",
+    secondaryRun: () => jumpToTodaySection("due_review")
+  };
+}
+
+function returnReceiptNewWork(receipt) {
+  const inboxAdded = returnedInboxAdded(receipt);
+  const reviewApplied = returnedReviewApplied(receipt);
+  return {
+    inboxAdded,
+    reviewApplied,
+    newItems: inboxAdded + reviewApplied
+  };
+}
+
+function returnedWorkTitle(work) {
+  const captures = work.inboxAdded ? `${work.inboxAdded} new ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
+  const reviews = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"}` : "";
+  return `${[captures, reviews].filter(Boolean).join(" · ")} from phone or Windows`;
+}
+
+function returnedInboxAdded(receipt) {
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return Number(receipt.inbox?.added) || 0;
+  if (receipt?.schema === "learning-companion.mobile-inbox-receipt.v1") return Number(receipt.added) || 0;
+  return 0;
+}
+
+function returnedReviewApplied(receipt) {
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return Number(receipt.review?.applied) || 0;
+  if (receipt?.schema === "learning-companion.review-progress-receipt.v1") return Number(receipt.applied) || 0;
+  return 0;
+}
+
+function returnedFileDetail(receipt) {
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") {
+    const succeeded = Number(receipt.processedFiles) || 0;
+    return `${receipt.fileCount} return ${receipt.fileCount === 1 ? "file" : "files"} checked · ${succeeded} succeeded`;
+  }
+  return "1 return file";
+}
+
+function returnedFailedDetail(receipt) {
+  if (receipt?.schema !== "learning-companion.return-files-receipt.v1" || !receipt.failedFiles) return "";
+  return `${receipt.failedFiles} failed - open Import details`;
+}
+
+function returnNudgeKey(receipt) {
+  if (!receipt || typeof receipt !== "object") return "";
+  return [
+    receipt.schema || "",
+    receipt.importedAt || "",
+    returnedInboxAdded(receipt),
+    returnedReviewApplied(receipt),
+    receipt.processedFiles || "",
+    receipt.fileCount || "",
+    receipt.failedFiles || ""
+  ].join("::");
+}
+
+function openLastReturnReceipt() {
+  const panel = document.querySelector(".handoff-card");
+  if (!panel) return;
+  panel.open = true;
+  panel.scrollIntoView({ behavior: "smooth", block: "center" });
+  pulseNode(panel);
+}
+
+function dismissReturnedWorkNudge() {
+  dismissedReturnNudgeKey = returnNudgeKey(lastImportReceipt);
+  renderToday();
 }
 
 function renderTodayPrimaryAction(pack, draftItems = []) {

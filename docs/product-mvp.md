@@ -95,6 +95,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Import failures leave a visible issue receipt for bad mirror payloads, malformed JSON, and oversized patches.
 - Today tab surfaces Return Files counts, latest receipt, and the manual device-labeled path inside Device Flow: export a mirror on Mac, transfer it yourself through USB, AirDrop, email, file share, or manual Feishu Drive upload, use `inbox.html` or `review.html` on phone/Windows, then import the returned JSON on Mac. The export action opens the Export tab directly at the Mirror Folder controls, and mirror saves leave a handoff receipt.
 - Return File imports route back to Today, open the Device Flow receipt, and pulse the panel so phone/Windows work rejoins the Learning Flow instead of disappearing into a toast.
+- When a Return JSON import adds new captures or review updates, Learning Flow shows a dismissible `Returned from phone/Windows` nudge that jumps to returned captures or import details. Duplicate-only imports stay in the receipt without adding a new primary-card distraction.
 - Portable import/export of the full workspace JSON and mirror bundle.
 - Responsive layout for Mac sidecar width and mobile review.
 - Minimal macOS WKWebView shell scaffold that loads the web MVP.

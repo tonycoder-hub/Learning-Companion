@@ -98,6 +98,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Static return pages show stable suggested Return JSON filenames for Copy/Save, so a phone or Windows user has one name to move back to the Mac.
 - Static return pages include a `Manual Copy` fallback for locked-down browsers where clipboard or picker permissions are unavailable; it only selects the visible Return JSON and does not create a download.
 - Device Flow has local handoff status for the manual mirror loop: latest Mirror export, return-base freshness, derived waiting-for-return state, and latest Return JSON import counts. The state is kept in local UI preferences and is not serialized into workspace or mirror exports.
+- Learning Flow now shows a temporary `Returned from phone/Windows` nudge after a Return JSON import with new captures or review updates. It is driven only by the current import receipt, suppresses duplicate-only returns, can jump to returned captures or import details, and has an explicit Dismiss action.
 - Browser smoke includes decoy-session inbound capture cases to prove bookmarklet clips do not get saved into the wrong active session when an existing source URL matches elsewhere, source fields are preserved on matched sessions, tracking/query-order noise still matches, title collisions with unrelated URLs do not misroute, and staged clips survive a routing-driven session switch.
 
 ## Run

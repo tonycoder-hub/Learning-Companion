@@ -917,6 +917,7 @@ try {
             importInput.dispatchEvent(new Event("change", { bubbles: true }));
             setTimeout(() => {
               const duplicateReviewReceiptBeforeInbox = document.querySelector("#importReceipt").textContent;
+              const duplicateReturnNudgeBeforeInbox = Boolean(document.querySelector(".returned-work-card"));
               const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
               const cardMetricBeforeInbox = document.querySelector("#cardMetric").textContent;
               const dueMetricBeforeInbox = document.querySelector("#dueMetric").textContent;
@@ -977,6 +978,18 @@ try {
           const handoffOpenAfterBatchImport = handoffAfterBatchImport?.open === true;
           const handoffPulsedAfterBatchImport = handoffAfterBatchImport?.classList.contains("pulse") === true;
           document.querySelector('[data-tab="today"]').click();
+          const returnedWorkCard = document.querySelector(".returned-work-card");
+          const returnedWorkText = returnedWorkCard?.textContent || "";
+          const returnedWorkButtons = [...(returnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
+          returnedWorkCard?.querySelector("[data-returned-work-secondary]")?.click();
+          const returnedWorkReceiptOpened = document.querySelector(".handoff-card")?.open === true;
+          returnedWorkCard?.querySelector("[data-returned-work-action]")?.click();
+          const returnedWorkActionResult = {
+            detailDrawerOpen: document.querySelector('[data-today-detail-drawer="study_details"]')?.open === true,
+            recentPulsed: document.querySelector('[data-today-section="recent_captures"]')?.classList.contains("pulse") === true
+          };
+          returnedWorkCard?.querySelector('[data-returned-work-dismiss="true"]')?.click();
+          const returnedWorkDismissed = !document.querySelector(".returned-work-card");
           const handoffPanel = document.querySelector(".handoff-card");
           const handoffText = handoffPanel.textContent;
           const handoffButtons = [...handoffPanel.querySelectorAll("button")].map((button) => button.textContent);
@@ -1006,6 +1019,7 @@ try {
           importInputMultiple: importInput.multiple === true,
           reviewReceiptBeforeInbox,
           duplicateReviewReceiptBeforeInbox,
+          duplicateReturnNudgeBeforeInbox,
           captureMetric: captureMetricBeforeInbox,
           cardMetric: cardMetricBeforeInbox,
           dueMetric: dueMetricBeforeInbox,
@@ -1020,6 +1034,11 @@ try {
           activeTabAfterBatchImport,
           handoffOpenAfterBatchImport,
           handoffPulsedAfterBatchImport,
+          returnedWorkText,
+          returnedWorkButtons,
+          returnedWorkReceiptOpened,
+          returnedWorkActionResult,
+          returnedWorkDismissed,
           inboxLatestSourceUrl: afterInboxSession.captures[0].sourceUrl,
           inboxLatestProvenance: afterInboxSession.captures[0].sourceProvenance,
           inboxSanitizedSourceUrls: afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId).captures[0].sourceUrl === "" ? 1 : 0,
@@ -1204,6 +1223,7 @@ try {
   assert.match(result.duplicateReviewReceiptBeforeInbox, /1 duplicate/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /mirror base changed/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /legacy mirror check/);
+  assert.equal(result.duplicateReturnNudgeBeforeInbox, false);
   assert.equal(result.inboxCaptureMetric, "5");
   assert.match(result.singleInboxReceiptText, /1 added, 0 skipped/);
   assert.match(result.singleInboxReceiptText, /1 source link stripped/);
@@ -1228,6 +1248,19 @@ try {
   assert.equal(result.activeTabAfterBatchImport, "today");
   assert.equal(result.handoffOpenAfterBatchImport, true);
   assert.equal(result.handoffPulsedAfterBatchImport, true);
+  assert.match(result.returnedWorkText, /Returned from phone\/Windows/);
+  assert.match(result.returnedWorkText, /1 new capture from phone or Windows/);
+  assert.match(result.returnedWorkText, /3 return files checked/);
+  assert.match(result.returnedWorkText, /2 succeeded/);
+  assert.match(result.returnedWorkText, /1 returned capture/);
+  assert.match(result.returnedWorkText, /1 failed - open Import details/);
+  assert.deepEqual(result.returnedWorkButtons, ["View captures", "Import details", "Dismiss"]);
+  assert.equal(result.returnedWorkReceiptOpened, true);
+  assert.deepEqual(result.returnedWorkActionResult, {
+    detailDrawerOpen: true,
+    recentPulsed: true
+  });
+  assert.equal(result.returnedWorkDismissed, true);
   assert.equal(result.inboxLatestSourceUrl, "");
   assert.equal(result.inboxLatestProvenance, "inbox");
   assert.equal(result.inboxSanitizedSourceUrls, 1);

@@ -1234,6 +1234,25 @@ textarea:focus {
   background: #fff6ef;
 }
 
+.returned-work-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(49, 95, 130, 0.28);
+  border-radius: 8px;
+  background: #f4f9fc;
+}
+
+.returned-work-card.is-inbox {
+  border-color: rgba(47, 111, 94, 0.28);
+  background: var(--green-soft);
+}
+
+.returned-work-card.is-review {
+  border-color: rgba(137, 59, 37, 0.28);
+  background: #fff6ef;
+}
+
 .today-section-title {
   margin: 4px 0 2px;
   font-size: 12px;
