@@ -959,6 +959,8 @@ try {
         setTimeout(() => {
           const singleInboxReceiptText = document.querySelector("#importReceipt").textContent;
           const singleInboxActiveTab = document.querySelector(".tab.active")?.dataset.tab || "";
+          const singleReturnedWorkText = document.querySelector(".returned-work-card")?.textContent || "";
+          const singleHandoffText = document.querySelector(".handoff-card")?.textContent || "";
           const batchInboxPatch = {
             ...inboxPatch,
             patchId: "browser_patch_002",
@@ -1037,6 +1039,8 @@ try {
           inboxCaptureMetric: document.querySelector("#captureMetric").textContent,
           singleInboxReceiptText,
           singleInboxActiveTab,
+          singleReturnedWorkText,
+          singleHandoffText,
           batchReceiptText,
           batchActivityTitle,
           batchActivityDetail,
@@ -1227,11 +1231,14 @@ try {
   assert.match(result.reviewReceiptBeforeInbox, /1 missing/);
   assert.match(result.reviewReceiptBeforeInbox, /mirror base changed/);
   assert.match(result.reviewReceiptBeforeInbox, /legacy mirror check/);
+  assert.match(result.reviewReceiptBeforeInbox, /old return JSON/);
+  assert.match(result.reviewReceiptBeforeInbox, /re-export mirror before next device pass/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /Review progress imported/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /0 applied/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /1 duplicate/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /mirror base changed/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /legacy mirror check/);
+  assert.match(result.duplicateReviewReceiptBeforeInbox, /old return JSON/);
   assert.equal(result.duplicateReturnNudgeBeforeInbox, false);
   assert.equal(result.inboxCaptureMetric, "5");
   assert.match(result.singleInboxReceiptText, /1 added, 0 skipped/);
@@ -1240,12 +1247,20 @@ try {
   assert.match(result.singleInboxReceiptText, /invalid: 1/);
   assert.match(result.singleInboxReceiptText, /mirror base changed/);
   assert.match(result.singleInboxReceiptText, /legacy mirror check/);
+  assert.match(result.singleInboxReceiptText, /old return JSON/);
+  assert.match(result.singleInboxReceiptText, /re-export mirror before next device pass/);
   assert.match(result.singleInboxReceiptText, /topic id matched/);
   assert.equal(result.singleInboxActiveTab, "today");
+  assert.match(result.singleReturnedWorkText, /old return JSON - re-export mirror before next device pass/);
+  assert.doesNotMatch(result.singleReturnedWorkText, /1 old return files/);
+  assert.match(result.singleHandoffText, /1 old return file - re-export mirror before next device pass/);
+  assert.doesNotMatch(result.singleHandoffText, /1 old return files/);
   assert.match(result.batchReceiptText, /Return JSON imported/);
   assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /2 mirror bases changed/);
   assert.match(result.batchReceiptText, /2 legacy mirror checks/);
+  assert.match(result.batchReceiptText, /old return JSON/);
+  assert.match(result.batchReceiptText, /re-export mirror before next device pass/);
   assert.match(result.batchReceiptText, /learning-companion-inbox-patch-20260529-0902-002\.json/);
   assert.match(result.batchReceiptText, /learning-companion-review-progress-patch-20260529-0906-missing\.json/);
   assert.match(result.batchReceiptText, /inbox: 1 added, 0 skipped/);
@@ -1260,6 +1275,7 @@ try {
   assert.match(result.returnedWorkText, /Returned from phone\/Windows/);
   assert.match(result.returnedWorkText, /1 new capture from phone or Windows/);
   assert.match(result.returnedWorkText, /3 return files checked/);
+  assert.match(result.returnedWorkText, /2 old return files - re-export mirror before next device pass/);
   assert.match(result.returnedWorkText, /2 succeeded/);
   assert.match(result.returnedWorkText, /1 returned capture/);
   assert.match(result.returnedWorkText, /1 failed - open Import details/);
@@ -1292,6 +1308,7 @@ try {
   assert.match(result.handoffText, /Last return imported/);
   assert.match(result.handoffText, /2 files/);
   assert.match(result.handoffText, /1 new/);
+  assert.match(result.handoffText, /2 old return files - re-export mirror before next device pass/);
   assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",

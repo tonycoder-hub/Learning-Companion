@@ -2123,7 +2123,7 @@ function formatReturnFilesReceipt(receipt) {
     parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)}`);
   }
   if (receipt.legacyBasisFiles) {
-    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)}`);
+    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)} - old return JSON, re-export mirror before next device pass`);
   }
   if (receipt.inbox?.files) {
     const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
@@ -2147,7 +2147,9 @@ function formatReturnFilesReceipt(receipt) {
 }
 
 function formatLegacyBasisNote(receipt) {
-  return receipt?.sourceFingerprintBasis === "workspace" ? " · legacy mirror check" : "";
+  return receipt?.sourceFingerprintBasis === "workspace"
+    ? " · legacy mirror check (old return JSON; re-export mirror before next device pass)"
+    : "";
 }
 
 function formatBaseChangedFileNames(fileNames = []) {
@@ -3112,7 +3114,8 @@ function returnedWorkNudge(pack) {
   const failedDetail = returnedFailedDetail(receipt);
   const captureDetail = work.inboxAdded ? `${work.inboxAdded} returned ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
   const reviewDetail = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"} applied` : "";
-  const detail = [fileDetail, captureDetail, reviewDetail, failedDetail].filter(Boolean).join(" · ");
+  const basisDetail = returnedBasisDetail(receipt);
+  const detail = [fileDetail, captureDetail, reviewDetail, basisDetail, failedDetail].filter(Boolean).join(" · ");
   if (work.inboxAdded) {
     return {
       kind: "inbox",
@@ -3174,6 +3177,27 @@ function returnedFileDetail(receipt) {
 function returnedFailedDetail(receipt) {
   if (receipt?.schema !== "learning-companion.return-files-receipt.v1" || !receipt.failedFiles) return "";
   return `${receipt.failedFiles} failed - open Import details`;
+}
+
+function returnedBasisDetail(receipt) {
+  if (receipt?.schema !== "learning-companion.return-files-receipt.v1") {
+    if (receipt?.sourceFingerprintBasis === "workspace") return "old return JSON - re-export mirror before next device pass";
+    if (receipt?.sourceFingerprintMatches === false) return "mirror base changed";
+    return "";
+  }
+  const parts = [];
+  if (receipt.legacyBasisFiles) {
+    parts.push(`${oldReturnFileCountLabel(receipt.legacyBasisFiles)} - re-export mirror before next device pass`);
+  }
+  if (receipt.baseChangedFiles) {
+    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed`);
+  }
+  return parts.join(" · ");
+}
+
+function oldReturnFileCountLabel(count) {
+  const value = Number(count) || 0;
+  return `${value} old return ${value === 1 ? "file" : "files"}`;
 }
 
 function returnNudgeKey(receipt) {
@@ -3694,7 +3718,9 @@ function mirrorReturnImportDetail(importState) {
     `${importState.newItems || 0} new`
   ];
   if (importState.baseChangedFiles) parts.push(`${importState.baseChangedFiles} changed base`);
-  if (importState.legacyBasisFiles) parts.push(`${importState.legacyBasisFiles} legacy check`);
+  if (importState.legacyBasisFiles) {
+    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles)} - re-export mirror before next device pass`);
+  }
   return parts.join(" · ");
 }
 

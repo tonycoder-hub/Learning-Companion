@@ -146,6 +146,8 @@ assert.match(appJs, /dismissedReturnNudgeKey/);
 assert.match(appJs, /returnedWorkAction/);
 assert.match(appJs, /seedFirstQuestionDraft/);
 assert.match(appJs, /todayMapTarget/);
+assert.match(appJs, /old return JSON/);
+assert.match(appJs, /re-export mirror/);
 assert.match(appJs, /signal-button/);
 assert.match(appJs, /const scrollTarget = section \|\| dom\.todayList/);
 assert.match(appCss, /\.today-map-button/);
@@ -481,6 +483,8 @@ const matchingInboxReturnBaseResult = applyMobileInboxPatch(workspace, {
 assert.equal(matchingInboxReturnBaseResult.receipt.sourceReturnBaseFingerprint, matchingInboxReturnBaseFingerprint);
 assert.equal(matchingInboxReturnBaseResult.receipt.currentReturnBaseFingerprint, matchingInboxReturnBaseFingerprint);
 assert.equal(matchingInboxReturnBaseResult.receipt.sourceFingerprintBasis, "return-base");
+assert.notEqual(matchingInboxReturnBaseResult.receipt.sourceFingerprintBasis, "workspace");
+assert.ok(matchingInboxReturnBaseResult.receipt.sourceWorkspaceFingerprint);
 assert.equal(matchingInboxReturnBaseResult.receipt.sourceFingerprintMatches, true);
 const unrelatedMacCaptureWorkspace = addCapture(workspace, session.id, {
   quote: "Unrelated Mac capture after mirror export.",
