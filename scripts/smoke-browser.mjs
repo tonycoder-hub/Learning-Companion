@@ -1644,6 +1644,9 @@ try {
     document.querySelector('[data-grade="good"]')?.click();
     const preview = JSON.parse(document.querySelector("#progressPreview").textContent);
     const readyStatus = document.querySelector("#progressStatus").textContent;
+    document.querySelector("#selectProgressBtn").click();
+    const selectedReturnJson = window.getSelection().toString();
+    const selectedStatus = document.querySelector("#progressStatus").textContent;
     const dirtyBeforeSave = beforeUnloadPrevented();
     let downloadName = "";
     const originalClick = HTMLAnchorElement.prototype.click;
@@ -1658,6 +1661,8 @@ try {
       heading: document.querySelector("h1").textContent,
       answerVisible: !document.querySelector(".answer").hidden,
       status: readyStatus,
+      selectedStatus,
+      selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.review-progress-patch.v1"'),
       savedStatus: document.querySelector("#progressStatus").textContent,
       returnFileHint: document.querySelector("#returnFileHint").textContent,
       downloadName,
@@ -1676,6 +1681,8 @@ try {
   assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
+  assert.match(reviewRuntime.selectedStatus, /Return JSON selected/);
+  assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(reviewRuntime.savedStatus, /Return JSON download requested/);
   assert.match(reviewRuntime.returnFileHint, /^Suggested file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
@@ -1748,9 +1755,12 @@ try {
     setValue("#sourceUrlInput", "javascript:alert(1)");
     document.querySelector("#addCaptureBtn").click();
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
+    const readyStatus = document.querySelector("#statusOutput").textContent;
+    document.querySelector("#selectPatchBtn").click();
+    const selectedReturnJson = window.getSelection().toString();
+    const selectedStatus = document.querySelector("#statusOutput").textContent;
     const storageKey = Object.keys(localStorage).find((key) => key.startsWith("learning-companion.inbox.") && !key.endsWith(".return-file"));
     const storedDrafts = storageKey ? JSON.parse(localStorage.getItem(storageKey) || "[]") : [];
-    const readyStatus = document.querySelector("#statusOutput").textContent;
     const dirtyBeforeSave = beforeUnloadPrevented();
     let downloadName = "";
     const originalClick = HTMLAnchorElement.prototype.click;
@@ -1767,6 +1777,8 @@ try {
       selectedTopicId: document.querySelector("#topicSelect").value,
       selectedTopicTitle: document.querySelector("#topicSelect option:checked")?.textContent || "",
       status: readyStatus,
+      selectedStatus,
+      selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.mobile-inbox-patch.v1"'),
       draftCount: document.querySelectorAll("#draftList .capture").length,
       previewSchema: preview.schema,
       previewTargetTitle: preview.target.topicTitle,
@@ -1788,6 +1800,8 @@ try {
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
   assert.equal(inboxRuntime.status, "Capture added to patch draft. Save Return JSON when ready.");
+  assert.match(inboxRuntime.selectedStatus, /Return JSON selected/);
+  assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(inboxRuntime.savedStatus, /Return JSON download requested/);
   assert.match(inboxRuntime.returnFileHint, /^Suggested file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);

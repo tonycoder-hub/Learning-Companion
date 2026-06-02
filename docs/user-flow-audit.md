@@ -54,6 +54,7 @@ Learning Companion is a Mac-first study sidecar, not a generic note app. The mai
 - Device Flow now has a local handoff status, not a sync claim: it records the latest Mirror JSON/ZIP export in `uiPrefs`, compares that return-base fingerprint to the current Mac state, shows `Mirror current` or `Mac changed since mirror export`, and derives `Waiting for return file` from export/import times instead of persisting a brittle flag.
 - The same local state records the latest Return JSON import with file/new-item counts. It stays out of workspace JSON and mirror exports, preserving the portable data contract.
 - Static Review/Inbox pages now keep a stable per-draft return id and visible suggested filename, so Copy Return JSON and Save Return JSON point at the same file identity instead of generating a new patch id every time the preview renders.
+- Static Review/Inbox pages now also include `Manual Copy` as the no-permission fallback: it only selects the preview Return JSON for manual copy when clipboard or picker access is blocked, without writing the clipboard, downloading a file, or starting any background scan.
 
 ## Current Journey Assessment
 
