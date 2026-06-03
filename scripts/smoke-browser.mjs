@@ -2844,6 +2844,87 @@ try {
   assert.equal(inboxRuntime.previewSourceUrl, "");
   assert.equal(inboxRuntime.storedDraftCount, 1);
 
+  const exceptionsBeforeInboxStorageGuard = exceptions.length;
+  const storageFailureScript = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: {
+          getItem() { throw new Error("localStorage blocked for smoke"); },
+          setItem() { throw new Error("localStorage blocked for smoke"); },
+          removeItem() {},
+          key() { return null; },
+          get length() { return 0; }
+        }
+      });
+    `
+  });
+  virtualRoutes.set("/mirror-inbox-storage-guard.html", result.mirrorInboxHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox-storage-guard.html` });
+  await sleep(300);
+  await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: storageFailureScript.identifier });
+  const inboxStorageGuard = await cdp.evaluate(`(async () => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const rejectClipboard = () => Promise.reject(new Error("clipboard blocked for smoke"));
+    try { if (window.Clipboard?.prototype) Object.defineProperty(window.Clipboard.prototype, "writeText", { configurable: true, value: rejectClipboard }); } catch {}
+    try { Object.defineProperty(Navigator.prototype, "clipboard", { configurable: true, get() { return { writeText: rejectClipboard }; } }); } catch {}
+    try { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: rejectClipboard } }); } catch {}
+    const initialStatus = document.querySelector("#statusOutput").textContent;
+    setValue("#quoteInput", "Storage blocked quote from phone.");
+    setValue("#thoughtInput", "This still needs a return file.");
+    document.querySelector("#addCaptureBtn").click();
+    const postAddStatus = document.querySelector("#statusOutput").textContent;
+    const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
+    document.querySelector("#copyPatchBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const copyFallbackStatus = document.querySelector("#statusOutput").textContent;
+    const copySelectionText = window.getSelection()?.toString() || "";
+    window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = false;
+    Object.defineProperty(window, "showSaveFilePicker", { value: undefined, configurable: true });
+    document.querySelector("#downloadPatchBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const saveFallbackStatus = document.querySelector("#statusOutput").textContent;
+    const saveSelectionText = window.getSelection()?.toString() || "";
+    return {
+      heading: document.querySelector("h1").textContent,
+      initialStatus,
+      postAddStatus,
+      copyFallbackStatus,
+      saveFallbackStatus,
+      copySelectionHasSchema: copySelectionText.includes("learning-companion.mobile-inbox-patch.v1"),
+      saveSelectionHasSchema: saveSelectionText.includes("learning-companion.mobile-inbox-patch.v1"),
+      previewSchema: preview.schema,
+      previewCaptureCount: preview.captures.length,
+      previewQuote: preview.captures[0]?.quote || "",
+      previewThought: preview.captures[0]?.thought || "",
+      draftCount: document.querySelectorAll("#draftList .capture").length,
+      returnNextStep: document.querySelector("#returnNextStep").textContent,
+      returnManualHelp: document.querySelector("#returnManualHelp").textContent
+    };
+  })()`);
+  assert.equal(exceptions.length, exceptionsBeforeInboxStorageGuard);
+  assert.equal(inboxStorageGuard.heading, "Learning Companion Inbox");
+  assert.match(inboxStorageGuard.initialStatus, /Browser storage is unavailable/);
+  assert.match(inboxStorageGuard.postAddStatus, /Browser storage is unavailable/);
+  assert.match(inboxStorageGuard.postAddStatus, /Manual Copy or Save/);
+  assert.match(inboxStorageGuard.copyFallbackStatus, /Copy failed/);
+  assert.match(inboxStorageGuard.copyFallbackStatus, /copy it manually/);
+  assert.match(inboxStorageGuard.saveFallbackStatus, /Save picker unavailable here/);
+  assert.match(inboxStorageGuard.saveFallbackStatus, /copy it manually/);
+  assert.equal(inboxStorageGuard.copySelectionHasSchema, true);
+  assert.equal(inboxStorageGuard.saveSelectionHasSchema, true);
+  assert.equal(inboxStorageGuard.previewSchema, "learning-companion.mobile-inbox-patch.v1");
+  assert.equal(inboxStorageGuard.previewCaptureCount, 1);
+  assert.equal(inboxStorageGuard.previewQuote, "Storage blocked quote from phone.");
+  assert.equal(inboxStorageGuard.previewThought, "This still needs a return file.");
+  assert.equal(inboxStorageGuard.draftCount, 1);
+  assert.equal(inboxStorageGuard.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.match(inboxStorageGuard.returnManualHelp, /Manual Copy/);
+
   const inboxAnswerParams = new URLSearchParams({
     topicId: inboxRuntime.selectedTopicId,
     quote: "What should I answer from the mirror?",
