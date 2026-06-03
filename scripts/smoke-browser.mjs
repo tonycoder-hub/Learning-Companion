@@ -5384,6 +5384,7 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightAnnotated.hintText, /come back later/);
   assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Save for recall");
   assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Save this annotated highlight for recall");
+  assert.equal(postSaveFlow.highlightAnnotated.activeElement, "quoteInput");
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFormVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFocusOnOpen, true);
   assert.equal(postSaveFlow.highlightAnnotationState.singleFormAfterSecondOpen, true);

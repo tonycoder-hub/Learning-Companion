@@ -5189,12 +5189,12 @@ function renderHighlightAnnotationForm(session, capture, context = "details") {
   form.append(actions);
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    saveHighlightAnnotation(session.id, capture.id, input.value);
+    saveHighlightAnnotation(session.id, capture.id, input.value, { context });
   });
   return form;
 }
 
-function saveHighlightAnnotation(sessionId, captureId, thought) {
+function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
   const text = String(thought || "").trim();
   if (!text) {
     showToast("Add a thought before saving");
@@ -5242,7 +5242,11 @@ function saveHighlightAnnotation(sessionId, captureId, thought) {
     nextHint
   });
   persistAndRender("Highlight annotated");
-  scrollActivityTarget({ tab: "captures", targetId: updatedCapture.id });
+  if (options.context === "stack") {
+    focusCaptureDraftContinuation();
+  } else {
+    scrollActivityTarget({ tab: "captures", targetId: updatedCapture.id });
+  }
 }
 
 function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspace).id) {
