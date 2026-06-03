@@ -1646,8 +1646,23 @@ assert.match(questionTodayMarkdown, /Backlog: 1 unresolved question/);
 const mixedMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(mixedMirrorIndexHtml, /Next from this export/);
 assert.match(mixedMirrorIndexHtml, /Review due cards/);
-assert.match(mixedMirrorIndexHtml, /Also: 1 open question in Inbox\./);
+assert.match(mixedMirrorIndexHtml, /Also answer 1 open question in Inbox\./);
+assert.match(mixedMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html\?/);
 assert.doesNotMatch(mixedMirrorIndexHtml, /<strong>Answer next question/);
+const mixedSecondaryHref = mixedMirrorIndexHtml.match(/class="device-next-secondary" href="([^"]+)"/)?.[1] || "";
+assert.match(mixedSecondaryHref, /^inbox\.html\?[^#]+$/);
+assert.match(mixedSecondaryHref, /answerToCaptureId=/);
+assert.doesNotMatch(mixedSecondaryHref, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
+const twoQuestionMirrorWorkspace = addCapture(questionTodayWorkspace, algorithmsSession.id, {
+  quote: "Another stale heap edge case.",
+  thought: "Question: Which tie-breaker keeps the exported path deterministic?",
+  tags: "question graph"
+}, { now: "2099-01-02T00:06:00.000Z" });
+const twoQuestionMirrorIndexHtml = generateMirrorIndexHtml(twoQuestionMirrorWorkspace, frozenToday);
+assert.match(twoQuestionMirrorIndexHtml, /Also answer 2 open questions in Inbox\./);
+const pluralSecondaryHref = twoQuestionMirrorIndexHtml.match(/class="device-next-secondary" href="([^"]+)"/)?.[1] || "";
+assert.match(pluralSecondaryHref, /^inbox\.html\?[^#]+$/);
+assert.doesNotMatch(pluralSecondaryHref, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
 const overflowResolvedCaptures = Array.from({ length: 6 }, (_, index) => ({
   id: `resolved_overflow_${index}`,
   quote: "",
@@ -2096,6 +2111,7 @@ assert.match(mirrorIndexHtml, /Review due cards/);
 assert.match(mirrorIndexHtml, /2 due cards/);
 assert.match(mirrorIndexHtml, /As of 2099-01-02T08:00:00\+08:00/);
 assert.match(mirrorIndexHtml, /device-next-link:focus-visible/);
+assert.match(mirrorIndexHtml, /a\.device-next-secondary/);
 assert.match(mirrorIndexHtml, /Manual Return/);
 assert.match(mirrorIndexHtml, /Read Today/);
 assert.match(mirrorIndexHtml, /Work here/);

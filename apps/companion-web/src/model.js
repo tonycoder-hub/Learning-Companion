@@ -2917,6 +2917,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    .device-next-link strong { color: #2f6f5e; }",
     "    .device-next-link span, .device-next-link small { color: #4b5358; }",
     "    .device-next-secondary { color: #697077; font-size: 13px; }",
+    "    a.device-next-secondary { color: #315f82; }",
     "    ul { margin: 0; padding-left: 20px; }",
     "    li { margin: 8px 0; }",
     "    .sessions { display: grid; gap: 8px; }",
@@ -2941,7 +2942,9 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    <section class=\"panel device-next-panel\" aria-label=\"Next from this export\">",
     "      <h2>Next from this export</h2>",
     `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"><strong>${htmlText(mirrorDeviceAction.label)}</strong><span>${htmlText(mirrorDeviceAction.detail)}</span><small>${htmlText(mirrorDeviceAction.meta)} · As of ${htmlText(pack.generatedAt)} · Static mirror. Save a return file when done.</small></a>`,
-    ...(mirrorDeviceAction.secondary ? [`      <span class="device-next-secondary">${htmlText(mirrorDeviceAction.secondary)}</span>`] : []),
+    ...(mirrorDeviceAction.secondary ? [mirrorDeviceAction.secondaryHref
+      ? `      <a class="device-next-secondary" href="${htmlAttribute(mirrorDeviceAction.secondaryHref)}">${htmlText(mirrorDeviceAction.secondary)}</a>`
+      : `      <span class="device-next-secondary">${htmlText(mirrorDeviceAction.secondary)}</span>`] : []),
     "    </section>",
     "    <section class=\"panel\">",
     "      <h2>Manual Return</h2>",
@@ -2986,12 +2989,15 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
 
 function buildMirrorDeviceAction(pack) {
   if (pack.dueItems.length) {
+    const [questionItem] = pack.questionItems;
+    const secondaryHref = questionItem ? buildInboxAnswerHref(questionItem.sessionId, questionItem.capture) : "inbox.html";
     return {
       href: "review.html",
       label: "Review due cards",
       detail: "Grade the due queue here, then save a return file for Mac.",
       meta: formatCount(pack.stats.due, "due card"),
-      secondary: pack.stats.questions ? `Also: ${formatCount(pack.stats.questions, "open question")} in Inbox.` : ""
+      secondary: pack.stats.questions ? `Also answer ${formatCount(pack.stats.questions, "open question")} in Inbox.` : "",
+      secondaryHref: pack.stats.questions ? secondaryHref : ""
     };
   }
   if (pack.questionItems.length) {
@@ -3030,11 +3036,13 @@ export function getSynthesisStats(session) {
 }
 
 function buildInboxAnswerHref(sessionId, capture) {
+  const answerToCaptureId = cleanQueryParam(capture?.id, 128);
+  if (!answerToCaptureId) return "inbox.html";
   const params = new URLSearchParams();
   params.set("topicId", cleanQueryParam(sessionId, 128));
   params.set("quote", cleanQueryParam(capture?.thought || capture?.quote || "Untitled question", MAX_CAPTURE_TEXT_LENGTH));
   params.set("thought", "Answer:");
-  params.set("answerToCaptureId", cleanQueryParam(capture?.id, 128));
+  params.set("answerToCaptureId", answerToCaptureId);
   if (capture?.timestamp) params.set("timestamp", cleanQueryParam(capture.timestamp, 32));
   const tags = normalizeTags([...(capture?.tags || []), "answer"]).join(", ");
   if (tags) params.set("tags", tags);
