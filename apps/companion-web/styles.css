@@ -796,7 +796,7 @@ textarea:focus {
 
 .capture-context {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) auto minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -808,9 +808,10 @@ textarea:focus {
 .capture-context-target {
   display: -webkit-box;
   align-items: center;
+  grid-column: 1 / -1;
   min-height: 36px;
   min-width: 0;
-  max-width: min(100%, 32ch);
+  max-width: 100%;
   padding: 3px 8px;
   overflow: hidden;
   text-align: left;
@@ -828,6 +829,8 @@ textarea:focus {
 }
 
 .capture-context-intent {
+  grid-column: 1 / 2;
+  justify-self: start;
   max-width: 112px;
   padding: 3px 7px;
   border: 1px solid rgba(47, 111, 94, 0.22);
@@ -844,9 +847,10 @@ textarea:focus {
 .capture-context-source {
   display: -webkit-box;
   position: relative;
+  grid-column: 1 / -1;
   min-width: 0;
   min-height: 36px;
-  max-width: min(100%, 36ch);
+  max-width: 100%;
   padding: 3px 8px 3px 20px;
   overflow: hidden;
   border: 1px solid transparent;
@@ -905,6 +909,8 @@ textarea:focus {
 }
 
 .capture-context-time {
+  grid-column: 2 / 3;
+  justify-self: end;
   max-width: 92px;
   padding: 3px 7px;
   border: 1px solid rgba(49, 95, 130, 0.2);
@@ -915,6 +921,11 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.capture-context .mini-button {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .capture-starters {

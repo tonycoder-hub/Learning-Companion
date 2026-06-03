@@ -357,6 +357,71 @@ try {
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
     });
+    const readCaptureContextReadability = () => {
+      const captureContext = document.querySelector("#captureContext");
+      captureContext.scrollIntoView({ block: "center", inline: "nearest" });
+      const targetContext = document.querySelector("#captureContextTarget");
+      const sourceContext = document.querySelector("#captureContextSource");
+      const intentContext = document.querySelector("#captureContextIntent");
+      const timeContext = document.querySelector("#captureContextTime");
+      const targetRect = targetContext.getBoundingClientRect();
+      const sourceRect = sourceContext.getBoundingClientRect();
+      return {
+        shellCompact: shell.classList.contains("sidecar-layout"),
+        captureContextWidth: Math.ceil(captureContext.getBoundingClientRect().width),
+        captureContextScrollWidth: captureContext.scrollWidth,
+        targetText: targetContext.textContent,
+        targetTitle: targetContext.title,
+        targetAria: targetContext.getAttribute("aria-label") || "",
+        targetWidth: Math.ceil(targetRect.width),
+        targetClientHeight: targetContext.clientHeight,
+        targetScrollHeight: targetContext.scrollHeight,
+        targetClientWidth: targetContext.clientWidth,
+        targetScrollWidth: targetContext.scrollWidth,
+        targetInnerText: targetContext.innerText,
+        targetHit: document.elementFromPoint(targetRect.left + targetRect.width / 2, targetRect.top + targetRect.height / 2) === targetContext,
+        sourceText: sourceContext.textContent,
+        sourceTitle: sourceContext.title,
+        sourceAria: sourceContext.getAttribute("aria-label") || "",
+        sourceWidth: Math.ceil(sourceRect.width),
+        sourceClientHeight: sourceContext.clientHeight,
+        sourceScrollHeight: sourceContext.scrollHeight,
+        sourceClientWidth: sourceContext.clientWidth,
+        sourceScrollWidth: sourceContext.scrollWidth,
+        sourceHit: document.elementFromPoint(sourceRect.left + sourceRect.width / 2, sourceRect.top + sourceRect.height / 2) === sourceContext,
+        intentText: intentContext.textContent,
+        intentClientHeight: intentContext.clientHeight,
+        intentScrollHeight: intentContext.scrollHeight,
+        timeHidden: timeContext.hidden,
+        timeText: timeContext.textContent,
+        timeClientHeight: timeContext.clientHeight,
+        timeScrollHeight: timeContext.scrollHeight
+      };
+    };
+    const setCaptureContextFixture = () => {
+      document.querySelector("#sessionTitle").value = "Learning Companion Browser Notes With A Long Course Name";
+      document.querySelector("#sessionTitle").dispatchEvent(new Event("input", { bubbles: true }));
+      document.querySelector("#sourceTitle").value = "Manual browser check source with chapter marker";
+      document.querySelector("#sourceTitle").dispatchEvent(new Event("input", { bubbles: true }));
+      document.querySelector("#timestampInput").value = "12:34";
+      document.querySelector("#timestampInput").dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const restoreCaptureContextFixture = (values) => {
+      document.querySelector("#sessionTitle").value = values.title;
+      document.querySelector("#sessionTitle").dispatchEvent(new Event("input", { bubbles: true }));
+      document.querySelector("#sourceTitle").value = values.sourceTitle;
+      document.querySelector("#sourceTitle").dispatchEvent(new Event("input", { bubbles: true }));
+      document.querySelector("#timestampInput").value = values.timestamp;
+      document.querySelector("#timestampInput").dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const originalContextFixture = {
+      title: document.querySelector("#sessionTitle").value,
+      sourceTitle: document.querySelector("#sourceTitle").value,
+      timestamp: document.querySelector("#timestampInput").value
+    };
+    setCaptureContextFixture();
+    const fullDeskContextReadability = readCaptureContextReadability();
+    restoreCaptureContextFixture(originalContextFixture);
     const before = readState();
     document.querySelector("#notesEditor").focus();
     document.querySelector("#notesEditor").dispatchEvent(new KeyboardEvent("keydown", {
@@ -383,6 +448,9 @@ try {
       cancelable: true
     }));
     const afterFocusCaptureShortcut = readState();
+    setCaptureContextFixture();
+    const sidecarContextReadability = readCaptureContextReadability();
+    restoreCaptureContextFixture(originalContextFixture);
     document.querySelector("#quoteInput").value = "Draft quote from shortcut smoke.";
     document.querySelector("#thoughtInput").value = "";
     document.querySelector("#quoteInput").dispatchEvent(new Event("input", { bubbles: true }));
@@ -474,7 +542,7 @@ try {
     };
     document.querySelector("#activityDetailsBtn").click();
     const afterActivityDetails = readState();
-    return { before, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, captureCountBeforeStarterShortcuts, workspaceCaptureCountBeforeStarterShortcuts, undoHiddenBeforeStarterShortcuts, afterEditableStarterShortcut, afterQuestionStarterShortcut, afterAnswerStarterShortcut, afterTakeawayStarterShortcut, afterCaptureDestination, afterActivityDetails };
+    return { before, fullDeskContextReadability, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, sidecarContextReadability, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, captureCountBeforeStarterShortcuts, workspaceCaptureCountBeforeStarterShortcuts, undoHiddenBeforeStarterShortcuts, afterEditableStarterShortcut, afterQuestionStarterShortcut, afterAnswerStarterShortcut, afterTakeawayStarterShortcut, afterCaptureDestination, afterActivityDetails };
   })()`);
 
   assert.equal(sidecarLayout.before.shellCompact, false);
@@ -488,6 +556,33 @@ try {
   assert.equal(sidecarLayout.before.toggleAria, "Focus sidecar layout");
   assert.notEqual(sidecarLayout.before.focusBriefFactsDisplay, "none");
   assert.notEqual(sidecarLayout.before.focusBriefSignalsDisplay, "none");
+  const assertCaptureContextReadable = (state, shellCompact) => {
+    assert.equal(state.shellCompact, shellCompact);
+    assert.ok(state.captureContextWidth > 0);
+    assert.ok(state.captureContextScrollWidth <= state.captureContextWidth + 2);
+    assert.equal(state.targetText, "To Learning Companion Browser Notes With A Long Course Name");
+    assert.equal(state.targetTitle, "Captures save to Learning Companion Browser Notes With A Long Course Name");
+    assert.equal(state.targetAria, "Show capture destination: Learning Companion Browser Notes With A Long Course Name");
+    assert.ok(state.targetWidth >= Math.floor(state.captureContextWidth * 0.9));
+    assert.ok(state.targetScrollHeight <= state.targetClientHeight + 1);
+    assert.ok(state.targetScrollWidth <= state.targetClientWidth + 2);
+    assert.doesNotMatch(state.targetInnerText, /…|\.\.\./);
+    assert.equal(state.targetHit, true);
+    assert.equal(state.sourceText, "Manual browser check source with chapter marker");
+    assert.match(state.sourceTitle, /Manual browser check source with chapter marker/);
+    assert.equal(state.sourceAria, "Show capture source: Manual browser check source with chapter marker");
+    assert.ok(state.sourceWidth >= Math.floor(state.captureContextWidth * 0.9));
+    assert.ok(state.sourceScrollHeight <= state.sourceClientHeight + 1);
+    assert.ok(state.sourceScrollWidth <= state.sourceClientWidth + 2);
+    assert.equal(state.sourceHit, true);
+    assert.ok(state.intentClientHeight <= 28);
+    assert.ok(state.intentScrollHeight <= state.intentClientHeight + 1);
+    assert.equal(state.timeHidden, false);
+    assert.equal(state.timeText, "@ 12:34");
+    assert.ok(state.timeClientHeight <= 28);
+    assert.ok(state.timeScrollHeight <= state.timeClientHeight + 1);
+  };
+  assertCaptureContextReadable(sidecarLayout.fullDeskContextReadability, false);
   assert.equal(sidecarLayout.afterEditableShortcut.shellCompact, false);
   assert.equal(sidecarLayout.afterPanelShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterPanelShortcut.sidebarDisplay, "none");
@@ -524,6 +619,7 @@ try {
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.capturePanePulsed, true);
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityAction, "Capture");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activityAria, "Focus Quick Capture");
+  assertCaptureContextReadable(sidecarLayout.sidecarContextReadability, true);
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activeTab, "captures");
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.activeId, "thoughtInput");
