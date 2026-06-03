@@ -5838,7 +5838,23 @@ async function assertPostSaveFlow(cdp) {
       activeElement: document.activeElement?.id || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
     };
-    document.querySelector('[data-tab="today"]').click();
+    document.querySelector("#activityHintBtn").click();
+    const questionAnswerDraft = readActivity();
+    const questionAnswerDraftState = (() => {
+      const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const draft = prefs.captureDrafts?.[session?.id || ""] || {};
+      return {
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        activeElement: document.activeElement?.id || "",
+        thoughtValue: document.querySelector("#thoughtInput")?.value || "",
+        draftTarget: draft.answersQuestionCaptureId || "",
+        draftQuote: draft.quote || "",
+        draftSourceTitle: draft.sourceTitle || "",
+        capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+      };
+    })();
     openQuestionButton()?.click();
     setValue("#thoughtInput", "Answer: Ownership matters because the compiler can prove a single owner controls mutation.");
     document.querySelector("#captureBtn").click();
@@ -6069,7 +6085,50 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: What source should this be tied to?");
     document.querySelector("#captureBtn").click();
     const noSourceQuestionSaved = readActivity();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Moved question guard");
+    setValue("#sourceTitle", "Moved question source");
+    setValue("#sourceUrl", "https://example.com/moved-question-source");
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Question: What if this question is parked before answer?");
+    document.querySelector("#captureBtn").click();
+    let movedQuestionHref = "";
+    const nativeMovedWindowOpen = window.open;
+    window.open = (href) => {
+      movedQuestionHref = href;
+      return null;
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeMovedWindowOpen;
+    const movedWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const movedSession = movedWorkspace.sessions.find((item) => item.id === movedWorkspace.activeSessionId);
+    const movedQuestionId = movedSession?.captures.find((capture) => /parked before answer/.test(capture.thought || ""))?.id || "";
+    const parkedWorkspace = {
+      ...movedWorkspace,
+      sessions: movedWorkspace.sessions.map((session) => session.id === movedWorkspace.activeSessionId
+        ? {
+          ...session,
+          captures: session.captures.map((capture) => capture.id === movedQuestionId
+            ? { ...capture, questionParkedAt: new Date("2099-01-02T12:00:00.000Z").toISOString() }
+            : capture)
+        }
+        : session)
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(parkedWorkspace));
+    document.querySelector("#activityHintBtn").click();
+    const movedQuestionGuard = readActivity();
+    const movedQuestionGuardState = (() => {
+      const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      const draft = prefs.captureDrafts?.[movedWorkspace.activeSessionId] || {};
+      return {
+        opened: movedQuestionHref,
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        draftTarget: draft.answersQuestionCaptureId || "",
+        thoughtValue: document.querySelector("#thoughtInput")?.value || "",
+        detail: document.querySelector("#activityDetail")?.textContent || ""
+      };
+    })();
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -6086,7 +6145,10 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.questionDetails.openQuestionPulsed, true);
   assert.equal(postSaveFlow.questionHintResume.title, "Source resumed");
   assert.equal(postSaveFlow.questionHintResume.action, "View capture");
-  assert.equal(postSaveFlow.questionHintResume.hintHidden, true);
+  assert.equal(postSaveFlow.questionHintResume.hintHidden, false);
+  assert.equal(postSaveFlow.questionHintResume.hintKind, "afterQuestionSourceResumed");
+  assert.equal(postSaveFlow.questionHintResume.hintAction, "Answer question");
+  assert.equal(postSaveFlow.questionHintResume.hintAria, "Start a linked answer draft for this question");
   assert.deepEqual(postSaveFlow.questionHintResumeState, {
     opened: "https://example.com/post-save-flow",
     target: "_blank",
@@ -6095,6 +6157,15 @@ async function assertPostSaveFlow(cdp) {
     activeElement: "thoughtInput",
     capturePanePulsed: true
   });
+  assert.equal(postSaveFlow.questionAnswerDraft.title, "Answer draft started");
+  assert.match(postSaveFlow.questionAnswerDraft.detail, /Loop: 1 active/);
+  assert.equal(postSaveFlow.questionAnswerDraft.action, "Resume");
+  assert.equal(postSaveFlow.questionAnswerDraftState.activeTab, "captures");
+  assert.equal(postSaveFlow.questionAnswerDraftState.activeElement, "thoughtInput");
+  assert.equal(postSaveFlow.questionAnswerDraftState.thoughtValue, "Answer:");
+  assert.equal(postSaveFlow.questionAnswerDraftState.draftTarget, postSaveFlow.questionSavedCaptureId);
+  assert.match(postSaveFlow.questionAnswerDraftState.draftQuote, /Question: Why does ownership matter/);
+  assert.equal(postSaveFlow.questionAnswerDraftState.capturePanePulsed, true);
   assert.equal(postSaveFlow.linkedAnswerSaved.title, "Answer saved");
   assert.match(postSaveFlow.linkedAnswerSaved.detail, /Closed the linked question/);
   assert.equal(postSaveFlow.linkedAnswerSaved.action, "Closed");
@@ -6219,6 +6290,16 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.noSourceQuestionSaved.action, "Questions");
   assert.equal(postSaveFlow.noSourceQuestionSaved.hintHidden, true);
   assert.equal(postSaveFlow.noSourceQuestionSaved.hintKind, "");
+  assert.equal(postSaveFlow.movedQuestionGuard.title, "Question already moved");
+  assert.match(postSaveFlow.movedQuestionGuard.detail, /parked/);
+  assert.equal(postSaveFlow.movedQuestionGuard.action, "Today");
+  assert.deepEqual(postSaveFlow.movedQuestionGuardState, {
+    opened: "https://example.com/moved-question-source",
+    activeTab: "today",
+    draftTarget: "",
+    thoughtValue: "",
+    detail: "This question is parked. Resume it from Today before answering."
+  });
 }
 
 async function assertCaptureStackNextStepMix(cdp) {

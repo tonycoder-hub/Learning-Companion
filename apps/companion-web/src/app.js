@@ -2284,6 +2284,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Next: resume the source and look for evidence.",
     actionLabel: "Resume source",
     ariaLabel: "Resume the source for this saved question"
+  }),
+  afterQuestionSourceResumed: Object.freeze({
+    kind: "afterQuestionSourceResumed",
+    text: "When evidence is ready, start a linked answer draft.",
+    actionLabel: "Answer question",
+    ariaLabel: "Start a linked answer draft for this question"
   })
 });
 
@@ -2866,6 +2872,10 @@ function runActivityHintAction() {
     resumeActivityHintSource(activity);
     return;
   }
+  if (hint.kind === "afterQuestionSourceResumed") {
+    answerQuestionFromActivity(activity);
+    return;
+  }
   if (hint.kind === "afterThoughtAddedCarded") {
     openReviewCardFromCapture(activity.targetId, activity.sessionId);
     return;
@@ -2893,15 +2903,47 @@ function resumeActivityHintSource(activity) {
   dom.thoughtInput.focus();
   pulseNode(dom.capturePane);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
+  const resumedQuestion = activity.nextHint?.kind === "afterQuestionSavedSourceLinked";
   setActivity(targetSession, {
     title: "Source resumed",
-    detail: `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
+    detail: resumedQuestion
+      ? `${sourceLabel} reopened beside Quick Capture. Capture evidence here, then start a linked answer.`
+      : `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
     tab: "captures",
     targetId: targetCapture.id,
-    actionLabel: activity.nextHint?.kind === "afterThoughtAddedSourceLinked" ? "View highlight" : "View capture"
+    actionLabel: activity.nextHint?.kind === "afterThoughtAddedSourceLinked" ? "View highlight" : "View capture",
+    nextHint: resumedQuestion ? activityNextHint("afterQuestionSourceResumed") : null
   });
   renderActivity(getActiveSession(workspace));
   pulseNode(dom.captureContextSource);
+}
+
+function answerQuestionFromActivity(activity) {
+  const sourceSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+  const capture = sourceSession?.captures.find((item) => item.id === activity?.targetId);
+  if (!sourceSession || !capture) {
+    showToast("Question no longer exists");
+    return;
+  }
+  if (!captureHasOpenQuestion(capture)) {
+    workspace = selectSession(workspace, sourceSession.id);
+    activeTab = "today";
+    const resolved = Boolean(capture.questionResolvedAt);
+    const parked = Boolean(capture.questionParkedAt);
+    setActivity(getActiveSession(workspace), {
+      title: "Question already moved",
+      detail: resolved
+        ? "This question is already closed. Inspect it from Today."
+        : parked ? "This question is parked. Resume it from Today before answering." : "This item is no longer an open question.",
+      tab: "today",
+      targetId: "",
+      targetSection: resolved ? "closed_questions" : parked ? "parked_questions" : "open_questions",
+      actionLabel: "Today"
+    });
+    persistAndRender("Question already moved");
+    return;
+  }
+  answerQuestionFromToday(activity.targetId, activity.sessionId);
 }
 
 function openActivityHighlightAnnotation(activity) {
