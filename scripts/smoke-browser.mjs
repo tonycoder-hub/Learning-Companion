@@ -5,6 +5,13 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  addCapture,
+  addSession,
+  createDefaultWorkspace,
+  generateReviewHtml,
+  getActiveSession
+} from "../apps/companion-web/src/model.js";
 
 const root = resolve("apps/companion-web");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -29,6 +36,20 @@ const staleShellHtml = indexHtmlFixture
 assert.equal(staleShellHtml.includes('id="updateNotice"'), false);
 assert.equal(staleShellHtml.includes('id="sidecarRail"'), false);
 virtualRoutes.set("/stale-shell.html", staleShellHtml);
+
+let twoDueReviewWorkspace = createDefaultWorkspace();
+const firstDueSession = getActiveSession(twoDueReviewWorkspace);
+twoDueReviewWorkspace = addCapture(twoDueReviewWorkspace, firstDueSession.id, {
+  quote: "A priority queue keeps the next lowest-cost path visible.",
+  thought: "Recall why Dijkstra's frontier stays greedy-safe."
+}, { promoteToReview: true, now: "2026-05-29T00:11:00.000Z" });
+twoDueReviewWorkspace = addSession(twoDueReviewWorkspace, "Second due review topic");
+const secondDueSession = getActiveSession(twoDueReviewWorkspace);
+twoDueReviewWorkspace = addCapture(twoDueReviewWorkspace, secondDueSession.id, {
+  quote: "Spaced review should preserve the prompt answer boundary.",
+  thought: "Recall why reveal-before-grade matters."
+}, { promoteToReview: true, now: "2026-05-29T00:12:00.000Z" });
+const twoDueReviewHtml = generateReviewHtml(twoDueReviewWorkspace, new Date("2026-06-03T09:00:00.000Z"));
 
 const server = createServer(async (request, response) => {
   try {
@@ -2748,7 +2769,7 @@ try {
       });
     `
   });
-  virtualRoutes.set("/mirror-review-storage-guard.html", result.mirrorReviewHtml);
+  virtualRoutes.set("/mirror-review-storage-guard.html", twoDueReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-storage-guard.html` });
   await sleep(300);
   await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: reviewStorageFailureScript.identifier });
@@ -2758,7 +2779,7 @@ try {
     try { Object.defineProperty(Navigator.prototype, "clipboard", { configurable: true, get() { return { writeText: rejectClipboard }; } }); } catch {}
     try { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: rejectClipboard } }); } catch {}
     const initialStatus = document.querySelector("#progressStatus").textContent;
-    const cards = Array.from(document.querySelectorAll(".card")).slice(0, 1);
+    const cards = Array.from(document.querySelectorAll(".card")).slice(0, 2);
     cards.forEach((card) => {
       card.querySelector('[data-reveal]')?.click();
       card.querySelector('[data-grade="good"]')?.click();
@@ -2803,12 +2824,12 @@ try {
   assert.match(reviewStorageGuard.saveFallbackStatus, /copy it manually/);
   assert.equal(reviewStorageGuard.copySelectionHasSchema, true);
   assert.equal(reviewStorageGuard.saveSelectionHasSchema, true);
-  assert.equal(reviewStorageGuard.gradeableCards, 1);
+  assert.equal(reviewStorageGuard.gradeableCards, 2);
   assert.equal(reviewStorageGuard.previewSchema, "learning-companion.review-progress-patch.v1");
-  assert.equal(reviewStorageGuard.previewEventCount, 1);
-  assert.deepEqual(reviewStorageGuard.previewGrades, ["good"]);
-  assert.deepEqual(reviewStorageGuard.reviewStates.slice(0, 1), ["Marked good"]);
-  assert.equal(reviewStorageGuard.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(reviewStorageGuard.previewEventCount, 2);
+  assert.deepEqual(reviewStorageGuard.previewGrades, ["good", "good"]);
+  assert.deepEqual(reviewStorageGuard.reviewStates.slice(0, 2), ["Marked good", "Marked good"]);
+  assert.equal(reviewStorageGuard.returnNextStep, "2 review events staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.match(reviewStorageGuard.returnManualHelp, /Manual Copy/);
 
   await cdp.send("Emulation.setDeviceMetricsOverride", {
