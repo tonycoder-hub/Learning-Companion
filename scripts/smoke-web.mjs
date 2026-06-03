@@ -2169,6 +2169,7 @@ assert.match(mirrorIndexHtml, /href="review\.html"/);
 assert.match(mirrorIndexHtml, /href="inbox\.html"/);
 assert.match(mirrorIndexHtml, /href="workspace\.json"/);
 assert.match(mirrorIndexHtml, /Next from this export/);
+assert.ok(mirrorIndexHtml.indexOf("Next from this export") < mirrorIndexHtml.indexOf("Mirror entry points"));
 assert.match(mirrorIndexHtml, /Review due cards/);
 assert.match(mirrorIndexHtml, /2 due cards/);
 assert.match(mirrorIndexHtml, /As of 2099-01-02T08:00:00\+08:00/);

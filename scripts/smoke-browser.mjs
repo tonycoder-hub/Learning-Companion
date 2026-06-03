@@ -2375,6 +2375,7 @@ try {
   assert.equal(result.mirrorHasIndex, true);
   assert.match(result.mirrorIndexHtml, /Manual Return/);
   assert.match(result.mirrorIndexHtml, /Next from this export/);
+  assert.ok(result.mirrorIndexHtml.indexOf("Next from this export") < result.mirrorIndexHtml.indexOf("Mirror entry points"));
   assert.match(result.mirrorIndexHtml, /Review due cards|Answer next question|Capture on this device/);
   assert.match(result.mirrorIndexHtml, /As of \d{4}-\d{2}-\d{2}T/);
   assert.match(result.mirrorIndexHtml, /device-next-link:focus-visible/);
@@ -2839,6 +2840,24 @@ try {
     mobile: true
   });
   await sleep(120);
+  virtualRoutes.set("/mirror-index-mobile.html", result.mirrorIndexHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-index-mobile.html` });
+  await sleep(300);
+  const staticIndexMobile = await cdp.evaluate(`(() => {
+    const nextPanel = document.querySelector(".device-next-panel");
+    const entryNav = document.querySelector(".actions");
+    const entryLinks = Array.from(document.querySelectorAll(".actions .action"));
+    return {
+      innerWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      nextBeforeEntries: Boolean(nextPanel && entryNav) && nextPanel.compareDocumentPosition(entryNav) === Node.DOCUMENT_POSITION_FOLLOWING,
+      nextPanelWidth: Math.ceil(nextPanel?.getBoundingClientRect().width || 0),
+      entryNavWidth: Math.ceil(entryNav?.getBoundingClientRect().width || 0),
+      entryLinkWidths: entryLinks.map((link) => Math.ceil(link.getBoundingClientRect().width)),
+      entryTexts: entryLinks.map((link) => link.querySelector("strong")?.textContent || ""),
+      nextLabel: nextPanel?.querySelector(".device-next-link strong")?.textContent || ""
+    };
+  })()`);
   virtualRoutes.set("/mirror-review-mobile.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-mobile.html` });
   await sleep(300);
@@ -2886,6 +2905,15 @@ try {
   })()`);
   await cdp.send("Emulation.clearDeviceMetricsOverride");
   await sleep(120);
+  assert.ok(staticIndexMobile.documentWidth <= staticIndexMobile.innerWidth + 1);
+  assert.equal(staticIndexMobile.nextBeforeEntries, true);
+  assert.match(staticIndexMobile.nextLabel, /Review due cards|Answer next question|Capture on this device/);
+  assert.ok(staticIndexMobile.nextPanelWidth <= staticIndexMobile.innerWidth - 24);
+  assert.ok(staticIndexMobile.entryNavWidth <= staticIndexMobile.innerWidth - 24);
+  assert.deepEqual(staticIndexMobile.entryTexts, ["Today", "Review", "Inbox", "Restore"]);
+  staticIndexMobile.entryLinkWidths.forEach((width) => {
+    assert.ok(width >= staticIndexMobile.entryNavWidth - 2);
+  });
   assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
   assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
   assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Save Return File", "Manual Copy", "Clear Progress"]);
