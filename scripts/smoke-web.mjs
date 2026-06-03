@@ -1919,6 +1919,7 @@ assert.match(questionMirrorIndexHtml, /1 open question/);
 assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(questionMirrorIndexHtml, /Draft answer in inbox/);
+assert.doesNotMatch(questionMirrorIndexHtml, /Read source on this device/);
 const nextQuestionHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)"><strong>Answer next question/)?.[1]?.replace(/&amp;/g, "&") || "";
 const nextQuestionParams = new URLSearchParams(nextQuestionHref.split("?")[1] || "");
 assert.equal(nextQuestionParams.get("answerToCaptureId"), questionOnlyMirrorPack.questionItems[0].capture.id);
@@ -2323,7 +2324,8 @@ assert.match(mirrorIndexHtml, /Review due cards/);
 assert.match(mirrorIndexHtml, /2 due cards/);
 assert.match(mirrorIndexHtml, /As of 2099-01-02T08:00:00\+08:00/);
 assert.match(mirrorIndexHtml, /device-next-link:focus-visible/);
-assert.match(mirrorIndexHtml, /a\.device-next-secondary/);
+assert.match(mirrorIndexHtml, /device-next-secondary:focus-visible/);
+assert.match(mirrorIndexHtml, /span\.device-next-secondary/);
 assert.match(mirrorIndexHtml, /Manual Return/);
 assert.match(mirrorIndexHtml, /Read Today/);
 assert.match(mirrorIndexHtml, /Work here/);
@@ -2346,20 +2348,68 @@ assert.match(mirrorIndexHtml, /source\.returnBaseFingerprint/);
 assert.doesNotMatch(mirrorIndexHtml, /Return JSON back to Mac/);
 assert.equal(mirrorIndexHtml.includes("<script"), false);
 assert.equal(mirrorIndexHtml, generateMirrorIndexHtml(multiReviewWorkspace, frozenToday));
-const emptyMirrorIndexHtml = generateMirrorIndexHtml(createDefaultWorkspace(), frozenToday);
-assert.match(emptyMirrorIndexHtml, /Next from this export/);
-assert.match(emptyMirrorIndexHtml, /Capture on this device/);
-assert.match(emptyMirrorIndexHtml, /href="inbox\.html"><strong>Capture on this device/);
-assert.match(emptyMirrorIndexHtml, /No due cards or open questions; return by JSON/);
-const bareQuestionBase = createDefaultWorkspace();
-const bareQuestionSession = getActiveSession(bareQuestionBase);
-const bareQuestionWorkspace = addCapture(bareQuestionBase, bareQuestionSession.id, {
+const noSourceBase = createDefaultWorkspace();
+const noSourceSession = getActiveSession(noSourceBase);
+const noSourceMirrorWorkspace = updateSession(noSourceBase, noSourceSession.id, {
+  sourceTitle: "",
+  sourceUrl: "",
+  materialType: "other"
+});
+const noSourceMirrorIndexHtml = generateMirrorIndexHtml(noSourceMirrorWorkspace, frozenToday);
+assert.match(noSourceMirrorIndexHtml, /Next from this export/);
+assert.match(noSourceMirrorIndexHtml, /Capture on this device/);
+assert.match(noSourceMirrorIndexHtml, /href="inbox\.html"><strong>Capture on this device/);
+assert.match(noSourceMirrorIndexHtml, /No due cards or open questions; return by JSON/);
+assert.doesNotMatch(noSourceMirrorIndexHtml, /Read source on this device/);
+const sourceOnlyBase = createDefaultWorkspace();
+const sourceOnlySession = getActiveSession(sourceOnlyBase);
+const sourceOnlyWorkspace = updateSession(sourceOnlyBase, sourceOnlySession.id, {
+  sourceTitle: "Device reading source",
+  sourceUrl: "https://example.com/device-reading",
+  materialType: "article"
+});
+const sourceOnlyMirrorIndexHtml = generateMirrorIndexHtml(sourceOnlyWorkspace, frozenToday);
+assert.match(sourceOnlyMirrorIndexHtml, /Next from this export/);
+assert.match(sourceOnlyMirrorIndexHtml, /Read source on this device/);
+assert.match(sourceOnlyMirrorIndexHtml, /href="https:\/\/example\.com\/device-reading"><strong>Read source on this device/);
+assert.match(sourceOnlyMirrorIndexHtml, /Device reading source · then return to Inbox to save a note for Mac\./);
+assert.match(sourceOnlyMirrorIndexHtml, /Source linked; return by JSON/);
+assert.match(sourceOnlyMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
+assert.doesNotMatch(sourceOnlyMirrorIndexHtml, /<strong>Capture on this device/);
+const sourceResumeBase = createDefaultWorkspace();
+const sourceResumeSession = getActiveSession(sourceResumeBase);
+let sourceResumeWorkspace = updateSession(sourceResumeBase, sourceResumeSession.id, {
+  sourceTitle: "Device video source",
+  sourceUrl: "https://www.youtube.com/watch?v=device123",
+  materialType: "video"
+});
+sourceResumeWorkspace = addCapture(sourceResumeWorkspace, sourceResumeSession.id, {
+  quote: "Timestamped point for device resume.",
+  thought: "Use this moment when continuing off Mac.",
+  timestamp: "01:35"
+}, { now: "2099-01-02T00:45:00.000Z" });
+const sourceResumeMirrorIndexHtml = generateMirrorIndexHtml(sourceResumeWorkspace, frozenToday);
+assert.match(sourceResumeMirrorIndexHtml, /Resume source on this device/);
+assert.match(sourceResumeMirrorIndexHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=device123&amp;t=95s"><strong>Resume source on this device/);
+assert.match(sourceResumeMirrorIndexHtml, /Device video source @ 01:35 · then return to Inbox to save a note for Mac\./);
+assert.match(sourceResumeMirrorIndexHtml, /Source moment available; return by JSON/);
+assert.match(sourceResumeMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
+const unsafeSourceMirrorWorkspace = updateSession(noSourceBase, noSourceSession.id, {
+  sourceTitle: "Unsafe source",
+  sourceUrl: "javascript:alert(1)",
+  materialType: "article"
+});
+const unsafeSourceMirrorIndexHtml = generateMirrorIndexHtml(unsafeSourceMirrorWorkspace, frozenToday);
+assert.match(unsafeSourceMirrorIndexHtml, /Capture on this device/);
+assert.doesNotMatch(unsafeSourceMirrorIndexHtml, /Read source on this device|Resume source on this device|javascript:alert/);
+const bareQuestionWorkspace = addCapture(noSourceMirrorWorkspace, noSourceSession.id, {
   thought: "Question:",
   tags: "question"
 }, { now: "2099-01-02T00:40:00.000Z" });
 const bareQuestionMirrorIndexHtml = generateMirrorIndexHtml(bareQuestionWorkspace, frozenToday);
 assert.match(bareQuestionMirrorIndexHtml, /Capture on this device/);
 assert.doesNotMatch(bareQuestionMirrorIndexHtml, /Answer next question/);
+assert.doesNotMatch(bareQuestionMirrorIndexHtml, /Read source on this device/);
 
 const payload = buildFeishuPayload(session);
 assert.equal(payload.schema, "learning-companion.feishu-export.v1");

@@ -3180,7 +3180,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const latestLine = brief.latestCapture
     ? `${htmlText(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` <span>@ ${htmlText(brief.latestCapture.timestamp)}</span>` : ""}`
     : "No captures yet.";
-  const mirrorDeviceAction = buildMirrorDeviceAction(pack);
+  const mirrorDeviceAction = buildMirrorDeviceAction(pack, brief);
 
   return [
     "<!doctype html>",
@@ -3218,8 +3218,9 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    .device-next-link:hover strong, .device-next-link:focus-visible strong { text-decoration: underline; }",
     "    .device-next-link strong { color: #2f6f5e; }",
     "    .device-next-link span, .device-next-link small { color: #4b5358; }",
-    "    .device-next-secondary { color: #697077; font-size: 13px; }",
-    "    a.device-next-secondary { color: #315f82; }",
+    "    .device-next-secondary { align-self: start; display: inline-flex; align-items: center; min-height: 32px; padding: 5px 9px; border: 1px solid #b9d7cb; border-radius: 8px; background: #fff; color: #315f82; font-size: 13px; font-weight: 700; text-decoration: none; }",
+    "    .device-next-secondary:focus-visible { outline: 3px solid #315f82; outline-offset: 3px; }",
+    "    span.device-next-secondary { min-height: auto; padding: 0; border-color: transparent; background: transparent; color: #697077; font-weight: 600; }",
     "    ul { margin: 0; padding-left: 20px; }",
     "    li { margin: 8px 0; }",
     "    .sessions { display: grid; gap: 8px; }",
@@ -3289,7 +3290,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   ].join("\n");
 }
 
-function buildMirrorDeviceAction(pack) {
+function buildMirrorDeviceAction(pack, brief = null) {
   if (pack.dueItems.length) {
     const [questionItem] = pack.questionItems;
     const secondaryHref = questionItem ? buildInboxAnswerHref(questionItem.sessionId, questionItem.capture) : "inbox.html";
@@ -3310,6 +3311,19 @@ function buildMirrorDeviceAction(pack) {
       detail: summarizeMirrorDeviceAction(item.capture?.thought || item.capture?.quote || "Open question"),
       meta: formatCount(pack.stats.questions, "open question"),
       secondary: ""
+    };
+  }
+  const source = brief?.source;
+  if (source?.href) {
+    const sourceLabel = cleanText(source.title || "Source", MAX_TITLE_LENGTH) || "Source";
+    const timestamp = cleanText(source.timestamp, 32);
+    return {
+      href: source.href,
+      label: timestamp ? "Resume source on this device" : "Read source on this device",
+      detail: `${sourceLabel}${timestamp ? ` @ ${timestamp}` : ""} · then return to Inbox to save a note for Mac.`,
+      meta: timestamp ? "Source moment available; return by JSON" : "Source linked; return by JSON",
+      secondary: "Then capture in Inbox.",
+      secondaryHref: "inbox.html"
     };
   }
   return {
