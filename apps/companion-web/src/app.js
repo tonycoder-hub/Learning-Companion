@@ -1047,7 +1047,7 @@ function setCaptureDraft(sessionId, draftInput) {
 function saveCurrentCaptureDraft() {
   const session = getActiveSession(workspace);
   const existingDraft = getCaptureDraft(session.id);
-  const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value);
+  const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value, dom.materialType.value);
   const answersQuestionCaptureId = answerDraftTargetForThought(existingDraft.answersQuestionCaptureId, dom.thoughtInput.value);
   setCaptureDraft(session.id, {
     quote: dom.quoteInput.value,
@@ -1094,7 +1094,8 @@ function reanchorCurrentCaptureDraft() {
   setCaptureDraft(session.id, {
     ...draft,
     sourceTitle: session.sourceTitle,
-    sourceUrl: session.sourceUrl
+    sourceUrl: session.sourceUrl,
+    materialType: session.materialType
   });
   setActivity(session, {
     title: "Draft source updated",
@@ -1147,12 +1148,13 @@ function captureDraftSourceChanged(session, draft) {
   return Boolean(draftSource && sessionSource && draftSource !== sessionSource);
 }
 
-function draftSourceSnapshotFor(sessionId, sourceTitle, sourceUrl) {
+function draftSourceSnapshotFor(sessionId, sourceTitle, sourceUrl, materialType = "") {
   const draft = getCaptureDraft(sessionId);
   // A draft's source snapshot is its origin, so keep it stable until the draft is captured or cleared.
   return {
     sourceTitle: draft.sourceTitle || sourceTitle,
-    sourceUrl: draft.sourceUrl || canonicalDraftSourceUrl(sourceUrl)
+    sourceUrl: draft.sourceUrl || canonicalDraftSourceUrl(sourceUrl),
+    materialType: draft.materialType || materialType
   };
 }
 
@@ -1349,7 +1351,7 @@ function updateSessionFromFields(event) {
     if (extractedTimestamp && !dom.timestampInput.value.trim()) {
       dom.timestampInput.value = extractedTimestamp;
       stagedSourceTimestamp = extractedTimestamp;
-      const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, strippedSourceUrl || sourceUrl);
+      const snapshot = draftSourceSnapshotFor(session.id, dom.sourceTitle.value, strippedSourceUrl || sourceUrl, dom.materialType.value);
       setCaptureDraft(session.id, {
         quote: dom.quoteInput.value,
         thought: dom.thoughtInput.value,
@@ -1435,6 +1437,7 @@ function capture(promoteToReview) {
     ? {
         sourceTitle: draft.sourceTitle,
         sourceUrl: draft.sourceUrl,
+        materialType: draft.materialType,
         sourceProvenance: "snapshot"
       }
     : {};
@@ -1846,7 +1849,8 @@ function applyClipboardSource(source) {
       thought: dom.thoughtInput.value,
       timestamp,
       sourceTitle,
-      sourceUrl
+      sourceUrl,
+      materialType
     });
   }
   const updated = getActiveSession(workspace);
@@ -2225,7 +2229,7 @@ function applyCaptureStarter(kind) {
     quote: dom.quoteInput.value,
     thought: nextThought,
     timestamp: dom.timestampInput.value,
-    ...draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value)
+    ...draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value, dom.materialType.value)
   });
   setActivity(session, {
     title: `${starter.label} draft started`,
@@ -4950,7 +4954,7 @@ function focusQuickCaptureFromStart() {
 function seedFirstQuestionDraft() {
   const session = getActiveSession(workspace);
   const draft = getCaptureDraft(session.id);
-  const sourceSnapshot = draftSourceSnapshotFor(session.id, session.sourceTitle, session.sourceUrl);
+  const sourceSnapshot = draftSourceSnapshotFor(session.id, session.sourceTitle, session.sourceUrl, session.materialType);
   workspace = updateSession(workspace, session.id, { focusMode: "capture" });
   setCaptureDraft(session.id, {
     quote: draft.quote,
@@ -5919,7 +5923,8 @@ function answerQuestionFromToday(captureId, sessionId) {
       timestamp: capture.timestamp || "",
       answersQuestionCaptureId: capture.id,
       sourceTitle: capture.sourceTitle || sourceSession.sourceTitle,
-      sourceUrl: capture.sourceUrl || sourceSession.sourceUrl
+      sourceUrl: capture.sourceUrl || sourceSession.sourceUrl,
+      materialType: capture.materialType || sourceSession.materialType
     });
   }
   const resumedDraft = getCaptureDraft(sourceSession.id);

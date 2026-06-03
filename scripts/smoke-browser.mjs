@@ -3632,7 +3632,7 @@ try {
   assert.doesNotMatch(reviewFollowupRuntime.followupHref, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
   assert.match(reviewFollowupRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
 
-  const reviewGuardDownloadCountBefore = readdirSync(downloadPath).length;
+  const reviewGuardDownloadCountBefore = (await settledDownloadNames(downloadPath)).length;
   virtualRoutes.set("/mirror-review-guard.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-guard.html` });
   await sleep(300);
@@ -3664,7 +3664,7 @@ try {
       dirtyAfterBlockedSave: beforeUnloadPrevented()
     };
   })()`);
-  const reviewGuardDownloadCountAfter = readdirSync(downloadPath).length;
+  const reviewGuardDownloadCountAfter = (await settledDownloadNames(downloadPath)).length;
   assert.equal(reviewGuardRuntime.downloadName, "");
   assert.match(reviewGuardRuntime.status, /Save picker unavailable here/);
   assert.equal(reviewGuardRuntime.saveCta, "Select Return File");
@@ -5942,8 +5942,8 @@ async function assertDraftSourceSnapshotCommit(cdp) {
       id: "draft_source_commit_flow",
       title: "Draft source commit flow",
       sourceTitle: "Original source",
-      sourceUrl: "https://example.com/original-source",
-      materialType: "doc",
+      sourceUrl: "https://www.youtube.com/watch?v=original123",
+      materialType: "video",
       notesMarkdown: "",
       captures: [],
       reviewCards: [],
@@ -5967,21 +5967,25 @@ async function assertDraftSourceSnapshotCommit(cdp) {
 
     importWorkspace(commitSession);
     setValue("#sourceTitle", "Original source");
-    setValue("#sourceUrl", "https://example.com/original-source");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=original123");
+    setValue("#materialType", "video");
     setValue("#quoteInput", "Draft should keep its original source.");
     setValue("#thoughtInput", "This capture is saved after the session source changes.");
     setValue("#sourceTitle", "Changed source");
     setValue("#sourceUrl", "https://example.com/changed-source");
+    setValue("#materialType", "doc");
     const driftStatusBeforeSave = document.querySelector("#captureDraftStatus")?.textContent || "";
     document.querySelector("#captureBtn").click();
     const driftSaved = activeCapture();
 
     setValue("#sourceTitle", "Original source");
-    setValue("#sourceUrl", "https://example.com/original-source");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=original123");
+    setValue("#materialType", "video");
     setValue("#quoteInput", "Draft should use current source after reanchor.");
     setValue("#thoughtInput", "Use current source before saving.");
     setValue("#sourceTitle", "Changed source");
     setValue("#sourceUrl", "https://example.com/changed-source");
+    setValue("#materialType", "doc");
     const reanchorVisibleBeforeClick = document.querySelector("#reanchorCaptureDraftBtn")?.hidden === false;
     document.querySelector("#reanchorCaptureDraftBtn")?.click();
     const reanchorStatusBeforeSave = document.querySelector("#captureDraftStatus")?.textContent || "";
@@ -5994,6 +5998,7 @@ async function assertDraftSourceSnapshotCommit(cdp) {
       title: "Draft source answer flow",
       sourceTitle: "Current changed source",
       sourceUrl: "https://example.com/current-changed-source",
+      materialType: "doc",
       captures: [{
         id: "question_original_source",
         quote: "Question carried from original source.",
@@ -6001,8 +6006,8 @@ async function assertDraftSourceSnapshotCommit(cdp) {
         timestamp: "02:10",
         tags: [],
         sourceTitle: "Question original source",
-        sourceUrl: "https://example.com/question-original-source",
-        materialType: "doc",
+        sourceUrl: "https://www.youtube.com/watch?v=question123",
+        materialType: "video",
         sourceProvenance: "snapshot",
         createdAt: "2026-06-04T01:00:00.000Z",
         capturedAt: "2026-06-04T01:00:00.000Z",
@@ -6040,18 +6045,22 @@ async function assertDraftSourceSnapshotCommit(cdp) {
   })()`);
   assert.equal(result.driftStatusBeforeSave, "Source changed");
   assert.equal(result.driftSaved.sourceTitle, "Original source");
-  assert.equal(result.driftSaved.sourceUrl, "https://example.com/original-source");
+  assert.equal(result.driftSaved.sourceUrl, "https://www.youtube.com/watch?v=original123");
+  assert.equal(result.driftSaved.materialType, "video");
   assert.equal(result.driftSaved.sourceProvenance, "snapshot");
   assert.equal(result.reanchorVisibleBeforeClick, true);
   assert.equal(result.reanchorStatusBeforeSave, "Draft saved");
   assert.equal(result.reanchoredSaved.sourceTitle, "Changed source");
   assert.equal(result.reanchoredSaved.sourceUrl, "https://example.com/changed-source");
+  assert.equal(result.reanchoredSaved.materialType, "doc");
   assert.equal(result.reanchoredSaved.sourceProvenance, "snapshot");
   assert.equal(result.answerDraft.sourceTitle, "Question original source");
-  assert.equal(result.answerDraft.sourceUrl, "https://example.com/question-original-source");
+  assert.equal(result.answerDraft.sourceUrl, "https://www.youtube.com/watch?v=question123");
+  assert.equal(result.answerDraft.materialType, "video");
   assert.equal(result.answerDraft.answersQuestionCaptureId, "question_original_source");
   assert.equal(result.committedAnswer.sourceTitle, "Question original source");
-  assert.equal(result.committedAnswer.sourceUrl, "https://example.com/question-original-source");
+  assert.equal(result.committedAnswer.sourceUrl, "https://www.youtube.com/watch?v=question123");
+  assert.equal(result.committedAnswer.materialType, "video");
   assert.equal(result.committedAnswer.sourceProvenance, "snapshot");
   assert.equal(result.committedAnswer.answersQuestionCaptureId, "question_original_source");
 }
@@ -7156,6 +7165,29 @@ function waitForProcessExit(process, timeoutMs) {
       resolveExit();
     });
   });
+}
+
+async function settledDownloadNames(dir, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs;
+  let previous = "";
+  let stableReads = 0;
+  while (Date.now() < deadline) {
+    const names = readdirSync(dir)
+      .filter((name) => !name.endsWith(".crdownload"))
+      .sort();
+    const key = names.join("\n");
+    if (key === previous) {
+      stableReads += 1;
+      if (stableReads >= 3) return names;
+    } else {
+      previous = key;
+      stableReads = 0;
+    }
+    await sleep(100);
+  }
+  return readdirSync(dir)
+    .filter((name) => !name.endsWith(".crdownload"))
+    .sort();
 }
 
 function cleanupStaleSmokeRoots(baseDir, cutoffMs) {

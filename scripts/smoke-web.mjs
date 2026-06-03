@@ -354,6 +354,7 @@ const normalizedDraft = normalizeCaptureDraft({
   timestamp: " 08:12 ",
   sourceTitle: "  Source doc ",
   sourceUrl: " https://example.com/lesson ",
+  materialType: "video",
   answersQuestionCaptureId: "capture_answer_target",
   updatedAt: "2026-05-29T00:01:00.000Z"
 });
@@ -363,6 +364,7 @@ assert.deepEqual(normalizedDraft, {
   timestamp: "08:12",
   sourceTitle: "Source doc",
   sourceUrl: "https://example.com/lesson",
+  materialType: "video",
   answersQuestionCaptureId: "capture_answer_target",
   updatedAt: "2026-05-29T00:01:00.000Z"
 });
@@ -381,6 +383,7 @@ assert.deepEqual(
 );
 assert.equal(normalizeCaptureDraft({ sourceTitle: "\u0000 Source\nTitle " }).sourceTitle, "Source Title");
 assert.equal(normalizeCaptureDraft({ sourceUrl: ` ${"x".repeat(2200)} ` }).sourceUrl.length, 2048);
+assert.equal(normalizeCaptureDraft({ quote: "Invalid type", materialType: "slides" }).materialType, "");
 assert.equal(normalizeCaptureDraft({ answersQuestionCaptureId: "bad answer target!" }).answersQuestionCaptureId, "");
 assert.equal(normalizeCaptureDraft({ quote: "x" }, new Date("2026-05-29T00:02:00.000Z")).updatedAt, "2026-05-29T00:02:00.000Z");
 

@@ -105,6 +105,7 @@ export function normalizeCaptureDraft(value, now = new Date()) {
     timestamp: cleanText(draft.timestamp, 32),
     sourceTitle: cleanText(draft.sourceTitle, MAX_TITLE_LENGTH).replace(/\s+/g, " "),
     sourceUrl: cleanText(draft.sourceUrl, MAX_URL_LENGTH),
+    materialType: MATERIAL_TYPES.has(draft.materialType) ? draft.materialType : "",
     answersQuestionCaptureId: cleanAnswerTargetId(draft.answersQuestionCaptureId),
     updatedAt
   };
