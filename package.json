@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "python3 -m http.server 5173 --directory apps/companion-web",
+    "dev": "node scripts/dev-server.mjs",
     "check:morning": "bash scripts/morning-check.sh",
     "check:morning:offline": "bash scripts/morning-check.sh",
     "check:morning:browser": "bash scripts/morning-check-browser.sh",
