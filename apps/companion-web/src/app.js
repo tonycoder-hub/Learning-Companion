@@ -4747,7 +4747,7 @@ function renderReturnFilesPanel() {
   });
   const boundary = textEl("p", "handoff-boundary", "Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.");
   const footer = document.createElement("div");
-  footer.className = "item-footer";
+  footer.className = "item-footer return-files-actions";
   const importPatch = textEl("button", "mini-button primary", "Import Return Files");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
@@ -4760,7 +4760,15 @@ function renderReturnFilesPanel() {
   exportMirror.type = "button";
   exportMirror.dataset.returnFilesStep = "export";
   exportMirror.addEventListener("click", openReturnFilesMirrorExport);
-  footer.append(exportMirror, importPatch, pasteReturn);
+  const exportGroup = document.createElement("div");
+  exportGroup.className = "return-files-action-group is-export";
+  exportGroup.setAttribute("aria-label", "Send mirror out");
+  exportGroup.append(exportMirror);
+  const intakeGroup = document.createElement("div");
+  intakeGroup.className = "return-files-action-group is-intake";
+  intakeGroup.setAttribute("aria-label", "Bring return files back");
+  intakeGroup.append(importPatch, pasteReturn);
+  footer.append(exportGroup, intakeGroup);
   panel.append(summary, detail, handoffState, steps, boundary, footer);
   return panel;
 }

@@ -1701,6 +1701,10 @@ try {
           const handoffPanel = document.querySelector(".handoff-card");
           const handoffText = handoffPanel.textContent;
           const handoffButtons = [...handoffPanel.querySelectorAll("button")].map((button) => button.textContent);
+          const handoffActionGroups = [...handoffPanel.querySelectorAll(".return-files-action-group")].map((group) => ({
+            label: group.getAttribute("aria-label") || "",
+            steps: [...group.querySelectorAll("button")].map((button) => button.dataset.returnFilesStep || "")
+          }));
           handoffPanel.querySelector('[data-return-files-step="export"]')?.click();
           const handoffExportOpened = {
             activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
@@ -1758,6 +1762,7 @@ try {
           batchImportedReviewPatch: afterInboxImport.importedReviewPatches.includes("browser_review_progress_missing"),
           handoffText,
           handoffButtons,
+          handoffActionGroups,
           handoffExportOpened,
           inboxNotesPreserved: afterInboxSession.notesMarkdown === restoredSession.notesMarkdown,
           inboxCardsPreserved: afterInboxSession.reviewCards.length === restoredSession.reviewCards.length,
@@ -2023,6 +2028,10 @@ try {
   assert.match(result.handoffText, /1 new/);
   assert.match(result.handoffText, /2 older return files from previous mirror export - re-export mirror before next device pass/);
   assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files", "Paste Return File"]);
+  assert.deepEqual(result.handoffActionGroups, [
+    { label: "Send mirror out", steps: ["export"] },
+    { label: "Bring return files back", steps: ["import", "paste"] }
+  ]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
     activeElement: "downloadMirrorBtn",
@@ -5031,6 +5040,10 @@ async function assertPasteReturnFileFromClipboard(cdp) {
       const fileImportedSession = afterFileImport.sessions.find((item) => item.id === afterFileImport.activeSessionId);
       result = {
         buttonTexts: [...document.querySelectorAll(".handoff-card button")].map((button) => button.textContent),
+        actionGroups: [...document.querySelectorAll(".handoff-card .return-files-action-group")].map((group) => ({
+          label: group.getAttribute("aria-label") || "",
+          steps: [...group.querySelectorAll("button")].map((button) => button.dataset.returnFilesStep || "")
+        })),
         success: {
           pastedQuote: pastedCapture?.quote || "",
           pastedThought: pastedCapture?.thought || "",
@@ -5062,6 +5075,10 @@ async function assertPasteReturnFileFromClipboard(cdp) {
   })()`, 15000);
 
   assert.deepEqual(pasteReturn.buttonTexts, ["Export Mirror", "Import Return Files", "Paste Return File"]);
+  assert.deepEqual(pasteReturn.actionGroups, [
+    { label: "Send mirror out", steps: ["export"] },
+    { label: "Bring return files back", steps: ["import", "paste"] }
+  ]);
   assert.equal(pasteReturn.success.pastedQuote, "Clipboard return file capture.");
   assert.equal(pasteReturn.success.pastedThought, "Paste Return File should import copied JSON without creating a download.");
   assert.equal(pasteReturn.success.importedPatch, true);

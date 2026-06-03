@@ -266,6 +266,8 @@ assert.match(appCss, /minmax\(124px, auto\)/);
 assert.match(appCss, /\.returned-work-card/);
 assert.match(appCss, /\.manual-transfer-badge/);
 assert.match(appCss, /\.device-flow-badges/);
+assert.match(appCss, /\.return-files-action-group/);
+assert.match(appCss, /\.return-files-action-group\.is-intake/);
 assert.match(appCss, /\.handoff-state-grid/);
 assert.match(appCss, /\.today-detail-drawer/);
 assert.match(appCss, /\.today-detail-badge/);

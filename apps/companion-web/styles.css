@@ -1555,6 +1555,24 @@ textarea:focus {
   justify-content: flex-start;
 }
 
+.handoff-card .return-files-actions {
+  align-items: center;
+  gap: 8px 12px;
+  justify-content: space-between;
+}
+
+.return-files-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.return-files-action-group.is-intake {
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
 .today-detail-drawer {
   display: grid;
   gap: 8px;
