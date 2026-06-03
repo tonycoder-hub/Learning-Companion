@@ -343,11 +343,13 @@ Latest local work adds Quick Capture draft source drift protection:
 - Device-local capture drafts now store a local source title/URL snapshot in UI prefs, still outside canonical workspace JSON and mirror exports.
 - The snapshot is treated as the draft origin and stays stable until the draft is captured or cleared; later typing does not silently re-anchor it.
 - If the current session source no longer matches the draft origin, the capture status changes to `Source changed`, receives a warn class, and exposes a status/title hint for accessibility.
+- Today Capture Draft cards now also show `Source changed`, the draft origin, and the current source before the user resumes; Resume focuses the continuation field and carries that source-drift detail into the activity strip.
 - `Use current` appears only while the draft source has drifted; it explicitly re-anchors the local draft to the current source and records `Draft source updated` in the activity strip.
 - If a fresh local draft owns the Focus Brief next action, the Focus Brief also surfaces `Source changed` and the draft's original source, so the risk is visible before the user reopens Quick Capture.
 - Source comparison reuses the existing URL matching normalization, so source-time query noise and title-only refreshes do not create warnings when the canonical URL is the same.
-- Browser smoke pins source drift warning, title-only no-warning, source restore clearing the warning, source URL normalization, explicit re-anchor, clear-after-reanchor, Focus Brief drift surfacing, and post-capture snapshot reset.
+- Browser smoke pins source drift warning, Today draft-card drift visibility, same-source Today draft-card no-warning, title-only no-warning, source restore clearing the warning, source URL normalization, explicit re-anchor, clear-after-reanchor, Focus Brief drift surfacing, and post-capture snapshot reset.
 - Mira returned `PASS_WITH_NOTES`; accepted fixes included stable first-source snapshot semantics, URL/title normalization, status accessibility, source restore coverage, title-only refresh coverage, and post-capture reset coverage. Deferred notes: real YouTube/Feishu-doc manual switching remains a manual QA item, not proven by local smoke.
+- Latest Mira review for Today source-drift draft cards also returned `PASS_WITH_NOTES`; accepted follow-up was the negative same-source assertion. Rejected/deferred: collapsing the card detail further, because current copy is still one source warning line plus the existing device-local marker; deleted-origin and visual density checks remain manual/follow-up.
 
 Latest local work closes the Recent Stack review hop:
 

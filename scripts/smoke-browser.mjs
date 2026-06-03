@@ -1000,6 +1000,21 @@ try {
       role: document.querySelector("#captureDraftStatus").getAttribute("role"),
       ariaLive: document.querySelector("#captureDraftStatus").getAttribute("aria-live")
     };
+    document.querySelector('[data-tab="today"]').click();
+    const sourceChangedTodayDraftCard = [...document.querySelectorAll("#todayList .draft-card")]
+      .find((node) => /Draft anchored to the RustConf source/.test(node.textContent));
+    const sourceChangedTodayDraft = {
+      text: sourceChangedTodayDraftCard?.textContent || "",
+      className: sourceChangedTodayDraftCard?.className || "",
+      resumeText: sourceChangedTodayDraftCard?.querySelector("button")?.textContent || ""
+    };
+    sourceChangedTodayDraftCard?.querySelector("button")?.click();
+    const sourceChangedTodayResume = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent
+    };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123&t=0s");
     const restoredWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
@@ -1026,7 +1041,7 @@ try {
       status: document.querySelector("#captureDraftStatus").textContent,
       reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden
     };
-    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, questionIntent, answerDraftIntent, answerIntent, sourceChangedDraft, sourceRestoredDraft, sourceReanchoredDraft, sourceReanchorCleared };
+    const sourceTimestampNudge = { afterTimeBack, afterTimeForward, afterKeyboardBack, afterKeyboardForward, afterZeroBack, titleOnlySourceRefresh, questionIntent, answerDraftIntent, answerIntent, sourceChangedDraft, sourceChangedTodayDraft, sourceChangedTodayResume, sourceRestoredDraft, sourceReanchoredDraft, sourceReanchorCleared };
     setValue("#sourceTitle", "RustConf ownership talk");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=rust123");
     document.querySelector("#materialType").value = "video";
@@ -1374,6 +1389,7 @@ try {
     const todayDraftBeforeResume = {
       listText: document.querySelector("#todayList")?.textContent || "",
       text: todayDraftCard?.textContent || "",
+      className: todayDraftCard?.className || "",
       resumeText: todayDraftCard?.querySelector("button")?.textContent || ""
     };
     todayDraftCard?.querySelector("button")?.click();
@@ -2030,6 +2046,17 @@ try {
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.reanchorHidden, false);
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.role, "status");
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.ariaLive, "polite");
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /Source changed/);
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /Draft began on RustConf ownership talk/);
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /current source is Different lecture/);
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /Not exported/);
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.className, /source-changed/);
+  assert.equal(result.sourceTimestampNudge.sourceChangedTodayDraft.resumeText, "Resume");
+  assert.equal(result.sourceTimestampNudge.sourceChangedTodayResume.activeTab, "captures");
+  assert.equal(result.sourceTimestampNudge.sourceChangedTodayResume.activeElement, "thoughtInput");
+  assert.equal(result.sourceTimestampNudge.sourceChangedTodayResume.activityTitle, "Capture draft resumed");
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayResume.activityDetail, /Draft began on RustConf ownership talk/);
+  assert.match(result.sourceTimestampNudge.sourceChangedTodayResume.activityDetail, /current source is Different lecture/);
   assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.status, "Draft saved");
   assert.doesNotMatch(result.sourceTimestampNudge.sourceRestoredDraft.statusClass, /warn/);
   assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.reanchorHidden, true);
@@ -2042,13 +2069,15 @@ try {
   assert.deepEqual(result.sourceTimestampNudge.sourceReanchorCleared, { status: "No draft", reanchorHidden: true });
   assert.match(result.todayDraftBeforeResume.listText, /Capture Drafts/);
   assert.match(result.todayDraftBeforeResume.text, /Draft quote before session switch/);
+  assert.doesNotMatch(result.todayDraftBeforeResume.text, /Source changed/);
+  assert.doesNotMatch(result.todayDraftBeforeResume.className, /source-changed/);
   assert.match(result.todayDraftBeforeResume.text, /device-local/);
   assert.match(result.todayDraftBeforeResume.text, /Not exported/);
   assert.equal(result.todayDraftBeforeResume.resumeText, "Resume");
   assert.deepEqual(result.todayDraftAfterResume, {
     activeTab: "captures",
     focusMode: true,
-    activeElement: "quoteInput",
+    activeElement: "thoughtInput",
     activity: "Capture draft resumed"
   });
   assert.deepEqual(result.captureDraftStatusBeforeSwitch, { text: "Draft saved", clearHidden: false });
