@@ -2685,7 +2685,9 @@ try {
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
     const savedStatus = document.querySelector("#progressStatus").textContent;
+    const savedSaveCta = document.querySelector("#downloadProgressBtn").textContent;
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
+    const savedReturnSaveMode = document.querySelector("#returnSaveMode").textContent;
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
     const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
     const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
@@ -2701,7 +2703,9 @@ try {
       selectedStatus,
       selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.review-progress-patch.v1"'),
       savedStatus,
+      saveCta: savedSaveCta,
       returnFileHint: savedReturnFileHint,
+      returnSaveMode: savedReturnSaveMode,
       returnManualHelp: savedReturnManualHelp,
       returnPreviewTitle,
       returnCopyHint,
@@ -2726,13 +2730,15 @@ try {
   assert.match(reviewRuntime.selectedStatus, /Return file selected/);
   assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(reviewRuntime.savedStatus, /Return file download requested/);
+  assert.equal(reviewRuntime.saveCta, "Download Return File");
+  assert.match(reviewRuntime.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(reviewRuntime.returnFileHint, /^Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(reviewRuntime.returnPreviewTitle, "Return file preview");
   assert.match(reviewRuntime.returnCopyHint, /selected text below is the return file JSON/);
-  assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Download to take it back to Mac before closing.");
   assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
@@ -2771,6 +2777,8 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 0));
     return {
       status: document.querySelector("#progressStatus").textContent,
+      saveCta: document.querySelector("#downloadProgressBtn").textContent,
+      returnSaveMode: document.querySelector("#returnSaveMode").textContent,
       downloadName,
       dirtyAfterBlockedSave: beforeUnloadPrevented()
     };
@@ -2778,6 +2786,9 @@ try {
   const reviewGuardDownloadCountAfter = readdirSync(downloadPath).length;
   assert.equal(reviewGuardRuntime.downloadName, "");
   assert.match(reviewGuardRuntime.status, /Save picker unavailable here/);
+  assert.equal(reviewGuardRuntime.saveCta, "Select Return File");
+  assert.match(reviewGuardRuntime.returnSaveMode, /No file picker detected/);
+  assert.match(reviewGuardRuntime.status, /Nothing was saved to disk/);
   assert.equal(reviewGuardRuntime.dirtyAfterBlockedSave, true);
   assert.equal(reviewGuardDownloadCountAfter, reviewGuardDownloadCountBefore);
 
@@ -2829,6 +2840,8 @@ try {
       postGradeStatus,
       copyFallbackStatus,
       saveFallbackStatus,
+      saveCta: document.querySelector("#downloadProgressBtn").textContent,
+      returnSaveMode: document.querySelector("#returnSaveMode").textContent,
       copySelectionHasSchema: copySelectionText.includes("learning-companion.review-progress-patch.v1"),
       saveSelectionHasSchema: saveSelectionText.includes("learning-companion.review-progress-patch.v1"),
       gradeableCards: cards.length,
@@ -2844,11 +2857,14 @@ try {
   assert.equal(reviewStorageGuard.heading, "Learning Companion Review Pack");
   assert.match(reviewStorageGuard.initialStatus, /Browser storage is unavailable/);
   assert.match(reviewStorageGuard.postGradeStatus, /Browser storage is unavailable/);
-  assert.match(reviewStorageGuard.postGradeStatus, /Manual Copy or Save/);
+  assert.match(reviewStorageGuard.postGradeStatus, /Copy, Manual Copy, or the available save action/);
   assert.match(reviewStorageGuard.copyFallbackStatus, /Copy failed/);
   assert.match(reviewStorageGuard.copyFallbackStatus, /copy it manually/);
   assert.match(reviewStorageGuard.saveFallbackStatus, /Save picker unavailable here/);
-  assert.match(reviewStorageGuard.saveFallbackStatus, /copy it manually/);
+  assert.match(reviewStorageGuard.saveFallbackStatus, /manual copy/);
+  assert.match(reviewStorageGuard.saveFallbackStatus, /Nothing was saved to disk/);
+  assert.equal(reviewStorageGuard.saveCta, "Select Return File");
+  assert.match(reviewStorageGuard.returnSaveMode, /No file picker detected/);
   assert.equal(reviewStorageGuard.copySelectionHasSchema, true);
   assert.equal(reviewStorageGuard.saveSelectionHasSchema, true);
   assert.equal(reviewStorageGuard.gradeableCards, 2);
@@ -2856,7 +2872,7 @@ try {
   assert.equal(reviewStorageGuard.previewEventCount, 2);
   assert.deepEqual(reviewStorageGuard.previewGrades, ["good", "good"]);
   assert.deepEqual(reviewStorageGuard.reviewStates.slice(0, 2), ["Marked good", "Marked good"]);
-  assert.equal(reviewStorageGuard.returnNextStep, "2 review events staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(reviewStorageGuard.returnNextStep, "2 review events staged in this return file. Use Copy or Manual Copy to take it back to Mac before closing.");
   assert.match(reviewStorageGuard.returnManualHelp, /Manual Copy/);
 
   await cdp.send("Emulation.setDeviceMetricsOverride", {
@@ -2899,6 +2915,7 @@ try {
       actionContainerWidth: Math.ceil(document.querySelector(".progress-actions").getBoundingClientRect().width),
       gradeContainerWidth: Math.ceil(document.querySelector(".grade-actions").getBoundingClientRect().width),
       returnPreviewTitle: document.querySelector(".return-preview-title").textContent,
+      returnSaveMode: document.querySelector("#returnSaveMode").textContent,
       returnCopyHint: document.querySelector(".return-copy-hint").textContent,
       actionButtons: actionButtons.map((button) => ({
         text: button.textContent,
@@ -2925,6 +2942,7 @@ try {
       maxActionContainerWidth: Math.max(...Array.from(document.querySelectorAll(".actions")).map((actions) => Math.ceil(actions.getBoundingClientRect().width))),
       sourceRowColumns: getComputedStyle(document.querySelector(".row")).gridTemplateColumns.split(" ").filter(Boolean).length,
       returnPreviewTitle: document.querySelector(".return-preview-title").textContent,
+      returnSaveMode: document.querySelector("#returnSaveMode").textContent,
       returnCopyHint: document.querySelector(".return-copy-hint").textContent,
       actionButtons: actionButtons.map((button) => ({
         text: button.textContent,
@@ -2947,8 +2965,9 @@ try {
   assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
   assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
   assert.equal(staticReviewMobile.returnPreviewTitle, "Return file preview");
+  assert.match(staticReviewMobile.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(staticReviewMobile.returnCopyHint, /selected text below is the return file JSON/);
-  assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Save Return File", "Manual Copy", "Clear Progress"]);
+  assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Download Return File", "Manual Copy", "Clear Progress"]);
   staticReviewMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticReviewMobile.actionContainerWidth - 2);
     assert.ok(button.height >= 36);
@@ -2962,8 +2981,9 @@ try {
   assert.ok(staticInboxMobile.maxPanelWidth <= staticInboxMobile.innerWidth - 24);
   assert.equal(staticInboxMobile.sourceRowColumns, 1);
   assert.equal(staticInboxMobile.returnPreviewTitle, "Return file preview");
+  assert.match(staticInboxMobile.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(staticInboxMobile.returnCopyHint, /selected text below is the return file JSON/);
-  assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.text), ["Add Capture", "Clear Form", "Copy Return File", "Save Return File", "Manual Copy", "Clear Drafts"]);
+  assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.text), ["Add Capture", "Clear Form", "Copy Return File", "Download Return File", "Manual Copy", "Clear Drafts"]);
   staticInboxMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticInboxMobile.maxActionContainerWidth - 2);
     assert.ok(button.height >= 38);
@@ -3009,7 +3029,9 @@ try {
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
     const savedStatus = document.querySelector("#statusOutput").textContent;
+    const savedSaveCta = document.querySelector("#downloadPatchBtn").textContent;
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
+    const savedReturnSaveMode = document.querySelector("#returnSaveMode").textContent;
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
     const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
     const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
@@ -3041,7 +3063,9 @@ try {
       previewSourceUrl: preview.captures[0]?.sourceUrl || "",
       storedDraftCount: storedDrafts.length,
       savedStatus,
+      saveCta: savedSaveCta,
       returnFileHint: savedReturnFileHint,
+      returnSaveMode: savedReturnSaveMode,
       returnManualHelp: savedReturnManualHelp,
       returnPreviewTitle,
       returnCopyHint,
@@ -3067,13 +3091,15 @@ try {
   assert.match(inboxRuntime.selectedStatus, /Return file selected/);
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(inboxRuntime.savedStatus, /Return file download requested/);
+  assert.equal(inboxRuntime.saveCta, "Download Return File");
+  assert.match(inboxRuntime.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(inboxRuntime.returnFileHint, /^Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(inboxRuntime.returnPreviewTitle, "Return file preview");
   assert.match(inboxRuntime.returnCopyHint, /selected text below is the return file JSON/);
-  assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Download to take it back to Mac before closing.");
   assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
   assert.equal(inboxRuntime.clearedDraftCount, 0);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
@@ -3139,6 +3165,8 @@ try {
       postAddStatus,
       copyFallbackStatus,
       saveFallbackStatus,
+      saveCta: document.querySelector("#downloadPatchBtn").textContent,
+      returnSaveMode: document.querySelector("#returnSaveMode").textContent,
       copySelectionHasSchema: copySelectionText.includes("learning-companion.mobile-inbox-patch.v1"),
       saveSelectionHasSchema: saveSelectionText.includes("learning-companion.mobile-inbox-patch.v1"),
       previewSchema: preview.schema,
@@ -3154,11 +3182,14 @@ try {
   assert.equal(inboxStorageGuard.heading, "Learning Companion Inbox");
   assert.match(inboxStorageGuard.initialStatus, /Browser storage is unavailable/);
   assert.match(inboxStorageGuard.postAddStatus, /Browser storage is unavailable/);
-  assert.match(inboxStorageGuard.postAddStatus, /Manual Copy or Save/);
+  assert.match(inboxStorageGuard.postAddStatus, /Copy, Manual Copy, or the available save action/);
   assert.match(inboxStorageGuard.copyFallbackStatus, /Copy failed/);
   assert.match(inboxStorageGuard.copyFallbackStatus, /copy it manually/);
   assert.match(inboxStorageGuard.saveFallbackStatus, /Save picker unavailable here/);
-  assert.match(inboxStorageGuard.saveFallbackStatus, /copy it manually/);
+  assert.match(inboxStorageGuard.saveFallbackStatus, /manual copy/);
+  assert.equal(inboxStorageGuard.saveCta, "Select Return File");
+  assert.match(inboxStorageGuard.returnSaveMode, /No file picker detected/);
+  assert.match(inboxStorageGuard.saveFallbackStatus, /Nothing was saved to disk/);
   assert.equal(inboxStorageGuard.copySelectionHasSchema, true);
   assert.equal(inboxStorageGuard.saveSelectionHasSchema, true);
   assert.equal(inboxStorageGuard.previewSchema, "learning-companion.mobile-inbox-patch.v1");
@@ -3166,7 +3197,7 @@ try {
   assert.equal(inboxStorageGuard.previewQuote, "Storage blocked quote from phone.");
   assert.equal(inboxStorageGuard.previewThought, "This still needs a return file.");
   assert.equal(inboxStorageGuard.draftCount, 1);
-  assert.equal(inboxStorageGuard.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.equal(inboxStorageGuard.returnNextStep, "1 draft capture staged in this return file. Use Copy or Manual Copy to take it back to Mac before closing.");
   assert.match(inboxStorageGuard.returnManualHelp, /Manual Copy/);
 
   const inboxAnswerParams = new URLSearchParams({
@@ -3250,7 +3281,7 @@ try {
   assert.equal(inboxAnswerPatchRuntime.quoteReadOnly, false);
   assert.equal(inboxAnswerPatchRuntime.quoteAriaReadonly, "false");
   assert.equal(inboxAnswerPatchRuntime.copyCta, "Copy Return File");
-  assert.equal(inboxAnswerPatchRuntime.saveCta, "Save Return File");
+  assert.equal(inboxAnswerPatchRuntime.saveCta, "Download Return File");
   assert.equal(inboxAnswerPatchRuntime.answerContextHidden, false);
   assert.equal(inboxAnswerPatchRuntime.answerContextTitle, "Answer captured in this return draft");
   assert.equal(inboxAnswerPatchRuntime.answerQuestionPreview, "What should I answer from the mirror?");
