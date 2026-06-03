@@ -302,6 +302,8 @@ assert.match(appCss, /\.app-shell\.sidecar-layout \.focus-brief-facts/);
 assert.match(appCss, /\.sidecar-toggle \{/);
 assert.match(appCss, /minmax\(124px, auto\)/);
 assert.match(appCss, /\.returned-work-card/);
+assert.match(appCss, /\.capture-context-target[\s\S]+-webkit-line-clamp: 2/);
+assert.match(appCss, /\.capture-context-target[\s\S]+overflow-wrap: anywhere/);
 assert.match(appCss, /\.manual-transfer-badge/);
 assert.match(appCss, /\.device-flow-badges/);
 assert.match(appCss, /\.return-files-action-hint/);

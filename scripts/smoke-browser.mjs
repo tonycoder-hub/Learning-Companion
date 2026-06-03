@@ -3140,7 +3140,7 @@ try {
   assert.match(reviewStorageGuard.returnManualHelp, /Manual Copy/);
 
   await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 390,
+    width: 320,
     height: 844,
     deviceScaleFactor: 2,
     mobile: true
@@ -5157,7 +5157,14 @@ try {
     const handoffSummaryMeta = document.querySelector(".device-flow-summary .item-meta");
     const handoffSummary = document.querySelector(".device-flow-summary");
     document.querySelector('[data-focus-mode="capture"]').click();
+    const longDestinationTitle = "Learning Companion Browser Notes";
+    const titleInput = document.querySelector("#sessionTitle");
+    const originalTitle = titleInput.value;
+    titleInput.value = longDestinationTitle;
+    titleInput.dispatchEvent(new Event("input", { bubbles: true }));
     const captureContext = document.querySelector("#captureContext");
+    const target = document.querySelector("#captureContextTarget");
+    const sourceControl = document.querySelector("#captureContextSource");
     const captureStarters = document.querySelector("#captureStarters");
     const captureStarterLabel = document.querySelector(".capture-starter-label");
     const starterButtons = [...document.querySelectorAll("[data-capture-starter]")].map((button) => ({
@@ -5166,7 +5173,7 @@ try {
       height: Math.ceil(button.getBoundingClientRect().height)
     }));
     const timeRow = document.querySelector(".time-input-row");
-    return {
+    const result = {
       innerWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
       bodyWidth: document.body.scrollWidth,
@@ -5184,6 +5191,21 @@ try {
       captureContextVisible: getComputedStyle(captureContext).display !== "none",
       captureContextWidth: Math.ceil(captureContext.getBoundingClientRect().width),
       captureContextScrollWidth: captureContext.scrollWidth,
+      captureTargetText: target.textContent,
+      captureTargetTitle: target.title,
+      captureTargetAria: target.getAttribute("aria-label"),
+      captureTargetHeight: Math.ceil(target.getBoundingClientRect().height),
+      captureTargetInnerText: target.innerText,
+      captureTargetClientHeight: target.clientHeight,
+      captureTargetScrollHeight: target.scrollHeight,
+      captureTargetClientWidth: target.clientWidth,
+      captureTargetScrollWidth: target.scrollWidth,
+      originalTitle,
+      captureSourceWidth: Math.ceil(sourceControl.getBoundingClientRect().width),
+      captureSourceHit: (() => {
+        const rect = sourceControl.getBoundingClientRect();
+        return document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === sourceControl;
+      })(),
       captureStartersVisible: getComputedStyle(captureStarters).display !== "none",
       captureStartersWidth: Math.ceil(captureStarters.getBoundingClientRect().width),
       captureStartersScrollWidth: captureStarters.scrollWidth,
@@ -5194,6 +5216,10 @@ try {
       timeBackWidth: Math.ceil(document.querySelector("#timeBackBtn").getBoundingClientRect().width),
       timeForwardWidth: Math.ceil(document.querySelector("#timeForwardBtn").getBoundingClientRect().width)
     };
+    titleInput.value = originalTitle;
+    titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+    result.restoredTitle = document.querySelector("#sessionTitle").value;
+    return result;
   })()`);
 
   assert.equal(mobileLayout.shellColumns, 1);
@@ -5211,6 +5237,17 @@ try {
   assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextScrollWidth <= mobileLayout.captureContextWidth + 2);
+  assert.equal(mobileLayout.captureTargetText, "To Learning Companion Browser Notes");
+  assert.equal(mobileLayout.captureTargetTitle, "Captures save to Learning Companion Browser Notes");
+  assert.equal(mobileLayout.captureTargetAria, "Show capture destination: Learning Companion Browser Notes");
+  assert.ok(mobileLayout.captureTargetHeight >= 32);
+  assert.ok(mobileLayout.captureTargetHeight <= 48);
+  assert.doesNotMatch(mobileLayout.captureTargetInnerText, /…|\.\.\./);
+  assert.ok(mobileLayout.captureTargetScrollHeight <= mobileLayout.captureTargetClientHeight + 1);
+  assert.ok(mobileLayout.captureTargetScrollWidth <= mobileLayout.captureTargetClientWidth + 2);
+  assert.ok(mobileLayout.captureSourceWidth > 0);
+  assert.equal(mobileLayout.captureSourceHit, true);
+  assert.equal(mobileLayout.restoredTitle, mobileLayout.originalTitle);
   assert.ok(mobileLayout.captureStartersWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureStartersScrollWidth <= mobileLayout.captureStartersWidth + 2);
   assert.deepEqual(mobileLayout.starterButtons.map((button) => button.text), ["Question", "Answer", "Takeaway"]);

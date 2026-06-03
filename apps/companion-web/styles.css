@@ -806,9 +806,12 @@ textarea:focus {
 }
 
 .capture-context-target {
-  min-height: 28px;
+  display: -webkit-box;
+  align-items: center;
+  min-height: 36px;
   min-width: 0;
-  padding: 0 8px;
+  max-width: min(100%, 32ch);
+  padding: 3px 8px;
   overflow: hidden;
   text-align: left;
   border: 1px solid rgba(96, 108, 118, 0.18);
@@ -818,8 +821,10 @@ textarea:focus {
   cursor: pointer;
   font-size: 12px;
   font-weight: 750;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .capture-context-intent {
@@ -2051,7 +2056,11 @@ textarea:focus {
     grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .capture-context-target,
+  .capture-context-target {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+
   .capture-context-source {
     grid-column: 1 / 2;
   }
