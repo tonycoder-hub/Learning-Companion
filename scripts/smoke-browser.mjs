@@ -21,6 +21,13 @@ const mimeTypes = new Map([
   [".webmanifest", "application/manifest+json; charset=utf-8"]
 ]);
 const virtualRoutes = new Map();
+const indexHtmlFixture = await readFile(join(root, "index.html"), "utf8");
+const staleShellHtml = indexHtmlFixture
+  .replace(/\n\s*<div id="updateNotice" class="storage-notice update-notice" hidden>[\s\S]*?<\/div>(?=\n\s*<div id="importReceipt")/, "")
+  .replace(/\n\s*<nav id="sidecarRail" class="sidecar-rail" aria-label="Sidecar study rail" aria-live="off" hidden><\/nav>/, "");
+assert.equal(staleShellHtml.includes('id="updateNotice"'), false);
+assert.equal(staleShellHtml.includes('id="sidecarRail"'), false);
+virtualRoutes.set("/stale-shell.html", staleShellHtml);
 
 const server = createServer(async (request, response) => {
   try {
@@ -121,6 +128,36 @@ try {
   assert.notEqual(pwa.registration, "unsupported");
   assert.equal(pwa.updateNoticeHidden, true);
   assert.equal(pwa.updateNoticeText, "App update ready");
+
+  const staleShellExceptionCount = exceptions.length;
+  await cdp.send("Page.navigate", { url: `${appUrl}stale-shell.html` });
+  await sleep(500);
+  const staleShellCompat = await cdp.evaluate(`(() => ({
+    updateNoticeExists: Boolean(document.querySelector("#updateNotice")),
+    updateNoticeCount: document.querySelectorAll("#updateNotice").length,
+    updateNoticeHidden: document.querySelector("#updateNotice")?.hidden === true,
+    updateNoticeText: document.querySelector("#updateNoticeText")?.textContent || "",
+    updateReloadText: document.querySelector("#updateReloadBtn")?.textContent || "",
+    sidecarRailExists: Boolean(document.querySelector("#sidecarRail")),
+    sidecarRailCount: document.querySelectorAll("#sidecarRail").length,
+    sidecarRailHidden: document.querySelector("#sidecarRail")?.hidden === true,
+    learningFlowVisible: Boolean(document.querySelector(".learning-flow-panel"))
+  }))()`);
+  assert.deepEqual(staleShellCompat, {
+    updateNoticeExists: true,
+    updateNoticeCount: 1,
+    updateNoticeHidden: true,
+    updateNoticeText: "App update ready",
+    updateReloadText: "Reload",
+    sidecarRailExists: true,
+    sidecarRailCount: 1,
+    sidecarRailHidden: true,
+    learningFlowVisible: true
+  });
+  assert.equal(exceptions.length, staleShellExceptionCount);
+
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
 
   const firstRun = await cdp.evaluate(`(() => {
     document.querySelector('[data-tab="today"]').click();

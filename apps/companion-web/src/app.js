@@ -3812,6 +3812,13 @@ function renderReturnedWorkNudge(pack) {
     secondary.addEventListener("click", nudge.secondaryRun);
     footer.append(secondary);
   }
+  if (nudge.tertiaryLabel && nudge.tertiaryRun) {
+    const tertiary = textEl("button", "mini-button", nudge.tertiaryLabel);
+    tertiary.type = "button";
+    tertiary.dataset.returnedWorkTertiary = nudge.kind;
+    tertiary.addEventListener("click", nudge.tertiaryRun);
+    footer.append(tertiary);
+  }
   const dismiss = textEl("button", "mini-button", "Dismiss");
   dismiss.type = "button";
   dismiss.dataset.returnedWorkDismiss = "true";
@@ -3835,25 +3842,44 @@ function returnedWorkNudge(pack) {
   const basisDetail = returnedBasisDetail(receipt);
   const detail = [fileDetail, captureDetail, reviewDetail, basisDetail, failedDetail].filter(Boolean).join(" · ");
   if (work.inboxAdded) {
+    const hasReviewUpdate = Boolean(work.reviewApplied);
     return {
       kind: "inbox",
       title: returnedWorkTitle(work),
       detail,
       actionLabel: "View captures",
       run: () => jumpToTodaySection("recent_captures"),
-      secondaryLabel: "Import details",
-      secondaryRun: openLastReturnReceipt
+      secondaryLabel: hasReviewUpdate ? "Review status" : "Import details",
+      secondaryRun: hasReviewUpdate ? () => openReturnedReviewStatus(work) : openLastReturnReceipt,
+      tertiaryLabel: hasReviewUpdate ? "Import details" : "",
+      tertiaryRun: hasReviewUpdate ? openLastReturnReceipt : null
     };
   }
   return {
     kind: "review",
     title: returnedWorkTitle(work),
     detail,
-    actionLabel: "Import details",
-    run: openLastReturnReceipt,
-    secondaryLabel: pack.dueItems.length ? "Due review" : "Due status",
-    secondaryRun: () => jumpToTodaySection("due_review")
+    actionLabel: "Review status",
+    run: () => openReturnedReviewStatus(work),
+    secondaryLabel: "Import details",
+    secondaryRun: openLastReturnReceipt
   };
+}
+
+function openReturnedReviewStatus(work = returnReceiptNewWork(lastImportReceipt)) {
+  const applied = Number(work.reviewApplied) || 0;
+  const due = getDueReviewItems(workspace).length;
+  setActivity(getActiveSession(workspace), {
+    title: applied ? "Review return applied" : "Review status",
+    detail: due
+      ? `${due} due ${due === 1 ? "card" : "cards"} after the returned review file.`
+      : `${applied} returned review ${applied === 1 ? "update" : "updates"} applied; no cards are due right now.`,
+    tab: "today",
+    targetSection: "due_review",
+    actionLabel: "Review status"
+  });
+  renderActivity(getActiveSession(workspace));
+  jumpToTodaySection("due_review");
 }
 
 function returnReceiptNewWork(receipt) {
