@@ -2471,19 +2471,44 @@ try {
   assert.match(result.clientId, /^client_/);
 
   const mirrorSaveReceipt = await cdp.evaluate(`(() => new Promise((resolve) => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const workspaceBeforeStaleCheck = window.learningCompanionNative.exportWorkspaceJson();
     document.querySelector('[data-tab="export"]').click();
     const mirrorExportBeforeSave = document.querySelector("#mirrorExport").value;
     document.querySelector("#downloadMirrorBtn").click();
     setTimeout(() => {
       document.querySelector('[data-tab="today"]').click();
       const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      const exportActivityTitle = document.querySelector("#activityTitle").textContent;
+      const exportActivityDetail = document.querySelector("#activityDetail").textContent;
+      const exportToast = document.querySelector("#toast").textContent;
+      const currentHandoffText = document.querySelector(".handoff-card")?.textContent || "";
+      const currentHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      document.querySelector('[data-tab="captures"]').click();
+      setValue("#quoteInput", "Mac-side capture after mirror export.");
+      setValue("#thoughtInput", "This new point should make the mirror content stale.");
+      document.querySelector("#captureBtn").click();
+      document.querySelector('[data-tab="today"]').click();
+      const staleHandoffText = document.querySelector(".handoff-card")?.textContent || "";
+      const staleHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
+      document.querySelector('[data-tab="today"]').click();
       resolve({
-        activityTitle: document.querySelector("#activityTitle").textContent,
-        activityDetail: document.querySelector("#activityDetail").textContent,
-        toast: document.querySelector("#toast").textContent,
-        handoffText: document.querySelector(".handoff-card")?.textContent || "",
+        activityTitle: exportActivityTitle,
+        activityDetail: exportActivityDetail,
+        toast: exportToast,
+        handoffText: currentHandoffText,
+        handoffSummary: currentHandoffSummary,
+        staleHandoffText,
+        staleHandoffSummary,
         mirrorHandoffKind: prefs.mirrorHandoff?.kind || "",
+        mirrorHandoffWorkspaceFingerprint: prefs.mirrorHandoff?.workspaceFingerprint || "",
         mirrorHandoffHasFingerprint: /^fnv1a-[a-f0-9]{8}$/.test(prefs.mirrorHandoff?.returnBaseFingerprint || ""),
+        mirrorHandoffExportStats: prefs.mirrorHandoff?.exportStats || {},
         mirrorExportLeaksHandoff: mirrorExportBeforeSave.includes("mirrorHandoff")
       });
     }, 20);
@@ -2493,8 +2518,15 @@ try {
   assert.equal(mirrorSaveReceipt.toast, "Mirror download requested");
   assert.match(mirrorSaveReceipt.handoffText, /Mirror current/);
   assert.match(mirrorSaveReceipt.handoffText, /Waiting for return file/);
+  assert.match(mirrorSaveReceipt.handoffSummary, /Mirror ready/);
+  assert.match(mirrorSaveReceipt.staleHandoffText, /Mac changed since mirror export/);
+  assert.match(mirrorSaveReceipt.staleHandoffText, /Since Mirror JSON export: 1 new capture/);
+  assert.match(mirrorSaveReceipt.staleHandoffSummary, /Mac changed · 1 new capture/);
   assert.equal(mirrorSaveReceipt.mirrorHandoffKind, "Mirror JSON");
+  assert.match(mirrorSaveReceipt.mirrorHandoffWorkspaceFingerprint, /^[a-f0-9]{8}$/);
   assert.equal(mirrorSaveReceipt.mirrorHandoffHasFingerprint, true);
+  assert.equal(mirrorSaveReceipt.mirrorHandoffExportStats.captures >= 1, true);
+  assert.equal(mirrorSaveReceipt.mirrorHandoffExportStats.cards >= 1, true);
   assert.equal(mirrorSaveReceipt.mirrorExportLeaksHandoff, false);
 
   const exceptionsBeforeMirrorIndexClick = exceptions.length;

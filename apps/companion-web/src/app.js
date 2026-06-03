@@ -35,6 +35,7 @@ import {
   generateReviewPackMarkdown,
   generateSynthesisDraft,
   generateTodayMarkdown,
+  getStudyPackStats,
   getSynthesisStats,
   getSynthesisSourceStamp,
   getDueReviewCards,
@@ -908,17 +909,35 @@ function cleanBackupText(value, limit) {
 
 function normalizeMirrorHandoff(value) {
   if (!value || typeof value !== "object") return null;
+  const workspaceFingerprint = cleanBackupText(value.workspaceFingerprint, 24);
   const returnBaseFingerprint = cleanBackupText(value.returnBaseFingerprint, 64);
   const exportedAt = cleanBackupText(value.exportedAt, 32);
   const kind = normalizeMirrorKind(value.kind);
+  const exportStats = normalizeMirrorExportStats(value.exportStats);
   const lastReturnImport = normalizeMirrorReturnImport(value.lastReturnImport);
   const exportState = returnBaseFingerprint && exportedAt && kind
-    ? { returnBaseFingerprint, exportedAt, kind }
+    ? {
+        ...(workspaceFingerprint ? { workspaceFingerprint } : {}),
+        returnBaseFingerprint,
+        exportedAt,
+        kind,
+        ...(exportStats ? { exportStats } : {})
+      }
     : {};
   if (!Object.keys(exportState).length && !lastReturnImport) return null;
   return {
     ...exportState,
     ...(lastReturnImport ? { lastReturnImport } : {})
+  };
+}
+
+function normalizeMirrorExportStats(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    captures: clampSmallCount(value.captures),
+    cards: clampSmallCount(value.cards),
+    questions: clampSmallCount(value.questions),
+    due: clampSmallCount(value.due)
   };
 }
 
@@ -5008,20 +5027,19 @@ function renderReturnFilesPanel() {
 
 function deviceFlowSummaryLabel() {
   const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
-  const currentFingerprint = buildReturnBaseFingerprint(workspace);
-  const inboxCount = workspace.importedPatches.length;
-  const reviewCount = workspace.importedReviewPatches.length;
-  const counts = `${inboxCount} inbox · ${reviewCount} review`;
+  const currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace);
+  const counts = deviceFlowReturnCountsLabel();
+  const countsSuffix = counts ? ` · ${counts}` : "";
   const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
-  if (!hasExport) return `Next: export mirror · ${counts}`;
-  if (state.returnBaseFingerprint !== currentFingerprint) return `Mac changed · re-export mirror · ${counts}`;
-  if (returnImportCoversExport(state)) return `Return imported · ready for next export · ${counts}`;
-  return `Mirror ready · waiting for phone/Windows return · ${counts}`;
+  if (!hasExport) return `Next: export mirror${countsSuffix}`;
+  if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) return `Mac changed · ${mirrorExportChangeSummary(state)}${countsSuffix}`;
+  if (returnImportCoversExport(state)) return `Return imported · ready for next export${countsSuffix}`;
+  return `Mirror ready · waiting for phone/Windows return${countsSuffix}`;
 }
 
 function renderMirrorHandoffStatus() {
   const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
-  const currentFingerprint = buildReturnBaseFingerprint(workspace);
+  const currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace);
   const grid = document.createElement("div");
   grid.className = "handoff-state-grid";
 
@@ -5031,7 +5049,7 @@ function renderMirrorHandoffStatus() {
       "No mirror exported yet",
       "Export to take Today to phone or Windows."
     ));
-  } else if (state.returnBaseFingerprint === currentFingerprint) {
+  } else if (!mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
     grid.append(renderHandoffStateItem(
       "Mirror current",
       `${state.kind} exported ${formatRelativeLocalTime(state.exportedAt)}. Ready to open inbox.html or review.html.`
@@ -5039,7 +5057,7 @@ function renderMirrorHandoffStatus() {
   } else {
     grid.append(renderHandoffStateItem(
       "Mac changed since mirror export",
-      "Re-export before another phone or Windows study pass."
+      `${mirrorExportChangeDetail(state)}. Re-export before another phone or Windows study pass.`
     ));
   }
 
@@ -5061,6 +5079,65 @@ function renderMirrorHandoffStatus() {
     ));
   }
   return grid;
+}
+
+function mirrorHandoffContentChanged(state, currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace)) {
+  if (!state?.returnBaseFingerprint) return false;
+  if (state.workspaceFingerprint) return state.workspaceFingerprint !== currentWorkspaceFingerprint;
+  return state.returnBaseFingerprint !== buildReturnBaseFingerprint(workspace);
+}
+
+function mirrorExportStats() {
+  // Snapshot at mirror-export time; deltas are always current stats minus this saved baseline.
+  const stats = getStudyPackStats(workspace, new Date());
+  return normalizeMirrorExportStats({
+    captures: stats.captures,
+    cards: stats.cards,
+    questions: stats.questions,
+    due: stats.due
+  });
+}
+
+function deviceFlowReturnCountsLabel() {
+  const counts = [
+    deviceFlowReturnCount(workspace.importedPatches.length, "inbox"),
+    deviceFlowReturnCount(workspace.importedReviewPatches.length, "review")
+  ].filter(Boolean);
+  return counts.join(" · ");
+}
+
+function deviceFlowReturnCount(count, label) {
+  const value = clampSmallCount(count);
+  return value ? `${value} ${label}` : "";
+}
+
+function mirrorExportChangeSummary(state) {
+  const changes = mirrorExportChangeParts(state);
+  return changes.length ? changes.slice(0, 2).join(" · ") : "return base changed";
+}
+
+function mirrorExportChangeDetail(state) {
+  const changes = mirrorExportChangeParts(state);
+  return changes.length ? `Since ${state.kind || "mirror"} export: ${changes.join(" · ")}` : "Return base changed since the mirror export";
+}
+
+function mirrorExportChangeParts(state) {
+  const exported = normalizeMirrorExportStats(state?.exportStats);
+  if (!exported) return [];
+  const current = mirrorExportStats();
+  return [
+    mirrorExportDelta("capture", current.captures - exported.captures),
+    mirrorExportDelta("review card", current.cards - exported.cards),
+    mirrorExportDelta("open question", current.questions - exported.questions),
+    mirrorExportDelta("due card", current.due - exported.due)
+  ].filter(Boolean);
+}
+
+function mirrorExportDelta(label, delta) {
+  if (!delta) return "";
+  const amount = Math.abs(delta);
+  const noun = `${label}${amount === 1 ? "" : "s"}`;
+  return delta > 0 ? `${amount} new ${noun}` : `${amount} fewer ${noun}`;
 }
 
 function returnImportCoversExport(state) {
@@ -5841,9 +5918,11 @@ function recordMirrorExport(kind) {
     ...uiPrefs,
     mirrorHandoff: normalizeMirrorHandoff({
       ...(uiPrefs.mirrorHandoff || {}),
+      workspaceFingerprint: workspaceBackupFingerprint(workspace),
       returnBaseFingerprint: buildReturnBaseFingerprint(workspace),
       exportedAt: new Date().toISOString(),
-      kind
+      kind,
+      exportStats: mirrorExportStats()
     })
   };
   saveUiPrefs();
