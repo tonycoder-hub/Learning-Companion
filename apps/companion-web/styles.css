@@ -1618,6 +1618,14 @@ textarea:focus {
   line-height: 1.35;
 }
 
+.return-files-action-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
 .handoff-card .item-footer {
   flex-wrap: wrap;
   justify-content: flex-start;

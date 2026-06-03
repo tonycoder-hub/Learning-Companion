@@ -2481,6 +2481,7 @@ try {
       step: button.dataset.returnFilesStep || "",
       primary: button.classList.contains("primary")
     }));
+    const actionHintText = () => document.querySelector("[data-return-files-action-hint]")?.textContent || "";
     const workspaceBeforeStaleCheck = window.learningCompanionNative.exportWorkspaceJson();
     const exportedWorkspace = JSON.parse(workspaceBeforeStaleCheck);
     const exportedSession = exportedWorkspace.sessions.find((item) => item.id === exportedWorkspace.activeSessionId) || exportedWorkspace.sessions[0];
@@ -2496,6 +2497,7 @@ try {
       const currentHandoffText = document.querySelector(".handoff-card")?.textContent || "";
       const currentHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const currentHandoffActions = actionSnapshot();
+      const currentActionHint = actionHintText();
       document.querySelector('[data-tab="captures"]').click();
       setValue("#quoteInput", "Mac-side capture after mirror export.");
       setValue("#thoughtInput", "This new point should make the mirror content stale.");
@@ -2504,6 +2506,7 @@ try {
       const staleHandoffText = document.querySelector(".handoff-card")?.textContent || "";
       const staleHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const staleHandoffActions = actionSnapshot();
+      const staleActionHint = actionHintText();
       document.querySelector('[data-return-files-step="export"]')?.click();
       const reExportOpenedTab = document.querySelector(".tab.active")?.dataset.tab || "";
       document.querySelector("#downloadMirrorBtn").click();
@@ -2511,6 +2514,7 @@ try {
       document.querySelector('[data-tab="today"]').click();
       const reExportedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const reExportedHandoffActions = actionSnapshot();
+      const reExportedActionHint = actionHintText();
       window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
       document.querySelector('[data-tab="export"]').click();
       document.querySelector("#downloadMirrorBtn").click();
@@ -2544,6 +2548,7 @@ try {
       const returnedHandoffText = document.querySelector(".handoff-card")?.textContent || "";
       const returnedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const returnedHandoffActions = actionSnapshot();
+      const returnedActionHint = actionHintText();
       const prefsAfterReturn = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
       const workspaceAfterReturnImport = window.learningCompanionNative.exportWorkspaceJson();
       window.learningCompanionNative.importWorkspaceJson(workspaceAfterReturnImport);
@@ -2564,17 +2569,21 @@ try {
         handoffText: currentHandoffText,
         handoffSummary: currentHandoffSummary,
         currentHandoffActions,
+        currentActionHint,
         staleHandoffText,
         staleHandoffSummary,
         staleHandoffActions,
+        staleActionHint,
         reExportOpenedTab,
         reExportedHandoffSummary,
         reExportedHandoffActions,
+        reExportedActionHint,
         returnImportOk: returnImportResult.ok === true,
         returnImportKind: returnImportResult.kind || "",
         returnedHandoffText,
         returnedHandoffSummary,
         returnedHandoffActions,
+        returnedActionHint,
         roundTripReturnedHandoffSummary,
         lastReturnImportWorkspaceFingerprint: prefsAfterReturn.mirrorHandoff?.lastReturnImport?.workspaceFingerprint || "",
         postReturnStaleSummary,
@@ -2596,6 +2605,7 @@ try {
     { text: "Import Return Files", step: "import", primary: true },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
+  assert.match(mirrorSaveReceipt.currentActionHint, /import or paste the return file/);
   assert.match(mirrorSaveReceipt.staleHandoffText, /Mac changed since mirror export/);
   assert.match(mirrorSaveReceipt.staleHandoffText, /Since Mirror JSON export: 1 new capture/);
   assert.match(mirrorSaveReceipt.staleHandoffSummary, /Mac changed · 1 new capture/);
@@ -2604,6 +2614,7 @@ try {
     { text: "Import Return Files", step: "import", primary: false },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
+  assert.match(mirrorSaveReceipt.staleActionHint, /re-export before another phone or Windows/);
   assert.equal(mirrorSaveReceipt.reExportOpenedTab, "export");
   assert.match(mirrorSaveReceipt.reExportedHandoffSummary, /Mirror ready/);
   assert.doesNotMatch(mirrorSaveReceipt.reExportedHandoffSummary, /Mac changed/);
@@ -2612,6 +2623,7 @@ try {
     { text: "Import Return Files", step: "import", primary: true },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
+  assert.match(mirrorSaveReceipt.reExportedActionHint, /import or paste the return file/);
   assert.equal(mirrorSaveReceipt.returnImportOk, true);
   assert.equal(mirrorSaveReceipt.returnImportKind, "mobile-inbox-patch");
   assert.match(mirrorSaveReceipt.returnedHandoffSummary, /Return imported · ready for next export/);
@@ -2625,6 +2637,7 @@ try {
     { text: "Import Return Files", step: "import", primary: false },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
+  assert.match(mirrorSaveReceipt.returnedActionHint, /export a fresh mirror/);
   assert.match(mirrorSaveReceipt.lastReturnImportWorkspaceFingerprint, /^[a-f0-9]{8}$/);
   assert.match(mirrorSaveReceipt.postReturnStaleSummary, /Mac changed/);
   assert.equal(mirrorSaveReceipt.mirrorHandoffKind, "Mirror JSON");

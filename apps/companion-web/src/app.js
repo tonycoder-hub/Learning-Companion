@@ -5000,9 +5000,11 @@ function renderReturnFilesPanel() {
     steps.append(textEl("li", "", step));
   });
   const boundary = textEl("p", "handoff-boundary", "Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.");
+  const actionState = deviceFlowActionState();
+  const actionHint = textEl("p", "return-files-action-hint", actionState.hint);
+  actionHint.dataset.returnFilesActionHint = actionState.primary;
   const footer = document.createElement("div");
   footer.className = "item-footer return-files-actions";
-  const actionState = deviceFlowActionState();
   const importPatch = textEl("button", actionState.primary === "import" ? "mini-button primary" : "mini-button", "Import Return Files");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
@@ -5024,7 +5026,7 @@ function renderReturnFilesPanel() {
   intakeGroup.setAttribute("aria-label", "Bring return files back");
   intakeGroup.append(importPatch, pasteReturn);
   footer.append(exportGroup, intakeGroup);
-  panel.append(summary, detail, handoffState, steps, boundary, footer);
+  panel.append(summary, detail, handoffState, steps, boundary, actionHint, footer);
   return panel;
 }
 
@@ -5032,17 +5034,39 @@ function deviceFlowActionState() {
   const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
   const currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace);
   const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
-  if (!hasExport) return { primary: "export", exportLabel: "Export Mirror" };
+  if (!hasExport) {
+    return {
+      primary: "export",
+      exportLabel: "Export Mirror",
+      hint: "Next: export a mirror, then move it to phone or Windows."
+    };
+  }
   if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) {
-    return { primary: "export", exportLabel: "Export Fresh Mirror" };
+    return {
+      primary: "export",
+      exportLabel: "Export Fresh Mirror",
+      hint: "Next: export a fresh mirror so the next device pass starts after this return."
+    };
   }
   if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) {
-    return { primary: "export", exportLabel: "Export Fresh Mirror" };
+    return {
+      primary: "export",
+      exportLabel: "Export Fresh Mirror",
+      hint: "Next: export a fresh mirror to replace the legacy handoff check."
+    };
   }
   if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
-    return { primary: "export", exportLabel: "Re-export Mirror" };
+    return {
+      primary: "export",
+      exportLabel: "Re-export Mirror",
+      hint: "Next: re-export before another phone or Windows study pass."
+    };
   }
-  return { primary: "import", exportLabel: "Export Mirror" };
+  return {
+    primary: "import",
+    exportLabel: "Export Mirror",
+    hint: "Next: import or paste the return file when it comes back to this Mac."
+  };
 }
 
 function deviceFlowSummaryLabel() {
