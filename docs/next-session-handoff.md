@@ -43,6 +43,7 @@ What changed:
 - Review grading now aligns Activity with the actual review queue: `Next card` targets the next due card, and the last graded card produces `Review queue clear` with a return to Quick Capture plus guarded source resume when available.
 - Static Review/Inbox pages now show post-save follow-up links to the other exported lane when applicable: Review can continue to prefilled Inbox answers, and Inbox can continue to Review. Negative smoke keeps single-lane mirrors from rendering a follow-up.
 - `npm run check:static-return` now verifies the morning-demo static files include those relative cross-page follow-ups and records them in the project-local receipt.
+- `npm run check:morning` now runs `check:static-return` after `demo:morning`, so the headline offline gate includes that static return contract.
 
 External review status:
 

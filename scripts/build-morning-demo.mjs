@@ -1296,13 +1296,13 @@ function buildMorningReviewMarkdown({
     "0e. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
     "0f. Read `dist/morning-demo/CAPTURE_RESUME_RECEIPT.json` if you want the exact model evidence that due review blocks a fresh Quick Capture draft from owning the Focus Brief.",
     `0g. Read \`dist/morning-demo/${SOURCE_TIME_LINKS_RECEIPT_FILE}\` for the local source-time parser evidence; it does not prove real video-site playback.`,
-    `0h. Read \`dist/morning-demo/${STATIC_RETURN_CONTRACT_FILE}\`, then run \`npm run check:static-return\` if you need the local static return contract receipt.`,
+    `0h. Read \`dist/morning-demo/${STATIC_RETURN_CONTRACT_FILE}\`; \`npm run check:morning\` now runs the static return verifier, and \`npm run check:static-return\` can rerun it alone.`,
     "0i. Check the first-run `First Note` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
     "0j. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
-    "1c. Run `npm run check:static-return` separately for the static return contract; it writes receipts under `.codex-tmp/`, not Downloads.",
+    "1c. `npm run check:morning` includes `npm run check:static-return`; rerun it separately only when you want a fresh static-return receipt. It writes receipts under `.codex-tmp/`, not Downloads.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
     "4. Open the Export tab and compare it with `dist/morning-demo/mirror-folder/index.html`.",
@@ -1631,7 +1631,7 @@ function buildReviewStartHereHtml({
       <div class="grid">
         <div class="card"><strong>1. Mac Loop</strong><p>Open the app beside a browser source. Check First Note, then use Capture this thought and confirm the Thought lane is the focused writing target.</p></div>
         <div class="card"><strong>2. Import</strong><p>Import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>, type a half-finished Quick Capture thought, switch sessions, and confirm Today/Focus Brief can resume it without calling it synced data.</p></div>
-        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate. Run <code>npm run check:static-return</code> for the static Review/Inbox return contract. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
+        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate, including the static Review/Inbox return contract. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
         <div class="card"><strong>4. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
     </section>

@@ -26,6 +26,10 @@ echo "== Morning demo pack =="
 npm run demo:morning
 echo
 
+echo "== Static return contract =="
+npm run check:static-return
+echo
+
 echo "== Morning receipt contracts =="
 npm run morning:receipts
 echo
