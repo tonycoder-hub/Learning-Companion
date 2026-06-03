@@ -1481,11 +1481,14 @@ function captureSaveActivity(session, capture, options = {}) {
   }
   if (captureHasAnswer(capture)) {
     const linked = Boolean(options.isLinkedAnswer);
-    const hasSourceResume = linked && Boolean(buildCaptureResumeSource(session, capture).href);
+    const canRefreshReviewCard = linked && linkedAnswerCanRefreshReviewCard(session, capture);
+    const hasSourceResume = linked && !canRefreshReviewCard && Boolean(buildCaptureResumeSource(session, capture).href);
     return {
       title: linked ? "Answer saved" : "Answer note saved",
       detail: linked
-        ? hasSourceResume
+        ? canRefreshReviewCard
+          ? "Closed the linked question and kept this answer as evidence. Refresh the review card while this answer is fresh."
+          : hasSourceResume
           ? "Closed the linked question and kept this answer as evidence."
           : "Closed the linked question and kept this answer as evidence in Answers Today."
         : "Saved in Answers Today. It did not close a question because no question was linked.",
@@ -1493,7 +1496,9 @@ function captureSaveActivity(session, capture, options = {}) {
       targetId: capture?.id || "",
       targetSection: linked ? "closed_questions" : "answers_today",
       actionLabel: linked ? "Closed" : "Answers",
-      nextHint: hasSourceResume ? activityNextHint("afterLinkedAnswerSavedSourceLinked") : null
+      nextHint: canRefreshReviewCard
+        ? activityNextHint("afterLinkedAnswerCardRefreshNeeded")
+        : hasSourceResume ? activityNextHint("afterLinkedAnswerSavedSourceLinked") : null
     };
   }
   if (captureHasTakeawayPrefix(capture)) {
@@ -2300,6 +2305,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Question closed. Resume the source for the next point.",
     actionLabel: "Resume source",
     ariaLabel: "Resume the source after saving this answer"
+  }),
+  afterLinkedAnswerCardRefreshNeeded: Object.freeze({
+    kind: "afterLinkedAnswerCardRefreshNeeded",
+    text: "Question closed. Refresh the review card with this answer.",
+    actionLabel: "Refresh card",
+    ariaLabel: "Refresh the review card with this linked answer"
   })
 });
 
@@ -2425,6 +2436,11 @@ function activityHintAvailable(activity, hint) {
   if (["afterThoughtAddedSourceLinked", "afterQuestionSavedSourceLinked", "afterLinkedAnswerSavedSourceLinked"].includes(hint.kind)) {
     return Boolean(activityResumeSource(activity).href);
   }
+  if (hint.kind === "afterLinkedAnswerCardRefreshNeeded") {
+    const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+    const answerCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
+    return linkedAnswerCanRefreshReviewCard(targetSession, answerCapture);
+  }
   return true;
 }
 
@@ -2433,6 +2449,14 @@ function activityResumeSource(activity) {
   const targetCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
   if (!targetSession || !targetCapture) return { href: "" };
   return buildCaptureResumeSource(targetSession, targetCapture);
+}
+
+function linkedAnswerCanRefreshReviewCard(session, answerCapture) {
+  const questionId = answerCapture?.answersQuestionCaptureId || "";
+  if (!questionId) return false;
+  const question = session?.captures.find((capture) => capture.id === questionId);
+  const card = session?.reviewCards.find((item) => item.sourceCaptureId === questionId);
+  return Boolean(question?.promotedToReview && card);
 }
 
 function activityStaysInSidecar(activity) {
@@ -2901,6 +2925,10 @@ function runActivityHintAction() {
     answerQuestionFromActivity(activity);
     return;
   }
+  if (hint.kind === "afterLinkedAnswerCardRefreshNeeded") {
+    refreshQuestionCardFromAnswerActivity(activity);
+    return;
+  }
   if (hint.kind === "afterThoughtAddedCarded") {
     openReviewCardFromCapture(activity.targetId, activity.sessionId);
     return;
@@ -2969,6 +2997,21 @@ function answerQuestionFromActivity(activity) {
     return;
   }
   answerQuestionFromToday(activity.targetId, activity.sessionId);
+}
+
+function refreshQuestionCardFromAnswerActivity(activity) {
+  const sourceSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+  const answerCapture = sourceSession?.captures.find((item) => item.id === activity?.targetId);
+  const questionId = answerCapture?.answersQuestionCaptureId || "";
+  if (!sourceSession || !answerCapture || !questionId) {
+    showToast("Linked answer no longer exists");
+    return;
+  }
+  if (!linkedAnswerCanRefreshReviewCard(sourceSession, answerCapture)) {
+    showToast("Review card no longer needs refresh");
+    return;
+  }
+  refreshAnsweredQuestionCard(questionId, sourceSession.id);
 }
 
 function openActivityHighlightAnnotation(activity) {

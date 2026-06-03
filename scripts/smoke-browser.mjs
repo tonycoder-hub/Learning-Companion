@@ -5918,6 +5918,108 @@ async function assertPostSaveFlow(cdp) {
       answersText: document.querySelector("[data-today-section='answers_today']")?.textContent || "",
       answersPulsed: document.querySelector("[data-today-section='answers_today']")?.classList.contains("pulse") === true
     };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Card refresh after answer");
+    setValue("#sourceTitle", "Card refresh source");
+    setValue("#sourceUrl", "https://example.com/card-refresh-source");
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Question: Which answer should refresh this review card?");
+    document.querySelector("#captureBtn").click();
+    const cardRefreshQuestionId = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return session?.captures.find((capture) => /refresh this review card/.test(capture.thought || ""))?.id || "";
+    })();
+    document.querySelector("#activityDetailsBtn").click();
+    const cardRefreshQuestionCard = [...document.querySelectorAll("#todayList .question-card")]
+      .find((card) => /refresh this review card/.test(card.textContent || ""));
+    [...(cardRefreshQuestionCard?.querySelectorAll("button") || [])]
+      .find((button) => button.textContent === "Save for recall")
+      ?.click();
+    const cardRefreshWorkspaceWithStaleEvidence = (() => {
+      const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      return {
+        ...workspace,
+        sessions: workspace.sessions.map((session) => session.id === workspace.activeSessionId
+          ? {
+            ...session,
+            reviewCards: session.reviewCards.map((card) => card.sourceCaptureId === cardRefreshQuestionId
+              ? { ...card, evidenceCaptureId: cardRefreshQuestionId }
+              : card)
+          }
+          : session)
+      };
+    })();
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(cardRefreshWorkspaceWithStaleEvidence));
+    document.querySelector('[data-tab="today"]').click();
+    const cardRefreshOpenQuestion = [...document.querySelectorAll("#todayList .question-card:not(.closed-question-card):not(.parked-question-card)")]
+      .find((card) => /refresh this review card/.test(card.textContent || ""));
+    [...(cardRefreshOpenQuestion?.querySelectorAll("button") || [])]
+      .find((button) => button.textContent === "Answer")
+      ?.click();
+    setValue("#thoughtInput", "Answer: This linked answer is the evidence that should refresh the card.");
+    document.querySelector("#captureBtn").click();
+    const cardedLinkedAnswerSaved = readActivity();
+    const cardedLinkedAnswerState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const answer = session?.captures.find((capture) => /evidence that should refresh/.test(capture.thought || ""));
+      const card = session?.reviewCards.find((item) => item.sourceCaptureId === cardRefreshQuestionId);
+      return {
+        answerId: answer?.id || "",
+        questionId: cardRefreshQuestionId,
+        cardEvidenceBefore: card?.evidenceCaptureId || ""
+      };
+    })();
+    const cardedLinkedAnswerWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    document.querySelector("#activityDetailsBtn").click();
+    const cardedLinkedAnswerClosedToday = (() => {
+      const card = [...document.querySelectorAll("#todayList .closed-question-card")]
+        .find((item) => /refresh this review card/.test(item.textContent || ""));
+      const buttons = [...(card?.querySelectorAll("button") || [])]
+        .map((button) => ({ text: button.textContent, disabled: button.disabled === true }));
+      return {
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        closedCardFound: Boolean(card),
+        refreshButton: buttons.find((button) => button.text === "Refresh card") || null,
+        buttons
+      };
+    })();
+    const cardedLinkedAnswerCardRemovedWorkspace = {
+      ...cardedLinkedAnswerWorkspace,
+      sessions: cardedLinkedAnswerWorkspace.sessions.map((session) => ({
+        ...session,
+        reviewCards: session.reviewCards.filter((card) => card.sourceCaptureId !== cardRefreshQuestionId)
+      }))
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(cardedLinkedAnswerCardRemovedWorkspace));
+    const cardedLinkedAnswerCardRemoved = readActivity();
+    const cardedLinkedAnswerCardRemovedState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return {
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        reviewCardStillPresent: session?.reviewCards.some((card) => card.sourceCaptureId === cardRefreshQuestionId) === true
+      };
+    })();
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(cardedLinkedAnswerWorkspace));
+    const cardedLinkedAnswerRestored = readActivity();
+    document.querySelector("#activityHintBtn").click();
+    const cardedLinkedAnswerRefresh = readActivity();
+    const cardedLinkedAnswerRefreshState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const card = session?.reviewCards.find((item) => item.sourceCaptureId === cardRefreshQuestionId);
+      return {
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        activeReviewCard: Boolean(document.querySelector("#reviewList .active-review-card")),
+        cardEvidenceAfter: card?.evidenceCaptureId || "",
+        answerId: cardedLinkedAnswerState.answerId
+      };
+    })();
+    document.querySelector('[data-tab="captures"]').click();
+    setValue("#sourceTitle", "Post-save flow fixture");
+    setValue("#sourceUrl", "https://example.com/post-save-flow");
     setValue("#quoteInput", "");
     setValue("#thoughtInput", "Takeaway: Ownership makes the reader check aliasing before mutation.");
     document.querySelector("#captureBtn").click();
@@ -6160,7 +6262,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -6232,6 +6334,31 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.unlinkedAnswerDetails.drawerOpen, true);
   assert.match(postSaveFlow.unlinkedAnswerDetails.answersText, /Answers Today/);
   assert.equal(postSaveFlow.unlinkedAnswerDetails.answersPulsed, true);
+  assert.equal(postSaveFlow.cardedLinkedAnswerSaved.title, "Answer saved");
+  assert.match(postSaveFlow.cardedLinkedAnswerSaved.detail, /Refresh the review card/);
+  assert.doesNotMatch(postSaveFlow.cardedLinkedAnswerSaved.detail, /Resume the source/);
+  assert.equal(postSaveFlow.cardedLinkedAnswerSaved.action, "Closed");
+  assert.equal(postSaveFlow.cardedLinkedAnswerSaved.hintHidden, false);
+  assert.equal(postSaveFlow.cardedLinkedAnswerSaved.hintKind, "afterLinkedAnswerCardRefreshNeeded");
+  assert.equal(postSaveFlow.cardedLinkedAnswerSaved.hintAction, "Refresh card");
+  assert.equal(postSaveFlow.cardedLinkedAnswerSaved.hintAria, "Refresh the review card with this linked answer");
+  assert.equal(postSaveFlow.cardedLinkedAnswerState.cardEvidenceBefore, postSaveFlow.cardedLinkedAnswerState.questionId);
+  assert.equal(postSaveFlow.cardedLinkedAnswerClosedToday.activeTab, "today");
+  assert.equal(postSaveFlow.cardedLinkedAnswerClosedToday.closedCardFound, true);
+  assert.deepEqual(postSaveFlow.cardedLinkedAnswerClosedToday.refreshButton, { text: "Refresh card", disabled: false });
+  assert.equal(postSaveFlow.cardedLinkedAnswerCardRemoved.title, "Answer saved");
+  assert.equal(postSaveFlow.cardedLinkedAnswerCardRemoved.hintHidden, true);
+  assert.equal(postSaveFlow.cardedLinkedAnswerCardRemoved.hintKind, "");
+  assert.equal(postSaveFlow.cardedLinkedAnswerCardRemovedState.activeTab, "today");
+  assert.equal(postSaveFlow.cardedLinkedAnswerCardRemovedState.reviewCardStillPresent, false);
+  assert.equal(postSaveFlow.cardedLinkedAnswerRestored.title, "Answer saved");
+  assert.equal(postSaveFlow.cardedLinkedAnswerRestored.hintHidden, false);
+  assert.equal(postSaveFlow.cardedLinkedAnswerRestored.hintKind, "afterLinkedAnswerCardRefreshNeeded");
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefresh.title, "Review card refreshed");
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefreshState.activeTab, "review");
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefreshState.activeReviewCard, true);
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefreshState.cardEvidenceAfter, postSaveFlow.cardedLinkedAnswerRefreshState.answerId);
+  assert.notEqual(postSaveFlow.cardedLinkedAnswerRefreshState.cardEvidenceAfter, postSaveFlow.cardedLinkedAnswerState.cardEvidenceBefore);
   assert.equal(postSaveFlow.takeawaySaved.title, "Takeaway saved");
   assert.match(postSaveFlow.takeawaySaved.detail, /Save it for recall/);
   assert.equal(postSaveFlow.takeawaySaved.action, "Capture");
