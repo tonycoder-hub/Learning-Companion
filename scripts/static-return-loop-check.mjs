@@ -412,6 +412,9 @@ function assertStaticReturnContract(html, {
   });
   assert.match(html, /Manual Copy/);
   assertStaticNoScript(html);
+  assert.match(html, /On a phone: use Copy or Manual Copy/);
+  assert.match(html, /paste the return JSON into a note, email, or message/);
+  assert.match(html, /AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved/);
   assert.match(html, /Today &gt; Return Files/);
   assert.match(html, new RegExp(`returnFileName\\('${escapeRegExp(returnNamePrefix)}'`));
   assert.match(html, /returnBaseFingerprint/);

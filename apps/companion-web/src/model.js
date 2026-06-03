@@ -2355,7 +2355,7 @@ function returnAfterSaveHtml() {
   return [
     "      <div id=\"returnAfterSave\" class=\"return-after-save\" role=\"status\" aria-live=\"polite\" hidden>",
     "        <strong>Next: send this return file back to your Mac</strong>",
-    "        <span id=\"returnAfterSaveText\">Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today &gt; Return Files in the Mac app. You can keep working here; new changes will stage into the next return file.</span>",
+    "        <span id=\"returnAfterSaveText\">On a phone: use Copy or Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today &gt; Return Files. AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved.</span>",
     "        <a id=\"returnAfterSaveFollowup\" hidden></a>",
     "      </div>"
   ];
@@ -2600,7 +2600,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      const text = document.querySelector('#returnAfterSaveText');",
     "      if (!panel || !text) return;",
     "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
-    "      text.textContent = `Return file ${action}. Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today > Return Files in the Mac app. You can keep reviewing here; new grades will stage into the next return file.`;",
+    "      text.textContent = `Return file ${action}. On a phone: if the file is hard to find, use Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today > Return Files. AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved. You can keep reviewing here; new grades will stage into the next return file.`;",
     "      renderReturnFollowup();",
     "      panel.hidden = false;",
     "    }",
@@ -3041,7 +3041,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      const text = document.querySelector('#returnAfterSaveText');",
     "      if (!panel || !text) return;",
     "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
-    "      text.textContent = `Return file ${action}. Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today > Return Files in the Mac app. You can keep capturing here; new drafts will stage into the next return file.`;",
+    "      text.textContent = `Return file ${action}. On a phone: if the file is hard to find, use Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today > Return Files. AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved. You can keep capturing here; new drafts will stage into the next return file.`;",
     "      renderReturnFollowup();",
     "      panel.hidden = false;",
     "    }",

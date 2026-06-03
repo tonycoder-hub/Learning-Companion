@@ -3778,7 +3778,10 @@ try {
   assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(reviewRuntime.returnAfterPanelHidden, false);
   assert.match(reviewRuntime.returnAfterText, /Return file downloaded/);
+  assert.match(reviewRuntime.returnAfterText, /On a phone: if the file is hard to find, use Manual Copy/);
+  assert.match(reviewRuntime.returnAfterText, /paste the return JSON into a note, email, or message/);
   assert.match(reviewRuntime.returnAfterText, /import or paste it from Today > Return Files/);
+  assert.match(reviewRuntime.returnAfterText, /AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved/);
   assert.match(reviewRuntime.returnAfterText, /keep reviewing here/);
   assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(reviewRuntime.returnPreviewTitle, "Return file preview");
@@ -4316,7 +4319,10 @@ try {
   assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(inboxRuntime.returnAfterPanelHidden, false);
   assert.match(inboxRuntime.returnAfterText, /Return file downloaded/);
+  assert.match(inboxRuntime.returnAfterText, /On a phone: if the file is hard to find, use Manual Copy/);
+  assert.match(inboxRuntime.returnAfterText, /paste the return JSON into a note, email, or message/);
   assert.match(inboxRuntime.returnAfterText, /import or paste it from Today > Return Files/);
+  assert.match(inboxRuntime.returnAfterText, /AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved/);
   assert.match(inboxRuntime.returnAfterText, /keep capturing here/);
   assert.equal(inboxRuntime.returnAfterFollowupHidden, false);
   assert.match(inboxRuntime.returnAfterFollowupText, /Review \d+ due card/);
