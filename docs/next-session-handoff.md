@@ -19,6 +19,7 @@ Current branch: `main`.
 
 Latest product slices:
 
+- `4007f73 fix: clarify unanchored draft type`
 - `5c96f6b feat: add first note device entry`
 - `2ce9767 fix: keep first note flow focused`
 - `9567d3c fix: preserve draft material type`
@@ -46,6 +47,7 @@ Current real evidence:
 - For `9567d3c`, `npm run smoke` returned `smoke_web_ok`, `npm run smoke:browser` returned `smoke_browser_ok`, and Mira returned `PASS_WITH_NOTES` via the Hermes broker. The first material-type Mira packet was rejected locally by broker sanitizer as `SECRET_DETECTED`; the reduced v2 packet succeeded.
 - For `2ce9767`, `node --check apps/companion-web/src/app.js`, `node --check scripts/smoke-browser.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. In-app browser reload/read-only inspection showed Today + Learning Flow + First Note visible, no first-note Device Flow handoff card, and no horizontal overflow.
 - For `5c96f6b`, the same syntax checks, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Browser smoke verifies the `Phone/Windows` first-note action opens Device Flow, opens the drawer, removes the redundant first-note button, and preserves the existing handoff-state direct-render path.
+- For `4007f73`, `node --check apps/companion-web/src/app.js`, `node --check apps/companion-web/src/model.js`, `node --check scripts/smoke-browser.mjs`, `node --check scripts/smoke-web.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Mira returned `PASS_WITH_NOTES` for the reduced v2 packet; the first packet was rejected locally by broker sanitizer as `SECRET_DETECTED`, not by Mira.
 
 What changed:
 
@@ -53,7 +55,7 @@ What changed:
 - Today `Close the loop` and `Next Move` now share one priority contract: due review, open question, unfinished draft, parked follow-up, then clear. Browser smoke covers draft-only, open-question-plus-draft, and review-plus-question-plus-draft states.
 - `Today > Device Flow > Import Return Files` now forces even a single selected file through the strict inbox/review return-file path. A mistaken workspace JSON selected from Return Files produces an error receipt and does not replace the workspace, while the ordinary sidebar single-file import still restores workspace JSON.
 - Quick Capture drafts now commit their saved `sourceTitle/sourceUrl` snapshot into the capture until the user chooses `Use current`. Linked Answer drafts opened from Today questions inherit the question capture's source, and browser smoke verifies both the draft and committed answer capture keep the original question source.
-- Quick Capture drafts now also keep material type with the source snapshot. Browser smoke covers video draft -> document session drift, `Use current` override to document, and Today Answer from a video question while the current session is document.
+- Quick Capture drafts now also keep material type with the source snapshot, without assigning a material type to a draft before it has a source. Browser smoke covers video draft -> document session drift, document draft -> video session drift, no-source timestamp-only drafts with empty material type, safe source-link anchoring to the new document type, `Use current` override to document, and Today Answer from a video question while the current session is document. Legacy drafts with a source but no stored material type now use the shared resolver and fall back to `other` when the current session source has drifted.
 - A linked answer that closes a question with an existing review card now prioritizes `Refresh card` over `Resume source`, because stale review evidence is a learning-correctness risk.
 - The refresh-card hint is checked at render time and click time; if the card disappears before click, the hint hides or fails safely.
 - Refreshing the card replaces stale evidence with the linked answer evidence, opens Review, then offers `Resume source` so the learner can return to reading.
@@ -67,7 +69,7 @@ External review status:
 
 - Mira returned `PASS_WITH_NOTES` for first-note Device Flow focus. Accepted: add the cross-state smoke proving first-note + existing mirror handoff still renders Device Flow, and add a lightweight `Phone/Windows` entry rather than restoring the full drawer to the opening task. Deferred: non-Mac UA-specific rendering and appearance transition/highlight, because those need a broader cross-device entry design rather than a narrow render gate.
 - Mira returned `PASS_WITH_NOTES` for Today priority alignment, Return Files single-file guard, and draft source snapshot commit. Accepted: shared priority helper, broader priority smoke cases, Return Files armed-flag reset/comment, source provenance and committed linked-answer assertions. Deferred: draft freshness telemetry, canceled native picker synthetic test, partial source snapshot tests, and real device QA.
-- Mira returned `PASS_WITH_NOTES` for draft material type snapshot. Accepted: invalid material-type normalization assertion. Deferred: reverse-direction document-to-video drift and unanchored-draft material-type behavior.
+- Mira returned `PASS_WITH_NOTES` for draft material type snapshot and the follow-up unanchored draft type guard. Accepted: invalid material-type normalization assertion, explicit no-source material-type emptiness, safe-link anchoring to the new source type, document-to-video reverse drift coverage, timestamp-only draft coverage, and a shared pure resolver for legacy source-without-type cases. Deferred: save-time source/type race stress only if it becomes reproducible.
 - Mira returned `PASS_WITH_NOTES` on all three slices above, with no blockers.
 - Accepted notes: stale-evidence replacement assertion, no-Resume-source negative assertion while refresh is needed, new-tab safety assertions, cleaner post-resume primary action label, and next-card/queue-clear smoke coverage.
 - Deferred notes: Seed/Doubao critique retry, telemetry, screenshot strips, rapid double-click semantics, and no-source queue-clear focus specialization.
