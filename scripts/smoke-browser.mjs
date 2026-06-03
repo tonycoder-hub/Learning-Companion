@@ -4949,6 +4949,7 @@ try {
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
   await assertPasteReturnFileFromClipboard(cdp);
   await assertPostSaveFlow(cdp);
+  await assertCaptureStackNextStepMix(cdp);
   await assertSidecarHighlightActivity(cdp);
   await cdp.close();
   console.log("smoke_browser_ok");
@@ -5205,13 +5206,20 @@ async function assertPostSaveFlow(cdp) {
     const highlightBefore = (() => {
       const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
       const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const row = document.querySelector("#captureStack .capture-stack-row");
       return {
         count: session.captures.length,
         id: session.captures[0]?.id || "",
         previousId: session.captures[1]?.id || "",
-        quote: session.captures[0]?.quote || ""
+        quote: session.captures[0]?.quote || "",
+        stackNextKind: row?.dataset.stackNextStep || "",
+        stackNextText: row?.querySelector(".capture-stack-next")?.textContent || ""
       };
     })();
+    const highlightStackBefore = {
+      kind: highlightBefore.stackNextKind,
+      text: highlightBefore.stackNextText
+    };
     document.querySelector("#activityDetailsBtn").click();
     const highlightActivityAnnotation = {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
@@ -5266,6 +5274,8 @@ async function assertPostSaveFlow(cdp) {
         quote: capture?.quote || "",
         thought: capture?.thought || "",
         stackText: activeRow?.textContent || "",
+        stackNextKind: activeRow?.dataset.stackNextStep || "",
+        stackNextText: activeRow?.querySelector(".capture-stack-next")?.textContent || "",
         addThoughtGone: ![...(activeRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "Add thought"),
         noteBeforeAnnotation,
         noteAfterAnnotation: {
@@ -5284,7 +5294,9 @@ async function assertPostSaveFlow(cdp) {
       return {
         promoted: Boolean(capture?.promotedToReview),
         cardExists: Boolean(card),
-        activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        stackNextKind: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"]\`)?.dataset.stackNextStep || "",
+        stackNextText: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"] .capture-stack-next\`)?.textContent || ""
       };
     })();
     document.querySelector("#activityHintBtn").click();
@@ -5319,7 +5331,7 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
     const quoteQuestionSaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
@@ -5358,6 +5370,8 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightSaved.hintAction, "Add thought");
   assert.equal(postSaveFlow.highlightSaved.hintAria, "Add a thought to this saved highlight");
   assert.equal(postSaveFlow.highlightSaved.hintParentClass, "activity-copy");
+  assert.equal(postSaveFlow.highlightStackBefore.kind, "add-thought");
+  assert.equal(postSaveFlow.highlightStackBefore.text, "Needs your why — or leave it as a quote.");
   assert.equal(postSaveFlow.highlightActivityAnnotation.activeTab, "captures");
   assert.equal(postSaveFlow.highlightActivityAnnotation.detailsFormVisible, true);
   assert.equal(postSaveFlow.highlightActivityAnnotation.focused, true);
@@ -5379,6 +5393,8 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightAnnotationState.quote, "This sentence is worth keeping as a highlight.");
   assert.equal(postSaveFlow.highlightAnnotationState.thought, "This annotation must stay attached to the existing highlight.");
   assert.match(postSaveFlow.highlightAnnotationState.stackText, /annotation must stay attached/);
+  assert.equal(postSaveFlow.highlightAnnotationState.stackNextKind, "keep-reading");
+  assert.equal(postSaveFlow.highlightAnnotationState.stackNextText, "Thought captured · card only if recall matters.");
   assert.equal(postSaveFlow.highlightAnnotationState.addThoughtGone, true);
   assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.doesNotMatch(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /annotation must stay attached/);
@@ -5396,7 +5412,9 @@ async function assertPostSaveFlow(cdp) {
   assert.deepEqual(postSaveFlow.highlightHintCardState, {
     promoted: true,
     cardExists: true,
-    activeTab: "review"
+    activeTab: "review",
+    stackNextKind: "review-ready",
+    stackNextText: "Card scheduled · keep reading."
   });
   assert.equal(postSaveFlow.highlightHintExport.title, "Mirror export ready");
   assert.match(postSaveFlow.highlightHintExport.detail, /manual Feishu Drive upload/);
@@ -5413,6 +5431,45 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
   assert.equal(postSaveFlow.quoteQuestionSaved.title, "Question saved");
   assert.equal(postSaveFlow.quoteQuestionSaved.action, "Questions");
+}
+
+async function assertCaptureStackNextStepMix(cdp) {
+  const stackMix = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Recent stack next-step mix");
+    setValue("#sourceTitle", "Stack mix source");
+    setValue("#sourceUrl", "https://example.com/stack-mix");
+    setValue("#quoteInput", "Quote-only row should stay optional.");
+    setValue("#thoughtInput", "");
+    document.querySelector("#captureBtn").click();
+    setValue("#quoteInput", "Card row should not push export.");
+    setValue("#thoughtInput", "This concept should be scheduled for later review.");
+    document.querySelector("#captureCardBtn").click();
+    setValue("#quoteInput", "Thought row should encourage continuing.");
+    setValue("#thoughtInput", "This point is useful, but not automatically a card.");
+    document.querySelector("#captureBtn").click();
+    return [...document.querySelectorAll("#captureStack .capture-stack-row")].map((row) => ({
+      kind: row.dataset.stackNextStep || "",
+      next: row.querySelector(".capture-stack-next")?.textContent || "",
+      buttons: [...row.querySelectorAll("button")].map((button) => button.textContent.trim())
+    }));
+  })()`);
+  assert.deepEqual(stackMix.map((row) => row.kind), ["keep-reading", "review-ready", "add-thought"]);
+  assert.deepEqual(stackMix.map((row) => row.next), [
+    "Thought captured · card only if recall matters.",
+    "Card scheduled · keep reading.",
+    "Needs your why — or leave it as a quote."
+  ]);
+  assert.deepEqual(stackMix.map((row) => row.buttons), [
+    ["Open source", "Note", "Make card", "Delete"],
+    ["Open source", "Note", "Review", "Delete + 1 card"],
+    ["Open source", "Add thought", "Note", "Make card", "Delete"]
+  ]);
 }
 
 async function assertSidecarHighlightActivity(cdp) {

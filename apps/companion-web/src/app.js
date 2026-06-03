@@ -4725,6 +4725,9 @@ function renderCaptureStack(session) {
     if (isInNotes) {
       row.append(textEl("span", "capture-stack-chip note", "In Notes"));
     }
+    const nextStep = captureStackNextStep(capture);
+    row.dataset.stackNextStep = nextStep.kind;
+    row.append(textEl("p", "capture-stack-next", nextStep.text));
     const actions = document.createElement("div");
     actions.className = "capture-stack-actions";
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
@@ -4763,6 +4766,55 @@ function renderCaptureStack(session) {
     list.append(row);
   });
   dom.captureStack.append(list);
+}
+
+function captureStackNextStep(capture) {
+  if (captureIsQuoteOnly(capture)) {
+    return {
+      kind: "add-thought",
+      text: "Needs your why — or leave it as a quote."
+    };
+  }
+  if (captureHasQuestion(capture)) {
+    if (captureHasOpenQuestion(capture)) {
+      return {
+        kind: "answer-question",
+        text: "Open question · keep reading for evidence."
+      };
+    }
+    if (captureHasParkedQuestion(capture)) {
+      return {
+        kind: "parked-question",
+        text: "Parked · return when the source has more evidence."
+      };
+    }
+    return {
+      kind: "answered-question",
+      text: "Answered · review only if it needs recall."
+    };
+  }
+  if (capture.promotedToReview) {
+    return {
+      kind: "review-ready",
+      text: "Card scheduled · keep reading."
+    };
+  }
+  if (captureHasAnswer(capture)) {
+    return {
+      kind: "answer-evidence",
+      text: "Answer evidence · keep as support."
+    };
+  }
+  if (captureHasTakeawayPrefix(capture)) {
+    return {
+      kind: "takeaway",
+      text: "Takeaway · synthesize after related points."
+    };
+  }
+  return {
+    kind: "keep-reading",
+    text: "Thought captured · card only if recall matters."
+  };
 }
 
 function getCaptureDraftItems() {

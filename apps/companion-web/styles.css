@@ -1029,6 +1029,14 @@ textarea:focus {
   font-size: 13px;
 }
 
+.capture-stack-next {
+  min-width: 0;
+  margin: -1px 0 1px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .capture-stack-chip {
   width: fit-content;
   max-width: 100%;
