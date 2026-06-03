@@ -1466,13 +1466,17 @@ function captureSaveActivity(session, capture, options = {}) {
     };
   }
   if (captureHasQuestion(capture)) {
+    const hasSourceResume = Boolean(buildCaptureResumeSource(session, capture).href);
     return {
       title: "Question saved",
-      detail: "Added to Open Questions. Next: answer it, park it, save it for recall, or resolve it from Today.",
+      detail: hasSourceResume
+        ? "Added to Open Questions. Resume the source while the question is fresh, or manage it from Today."
+        : "Added to Open Questions. Next: answer it, park it, save it for recall, or resolve it from Today.",
       tab: "today",
-      targetId: "",
+      targetId: capture?.id || "",
       targetSection: "open_questions",
-      actionLabel: "Questions"
+      actionLabel: "Questions",
+      nextHint: hasSourceResume ? activityNextHint("afterQuestionSavedSourceLinked") : null
     };
   }
   if (captureHasAnswer(capture)) {
@@ -2274,6 +2278,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Later: export a mirror when you want to continue on phone or Windows.",
     actionLabel: "Export Mirror",
     ariaLabel: "Open Return Files mirror export"
+  }),
+  afterQuestionSavedSourceLinked: Object.freeze({
+    kind: "afterQuestionSavedSourceLinked",
+    text: "Next: resume the source and look for evidence.",
+    actionLabel: "Resume source",
+    ariaLabel: "Resume the source for this saved question"
   })
 });
 
@@ -2369,6 +2379,7 @@ function renderActivity(session) {
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
+  dom.activityDetailsBtn.dataset.activityTargetId = activity.targetId || "";
   renderActivityHint(activity);
   renderSidecarRail(session);
 }
@@ -2851,7 +2862,7 @@ function runActivityHintAction() {
     promoteCaptureToReview(targetCapture.id, targetSession.id);
     return;
   }
-  if (hint.kind === "afterThoughtAddedSourceLinked") {
+  if (hint.kind === "afterThoughtAddedSourceLinked" || hint.kind === "afterQuestionSavedSourceLinked") {
     resumeActivityHintSource(activity);
     return;
   }
@@ -2877,13 +2888,17 @@ function resumeActivityHintSource(activity) {
     return;
   }
   window.open(resume.href, "_blank", "noopener,noreferrer");
+  activeTab = "captures";
+  renderInspector();
+  dom.thoughtInput.focus();
+  pulseNode(dom.capturePane);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
   setActivity(targetSession, {
     title: "Source resumed",
     detail: `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
     tab: "captures",
     targetId: targetCapture.id,
-    actionLabel: "View highlight"
+    actionLabel: activity.nextHint?.kind === "afterThoughtAddedSourceLinked" ? "View highlight" : "View capture"
   });
   renderActivity(getActiveSession(workspace));
   pulseNode(dom.captureContextSource);

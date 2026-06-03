@@ -5779,6 +5779,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail").textContent,
         action: document.querySelector("#activityDetailsBtn").textContent,
         aria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
+        targetId: document.querySelector("#activityDetailsBtn").dataset.activityTargetId || "",
         activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
         hintHidden: hint?.hidden !== false,
         hintKind: hint?.dataset.nextStepHint || "",
@@ -5804,6 +5805,11 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: Why does ownership matter?");
     document.querySelector("#captureBtn").click();
     const questionSaved = readActivity();
+    const questionSavedCaptureId = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return session?.captures.find((capture) => capture.thought === "Question: Why does ownership matter?")?.id || "";
+    })();
     document.querySelector("#activityDetailsBtn").click();
     const questionDetails = {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
@@ -5811,6 +5817,28 @@ async function assertPostSaveFlow(cdp) {
       openQuestionText: document.querySelector("[data-today-section='open_questions']")?.textContent || "",
       openQuestionPulsed: document.querySelector("[data-today-section='open_questions']")?.classList.contains("pulse") === true
     };
+    let questionResumeHref = "";
+    let questionResumeTarget = "";
+    let questionResumeFeatures = "";
+    const nativeQuestionWindowOpen = window.open;
+    window.open = (href, target, features) => {
+      questionResumeHref = href;
+      questionResumeTarget = target || "";
+      questionResumeFeatures = features || "";
+      return null;
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeQuestionWindowOpen;
+    const questionHintResume = readActivity();
+    const questionHintResumeState = {
+      opened: questionResumeHref,
+      target: questionResumeTarget,
+      features: questionResumeFeatures,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+    };
+    document.querySelector('[data-tab="today"]').click();
     openQuestionButton()?.click();
     setValue("#thoughtInput", "Answer: Ownership matters because the compiler can prove a single owner controls mutation.");
     document.querySelector("#captureBtn").click();
@@ -6037,15 +6065,36 @@ async function assertPostSaveFlow(cdp) {
         stackNextText: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${noSourceHighlightId}"] .capture-stack-next\`)?.textContent || ""
       };
     })();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch };
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Question: What source should this be tied to?");
+    document.querySelector("#captureBtn").click();
+    const noSourceQuestionSaved = readActivity();
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
+  assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
+  assert.match(postSaveFlow.questionSaved.detail, /Resume the source/);
   assert.equal(postSaveFlow.questionSaved.action, "Questions");
+  assert.equal(postSaveFlow.questionSaved.hintHidden, false);
+  assert.equal(postSaveFlow.questionSaved.hintKind, "afterQuestionSavedSourceLinked");
+  assert.equal(postSaveFlow.questionSaved.hintAction, "Resume source");
+  assert.equal(postSaveFlow.questionSaved.hintAria, "Resume the source for this saved question");
   assert.equal(postSaveFlow.questionDetails.activeTab, "today");
   assert.equal(postSaveFlow.questionDetails.drawerOpen, true);
   assert.match(postSaveFlow.questionDetails.openQuestionText, /Open Questions/);
   assert.equal(postSaveFlow.questionDetails.openQuestionPulsed, true);
+  assert.equal(postSaveFlow.questionHintResume.title, "Source resumed");
+  assert.equal(postSaveFlow.questionHintResume.action, "View capture");
+  assert.equal(postSaveFlow.questionHintResume.hintHidden, true);
+  assert.deepEqual(postSaveFlow.questionHintResumeState, {
+    opened: "https://example.com/post-save-flow",
+    target: "_blank",
+    features: "noopener,noreferrer",
+    activeTab: "captures",
+    activeElement: "thoughtInput",
+    capturePanePulsed: true
+  });
   assert.equal(postSaveFlow.linkedAnswerSaved.title, "Answer saved");
   assert.match(postSaveFlow.linkedAnswerSaved.detail, /Closed the linked question/);
   assert.equal(postSaveFlow.linkedAnswerSaved.action, "Closed");
@@ -6164,6 +6213,12 @@ async function assertPostSaveFlow(cdp) {
     stackNextKind: "keep-reading",
     stackNextText: "Thought captured · card only if recall matters."
   });
+  assert.equal(postSaveFlow.noSourceQuestionSaved.title, "Question saved");
+  assert.match(postSaveFlow.noSourceQuestionSaved.detail, /answer it, park it, save it for recall/);
+  assert.doesNotMatch(postSaveFlow.noSourceQuestionSaved.detail, /Resume the source/);
+  assert.equal(postSaveFlow.noSourceQuestionSaved.action, "Questions");
+  assert.equal(postSaveFlow.noSourceQuestionSaved.hintHidden, true);
+  assert.equal(postSaveFlow.noSourceQuestionSaved.hintKind, "");
 }
 
 async function assertCaptureStackNextStepMix(cdp) {
