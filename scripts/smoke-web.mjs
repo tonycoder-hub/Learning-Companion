@@ -138,6 +138,8 @@ assert.match(appJs, /mirrorHandoff/);
 assert.match(appJs, /buildReturnBaseFingerprint\(workspace\)/);
 assert.match(appJs, /workspaceFingerprint: workspaceBackupFingerprint\(workspace\)/);
 assert.match(appJs, /mirrorHandoffContentChanged/);
+assert.match(appJs, /mirrorReturnImportCoversCurrentWorkspace/);
+assert.match(appJs, /mirrorLegacyReturnImportCoversExport/);
 assert.match(appJs, /mirrorExportChangeSummary/);
 assert.match(appJs, /No mirror exported yet/);
 assert.match(appJs, /Mirror current/);

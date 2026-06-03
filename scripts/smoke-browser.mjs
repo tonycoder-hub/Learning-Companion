@@ -2477,6 +2477,8 @@ try {
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
     const workspaceBeforeStaleCheck = window.learningCompanionNative.exportWorkspaceJson();
+    const exportedWorkspace = JSON.parse(workspaceBeforeStaleCheck);
+    const exportedSession = exportedWorkspace.sessions.find((item) => item.id === exportedWorkspace.activeSessionId) || exportedWorkspace.sessions[0];
     document.querySelector('[data-tab="export"]').click();
     const mirrorExportBeforeSave = document.querySelector("#mirrorExport").value;
     document.querySelector("#downloadMirrorBtn").click();
@@ -2497,6 +2499,46 @@ try {
       const staleHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
       document.querySelector('[data-tab="today"]').click();
+      const returnPatch = {
+        schema: "learning-companion.mobile-inbox-patch.v1",
+        appVersion: 1,
+        patchId: "browser_return_after_mirror_export_001",
+        createdAt: "2026-06-03T21:40:00+08:00",
+        source: {
+          generatedBy: "inbox.html",
+          workspaceFingerprint: prefs.mirrorHandoff?.workspaceFingerprint || "",
+          returnBaseFingerprint: prefs.mirrorHandoff?.returnBaseFingerprint || "",
+          topicId: exportedSession.id,
+          topicTitle: exportedSession.title
+        },
+        target: {
+          topicId: exportedSession.id,
+          topicTitle: exportedSession.title
+        },
+        captures: [{
+          id: "browser_return_after_mirror_export_capture_001",
+          quote: "Phone return after mirror export.",
+          thought: "A successful return import should become the next export baseline.",
+          capturedAt: "2026-06-03T21:41:00+08:00"
+        }]
+      };
+      const returnImportResult = window.learningCompanionNative.importWorkspaceJson(JSON.stringify(returnPatch));
+      document.querySelector('[data-tab="today"]').click();
+      const returnedHandoffText = document.querySelector(".handoff-card")?.textContent || "";
+      const returnedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      const prefsAfterReturn = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      const workspaceAfterReturnImport = window.learningCompanionNative.exportWorkspaceJson();
+      window.learningCompanionNative.importWorkspaceJson(workspaceAfterReturnImport);
+      document.querySelector('[data-tab="today"]').click();
+      const roundTripReturnedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      document.querySelector('[data-tab="captures"]').click();
+      setValue("#quoteInput", "Mac-side capture after return import.");
+      setValue("#thoughtInput", "After a successful return, a new Mac note should require another mirror export.");
+      document.querySelector("#captureBtn").click();
+      document.querySelector('[data-tab="today"]').click();
+      const postReturnStaleSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
+      document.querySelector('[data-tab="today"]').click();
       resolve({
         activityTitle: exportActivityTitle,
         activityDetail: exportActivityDetail,
@@ -2505,6 +2547,13 @@ try {
         handoffSummary: currentHandoffSummary,
         staleHandoffText,
         staleHandoffSummary,
+        returnImportOk: returnImportResult.ok === true,
+        returnImportKind: returnImportResult.kind || "",
+        returnedHandoffText,
+        returnedHandoffSummary,
+        roundTripReturnedHandoffSummary,
+        lastReturnImportWorkspaceFingerprint: prefsAfterReturn.mirrorHandoff?.lastReturnImport?.workspaceFingerprint || "",
+        postReturnStaleSummary,
         mirrorHandoffKind: prefs.mirrorHandoff?.kind || "",
         mirrorHandoffWorkspaceFingerprint: prefs.mirrorHandoff?.workspaceFingerprint || "",
         mirrorHandoffHasFingerprint: /^fnv1a-[a-f0-9]{8}$/.test(prefs.mirrorHandoff?.returnBaseFingerprint || ""),
@@ -2522,6 +2571,16 @@ try {
   assert.match(mirrorSaveReceipt.staleHandoffText, /Mac changed since mirror export/);
   assert.match(mirrorSaveReceipt.staleHandoffText, /Since Mirror JSON export: 1 new capture/);
   assert.match(mirrorSaveReceipt.staleHandoffSummary, /Mac changed · 1 new capture/);
+  assert.equal(mirrorSaveReceipt.returnImportOk, true);
+  assert.equal(mirrorSaveReceipt.returnImportKind, "mobile-inbox-patch");
+  assert.match(mirrorSaveReceipt.returnedHandoffSummary, /Return imported · ready for next export/);
+  assert.doesNotMatch(mirrorSaveReceipt.returnedHandoffSummary, /Mac changed/);
+  assert.match(mirrorSaveReceipt.roundTripReturnedHandoffSummary, /Return imported · ready for next export/);
+  assert.doesNotMatch(mirrorSaveReceipt.roundTripReturnedHandoffSummary, /Mac changed/);
+  assert.match(mirrorSaveReceipt.returnedHandoffText, /Return imported/);
+  assert.match(mirrorSaveReceipt.returnedHandoffText, /Ready to export a fresh mirror/);
+  assert.match(mirrorSaveReceipt.lastReturnImportWorkspaceFingerprint, /^[a-f0-9]{8}$/);
+  assert.match(mirrorSaveReceipt.postReturnStaleSummary, /Mac changed/);
   assert.equal(mirrorSaveReceipt.mirrorHandoffKind, "Mirror JSON");
   assert.match(mirrorSaveReceipt.mirrorHandoffWorkspaceFingerprint, /^[a-f0-9]{8}$/);
   assert.equal(mirrorSaveReceipt.mirrorHandoffHasFingerprint, true);

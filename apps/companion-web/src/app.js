@@ -943,9 +943,11 @@ function normalizeMirrorExportStats(value) {
 
 function normalizeMirrorReturnImport(value) {
   if (!value || typeof value !== "object") return null;
+  const workspaceFingerprint = cleanBackupText(value.workspaceFingerprint, 24);
   const importedAt = cleanBackupText(value.importedAt, 32);
   if (!importedAt) return null;
   return {
+    ...(workspaceFingerprint ? { workspaceFingerprint } : {}),
     importedAt,
     sourceFingerprint: cleanBackupText(value.sourceFingerprint, 64),
     fileCount: clampSmallCount(value.fileCount),
@@ -5032,8 +5034,9 @@ function deviceFlowSummaryLabel() {
   const countsSuffix = counts ? ` · ${counts}` : "";
   const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
   if (!hasExport) return `Next: export mirror${countsSuffix}`;
+  if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) return `Return imported · ready for next export${countsSuffix}`;
+  if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) return `Return imported (legacy check) · export fresh mirror${countsSuffix}`;
   if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) return `Mac changed · ${mirrorExportChangeSummary(state)}${countsSuffix}`;
-  if (returnImportCoversExport(state)) return `Return imported · ready for next export${countsSuffix}`;
   return `Mirror ready · waiting for phone/Windows return${countsSuffix}`;
 }
 
@@ -5044,10 +5047,22 @@ function renderMirrorHandoffStatus() {
   grid.className = "handoff-state-grid";
 
   const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
+  const returnImportedCurrent = mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint);
+  const legacyReturnImported = mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint);
   if (!hasExport) {
     grid.append(renderHandoffStateItem(
       "No mirror exported yet",
       "Export to take Today to phone or Windows."
+    ));
+  } else if (returnImportedCurrent) {
+    grid.append(renderHandoffStateItem(
+      "Return imported",
+      "Ready to export a fresh mirror for the next phone or Windows study pass."
+    ));
+  } else if (legacyReturnImported) {
+    grid.append(renderHandoffStateItem(
+      "Return imported (legacy check)",
+      "Re-export a fresh mirror to update the handoff baseline."
     ));
   } else if (!mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
     grid.append(renderHandoffStateItem(
@@ -5085,6 +5100,19 @@ function mirrorHandoffContentChanged(state, currentWorkspaceFingerprint = worksp
   if (!state?.returnBaseFingerprint) return false;
   if (state.workspaceFingerprint) return state.workspaceFingerprint !== currentWorkspaceFingerprint;
   return state.returnBaseFingerprint !== buildReturnBaseFingerprint(workspace);
+}
+
+function mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace)) {
+  if (!returnImportCoversExport(state)) return false;
+  const importFingerprint = cleanBackupText(state?.lastReturnImport?.workspaceFingerprint, 24);
+  if (importFingerprint) return importFingerprint === currentWorkspaceFingerprint;
+  return false;
+}
+
+function mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace)) {
+  if (!returnImportCoversExport(state)) return false;
+  const importFingerprint = cleanBackupText(state?.lastReturnImport?.workspaceFingerprint, 24);
+  return !importFingerprint && !mirrorHandoffContentChanged(state, currentWorkspaceFingerprint);
 }
 
 function mirrorExportStats() {
@@ -5945,11 +5973,13 @@ function mirrorReturnImportState(receipt) {
   if (!receipt || typeof receipt !== "object") return null;
   const importedAt = cleanBackupText(receipt.importedAt || new Date().toISOString(), 32);
   if (!importedAt) return null;
+  const workspaceFingerprint = workspaceBackupFingerprint(workspace);
   if (receipt.schema === "learning-companion.return-files-receipt.v1") {
     const fingerprints = Array.isArray(receipt.sourceReturnBaseFingerprints)
       ? receipt.sourceReturnBaseFingerprints.filter(Boolean)
       : [];
     return {
+      workspaceFingerprint,
       importedAt,
       sourceFingerprint: fingerprints.length === 1 ? fingerprints[0] : fingerprints.length ? "multiple" : "",
       fileCount: Number(receipt.processedFiles) || 0,
@@ -5959,6 +5989,7 @@ function mirrorReturnImportState(receipt) {
     };
   }
   return {
+    workspaceFingerprint,
     importedAt,
     sourceFingerprint: receipt.sourceReturnBaseFingerprint || receipt.sourceFingerprint || "",
     fileCount: 1,
