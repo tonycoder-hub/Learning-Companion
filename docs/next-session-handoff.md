@@ -19,6 +19,7 @@ Current branch: `main`.
 
 Latest product slices:
 
+- `5c96f6b feat: add first note device entry`
 - `2ce9767 fix: keep first note flow focused`
 - `9567d3c fix: preserve draft material type`
 - `b181226 fix: preserve draft source on capture`
@@ -44,10 +45,11 @@ Current real evidence:
 - After the latest three product slices, `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` was rerun and returned `morning_offline_check_ok`; latest static-return receipt path: `.codex-tmp/static-return-loop-check/static-return-loop-1780517469153/receipt.json`.
 - For `9567d3c`, `npm run smoke` returned `smoke_web_ok`, `npm run smoke:browser` returned `smoke_browser_ok`, and Mira returned `PASS_WITH_NOTES` via the Hermes broker. The first material-type Mira packet was rejected locally by broker sanitizer as `SECRET_DETECTED`; the reduced v2 packet succeeded.
 - For `2ce9767`, `node --check apps/companion-web/src/app.js`, `node --check scripts/smoke-browser.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. In-app browser reload/read-only inspection showed Today + Learning Flow + First Note visible, no first-note Device Flow handoff card, and no horizontal overflow.
+- For `5c96f6b`, the same syntax checks, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Browser smoke verifies the `Phone/Windows` first-note action opens Device Flow, opens the drawer, removes the redundant first-note button, and preserves the existing handoff-state direct-render path.
 
 What changed:
 
-- Empty first-note Today now keeps `Learning Flow` focused on `Read source`, `Capture on Mac`, and `First Note`; the manual `Device Flow` panel no longer appears before there is learning work or handoff state. If a mirror export/import/return signal exists, or once the workspace is non-empty, Device Flow still appears.
+- Empty first-note Today now keeps `Learning Flow` focused on `Read source`, `Capture on Mac`, and `First Note`; the manual `Device Flow` panel no longer appears before there is learning work or handoff state. First Note still has a lightweight `Phone/Windows` action that reveals Device Flow on demand. If a mirror export/import/return signal exists, or once the workspace is non-empty, Device Flow appears directly.
 - Today `Close the loop` and `Next Move` now share one priority contract: due review, open question, unfinished draft, parked follow-up, then clear. Browser smoke covers draft-only, open-question-plus-draft, and review-plus-question-plus-draft states.
 - `Today > Device Flow > Import Return Files` now forces even a single selected file through the strict inbox/review return-file path. A mistaken workspace JSON selected from Return Files produces an error receipt and does not replace the workspace, while the ordinary sidebar single-file import still restores workspace JSON.
 - Quick Capture drafts now commit their saved `sourceTitle/sourceUrl` snapshot into the capture until the user chooses `Use current`. Linked Answer drafts opened from Today questions inherit the question capture's source, and browser smoke verifies both the draft and committed answer capture keep the original question source.
@@ -63,7 +65,7 @@ What changed:
 
 External review status:
 
-- Mira returned `PASS_WITH_NOTES` for first-note Device Flow focus. Accepted: add the cross-state smoke proving first-note + existing mirror handoff still renders Device Flow. Deferred: a lightweight cross-device entry in First Note, non-Mac UA-specific rendering, and appearance transition/highlight, because those need a broader cross-device entry design rather than a narrow render gate.
+- Mira returned `PASS_WITH_NOTES` for first-note Device Flow focus. Accepted: add the cross-state smoke proving first-note + existing mirror handoff still renders Device Flow, and add a lightweight `Phone/Windows` entry rather than restoring the full drawer to the opening task. Deferred: non-Mac UA-specific rendering and appearance transition/highlight, because those need a broader cross-device entry design rather than a narrow render gate.
 - Mira returned `PASS_WITH_NOTES` for Today priority alignment, Return Files single-file guard, and draft source snapshot commit. Accepted: shared priority helper, broader priority smoke cases, Return Files armed-flag reset/comment, source provenance and committed linked-answer assertions. Deferred: draft freshness telemetry, canceled native picker synthetic test, partial source snapshot tests, and real device QA.
 - Mira returned `PASS_WITH_NOTES` for draft material type snapshot. Accepted: invalid material-type normalization assertion. Deferred: reverse-direction document-to-video drift and unanchored-draft material-type behavior.
 - Mira returned `PASS_WITH_NOTES` on all three slices above, with no blockers.
