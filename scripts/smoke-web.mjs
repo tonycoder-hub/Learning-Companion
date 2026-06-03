@@ -210,6 +210,8 @@ assert.match(appJs, /returnedWorkTertiary/);
 assert.match(appJs, /Review status/);
 assert.match(appJs, /openReturnedReviewStatus/);
 assert.match(appJs, /no cards are due right now/);
+assert.match(appJs, /secondaryLabel: hasReviewUpdate \? "Review status" : "Import details"/);
+assert.match(appJs, /tertiaryLabel: hasReviewUpdate \? "Import details" : ""/);
 assert.match(appJs, /seedFirstQuestionDraft/);
 assert.match(appJs, /todayMapTarget/);
 assert.match(appJs, /older return file/);
