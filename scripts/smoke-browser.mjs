@@ -3393,6 +3393,7 @@ try {
     const emptyTodayText = document.querySelector("#todayList").textContent;
     setValue("#sessionTitle", "Question parking smoke");
     setValue("#sourceUrl", "https://example.com/question-parking");
+    setValue("#materialType", "video");
     setValue("#thoughtInput", "Why does this theorem need the compactness assumption?");
     document.querySelector("#captureBtn").click();
     const questionSignal = Array.from(document.querySelectorAll("#focusBriefSignals .focus-signal"))
@@ -3440,6 +3441,62 @@ try {
     const parkedQuestionCard = Array.from(document.querySelectorAll("#todayList .parked-question-card"))
       .find((node) => /compactness assumption/.test(node.textContent));
     Array.from(parkedQuestionCard?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "View")
+      ?.click();
+    setValue("#quoteInput", "Existing quote before answering");
+    setValue("#thoughtInput", "Half-written side note");
+    setValue("#timestampInput", "03:14");
+    document.querySelector('[data-tab="today"]').click();
+    const parkedQuestionCardWithDraft = Array.from(document.querySelectorAll("#todayList .parked-question-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(parkedQuestionCardWithDraft?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Answer")
+      ?.click();
+    const collisionExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const collisionTopic = collisionExport.sessions.find((session) => session.title === "Question parking smoke");
+    const collisionQuestion = collisionTopic?.captures.find((item) => /compactness assumption/.test(item.thought || item.quote));
+    const collisionPrefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const afterAnswerDraftCollision = {
+      activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      activeTitle: document.querySelector("#sessionTitle").value,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      quote: document.querySelector("#quoteInput").value,
+      thought: document.querySelector("#thoughtInput").value,
+      timestamp: document.querySelector("#timestampInput").value,
+      draftTarget: collisionPrefs.captureDrafts?.[collisionTopic?.id || ""]?.answersQuestionCaptureId || "",
+      questionParked: Boolean(collisionQuestion?.questionParkedAt)
+    };
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    setValue("#timestampInput", "04:44");
+    document.querySelector('[data-tab="today"]').click();
+    const parkedQuestionCardWithTimeDraft = Array.from(document.querySelectorAll("#todayList .parked-question-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(parkedQuestionCardWithTimeDraft?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Answer")
+      ?.click();
+    const timeCollisionExport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const timeCollisionTopic = timeCollisionExport.sessions.find((session) => session.title === "Question parking smoke");
+    const timeCollisionQuestion = timeCollisionTopic?.captures.find((item) => /compactness assumption/.test(item.thought || item.quote));
+    const timeCollisionPrefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const afterAnswerTimeDraftCollision = {
+      activity: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      activeTitle: document.querySelector("#sessionTitle").value,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      quote: document.querySelector("#quoteInput").value,
+      thought: document.querySelector("#thoughtInput").value,
+      timestamp: document.querySelector("#timestampInput").value,
+      draftTarget: timeCollisionPrefs.captureDrafts?.[timeCollisionTopic?.id || ""]?.answersQuestionCaptureId || "",
+      questionParked: Boolean(timeCollisionQuestion?.questionParkedAt)
+    };
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    document.querySelector('[data-tab="today"]').click();
+    const parkedQuestionCardAfterDraftClear = Array.from(document.querySelectorAll("#todayList .parked-question-card"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(parkedQuestionCardAfterDraftClear?.querySelectorAll("button") || [])
       .find((button) => button.textContent === "Answer")
       ?.click();
     const afterAnswerDraft = {
@@ -3452,6 +3509,26 @@ try {
       thought: document.querySelector("#thoughtInput").value,
       timestamp: document.querySelector("#timestampInput").value,
       intent: document.querySelector("#captureContextIntent").textContent,
+      draftTarget: (() => {
+        const exported = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+        const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+        return prefs.captureDrafts?.[exported.activeSessionId]?.answersQuestionCaptureId || "";
+      })()
+    };
+    setValue("#thoughtInput", "Answer: partially written before break");
+    document.querySelector('[data-tab="today"]').click();
+    const openQuestionCardAfterAnswerDraft = Array.from(document.querySelectorAll("#todayList .question-card:not(.parked-question-card):not(.closed-question-card)"))
+      .find((node) => /compactness assumption/.test(node.textContent));
+    Array.from(openQuestionCardAfterAnswerDraft?.querySelectorAll("button") || [])
+      .find((button) => button.textContent === "Answer")
+      ?.click();
+    const afterAnswerDraftResume = {
+      activity: document.querySelector("#activityTitle").textContent,
+      activeTitle: document.querySelector("#sessionTitle").value,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      quote: document.querySelector("#quoteInput").value,
+      thought: document.querySelector("#thoughtInput").value,
       draftTarget: (() => {
         const exported = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
         const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
@@ -3689,7 +3766,10 @@ try {
         after: afterQuestionSignalClick
       },
       afterPark,
+      afterAnswerDraftCollision,
+      afterAnswerTimeDraftCollision,
       afterAnswerDraft,
+      afterAnswerDraftResume,
       notReadyLinkedAnswerIntent,
       localAnswerSaved,
       afterQuestionCard,
@@ -3751,6 +3831,28 @@ try {
   assert.match(questionFlow.afterPark.todayText, /compactness assumption/);
   assert.equal(questionFlow.afterPark.parkedButtons.includes("Answer"), true);
   assert.equal(questionFlow.afterPark.parkedButtons.includes("Resume"), true);
+  assert.equal(questionFlow.afterAnswerDraftCollision.activity, "Capture draft waiting");
+  assert.match(questionFlow.afterAnswerDraftCollision.detail, /Finish or clear current draft before answering/);
+  assert.match(questionFlow.afterAnswerDraftCollision.detail, /compactness assumption/);
+  assert.equal(questionFlow.afterAnswerDraftCollision.activeTitle, "Question parking smoke");
+  assert.equal(questionFlow.afterAnswerDraftCollision.activeTab, "captures");
+  assert.equal(questionFlow.afterAnswerDraftCollision.activeElement, "thoughtInput");
+  assert.equal(questionFlow.afterAnswerDraftCollision.quote, "Existing quote before answering");
+  assert.equal(questionFlow.afterAnswerDraftCollision.thought, "Half-written side note");
+  assert.equal(questionFlow.afterAnswerDraftCollision.timestamp, "03:14");
+  assert.equal(questionFlow.afterAnswerDraftCollision.draftTarget, "");
+  assert.equal(questionFlow.afterAnswerDraftCollision.questionParked, true);
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.activity, "Capture draft waiting");
+  assert.match(questionFlow.afterAnswerTimeDraftCollision.detail, /Time kept @ 04:44/);
+  assert.match(questionFlow.afterAnswerTimeDraftCollision.detail, /compactness assumption/);
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.activeTitle, "Question parking smoke");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.activeTab, "captures");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.activeElement, "quoteInput");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.quote, "");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.thought, "");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.timestamp, "04:44");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.draftTarget, "");
+  assert.equal(questionFlow.afterAnswerTimeDraftCollision.questionParked, true);
   assert.equal(questionFlow.afterAnswerDraft.activity, "Answer draft started");
   assert.match(questionFlow.afterAnswerDraft.detail, /Loop: 1 active · 0 parked · 0 closed today · 0 cards today/);
   assert.equal(questionFlow.afterAnswerDraft.activeTitle, "Question parking smoke");
@@ -3761,6 +3863,13 @@ try {
   assert.equal(questionFlow.afterAnswerDraft.timestamp, "");
   assert.equal(questionFlow.afterAnswerDraft.intent, "Answer draft");
   assert.match(questionFlow.afterAnswerDraft.draftTarget, /^capture_/);
+  assert.equal(questionFlow.afterAnswerDraftResume.activity, "Answer draft resumed");
+  assert.equal(questionFlow.afterAnswerDraftResume.activeTitle, "Question parking smoke");
+  assert.equal(questionFlow.afterAnswerDraftResume.activeTab, "captures");
+  assert.equal(questionFlow.afterAnswerDraftResume.activeElement, "thoughtInput");
+  assert.equal(questionFlow.afterAnswerDraftResume.quote, "Why does this theorem need the compactness assumption?");
+  assert.equal(questionFlow.afterAnswerDraftResume.thought, "Answer: partially written before break");
+  assert.match(questionFlow.afterAnswerDraftResume.draftTarget, /^capture_/);
   assert.deepEqual(questionFlow.notReadyLinkedAnswerIntent, {
     text: "Answer draft",
     title: "This will answer the linked question once you add enough detail."

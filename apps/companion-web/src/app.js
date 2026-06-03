@@ -2493,6 +2493,19 @@ function focusQuickCapture() {
   };
 }
 
+function focusCaptureDraftContinuation(draft = getCaptureDraft(getActiveSession(workspace).id)) {
+  // Quote-only drafts continue into Thought so an excerpt can become reflection without moving focus backward.
+  const target = draft?.thought?.trim() || draft?.quote?.trim()
+    ? dom.thoughtInput
+    : dom.quoteInput;
+  target.focus();
+  if (typeof target.setSelectionRange === "function") {
+    target.setSelectionRange(target.value.length, target.value.length);
+  }
+  pulseNode(dom.capturePane);
+  return target;
+}
+
 function getActivity(session) {
   if (lastActivity?.sessionId === session.id) return lastActivity;
   const draft = getCaptureDraft(session.id);
@@ -2536,7 +2549,7 @@ function getActivity(session) {
 
 function clearCaptureDraftActivity(sessionId) {
   if (lastActivity?.sessionId === sessionId
-    && ["Capture draft waiting", "Capture draft resumed"].includes(lastActivity.title)) {
+    && ["Capture draft waiting", "Capture draft resumed", "Answer draft started", "Answer draft resumed"].includes(lastActivity.title)) {
     lastActivity = null;
   }
 }
@@ -4890,11 +4903,51 @@ function closedQuestionCardLabel(capture, answerCapture) {
   return answerCapture ? "Refresh card" : "Card";
 }
 
+function answerDraftBlocksQuestion(draft, session, draftAnswersThisQuestion) {
+  if (draftAnswersThisQuestion) return false;
+  if (hasCaptureTextDraft(draft)) return true;
+  return Boolean(session?.materialType === "video" && draft?.timestamp?.trim());
+}
+
+function answerDraftGuardDetail(draft, capture) {
+  const current = hasCaptureTextDraft(draft)
+    ? summarizeCaptureDraft(draft)
+    : draft?.timestamp?.trim()
+      ? `Time kept @ ${draft.timestamp.trim()}`
+      : "current draft";
+  const question = trimActivityText(summarizeCapture(capture), 56);
+  return `Finish or clear current draft before answering "${question}": ${current}`;
+}
+
+function trimActivityText(value, maxLength) {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) return text || "this question";
+  return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+}
+
 function answerQuestionFromToday(captureId, sessionId) {
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const capture = sourceSession?.captures.find((item) => item.id === captureId);
   if (!sourceSession || !capture) {
     showToast("Question no longer exists");
+    return;
+  }
+  const existingDraft = getCaptureDraft(sourceSession.id);
+  const draftAnswersThisQuestion = existingDraft.answersQuestionCaptureId === capture.id;
+  if (answerDraftBlocksQuestion(existingDraft, sourceSession, draftAnswersThisQuestion)) {
+    workspace = selectSession(workspace, sourceSession.id);
+    workspace = updateSession(workspace, sourceSession.id, { focusMode: "capture" });
+    activeTab = "captures";
+    setActivity(getActiveSession(workspace), {
+      title: "Capture draft waiting",
+      detail: answerDraftGuardDetail(existingDraft, capture),
+      tab: "captures",
+      targetId: "",
+      targetPane: "quickCapture",
+      actionLabel: "Resume"
+    });
+    persistAndRender("Finish current draft before answering");
+    focusCaptureDraftContinuation(existingDraft);
     return;
   }
   workspace = selectSession(workspace, sourceSession.id);
@@ -4903,21 +4956,25 @@ function answerQuestionFromToday(captureId, sessionId) {
   }
   workspace = updateSession(workspace, sourceSession.id, { focusMode: "capture" });
   activeTab = "captures";
-  setCaptureDraft(sourceSession.id, {
-    quote: capture.quote || capture.thought || "Question",
-    thought: "Answer:",
-    timestamp: capture.timestamp || "",
-    answersQuestionCaptureId: capture.id
-  });
+  if (!draftAnswersThisQuestion) {
+    setCaptureDraft(sourceSession.id, {
+      quote: capture.quote || capture.thought || "Question",
+      thought: "Answer:",
+      timestamp: capture.timestamp || "",
+      answersQuestionCaptureId: capture.id
+    });
+  }
+  const resumedDraft = getCaptureDraft(sourceSession.id);
   setActivity(getActiveSession(workspace), {
-    title: "Answer draft started",
+    title: draftAnswersThisQuestion ? "Answer draft resumed" : "Answer draft started",
     detail: questionActionDetail(sourceSession, capture),
     tab: "captures",
-    targetId: capture.id
+    targetId: capture.id,
+    targetPane: "quickCapture",
+    actionLabel: "Resume"
   });
-  persistAndRender("Answer draft started");
-  dom.thoughtInput.focus();
-  dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
+  persistAndRender(draftAnswersThisQuestion ? "Answer draft resumed" : "Answer draft started");
+  focusCaptureDraftContinuation(resumedDraft);
 }
 
 function setQuestionParked(captureId, sessionId = getActiveSession(workspace).id, parked = true) {

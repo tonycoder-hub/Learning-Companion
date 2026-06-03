@@ -52,7 +52,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Today Open Questions can create review cards directly while selecting the correct source session.
 - Today Open Questions can be parked and resumed, keeping unresolved low-priority follow-up out of the active focus queue without losing the original capture.
 - Captured questions can be marked resolved or reopened, and resolved questions stop counting in Focus Brief, synthesis, Today, HarmonyOS reader backlog, and handoff exports without losing the original capture.
-- Local Quick Capture Answer drafts opened from a question preserve `answersQuestionCaptureId`; sufficiently detailed local answers close the original question, while weak answers such as `Answer: ok` stay non-closing drafts.
+- Local Quick Capture Answer drafts opened from a question preserve `answersQuestionCaptureId`; sufficiently detailed local answers close the original question, while weak answers such as `Answer: ok` stay non-closing drafts. The Answer action now refuses to overwrite an unrelated text draft, or a video timestamp-only draft, in that topic; it keeps parked questions parked until the draft is cleared and resumes an existing linked Answer draft without resetting partial text.
 - One-click capture insertion into Notes with idempotent capture blocks.
 - Confirmed delete for mistaken captures and review cards.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.

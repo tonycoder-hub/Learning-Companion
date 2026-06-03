@@ -384,10 +384,12 @@ Latest local work clarifies Quick Capture intent:
 Latest local work links local Answer drafts back to their questions:
 
 - `Answer` from an open or parked question now seeds a local Quick Capture draft with `answersQuestionCaptureId`, and autosave preserves that target while the thought still begins with `Answer:`.
+- If the source topic already has an unrelated quote/thought draft, or a video timestamp-only draft, the Answer action preserves that draft, focuses Quick Capture with `Finish current draft before answering`, and does not unpark a parked question yet.
+- If the existing draft already targets the same question, clicking Answer resumes the draft and keeps partial answer text instead of resetting it to `Answer:`.
 - Saving a sufficiently detailed local answer writes a linked answer capture and closes the original question in the target session, clearing parked state at the same time.
 - Weak local answers such as `Answer: ok` can still be saved as answer drafts but do not close the linked question or pretend to be review-ready evidence.
 - The UI now uses the model-layer `captureHasReviewReadyAnswer()` check for linked Answer intent and save readiness, so long-but-not-useful one-word answers still stay as `Answer draft` instead of showing `Answer saved`.
-- Browser smoke pins the full UI path by opening a question answer draft, saving a real linked answer, verifying the question closes, and restoring the pre-save workspace snapshot before the rest of the question-flow assertions continue.
+- Browser smoke pins the full UI path by blocking overwrite of an unrelated text draft and a video timestamp-only draft, resuming a partial linked answer draft, saving a real linked answer, verifying the question closes, and restoring the pre-save workspace snapshot before the rest of the question-flow assertions continue.
 - Model smoke pins both weak-answer non-closure and strong-answer closure, plus capture-draft normalization for valid and invalid answer targets.
 
 Latest local export work separates real saves from temporary downloads:
@@ -495,6 +497,13 @@ Latest absorbed Mira notes for answered-question review cards:
 - Normalize `Q:` / `Question:` prompt prefixes.
 - Cover quote-only answer captures, not only thought+quote answers.
 - The earlier follow-ups for `evidenceCaptureId` and weak-card quality gating have now landed as small, additive local changes.
+
+Latest absorbed Mira notes for Answer draft collision protection:
+
+- Accepted the P1 timestamp-only critique for video topics: a bare time anchor can be an in-flight study draft, so Today > Answer now guards it instead of overwriting it.
+- Accepted clearer guard context: the activity detail now names the target question short text before showing the preserved draft summary.
+- Kept quote-only focus moving to Thought, with a code comment documenting the highlight-to-reflection contract.
+- Rejected duplicate parked-state/focus test work as already covered after adding the explicit timestamp-only browser branch.
 
 Latest absorbed Mira notes for `Question Loop`:
 
