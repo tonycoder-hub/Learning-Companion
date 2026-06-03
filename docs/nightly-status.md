@@ -174,6 +174,8 @@ Workflow/Seed fanout used `ark/seed-code-0602` with three read-only tasks at con
 
 The latest Workflow/Seed fanout for cross-device UX used `ark/seed-code-0602`, three read-only tasks, and concurrency 3 via `/Users/bytedance/.codex/skills/workflow/scripts/seed_batch.py`. Only `phone-harmony-return-critique` succeeded; `mac-daily-loop-critique` and `windows-feishu-manual-flow-critique` returned `Error: Reached max turns (10)`. Accepted from the successful worker: add "come back to this mirror tab" source-first copy and keep `file://`/device behavior as unproven. Deferred to later slices: `noscript` fallback and phone-specific Manual Copy transport wording.
 
+The `noscript` fallback slice then passed `node --check apps/companion-web/src/model.js`, `node --check scripts/static-return-loop-check.mjs`, `git diff --check`, `npm run smoke`, `npm run smoke:browser`, `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning`, and `npm run check:static-return`. The first `check:static-return` attempt failed because `dist/morning-demo/mirror-folder/index.html` was stale; it passed after regenerating the morning demo in no-clean mode. Latest kept static-return receipt: `.codex-tmp/static-return-loop-check/static-return-loop-1780524272987/receipt.json`.
+
 The long browser smoke has hit a `Runtime.evaluate` timeout during extended local CDP runs and then passed unchanged on rerun. Current evidence treats that as browser-control flake rather than product failure; the harness now gives each evaluate 25s before failing, and this should be revisited if the same block becomes reproducible.
 
 ## Review Notes Absorbed

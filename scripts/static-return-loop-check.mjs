@@ -135,6 +135,7 @@ function inspectMirrorHome(html) {
     reviewHref: extractHref(html, "review.html"),
     inboxHref: extractHref(html, "inbox.html"),
     nextHref: extractDeviceNextHref(html),
+    hasNoScriptFallback: /JavaScript required for return files/.test(html),
     hasExternalScript: /<script[^>]+src=/i.test(html),
     hasExternalStylesheet: /<link[^>]+rel=["']stylesheet/i.test(html)
   };
@@ -145,6 +146,7 @@ function inspectMirrorHome(html) {
   assert.equal(state.reviewHref, "review.html");
   assert.equal(state.inboxHref, "inbox.html");
   if (state.nextHref) assert.doesNotMatch(state.nextHref, /^(?:\/|https?:|file:)/);
+  assertStaticNoScript(html);
   assert.equal(state.hasExternalScript, false);
   assert.equal(state.hasExternalStylesheet, false);
   return state;
@@ -409,6 +411,7 @@ function assertStaticReturnContract(html, {
     assert.match(html, new RegExp(`id=["']${escapeRegExp(id)}["']`));
   });
   assert.match(html, /Manual Copy/);
+  assertStaticNoScript(html);
   assert.match(html, /Today &gt; Return Files/);
   assert.match(html, new RegExp(`returnFileName\\('${escapeRegExp(returnNamePrefix)}'`));
   assert.match(html, /returnBaseFingerprint/);
@@ -431,6 +434,13 @@ function assertStaticReturnContract(html, {
   assert.doesNotMatch(html, /sendBeacon/);
   assert.doesNotMatch(html, /BroadcastChannel/);
   assert.doesNotMatch(html, /<a\b[^>]*\bdownload\b/i);
+}
+
+function assertStaticNoScript(html) {
+  assert.match(html, /<noscript>/);
+  assert.match(html, /JavaScript required for return files/);
+  assert.match(html, /This mirror remains readable/);
+  assert.match(html, /open the mirror in a browser that allows local file scripts or continue in the Mac app/);
 }
 
 function extractSeed(html, expectedSchema) {

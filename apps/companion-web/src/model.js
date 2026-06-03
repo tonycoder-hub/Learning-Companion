@@ -2331,6 +2331,17 @@ function returnReadyBadgeHtml() {
   ];
 }
 
+function staticNoScriptHtml() {
+  return [
+    "    <noscript>",
+    "      <section class=\"panel\" role=\"alert\">",
+    "        <h2>JavaScript required for return files</h2>",
+    "        <p class=\"summary\">This mirror remains readable, but Review and Inbox return files need JavaScript. If this message stays visible, open the mirror in a browser that allows local file scripts or continue in the Mac app.</p>",
+    "      </section>",
+    "    </noscript>"
+  ];
+}
+
 function returnAfterSaveCss() {
   return [
     "    .return-after-save { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #b9d7cb; border-radius: 8px; background: #f0faf5; }",
@@ -2455,6 +2466,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "</head>",
     "<body>",
     "  <main>",
+    ...staticNoScriptHtml(),
     "    <header>",
     "      <h1>Learning Companion Review Pack</h1>",
     `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(pack.stats.due)} due ${pack.stats.due === 1 ? "card" : "cards"} · static mirror, not live sync</p>`,
@@ -2758,6 +2770,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "</head>",
     "<body>",
     "  <main>",
+    ...staticNoScriptHtml(),
     "    <header>",
     "      <h1>Learning Companion Inbox</h1>",
     `      <p class="summary">Generated at ${htmlText(formatLocalIso(now))} · static mirror, not live sync.</p>`,
@@ -3240,6 +3253,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "</head>",
     "<body>",
     "  <main>",
+    ...staticNoScriptHtml(),
     "    <header>",
     "      <h1>Learning Companion Mirror</h1>",
     `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(formatCount(pack.stats.sessions, "session"))} · ${htmlText(formatCount(pack.stats.questions, "open question"))} · ${htmlText(formatCount(pack.stats.due, "due card"))} · source of truth: workspace.json</p>`,
