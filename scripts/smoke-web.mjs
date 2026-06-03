@@ -1920,6 +1920,7 @@ assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is sta
 assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(questionMirrorIndexHtml, /Draft answer in inbox/);
 assert.doesNotMatch(questionMirrorIndexHtml, /Read source on this device/);
+assert.doesNotMatch(questionMirrorIndexHtml, /target="_blank" rel="noreferrer noopener"><strong>Answer next question/);
 const nextQuestionHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)"><strong>Answer next question/)?.[1]?.replace(/&amp;/g, "&") || "";
 const nextQuestionParams = new URLSearchParams(nextQuestionHref.split("?")[1] || "");
 assert.equal(nextQuestionParams.get("answerToCaptureId"), questionOnlyMirrorPack.questionItems[0].capture.id);
@@ -2322,6 +2323,7 @@ assert.match(mirrorIndexHtml, /Next from this export/);
 assert.ok(mirrorIndexHtml.indexOf("Next from this export") < mirrorIndexHtml.indexOf("Mirror entry points"));
 assert.match(mirrorIndexHtml, /Review due cards/);
 assert.match(mirrorIndexHtml, /2 due cards/);
+assert.doesNotMatch(mirrorIndexHtml, /target="_blank" rel="noreferrer noopener"><strong>Review due cards/);
 assert.match(mirrorIndexHtml, /As of 2099-01-02T08:00:00\+08:00/);
 assert.match(mirrorIndexHtml, /device-next-link:focus-visible/);
 assert.match(mirrorIndexHtml, /device-next-secondary:focus-visible/);
@@ -2371,7 +2373,7 @@ const sourceOnlyWorkspace = updateSession(sourceOnlyBase, sourceOnlySession.id, 
 const sourceOnlyMirrorIndexHtml = generateMirrorIndexHtml(sourceOnlyWorkspace, frozenToday);
 assert.match(sourceOnlyMirrorIndexHtml, /Next from this export/);
 assert.match(sourceOnlyMirrorIndexHtml, /Read source on this device/);
-assert.match(sourceOnlyMirrorIndexHtml, /href="https:\/\/example\.com\/device-reading"><strong>Read source on this device/);
+assert.match(sourceOnlyMirrorIndexHtml, /href="https:\/\/example\.com\/device-reading" target="_blank" rel="noreferrer noopener"><strong>Read source on this device/);
 assert.match(sourceOnlyMirrorIndexHtml, /Device reading source · then return to Inbox to save a note for Mac\./);
 assert.match(sourceOnlyMirrorIndexHtml, /Source linked; return by JSON/);
 assert.match(sourceOnlyMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
@@ -2390,7 +2392,7 @@ sourceResumeWorkspace = addCapture(sourceResumeWorkspace, sourceResumeSession.id
 }, { now: "2099-01-02T00:45:00.000Z" });
 const sourceResumeMirrorIndexHtml = generateMirrorIndexHtml(sourceResumeWorkspace, frozenToday);
 assert.match(sourceResumeMirrorIndexHtml, /Resume source on this device/);
-assert.match(sourceResumeMirrorIndexHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=device123&amp;t=95s"><strong>Resume source on this device/);
+assert.match(sourceResumeMirrorIndexHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=device123&amp;t=95s" target="_blank" rel="noreferrer noopener"><strong>Resume source on this device/);
 assert.match(sourceResumeMirrorIndexHtml, /Device video source @ 01:35 · then return to Inbox to save a note for Mac\./);
 assert.match(sourceResumeMirrorIndexHtml, /Source moment available; return by JSON/);
 assert.match(sourceResumeMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);

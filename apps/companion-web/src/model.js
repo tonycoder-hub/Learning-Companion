@@ -3238,7 +3238,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     ...returnReadyBadgeHtml(),
     "    <section class=\"panel device-next-panel\" aria-label=\"Next from this export\">",
     "      <h2>Next from this export</h2>",
-    `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"><strong>${htmlText(mirrorDeviceAction.label)}</strong><span>${htmlText(mirrorDeviceAction.detail)}</span><small>${htmlText(mirrorDeviceAction.meta)} · As of ${htmlText(pack.generatedAt)} · Static mirror. Save a return file when done.</small></a>`,
+    `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"${mirrorDeviceAction.external ? ' target="_blank" rel="noreferrer noopener"' : ""}><strong>${htmlText(mirrorDeviceAction.label)}</strong><span>${htmlText(mirrorDeviceAction.detail)}</span><small>${htmlText(mirrorDeviceAction.meta)} · As of ${htmlText(pack.generatedAt)} · Static mirror. Save a return file when done.</small></a>`,
     ...(mirrorDeviceAction.secondary ? [mirrorDeviceAction.secondaryHref
       ? `      <a class="device-next-secondary" href="${htmlAttribute(mirrorDeviceAction.secondaryHref)}">${htmlText(mirrorDeviceAction.secondary)}</a>`
       : `      <span class="device-next-secondary">${htmlText(mirrorDeviceAction.secondary)}</span>`] : []),
@@ -3323,7 +3323,8 @@ function buildMirrorDeviceAction(pack, brief = null) {
       detail: `${sourceLabel}${timestamp ? ` @ ${timestamp}` : ""} · then return to Inbox to save a note for Mac.`,
       meta: timestamp ? "Source moment available; return by JSON" : "Source linked; return by JSON",
       secondary: "Then capture in Inbox.",
-      secondaryHref: "inbox.html"
+      secondaryHref: "inbox.html",
+      external: true
     };
   }
   return {

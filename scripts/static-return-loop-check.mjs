@@ -171,7 +171,7 @@ function inspectSourceFirstDeviceRoute() {
   });
   const sourceHtml = generateMirrorIndexHtml(sourceWorkspace, new Date("2099-01-02T08:00:00+08:00"));
   assert.match(sourceHtml, /<strong>Read source on this device<\/strong>/);
-  assert.match(sourceHtml, /href="https:\/\/example\.com\/static-source-route"/);
+  assert.match(sourceHtml, /href="https:\/\/example\.com\/static-source-route" target="_blank" rel="noreferrer noopener"/);
   assert.match(sourceHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\.<\/a>/);
   assert.doesNotMatch(sourceHtml, /<strong>Capture on this device<\/strong>/);
 
@@ -190,7 +190,7 @@ function inspectSourceFirstDeviceRoute() {
   }, { now: "2099-01-02T00:45:00.000Z" });
   const resumeHtml = generateMirrorIndexHtml(resumeWorkspace, new Date("2099-01-02T08:00:00+08:00"));
   assert.match(resumeHtml, /<strong>Resume source on this device<\/strong>/);
-  assert.match(resumeHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=static123&amp;t=95s"/);
+  assert.match(resumeHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=static123&amp;t=95s" target="_blank" rel="noreferrer noopener"/);
 
   const unsafeWorkspace = updateSession(noSourceBase, noSourceSession.id, {
     sourceTitle: "Unsafe source",
@@ -214,6 +214,7 @@ function inspectSourceFirstDeviceRoute() {
     ok: true,
     noSourceFallsBackToInbox: /<strong>Capture on this device<\/strong>/.test(noSourceHtml),
     sourceOnlyReadsFirst: /<strong>Read source on this device<\/strong>/.test(sourceHtml),
+    sourceOpensInNewTab: /target="_blank" rel="noreferrer noopener"/.test(sourceHtml),
     resumeSourceUsesTimestamp: /t=95s/.test(resumeHtml),
     unsafeSourceFallsBackToInbox: /<strong>Capture on this device<\/strong>/.test(unsafeHtml),
     openQuestionBeatsSource: /<strong>Answer next question<\/strong>/.test(questionHtml)
