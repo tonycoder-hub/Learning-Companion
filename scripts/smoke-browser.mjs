@@ -1637,10 +1637,118 @@ try {
       bubbles: true,
       cancelable: true
     }));
+    const reviewActivityAfterGood = {
+      title: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      action: document.querySelector("#activityDetailsBtn").textContent,
+      targetId: document.querySelector("#activityDetailsBtn").dataset.activityTargetId || "",
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      activeReviewText: document.querySelector("#reviewList .active-review-card")?.textContent || ""
+    };
+    document.querySelector("#activityDetailsBtn").click();
+    const reviewNextCardAfterActivity = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeReviewText: document.querySelector("#reviewList .active-review-card")?.textContent || "",
+      pulsed: document.querySelector("#reviewList .active-review-card")?.classList.contains("pulse") === true
+    };
     const focusBriefAfterGood = {
       action: document.querySelector("#focusBriefAction").textContent,
       kicker: document.querySelector("#focusBriefKicker").textContent
     };
+    const beforeReviewQueueClearJson = window.learningCompanionNative.exportWorkspaceJson();
+    const reviewQueueClearWorkspace = (() => {
+      const base = JSON.parse(beforeReviewQueueClearJson);
+      const createdAt = "2026-05-29T08:00:00.000Z";
+      return {
+        ...base,
+        activeSessionId: "review_clear_session",
+        sessions: [{
+          id: "review_clear_session",
+          originClientId: base.clientId,
+          title: "Review clear smoke",
+          sourceTitle: "Review clear source",
+          sourceUrl: "https://example.com/review-clear-source",
+          materialType: "article",
+          tags: [],
+          focusMode: "review",
+          notesMarkdown: "",
+          captures: [{
+            id: "review_clear_capture",
+            quote: "Review clear source quote.",
+            thought: "Review clear answer.",
+            timestamp: "",
+            sourceTitle: "Review clear source",
+            sourceUrl: "https://example.com/review-clear-source",
+            materialType: "article",
+            sourceProvenance: "snapshot",
+            tags: [],
+            createdAt,
+            capturedAt: createdAt,
+            updatedAt: createdAt,
+            originClientId: base.clientId,
+            inboxPatchId: "",
+            inboxCaptureId: "",
+            answersQuestionCaptureId: "",
+            questionResolvedAt: null,
+            questionParkedAt: null,
+            promotedToReview: true
+          }],
+          reviewCards: [{
+            id: "review_clear_card",
+            prompt: "Recall the review clear prompt.",
+            answer: "Review clear answer.",
+            sourceCaptureId: "review_clear_capture",
+            evidenceCaptureId: "",
+            dueAt: "2026-05-29T08:00:00.000Z",
+            strength: 0,
+            createdAt,
+            updatedAt: createdAt,
+            lastReviewedAt: null,
+            originClientId: base.clientId
+          }],
+          createdAt,
+          updatedAt: createdAt
+        }]
+      };
+    })();
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(reviewQueueClearWorkspace));
+    document.querySelector('[data-tab="review"]').click();
+    document.querySelector('[data-reveal-card]')?.click();
+    document.querySelector('[data-grade="good"]')?.click();
+    const reviewQueueClearActivity = {
+      title: document.querySelector("#activityTitle").textContent,
+      detail: document.querySelector("#activityDetail").textContent,
+      action: document.querySelector("#activityDetailsBtn").textContent,
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || "",
+      hintAction: document.querySelector("#activityHintBtn")?.textContent || "",
+      hintAria: document.querySelector("#activityHintBtn")?.getAttribute("aria-label") || "",
+      activeTitle: document.querySelector("#sessionTitle")?.value || "",
+      dueMetric: document.querySelector("#dueMetric")?.textContent || ""
+    };
+    let reviewQueueClearResumeHref = "";
+    let reviewQueueClearResumeTarget = "";
+    let reviewQueueClearResumeFeatures = "";
+    const nativeReviewQueueClearWindowOpen = window.open;
+    window.open = (href, target, features) => {
+      reviewQueueClearResumeHref = href;
+      reviewQueueClearResumeTarget = target;
+      reviewQueueClearResumeFeatures = features;
+      return { target, features };
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeReviewQueueClearWindowOpen;
+    const reviewQueueClearResume = {
+      title: document.querySelector("#activityTitle").textContent,
+      action: document.querySelector("#activityDetailsBtn").textContent,
+      opened: reviewQueueClearResumeHref,
+      target: reviewQueueClearResumeTarget,
+      features: reviewQueueClearResumeFeatures,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+    };
+    window.learningCompanionNative.importWorkspaceJson(beforeReviewQueueClearJson);
     document.querySelector('[data-focus-mode="synthesize"]').click();
     const synthesisVisible = !document.querySelector("#synthesisPane").hidden && document.querySelector("#capturePane").hidden;
     document.querySelector("#synthesisDraft").value = "manual synthesis survives";
@@ -2126,7 +2234,11 @@ try {
           backupNoticeAfterExport,
           sourceJumpOpened,
           focusBriefAfterCard,
+          reviewActivityAfterGood,
+          reviewNextCardAfterActivity,
           focusBriefAfterGood,
+          reviewQueueClearActivity,
+          reviewQueueClearResume,
           focusBriefAfterSynthesis,
           todayActive,
           todayHasDueReview,
@@ -2568,6 +2680,33 @@ try {
   assert.equal(result.dueMetric, "1");
   assert.equal(result.dueAfterGood, "1");
   assert.equal(result.gradedCount, 1);
+  assert.equal(result.reviewActivityAfterGood.title, "Review updated");
+  assert.match(result.reviewActivityAfterGood.detail, /Next card is ready/);
+  assert.equal(result.reviewActivityAfterGood.action, "Next card");
+  assert.equal(result.reviewActivityAfterGood.hintHidden, true);
+  assert.match(result.reviewActivityAfterGood.activeReviewText, /Spaced repetition improves/);
+  assert.equal(result.reviewNextCardAfterActivity.activeTab, "review");
+  assert.match(result.reviewNextCardAfterActivity.activeReviewText, /Spaced repetition improves/);
+  assert.equal(result.reviewNextCardAfterActivity.pulsed, true);
+  assert.equal(result.reviewQueueClearActivity.title, "Review queue clear");
+  assert.match(result.reviewQueueClearActivity.detail, /No due cards left/);
+  assert.equal(result.reviewQueueClearActivity.action, "Capture");
+  assert.equal(result.reviewQueueClearActivity.hintHidden, false);
+  assert.equal(result.reviewQueueClearActivity.hintKind, "afterReviewQueueClearedSourceLinked");
+  assert.equal(result.reviewQueueClearActivity.hintAction, "Resume source");
+  assert.equal(result.reviewQueueClearActivity.hintAria, "Resume the source after clearing the review queue");
+  assert.equal(result.reviewQueueClearActivity.activeTitle, "Review clear smoke");
+  assert.equal(result.reviewQueueClearActivity.dueMetric, "0");
+  assert.deepEqual(result.reviewQueueClearResume, {
+    title: "Source resumed",
+    action: "Question",
+    opened: "https://example.com/review-clear-source",
+    target: "_blank",
+    features: "noopener,noreferrer",
+    activeTab: "captures",
+    activeElement: "quoteInput",
+    capturePanePulsed: true
+  });
   assert.equal(result.activityAfterCard.title, "Capture and card saved");
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");

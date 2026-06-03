@@ -2317,6 +2317,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Card is current. Resume the source for the next point.",
     actionLabel: "Resume source",
     ariaLabel: "Resume the source after refreshing this review card"
+  }),
+  afterReviewQueueClearedSourceLinked: Object.freeze({
+    kind: "afterReviewQueueClearedSourceLinked",
+    text: "Reviews clear. Resume the source for the next point.",
+    actionLabel: "Resume source",
+    ariaLabel: "Resume the source after clearing the review queue"
   })
 });
 
@@ -2447,7 +2453,7 @@ function activityHintAvailable(activity, hint) {
     const answerCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
     return linkedAnswerCanRefreshReviewCard(targetSession, answerCapture);
   }
-  if (hint.kind === "afterQuestionCardRefreshedSourceLinked") {
+  if (hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
     return Boolean(activityReviewCardResumeSource(activity).href);
   }
   return true;
@@ -2946,7 +2952,7 @@ function runActivityHintAction() {
     refreshQuestionCardFromAnswerActivity(activity);
     return;
   }
-  if (hint.kind === "afterQuestionCardRefreshedSourceLinked") {
+  if (hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
     resumeReviewCardSourceFromActivity(activity);
     return;
   }
@@ -3553,13 +3559,31 @@ function gradeActiveReview(grade) {
   activeReviewKey = next ? reviewKey(next.sessionId, next.card.id) : "";
   const reviewedSession = workspace.sessions.find((session) => session.id === item.sessionId);
   const reviewedCard = reviewedSession?.reviewCards.find((card) => card.id === item.card.id);
-  setActivity(getActiveSession(workspace), {
+  const reviewedCapture = reviewedSession?.captures.find((capture) => capture.id === reviewedCard?.sourceCaptureId);
+  if (!next && reviewedSession) {
+    workspace = selectSession(workspace, reviewedSession.id);
+  }
+  const gradeLabel = grade === "good" ? "Good" : "Again";
+  const nextDueLabel = new Date(reviewedCard?.dueAt || item.card.dueAt).toLocaleDateString();
+  const sourceResumeHint = !next && buildCaptureResumeSource(reviewedSession, reviewedCapture).href
+    ? activityNextHint("afterReviewQueueClearedSourceLinked")
+    : null;
+  setActivity(getActiveSession(workspace), next ? {
     title: "Review updated",
-    detail: `${grade === "good" ? "Good" : "Again"} · ${item.sessionTitle} · next due ${new Date(reviewedCard?.dueAt || item.card.dueAt).toLocaleDateString()}`,
+    detail: `${gradeLabel} · ${item.sessionTitle} · next due ${nextDueLabel}. Next card is ready.`,
     tab: "review",
-    targetId: item.card.id
+    targetId: next.card.id,
+    actionLabel: "Next card"
+  } : {
+    title: "Review queue clear",
+    detail: `${gradeLabel} · ${item.sessionTitle} · next due ${nextDueLabel}. No due cards left.`,
+    tab: "captures",
+    targetId: reviewedCard?.id || "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture",
+    nextHint: sourceResumeHint
   });
-  persistAndRender("Review updated");
+  persistAndRender(next ? "Review updated" : "Review queue clear");
 }
 
 function renderNotesMode() {
