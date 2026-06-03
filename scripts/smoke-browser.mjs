@@ -2403,6 +2403,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const savedStatus = document.querySelector("#progressStatus").textContent;
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
+    const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
     const reviewState = document.querySelector(".review-state").textContent;
     const dirtyAfterSave = beforeUnloadPrevented();
@@ -2416,6 +2417,7 @@ try {
       selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.review-progress-patch.v1"'),
       savedStatus,
       returnFileHint: savedReturnFileHint,
+      returnManualHelp: savedReturnManualHelp,
       returnNextStep: readyNextStep,
       clearedNextStep,
       downloadName,
@@ -2438,6 +2440,8 @@ try {
   assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(reviewRuntime.savedStatus, /Return file download requested/);
   assert.match(reviewRuntime.returnFileHint, /^Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C, paste into a text editor such as Notepad/);
+  assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
@@ -2528,6 +2532,7 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const savedStatus = document.querySelector("#statusOutput").textContent;
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
+    const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
     const readyDraftCount = document.querySelectorAll("#draftList .capture").length;
     const dirtyAfterSave = beforeUnloadPrevented();
@@ -2557,6 +2562,7 @@ try {
       storedDraftCount: storedDrafts.length,
       savedStatus,
       returnFileHint: savedReturnFileHint,
+      returnManualHelp: savedReturnManualHelp,
       returnNextStep: readyNextStep,
       clearedNextStep,
       clearedDraftCount,
@@ -2580,6 +2586,8 @@ try {
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(inboxRuntime.savedStatus, /Return file download requested/);
   assert.match(inboxRuntime.returnFileHint, /^Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C, paste into a text editor such as Notepad/);
+  assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
   assert.equal(inboxRuntime.clearedDraftCount, 0);

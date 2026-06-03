@@ -404,6 +404,7 @@ Latest local export work separates real saves from temporary downloads:
 - Static `review.html` and `inbox.html` now make `Copy Return File` the primary action; `Save Return File` is secondary and picker-first.
 - Static return pages keep a stable per-draft return id and show `Suggested JSON file: ...`, so Copy and Save refer to the same timestamped return filename while the primary action still says Return File.
 - Static return pages also expose `Manual Copy`, which only selects the preview return-file JSON when clipboard or picker permissions are unavailable; it does not write the clipboard, download a file, or start any background scan.
+- Static Review/Inbox return panels now show a locked-down browser fallback: use `Manual Copy`, press `Ctrl+C`, paste into a text editor such as Notepad, save with the suggested `.json` filename, and move that file back to Mac. This addresses the Windows no-picker path without Downloads automation.
 - Return imports with new work now show `Returned from phone/Windows` inside Learning Flow. The nudge is in-memory only, suppresses duplicate-only receipts, names captures/review updates separately, exposes `Import details`, and can be dismissed without altering workspace or mirror data.
 - Workspace backup copy is now explicit about the path: picker success says `Backup saved - verify the selected file`, while fallback says `Backup export requested - verify the exported file`.
 - Other save buttons use `saved` copy only for picker-backed saves and `download requested` copy only for explicit smoke fallback saves.
