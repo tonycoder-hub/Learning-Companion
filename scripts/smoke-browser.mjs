@@ -2518,6 +2518,13 @@ try {
       const staleHandoffActions = actionSnapshot();
       const staleActionHint = actionHintText();
       const staleChangeDetail = changeDetailSnapshot();
+      document.querySelector('[data-tab="captures"]').click();
+      setValue("#quoteInput", "Second Mac-side capture after mirror export.");
+      setValue("#thoughtInput", "Plural stale details should stay grammatically correct.");
+      document.querySelector("#captureBtn").click();
+      document.querySelector('[data-tab="today"]').click();
+      const pluralStaleHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      const pluralStaleChangeDetail = changeDetailSnapshot();
       document.querySelector('[data-return-files-step="export"]')?.click();
       const reExportOpenedTab = document.querySelector(".tab.active")?.dataset.tab || "";
       document.querySelector("#downloadMirrorBtn").click();
@@ -2594,6 +2601,8 @@ try {
         staleHandoffActions,
         staleActionHint,
         staleChangeDetail,
+        pluralStaleHandoffSummary,
+        pluralStaleChangeDetail,
         reExportOpenedTab,
         reExportedHandoffSummary,
         reExportedHandoffActions,
@@ -2638,6 +2647,9 @@ try {
   assert.equal(mirrorSaveReceipt.staleChangeDetail.title, "Mirror contents changed");
   assert.deepEqual(mirrorSaveReceipt.staleChangeDetail.items, ["1 new capture"]);
   assert.match(mirrorSaveReceipt.staleChangeDetail.text, /manual transfer is not live sync/);
+  assert.match(mirrorSaveReceipt.pluralStaleHandoffSummary, /Mac changed · 2 new captures/);
+  assert.equal(mirrorSaveReceipt.pluralStaleChangeDetail.present, true);
+  assert.deepEqual(mirrorSaveReceipt.pluralStaleChangeDetail.items, ["2 new captures"]);
   assert.deepEqual(mirrorSaveReceipt.staleHandoffActions, [
     { text: "Export Updated Mirror", step: "export", primary: true },
     { text: "Import Return Files", step: "import", primary: false },
