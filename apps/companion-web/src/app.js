@@ -2311,6 +2311,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Question closed. Refresh the review card with this answer.",
     actionLabel: "Refresh card",
     ariaLabel: "Refresh the review card with this linked answer"
+  }),
+  afterQuestionCardRefreshedSourceLinked: Object.freeze({
+    kind: "afterQuestionCardRefreshedSourceLinked",
+    text: "Card is current. Resume the source for the next point.",
+    actionLabel: "Resume source",
+    ariaLabel: "Resume the source after refreshing this review card"
   })
 });
 
@@ -2441,6 +2447,9 @@ function activityHintAvailable(activity, hint) {
     const answerCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
     return linkedAnswerCanRefreshReviewCard(targetSession, answerCapture);
   }
+  if (hint.kind === "afterQuestionCardRefreshedSourceLinked") {
+    return Boolean(activityReviewCardResumeSource(activity).href);
+  }
   return true;
 }
 
@@ -2457,6 +2466,14 @@ function linkedAnswerCanRefreshReviewCard(session, answerCapture) {
   const question = session?.captures.find((capture) => capture.id === questionId);
   const card = session?.reviewCards.find((item) => item.sourceCaptureId === questionId);
   return Boolean(question?.promotedToReview && card);
+}
+
+function activityReviewCardResumeSource(activity) {
+  const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+  const targetCard = targetSession?.reviewCards.find((card) => card.id === activity?.targetId);
+  const sourceCapture = targetSession?.captures.find((capture) => capture.id === targetCard?.sourceCaptureId);
+  if (!targetSession || !sourceCapture) return { href: "" };
+  return buildCaptureResumeSource(targetSession, sourceCapture);
 }
 
 function activityStaysInSidecar(activity) {
@@ -2929,6 +2946,10 @@ function runActivityHintAction() {
     refreshQuestionCardFromAnswerActivity(activity);
     return;
   }
+  if (hint.kind === "afterQuestionCardRefreshedSourceLinked") {
+    resumeReviewCardSourceFromActivity(activity);
+    return;
+  }
   if (hint.kind === "afterThoughtAddedCarded") {
     openReviewCardFromCapture(activity.targetId, activity.sessionId);
     return;
@@ -3012,6 +3033,36 @@ function refreshQuestionCardFromAnswerActivity(activity) {
     return;
   }
   refreshAnsweredQuestionCard(questionId, sourceSession.id);
+}
+
+function resumeReviewCardSourceFromActivity(activity) {
+  const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+  const targetCard = targetSession?.reviewCards.find((card) => card.id === activity?.targetId);
+  const sourceCapture = targetSession?.captures.find((capture) => capture.id === targetCard?.sourceCaptureId);
+  if (!targetSession || !targetCard || !sourceCapture) {
+    showToast("Review card no longer exists");
+    return;
+  }
+  const resume = activityReviewCardResumeSource(activity);
+  if (!resume.href) {
+    showToast("Source no longer exists");
+    return;
+  }
+  window.open(resume.href, "_blank", "noopener,noreferrer");
+  activeTab = "captures";
+  renderInspector();
+  dom.thoughtInput.focus();
+  pulseNode(dom.capturePane);
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
+  setActivity(targetSession, {
+    title: "Source resumed",
+    detail: `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`,
+    tab: "captures",
+    targetId: sourceCapture.id,
+    actionLabel: "Question"
+  });
+  renderActivity(getActiveSession(workspace));
+  pulseNode(dom.captureContextSource);
 }
 
 function openActivityHighlightAnnotation(activity) {
@@ -5729,7 +5780,10 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
     title: "Review card refreshed",
     detail: questionActionDetail(targetSession, capture),
     tab: "review",
-    targetId: after.id
+    targetId: after.id,
+    nextHint: buildCaptureResumeSource(nextSession, capture).href
+      ? activityNextHint("afterQuestionCardRefreshedSourceLinked")
+      : null
   });
   persistAndRender("Review card refreshed");
 }

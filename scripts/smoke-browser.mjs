@@ -6017,6 +6017,27 @@ async function assertPostSaveFlow(cdp) {
         answerId: cardedLinkedAnswerState.answerId
       };
     })();
+    let cardedLinkedAnswerPostRefreshResumeHref = "";
+    let cardedLinkedAnswerPostRefreshResumeTarget = "";
+    let cardedLinkedAnswerPostRefreshResumeFeatures = "";
+    const nativeCardedRefreshWindowOpen = window.open;
+    window.open = (href, target, features) => {
+      cardedLinkedAnswerPostRefreshResumeHref = href;
+      cardedLinkedAnswerPostRefreshResumeTarget = target;
+      cardedLinkedAnswerPostRefreshResumeFeatures = features;
+      return { target, features };
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeCardedRefreshWindowOpen;
+    const cardedLinkedAnswerPostRefreshResume = readActivity();
+    const cardedLinkedAnswerPostRefreshResumeState = {
+      opened: cardedLinkedAnswerPostRefreshResumeHref,
+      target: cardedLinkedAnswerPostRefreshResumeTarget,
+      features: cardedLinkedAnswerPostRefreshResumeFeatures,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+    };
     document.querySelector('[data-tab="captures"]').click();
     setValue("#sourceTitle", "Post-save flow fixture");
     setValue("#sourceUrl", "https://example.com/post-save-flow");
@@ -6262,7 +6283,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -6359,6 +6380,20 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.cardedLinkedAnswerRefreshState.activeReviewCard, true);
   assert.equal(postSaveFlow.cardedLinkedAnswerRefreshState.cardEvidenceAfter, postSaveFlow.cardedLinkedAnswerRefreshState.answerId);
   assert.notEqual(postSaveFlow.cardedLinkedAnswerRefreshState.cardEvidenceAfter, postSaveFlow.cardedLinkedAnswerState.cardEvidenceBefore);
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefresh.hintHidden, false);
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefresh.hintKind, "afterQuestionCardRefreshedSourceLinked");
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefresh.hintAction, "Resume source");
+  assert.equal(postSaveFlow.cardedLinkedAnswerRefresh.hintAria, "Resume the source after refreshing this review card");
+  assert.equal(postSaveFlow.cardedLinkedAnswerPostRefreshResume.title, "Source resumed");
+  assert.equal(postSaveFlow.cardedLinkedAnswerPostRefreshResume.action, "Question");
+  assert.deepEqual(postSaveFlow.cardedLinkedAnswerPostRefreshResumeState, {
+    opened: "https://example.com/card-refresh-source",
+    target: "_blank",
+    features: "noopener,noreferrer",
+    activeTab: "captures",
+    activeElement: "thoughtInput",
+    capturePanePulsed: true
+  });
   assert.equal(postSaveFlow.takeawaySaved.title, "Takeaway saved");
   assert.match(postSaveFlow.takeawaySaved.detail, /Save it for recall/);
   assert.equal(postSaveFlow.takeawaySaved.action, "Capture");
