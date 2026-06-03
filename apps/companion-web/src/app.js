@@ -2108,6 +2108,9 @@ function setSidecarLayout(enabled) {
 function renderShellMode() {
   dom.appShell.classList.toggle("sidecar-layout", uiPrefs.sidecarLayout);
   dom.sidecarLayoutBtn.setAttribute("aria-pressed", String(uiPrefs.sidecarLayout));
+  dom.sidecarLayoutBtn.textContent = uiPrefs.sidecarLayout ? "Full Desk" : "Focus Sidecar";
+  dom.sidecarLayoutBtn.title = uiPrefs.sidecarLayout ? "Return to full desk layout" : "Focus sidecar layout";
+  dom.sidecarLayoutBtn.setAttribute("aria-label", uiPrefs.sidecarLayout ? "Return to full desk layout" : "Focus sidecar layout");
 }
 
 function setActivity(session, activity) {

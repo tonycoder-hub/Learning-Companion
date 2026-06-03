@@ -317,6 +317,9 @@ try {
       sidebarDisplay: getComputedStyle(sidebar).display,
       inspectorDisplay: getComputedStyle(inspector).display,
       toggleDisplay: getComputedStyle(toggle).display,
+      toggleText: toggle.textContent,
+      toggleTitle: toggle.title,
+      toggleAria: toggle.getAttribute("aria-label") || "",
       metricsDisplay: getComputedStyle(document.querySelector(".metrics-row")).display,
       focusBriefDisplay: getComputedStyle(document.querySelector(".focus-brief")).display,
       focusBriefCompressed: document.querySelector(".focus-brief").classList.contains("is-sidecar-redundant"),
@@ -467,6 +470,10 @@ try {
   assert.notEqual(sidecarLayout.before.metricsDisplay, "none");
   assert.notEqual(sidecarLayout.before.focusBriefDisplay, "none");
   assert.equal(sidecarLayout.before.focusBriefCompressed, false);
+  assert.equal(sidecarLayout.before.toggleDisplay, "flex");
+  assert.equal(sidecarLayout.before.toggleText, "Focus Sidecar");
+  assert.equal(sidecarLayout.before.toggleTitle, "Focus sidecar layout");
+  assert.equal(sidecarLayout.before.toggleAria, "Focus sidecar layout");
   assert.notEqual(sidecarLayout.before.focusBriefFactsDisplay, "none");
   assert.notEqual(sidecarLayout.before.focusBriefSignalsDisplay, "none");
   assert.equal(sidecarLayout.afterEditableShortcut.shellCompact, false);
@@ -478,7 +485,10 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.focusBriefCompressed, true);
   assert.equal(sidecarLayout.afterPanelShortcut.focusBriefFactsDisplay, "none");
   assert.equal(sidecarLayout.afterPanelShortcut.focusBriefSignalsDisplay, "none");
-  assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "grid");
+  assert.equal(sidecarLayout.afterPanelShortcut.toggleDisplay, "flex");
+  assert.equal(sidecarLayout.afterPanelShortcut.toggleText, "Full Desk");
+  assert.equal(sidecarLayout.afterPanelShortcut.toggleTitle, "Return to full desk layout");
+  assert.equal(sidecarLayout.afterPanelShortcut.toggleAria, "Return to full desk layout");
   assert.equal(sidecarLayout.afterPanelShortcut.activityDisplay, "grid");
   assert.equal(sidecarLayout.afterPanelShortcut.activityAction, "Capture");
   assert.equal(sidecarLayout.afterPanelShortcut.activityAria, "Focus Quick Capture");
