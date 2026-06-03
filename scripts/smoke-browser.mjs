@@ -2667,6 +2667,8 @@ try {
     const savedStatus = document.querySelector("#progressStatus").textContent;
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
+    const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
+    const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
     const reviewState = document.querySelector(".review-state").textContent;
     const dirtyAfterSave = beforeUnloadPrevented();
@@ -2681,6 +2683,8 @@ try {
       savedStatus,
       returnFileHint: savedReturnFileHint,
       returnManualHelp: savedReturnManualHelp,
+      returnPreviewTitle,
+      returnCopyHint,
       returnNextStep: readyNextStep,
       clearedNextStep,
       downloadName,
@@ -2706,6 +2710,8 @@ try {
   assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
+  assert.equal(reviewRuntime.returnPreviewTitle, "Return file preview");
+  assert.match(reviewRuntime.returnCopyHint, /selected text below is the return file JSON/);
   assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
@@ -2872,6 +2878,8 @@ try {
       panelWidth: Math.ceil(panel.getBoundingClientRect().width),
       actionContainerWidth: Math.ceil(document.querySelector(".progress-actions").getBoundingClientRect().width),
       gradeContainerWidth: Math.ceil(document.querySelector(".grade-actions").getBoundingClientRect().width),
+      returnPreviewTitle: document.querySelector(".return-preview-title").textContent,
+      returnCopyHint: document.querySelector(".return-copy-hint").textContent,
       actionButtons: actionButtons.map((button) => ({
         text: button.textContent,
         width: Math.ceil(button.getBoundingClientRect().width),
@@ -2896,6 +2904,8 @@ try {
       maxPanelWidth: Math.max(...panels.map((panel) => Math.ceil(panel.getBoundingClientRect().width))),
       maxActionContainerWidth: Math.max(...Array.from(document.querySelectorAll(".actions")).map((actions) => Math.ceil(actions.getBoundingClientRect().width))),
       sourceRowColumns: getComputedStyle(document.querySelector(".row")).gridTemplateColumns.split(" ").filter(Boolean).length,
+      returnPreviewTitle: document.querySelector(".return-preview-title").textContent,
+      returnCopyHint: document.querySelector(".return-copy-hint").textContent,
       actionButtons: actionButtons.map((button) => ({
         text: button.textContent,
         width: Math.ceil(button.getBoundingClientRect().width),
@@ -2916,6 +2926,8 @@ try {
   });
   assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
   assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
+  assert.equal(staticReviewMobile.returnPreviewTitle, "Return file preview");
+  assert.match(staticReviewMobile.returnCopyHint, /selected text below is the return file JSON/);
   assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Save Return File", "Manual Copy", "Clear Progress"]);
   staticReviewMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticReviewMobile.actionContainerWidth - 2);
@@ -2929,6 +2941,8 @@ try {
   assert.ok(staticInboxMobile.documentWidth <= staticInboxMobile.innerWidth + 1);
   assert.ok(staticInboxMobile.maxPanelWidth <= staticInboxMobile.innerWidth - 24);
   assert.equal(staticInboxMobile.sourceRowColumns, 1);
+  assert.equal(staticInboxMobile.returnPreviewTitle, "Return file preview");
+  assert.match(staticInboxMobile.returnCopyHint, /selected text below is the return file JSON/);
   assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.text), ["Add Capture", "Clear Form", "Copy Return File", "Save Return File", "Manual Copy", "Clear Drafts"]);
   staticInboxMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticInboxMobile.maxActionContainerWidth - 2);
@@ -2977,6 +2991,8 @@ try {
     const savedStatus = document.querySelector("#statusOutput").textContent;
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
+    const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
+    const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
     const readyDraftCount = document.querySelectorAll("#draftList .capture").length;
     const dirtyAfterSave = beforeUnloadPrevented();
@@ -3007,6 +3023,8 @@ try {
       savedStatus,
       returnFileHint: savedReturnFileHint,
       returnManualHelp: savedReturnManualHelp,
+      returnPreviewTitle,
+      returnCopyHint,
       returnNextStep: readyNextStep,
       clearedNextStep,
       clearedDraftCount,
@@ -3033,6 +3051,8 @@ try {
   assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
+  assert.equal(inboxRuntime.returnPreviewTitle, "Return file preview");
+  assert.match(inboxRuntime.returnCopyHint, /selected text below is the return file JSON/);
   assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
   assert.equal(inboxRuntime.clearedDraftCount, 0);
