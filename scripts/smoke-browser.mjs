@@ -2482,6 +2482,15 @@ try {
       primary: button.classList.contains("primary")
     }));
     const actionHintText = () => document.querySelector("[data-return-files-action-hint]")?.textContent || "";
+    const changeDetailSnapshot = () => {
+      const node = document.querySelector('[data-testid="device-flow-change-detail"]');
+      return {
+        present: Boolean(node),
+        title: node?.querySelector("strong")?.textContent || "",
+        text: node?.textContent || "",
+        items: node ? [...node.querySelectorAll("li")].map((item) => item.textContent) : []
+      };
+    };
     const workspaceBeforeStaleCheck = window.learningCompanionNative.exportWorkspaceJson();
     const exportedWorkspace = JSON.parse(workspaceBeforeStaleCheck);
     const exportedSession = exportedWorkspace.sessions.find((item) => item.id === exportedWorkspace.activeSessionId) || exportedWorkspace.sessions[0];
@@ -2498,6 +2507,7 @@ try {
       const currentHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const currentHandoffActions = actionSnapshot();
       const currentActionHint = actionHintText();
+      const currentChangeDetail = changeDetailSnapshot();
       document.querySelector('[data-tab="captures"]').click();
       setValue("#quoteInput", "Mac-side capture after mirror export.");
       setValue("#thoughtInput", "This new point should make the mirror content stale.");
@@ -2507,6 +2517,7 @@ try {
       const staleHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const staleHandoffActions = actionSnapshot();
       const staleActionHint = actionHintText();
+      const staleChangeDetail = changeDetailSnapshot();
       document.querySelector('[data-return-files-step="export"]')?.click();
       const reExportOpenedTab = document.querySelector(".tab.active")?.dataset.tab || "";
       document.querySelector("#downloadMirrorBtn").click();
@@ -2515,6 +2526,12 @@ try {
       const reExportedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const reExportedHandoffActions = actionSnapshot();
       const reExportedActionHint = actionHintText();
+      const reExportedChangeDetail = changeDetailSnapshot();
+      document.querySelector('[data-tab="captures"]').click();
+      setValue("#sourceTitle", "Browser source retitled after mirror export");
+      document.querySelector('[data-tab="today"]').click();
+      const fingerprintOnlyHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      const fingerprintOnlyChangeDetail = changeDetailSnapshot();
       window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
       document.querySelector('[data-tab="export"]').click();
       document.querySelector("#downloadMirrorBtn").click();
@@ -2549,6 +2566,7 @@ try {
       const returnedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const returnedHandoffActions = actionSnapshot();
       const returnedActionHint = actionHintText();
+      const returnedChangeDetail = changeDetailSnapshot();
       const prefsAfterReturn = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
       const workspaceAfterReturnImport = window.learningCompanionNative.exportWorkspaceJson();
       window.learningCompanionNative.importWorkspaceJson(workspaceAfterReturnImport);
@@ -2570,20 +2588,26 @@ try {
         handoffSummary: currentHandoffSummary,
         currentHandoffActions,
         currentActionHint,
+        currentChangeDetail,
         staleHandoffText,
         staleHandoffSummary,
         staleHandoffActions,
         staleActionHint,
+        staleChangeDetail,
         reExportOpenedTab,
         reExportedHandoffSummary,
         reExportedHandoffActions,
         reExportedActionHint,
+        reExportedChangeDetail,
+        fingerprintOnlyHandoffSummary,
+        fingerprintOnlyChangeDetail,
         returnImportOk: returnImportResult.ok === true,
         returnImportKind: returnImportResult.kind || "",
         returnedHandoffText,
         returnedHandoffSummary,
         returnedHandoffActions,
         returnedActionHint,
+        returnedChangeDetail,
         roundTripReturnedHandoffSummary,
         lastReturnImportWorkspaceFingerprint: prefsAfterReturn.mirrorHandoff?.lastReturnImport?.workspaceFingerprint || "",
         postReturnStaleSummary,
@@ -2606,9 +2630,14 @@ try {
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
   assert.match(mirrorSaveReceipt.currentActionHint, /import or paste the return file/);
+  assert.equal(mirrorSaveReceipt.currentChangeDetail.present, false);
   assert.match(mirrorSaveReceipt.staleHandoffText, /Mac changed since mirror export/);
   assert.match(mirrorSaveReceipt.staleHandoffText, /Since Mirror JSON export: 1 new capture/);
   assert.match(mirrorSaveReceipt.staleHandoffSummary, /Mac changed · 1 new capture/);
+  assert.equal(mirrorSaveReceipt.staleChangeDetail.present, true);
+  assert.equal(mirrorSaveReceipt.staleChangeDetail.title, "Mirror contents changed");
+  assert.deepEqual(mirrorSaveReceipt.staleChangeDetail.items, ["1 new capture"]);
+  assert.match(mirrorSaveReceipt.staleChangeDetail.text, /manual transfer is not live sync/);
   assert.deepEqual(mirrorSaveReceipt.staleHandoffActions, [
     { text: "Export Updated Mirror", step: "export", primary: true },
     { text: "Import Return Files", step: "import", primary: false },
@@ -2624,6 +2653,11 @@ try {
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
   assert.match(mirrorSaveReceipt.reExportedActionHint, /import or paste the return file/);
+  assert.equal(mirrorSaveReceipt.reExportedChangeDetail.present, false);
+  assert.match(mirrorSaveReceipt.fingerprintOnlyHandoffSummary, /Mac changed · workspace changed/);
+  assert.equal(mirrorSaveReceipt.fingerprintOnlyChangeDetail.present, true);
+  assert.equal(mirrorSaveReceipt.fingerprintOnlyChangeDetail.title, "Mirror baseline changed");
+  assert.deepEqual(mirrorSaveReceipt.fingerprintOnlyChangeDetail.items, ["workspace changed"]);
   assert.equal(mirrorSaveReceipt.returnImportOk, true);
   assert.equal(mirrorSaveReceipt.returnImportKind, "mobile-inbox-patch");
   assert.match(mirrorSaveReceipt.returnedHandoffSummary, /Return imported · ready for next export/);
@@ -2638,6 +2672,7 @@ try {
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
   assert.match(mirrorSaveReceipt.returnedActionHint, /export a fresh mirror/);
+  assert.equal(mirrorSaveReceipt.returnedChangeDetail.present, false);
   assert.match(mirrorSaveReceipt.lastReturnImportWorkspaceFingerprint, /^[a-f0-9]{8}$/);
   assert.match(mirrorSaveReceipt.postReturnStaleSummary, /Mac changed/);
   assert.equal(mirrorSaveReceipt.mirrorHandoffKind, "Mirror JSON");

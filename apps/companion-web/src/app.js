@@ -76,6 +76,12 @@ const UI_PREFS_SCHEMA_VERSION = 3;
 const CAPTURE_DELETE_UNDO_MS = 10000;
 const CAPTURE_NODE_ATTR = "data-capture-id";
 const nativeSaveRequests = new Map();
+// Keep this list to authored content counts; time-derived due-card changes make stale mirrors feel like live sync.
+const MIRROR_EXPORT_CHANGE_FIELDS = [
+  { key: "captures", label: "capture" },
+  { key: "cards", label: "review card" },
+  { key: "questions", label: "open question" }
+];
 
 const dom = {
   appShell: document.querySelector(".app-shell"),
@@ -5116,6 +5122,7 @@ function renderMirrorHandoffStatus() {
       "Mac changed since mirror export",
       `${mirrorExportChangeDetail(state)}. Export an updated mirror before another phone or Windows study pass.`
     ));
+    grid.append(renderMirrorChangeDetail(state, currentWorkspaceFingerprint));
   }
 
   const waitingForReturn = hasExport && !returnImportCoversExport(state);
@@ -5183,24 +5190,21 @@ function deviceFlowReturnCount(count, label) {
 
 function mirrorExportChangeSummary(state) {
   const changes = mirrorExportChangeParts(state);
-  return changes.length ? changes.slice(0, 2).join(" · ") : "return base changed";
+  return changes.length ? changes.slice(0, 2).join(" · ") : mirrorFingerprintFallbackChangeLabel(state);
 }
 
 function mirrorExportChangeDetail(state) {
   const changes = mirrorExportChangeParts(state);
-  return changes.length ? `Since ${state.kind || "mirror"} export: ${changes.join(" · ")}` : "Return base changed since the mirror export";
+  return changes.length ? `Since ${state.kind || "mirror"} export: ${changes.join(" · ")}` : `${sentenceCase(mirrorFingerprintFallbackChangeLabel(state))} since the mirror export`;
 }
 
 function mirrorExportChangeParts(state) {
   const exported = normalizeMirrorExportStats(state?.exportStats);
   if (!exported) return [];
   const current = mirrorExportStats();
-  return [
-    mirrorExportDelta("capture", current.captures - exported.captures),
-    mirrorExportDelta("review card", current.cards - exported.cards),
-    mirrorExportDelta("open question", current.questions - exported.questions),
-    mirrorExportDelta("due card", current.due - exported.due)
-  ].filter(Boolean);
+  return MIRROR_EXPORT_CHANGE_FIELDS
+    .map((field) => mirrorExportDelta(field.label, current[field.key] - exported[field.key]))
+    .filter(Boolean);
 }
 
 function mirrorExportDelta(label, delta) {
@@ -5208,6 +5212,35 @@ function mirrorExportDelta(label, delta) {
   const amount = Math.abs(delta);
   const noun = `${label}${amount === 1 ? "" : "s"}`;
   return delta > 0 ? `${amount} new ${noun}` : `${amount} fewer ${noun}`;
+}
+
+function mirrorFingerprintFallbackChangeLabel(state, currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace)) {
+  if (state?.workspaceFingerprint && state.workspaceFingerprint !== currentWorkspaceFingerprint) return "workspace changed";
+  if (state?.returnBaseFingerprint && state.returnBaseFingerprint !== buildReturnBaseFingerprint(workspace)) return "return baseline changed";
+  return "mirror baseline changed";
+}
+
+function renderMirrorChangeDetail(state, currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace)) {
+  const changes = mirrorExportChangeParts(state);
+  const labels = changes.length ? changes : [mirrorFingerprintFallbackChangeLabel(state, currentWorkspaceFingerprint)];
+  const node = document.createElement("div");
+  node.className = "handoff-change-detail";
+  node.dataset.testid = "device-flow-change-detail";
+  node.setAttribute("aria-label", `${changes.length ? "Mirror contents changed" : "Mirror baseline changed"}: ${labels.join(", ")} since the last mirror export. Manual transfer is not live sync.`);
+  const list = document.createElement("ul");
+  list.className = "handoff-change-list";
+  labels.forEach((label) => list.append(textEl("li", "", label)));
+  node.append(
+    textEl("strong", "", changes.length ? "Mirror contents changed" : "Mirror baseline changed"),
+    textEl("span", "", "Since the last mirror export; manual transfer is not live sync."),
+    list
+  );
+  return node;
+}
+
+function sentenceCase(value) {
+  const text = String(value || "").trim();
+  return text ? `${text.charAt(0).toUpperCase()}${text.slice(1)}` : "";
 }
 
 function returnImportCoversExport(state) {
