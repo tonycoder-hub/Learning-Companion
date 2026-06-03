@@ -1,6 +1,9 @@
+import { describeReturnToMacContract } from '../services/exportPatch';
+
 @Component
 export struct ImportReceipt {
   build() {
+    const returnToMac = describeReturnToMacContract();
     Column({ space: 12 }) {
       Text('Import Receipt')
         .fontSize(24)
@@ -16,6 +19,13 @@ export struct ImportReceipt {
       Text('Patch files are not imported here; they are exported for Mac-side conflict-aware import.')
         .fontSize(12)
         .fontColor('#666154')
+      Text('Next Phone Pass')
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#2f6f5e')
+      Text(returnToMac[2])
+        .fontSize(12)
+        .fontColor('#426254')
     }
     .alignItems(HorizontalAlign.Start)
     .padding(20)

@@ -1,4 +1,5 @@
 import router from '@ohos.router';
+import { describeReturnToMacContract } from '../services/exportPatch';
 import { ReaderSessionState, createScaffoldReaderSession, createScaffoldSampleReaderView, summarizeReaderSessionState } from '../services/readerSessionState';
 
 interface TopicDetailRouteParams {
@@ -27,6 +28,7 @@ export struct TopicDetail {
       : selectedSection === 'answers_today'
         ? 'Answers Today Across Topics'
         : 'Topic Overview';
+    const returnToMac = describeReturnToMacContract();
     Column({ space: 12 }) {
       Text('Topic Detail')
         .fontSize(24)
@@ -86,7 +88,14 @@ export struct TopicDetail {
           }, (answer) => answer.captureId)
         }
       }
-      Text('Read-only topic detail: phone capture still exports append-only patch JSON for Mac import.')
+      Text('Manual Return')
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#2f6f5e')
+      Text(returnToMac[0])
+        .fontSize(12)
+        .fontColor('#5f4b20')
+      Text(returnToMac[2])
         .fontSize(12)
         .fontColor('#666154')
     }

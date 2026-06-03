@@ -1,3 +1,4 @@
+import { describeReturnToMacContract } from '../services/exportPatch';
 import { ReaderSessionState, createScaffoldReaderSession, createScaffoldSampleReaderView, summarizeReaderSessionState } from '../services/readerSessionState';
 
 @Component
@@ -8,6 +9,7 @@ export struct ReviewQueue {
   build() {
     const readerView = this.readerSession.currentView || createScaffoldSampleReaderView();
     const firstCard = readerView.dueReview[0];
+    const returnToMac = describeReturnToMacContract();
     Column({ space: 12 }) {
       Text('Review Queue')
         .fontSize(24)
@@ -38,7 +40,17 @@ export struct ReviewQueue {
           .fontSize(14)
           .fontColor('#666154')
       }
-      Text('Grading will export review-progress patches; it must not mutate Mac state directly.')
+      Text('Manual Return')
+        .fontSize(16)
+        .fontWeight(FontWeight.Medium)
+        .fontColor('#2f6f5e')
+      Text('Grades here are written into the return file; the Mac review queue changes only after Return Files import.')
+        .fontSize(12)
+        .fontColor('#5f4b20')
+      Text(returnToMac[0])
+        .fontSize(12)
+        .fontColor('#666154')
+      Text(returnToMac[2])
         .fontSize(12)
         .fontColor('#666154')
     }

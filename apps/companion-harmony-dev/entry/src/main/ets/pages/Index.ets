@@ -1,6 +1,6 @@
 import router from '@ohos.router';
 import { summarizeReaderView } from '../model/harmonyReaderView';
-import { describeImportPickerContract } from '../services/importPortableData';
+import { describeReturnToMacContract } from '../services/exportPatch';
 import { ReaderSessionState, createScaffoldReaderSession, createScaffoldSampleReaderView, summarizeReaderSessionState } from '../services/readerSessionState';
 
 @Entry
@@ -12,6 +12,7 @@ struct Index {
     const readerView = this.readerSession.currentView || createScaffoldSampleReaderView();
     const readerNext = readerView.readerNextAction;
     const secondaryAction = readerNext.secondaryAction;
+    const returnToMac = describeReturnToMacContract();
     Column({ space: 14 }) {
       Text('Learning Companion')
         .fontSize(28)
@@ -59,12 +60,18 @@ struct Index {
 
       Button('Import Workspace or Mirror JSON')
         .enabled(false)
-      Text('Picker contract: JSON <= 5 MB; workspace or mirror bundle only; show ImportReceipt for every success or rejection.')
+      Text('Import + Return')
+        .fontSize(18)
+        .fontWeight(FontWeight.Medium)
+      Text('JSON <= 5 MB; workspace or mirror bundle only; show ImportReceipt for success or rejection.')
         .fontSize(12)
         .fontColor('#666154')
-      Text(describeImportPickerContract()[3])
+      Text(returnToMac[0])
         .fontSize(12)
-        .fontColor('#666154')
+        .fontColor('#5f4b20')
+      Text(returnToMac[2])
+        .fontSize(12)
+        .fontColor('#426254')
 
       Button('Review Queue')
         .onClick(() => router.pushUrl({ url: 'pages/ReviewQueue' }))

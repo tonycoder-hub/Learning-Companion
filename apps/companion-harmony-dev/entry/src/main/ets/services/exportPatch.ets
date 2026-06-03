@@ -15,6 +15,14 @@ export interface PatchBuildOptions {
   topicTitle: string;
 }
 
+export function describeReturnToMacContract(): string[] {
+  return [
+    'Phone work exports append-only return JSON; it does not mutate Mac state.',
+    'Move the return file back by USB, AirDrop, email, file share, or manual Feishu Drive.',
+    'Import on Mac from Today > Return Files, then export a fresh mirror for the next phone pass.'
+  ];
+}
+
 export function buildInboxPatch(options: PatchBuildOptions, captures: Partial<InboxCaptureDraft>[]): MobileInboxPatch {
   return {
     schema: MOBILE_INBOX_PATCH_SCHEMA,
