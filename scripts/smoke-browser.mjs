@@ -2783,7 +2783,7 @@ try {
   assert.equal(mirrorIndexAnswerLanding.postAddAnswerContextTitle, "Answer captured in this return draft");
 
   await cdp.send("Page.navigate", { url: appUrl });
-  await sleep(500);
+  await waitForCdpValue(cdp, `typeof window.learningCompanionNative?.importWorkspaceJson === "function"`, Boolean, 5000);
   const mirrorAnswerReturnImport = await cdp.evaluate(`(() => {
     const answerWorkspace = ${JSON.stringify(result.answerMirrorWorkspaceJson)};
     const answerPatch = ${JSON.stringify(mirrorIndexAnswerLanding.patchJson)};
@@ -5159,9 +5159,13 @@ try {
     document.querySelector('[data-focus-mode="capture"]').click();
     const longDestinationTitle = "Learning Companion Browser Notes";
     const titleInput = document.querySelector("#sessionTitle");
+    const sourceTitleInput = document.querySelector("#sourceTitle");
     const originalTitle = titleInput.value;
+    const originalSourceTitle = sourceTitleInput.value;
     titleInput.value = longDestinationTitle;
     titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+    sourceTitleInput.value = "Manual browser check source";
+    sourceTitleInput.dispatchEvent(new Event("input", { bubbles: true }));
     const captureContext = document.querySelector("#captureContext");
     const target = document.querySelector("#captureContextTarget");
     const sourceControl = document.querySelector("#captureContextSource");
@@ -5201,6 +5205,15 @@ try {
       captureTargetClientWidth: target.clientWidth,
       captureTargetScrollWidth: target.scrollWidth,
       originalTitle,
+      originalSourceTitle,
+      captureSourceText: sourceControl.textContent,
+      captureSourceTitle: sourceControl.title,
+      captureSourceAria: sourceControl.getAttribute("aria-label"),
+      captureSourceHeight: Math.ceil(sourceControl.getBoundingClientRect().height),
+      captureSourceClientHeight: sourceControl.clientHeight,
+      captureSourceScrollHeight: sourceControl.scrollHeight,
+      captureSourceClientWidth: sourceControl.clientWidth,
+      captureSourceScrollWidth: sourceControl.scrollWidth,
       captureSourceWidth: Math.ceil(sourceControl.getBoundingClientRect().width),
       captureSourceHit: (() => {
         const rect = sourceControl.getBoundingClientRect();
@@ -5218,7 +5231,10 @@ try {
     };
     titleInput.value = originalTitle;
     titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+    sourceTitleInput.value = originalSourceTitle;
+    sourceTitleInput.dispatchEvent(new Event("input", { bubbles: true }));
     result.restoredTitle = document.querySelector("#sessionTitle").value;
+    result.restoredSourceTitle = document.querySelector("#sourceTitle").value;
     return result;
   })()`);
 
@@ -5245,9 +5261,17 @@ try {
   assert.doesNotMatch(mobileLayout.captureTargetInnerText, /…|\.\.\./);
   assert.ok(mobileLayout.captureTargetScrollHeight <= mobileLayout.captureTargetClientHeight + 1);
   assert.ok(mobileLayout.captureTargetScrollWidth <= mobileLayout.captureTargetClientWidth + 2);
+  assert.equal(mobileLayout.captureSourceText, "Manual browser check source");
+  assert.match(mobileLayout.captureSourceTitle, /Manual browser check source/);
+  assert.equal(mobileLayout.captureSourceAria, "Show capture source: Manual browser check source");
+  assert.ok(mobileLayout.captureSourceHeight >= 32);
+  assert.ok(mobileLayout.captureSourceHeight <= 48);
+  assert.ok(mobileLayout.captureSourceScrollHeight <= mobileLayout.captureSourceClientHeight + 1);
+  assert.ok(mobileLayout.captureSourceScrollWidth <= mobileLayout.captureSourceClientWidth + 2);
   assert.ok(mobileLayout.captureSourceWidth > 0);
   assert.equal(mobileLayout.captureSourceHit, true);
   assert.equal(mobileLayout.restoredTitle, mobileLayout.originalTitle);
+  assert.equal(mobileLayout.restoredSourceTitle, mobileLayout.originalSourceTitle);
   assert.ok(mobileLayout.captureStartersWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureStartersScrollWidth <= mobileLayout.captureStartersWidth + 2);
   assert.deepEqual(mobileLayout.starterButtons.map((button) => button.text), ["Question", "Answer", "Takeaway"]);
