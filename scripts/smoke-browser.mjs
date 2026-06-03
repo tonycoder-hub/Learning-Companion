@@ -2539,6 +2539,11 @@ try {
       topicOptions: document.querySelectorAll("#topicSelect option").length,
       selectedTopicId: document.querySelector("#topicSelect").value,
       selectedTopicTitle: document.querySelector("#topicSelect option:checked")?.textContent || "",
+      quoteLabel: document.querySelector("#quoteLabel").textContent,
+      thoughtLabel: document.querySelector("#thoughtLabel").textContent,
+      quotePlaceholder: document.querySelector("#quoteInput").placeholder,
+      thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder,
+      quoteReadOnly: document.querySelector("#quoteInput").readOnly,
       status: readyStatus,
       selectedStatus,
       selectedReturnJsonIncludesSchema: selectedReturnJson.includes('"schema": "learning-companion.mobile-inbox-patch.v1"'),
@@ -2565,6 +2570,11 @@ try {
   assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
+  assert.equal(inboxRuntime.quoteLabel, "Quote");
+  assert.equal(inboxRuntime.thoughtLabel, "Thought");
+  assert.equal(inboxRuntime.quotePlaceholder, "Paste a quote or transcript line");
+  assert.equal(inboxRuntime.thoughtPlaceholder, "Your thought, question, or takeaway");
+  assert.equal(inboxRuntime.quoteReadOnly, false);
   assert.equal(inboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
   assert.match(inboxRuntime.selectedStatus, /Return file selected/);
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
@@ -2607,6 +2617,12 @@ try {
     tags: document.querySelector("#tagsInput").value,
     sourceTitle: document.querySelector("#sourceTitleInput").value,
     sourceUrl: document.querySelector("#sourceUrlInput").value,
+    quoteLabel: document.querySelector("#quoteLabel").textContent,
+    thoughtLabel: document.querySelector("#thoughtLabel").textContent,
+    quotePlaceholder: document.querySelector("#quoteInput").placeholder,
+    thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder,
+    quoteReadOnly: document.querySelector("#quoteInput").readOnly,
+    quoteAriaReadonly: document.querySelector("#quoteInput").getAttribute("aria-readonly"),
     answerContextHidden: document.querySelector("#answerContext").hidden,
     answerContextTitle: document.querySelector("#answerContextTitle").textContent,
     answerQuestionPreview: document.querySelector("#answerQuestionPreview").textContent,
@@ -2622,6 +2638,12 @@ try {
   assert.equal(inboxAnswerRuntime.tags, "question, answer");
   assert.equal(inboxAnswerRuntime.sourceTitle, "Mirror question preview");
   assert.equal(inboxAnswerRuntime.sourceUrl, "");
+  assert.equal(inboxAnswerRuntime.quoteLabel, "Question from Mac");
+  assert.equal(inboxAnswerRuntime.thoughtLabel, "Answer to return");
+  assert.equal(inboxAnswerRuntime.quotePlaceholder, "Question carried from the Mac mirror");
+  assert.equal(inboxAnswerRuntime.thoughtPlaceholder, "Write the answer to bring back to Mac");
+  assert.equal(inboxAnswerRuntime.quoteReadOnly, true);
+  assert.equal(inboxAnswerRuntime.quoteAriaReadonly, "true");
   assert.equal(inboxAnswerRuntime.answerContextHidden, false);
   assert.equal(inboxAnswerRuntime.answerContextTitle, "You're answering a question from this mirror");
   assert.equal(inboxAnswerRuntime.answerQuestionPreview, "What should I answer from the mirror?");
@@ -2632,7 +2654,14 @@ try {
     const capture = preview.captures.find((item) => item.quote === "What should I answer from the mirror?");
     return {
       status: document.querySelector("#statusOutput").textContent,
+      previewSchema: preview.schema,
       answersQuestionCaptureId: capture?.answersQuestionCaptureId || "",
+      quoteLabel: document.querySelector("#quoteLabel").textContent,
+      thoughtLabel: document.querySelector("#thoughtLabel").textContent,
+      quoteReadOnly: document.querySelector("#quoteInput").readOnly,
+      quoteAriaReadonly: document.querySelector("#quoteInput").getAttribute("aria-readonly"),
+      copyCta: document.querySelector("#copyPatchBtn").textContent,
+      saveCta: document.querySelector("#downloadPatchBtn").textContent,
       answerContextHidden: document.querySelector("#answerContext").hidden,
       answerContextTitle: document.querySelector("#answerContextTitle").textContent,
       answerQuestionPreview: document.querySelector("#answerQuestionPreview").textContent,
@@ -2640,7 +2669,14 @@ try {
     };
   })()`);
   assert.equal(inboxAnswerPatchRuntime.status, "Answer captured in return draft. Save the return file when ready.");
+  assert.equal(inboxAnswerPatchRuntime.previewSchema, "learning-companion.mobile-inbox-patch.v1");
   assert.equal(inboxAnswerPatchRuntime.answersQuestionCaptureId, "capture_question_runtime");
+  assert.equal(inboxAnswerPatchRuntime.quoteLabel, "Quote");
+  assert.equal(inboxAnswerPatchRuntime.thoughtLabel, "Thought");
+  assert.equal(inboxAnswerPatchRuntime.quoteReadOnly, false);
+  assert.equal(inboxAnswerPatchRuntime.quoteAriaReadonly, "false");
+  assert.equal(inboxAnswerPatchRuntime.copyCta, "Copy Return File");
+  assert.equal(inboxAnswerPatchRuntime.saveCta, "Save Return File");
   assert.equal(inboxAnswerPatchRuntime.answerContextHidden, false);
   assert.equal(inboxAnswerPatchRuntime.answerContextTitle, "Answer captured in this return draft");
   assert.equal(inboxAnswerPatchRuntime.answerQuestionPreview, "What should I answer from the mirror?");
@@ -2687,6 +2723,9 @@ try {
       selectedTopicId: document.querySelector("#topicSelect").value,
       quoteField: document.querySelector("#quoteInput").value,
       sourceUrlField: document.querySelector("#sourceUrlInput").value,
+      quoteLabel: document.querySelector("#quoteLabel").textContent,
+      thoughtLabel: document.querySelector("#thoughtLabel").textContent,
+      quoteReadOnly: document.querySelector("#quoteInput").readOnly,
       answerContextHidden: document.querySelector("#answerContext").hidden,
       answerContextText: document.querySelector("#answerContext").textContent
     };
@@ -2711,6 +2750,9 @@ try {
   assert.equal(hostileInboxRuntime.preAdd.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.preAdd.quoteField, hostileMirrorQuote);
   assert.equal(hostileInboxRuntime.preAdd.sourceUrlField, "");
+  assert.equal(hostileInboxRuntime.preAdd.quoteLabel, "Quote");
+  assert.equal(hostileInboxRuntime.preAdd.thoughtLabel, "Thought");
+  assert.equal(hostileInboxRuntime.preAdd.quoteReadOnly, false);
   assert.equal(hostileInboxRuntime.preAdd.answerContextHidden, true);
   assert.doesNotMatch(hostileInboxRuntime.preAdd.answerContextText, /question from this mirror/);
   assert.equal(hostileInboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
