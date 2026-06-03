@@ -264,7 +264,6 @@ try {
   assert.match(firstRun.text, /Start Here/);
   assert.match(firstRun.text, /Start with what you are watching or reading/);
   assert.deepEqual(firstRun.buttons, [
-    { action: "source", text: "Open source" },
     { action: "capture", text: "Capture this thought" },
     { action: "question", text: "Ask about this" },
     { action: "clipper", text: "Set up page clipper" }
@@ -316,6 +315,10 @@ try {
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
       sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true
     };
+    result.startHereButtons = [...(document.querySelector(".start-here-inline")?.querySelectorAll("button") || [])].map((button) => ({
+      action: button.dataset.startAction,
+      text: button.textContent
+    }));
     setValue("#sourceTitle", "Transition source");
     setValue("#sourceUrl", "https://example.com/transition-source");
     document.querySelector('[data-tab="today"]').click();
@@ -339,6 +342,12 @@ try {
   assert.equal(noSourceFlowStep.activityTitle, "Add a source");
   assert.match(noSourceFlowStep.activityDetail, /Paste the browser page or video URL/);
   assert.equal(noSourceFlowStep.sourceStripPulsed, true);
+  assert.deepEqual(noSourceFlowStep.startHereButtons, [
+    { action: "source", text: "Set source" },
+    { action: "capture", text: "Capture this thought" },
+    { action: "question", text: "Ask about this" },
+    { action: "clipper", text: "Set up page clipper" }
+  ]);
   assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);
   assert.equal(noSourceFlowStep.afterSetSource.isWide, false);
   assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");

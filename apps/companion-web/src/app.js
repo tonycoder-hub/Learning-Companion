@@ -4621,11 +4621,15 @@ function startHereActions() {
   const footer = document.createElement("div");
   footer.className = "item-footer";
   const sourceStep = resolveSourceSessionState();
-  const source = textEl("button", "mini-button primary", sourceStep.actionLabel);
-  source.type = "button";
-  source.dataset.startAction = "source";
-  source.addEventListener("click", sourceStep.action);
-  const capture = textEl("button", "mini-button", "Capture this thought");
+  const actions = [];
+  if (sourceStep.status === "Needs source") {
+    const source = textEl("button", "mini-button", sourceStep.actionLabel);
+    source.type = "button";
+    source.dataset.startAction = "source";
+    source.addEventListener("click", sourceStep.action);
+    actions.push(source);
+  }
+  const capture = textEl("button", "mini-button primary", "Capture this thought");
   capture.type = "button";
   capture.dataset.startAction = "capture";
   capture.addEventListener("click", focusQuickCaptureFromStart);
@@ -4637,7 +4641,7 @@ function startHereActions() {
   clipper.type = "button";
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
-  footer.append(source, capture, question, clipper);
+  footer.append(...actions, capture, question, clipper);
   return footer;
 }
 
