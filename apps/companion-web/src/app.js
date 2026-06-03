@@ -3918,6 +3918,19 @@ function returnedWorkNudge(pack) {
   if (work.inboxAdded) {
     const hasReviewUpdate = Boolean(work.reviewApplied);
     const answerFollowup = returnedAnswerFollowup(work);
+    if (answerFollowup && !hasReviewUpdate) {
+      return {
+        kind: "inbox",
+        title: returnedWorkTitle(work),
+        detail,
+        actionLabel: answerFollowup.label,
+        run: answerFollowup.run,
+        secondaryLabel: "View captures",
+        secondaryRun: () => jumpToTodaySection("recent_captures"),
+        tertiaryLabel: "Import details",
+        tertiaryRun: openLastReturnReceipt
+      };
+    }
     return {
       kind: "inbox",
       title: returnedWorkTitle(work),

@@ -4243,7 +4243,7 @@ try {
     const answerReturnedWorkCard = document.querySelector(".returned-work-card");
     const answerReturnedWorkText = answerReturnedWorkCard?.textContent || "";
     const answerReturnedWorkButtons = [...(answerReturnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
-    answerReturnedWorkCard?.querySelector("[data-returned-work-secondary]")?.click();
+    answerReturnedWorkCard?.querySelector("[data-returned-work-action]")?.click();
     const answerReturnedWorkClosedPulsed = document.querySelector('[data-today-section="closed_questions"]')?.classList.contains("pulse") === true;
     const afterAnswerImport = {
       ok: answerImport.ok === true,
@@ -4344,7 +4344,7 @@ try {
     const answerOnlyReturnedWorkCard = document.querySelector(".returned-work-card");
     const answerOnlyReturnedWorkText = answerOnlyReturnedWorkCard?.textContent || "";
     const answerOnlyReturnedWorkButtons = [...(answerOnlyReturnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
-    answerOnlyReturnedWorkCard?.querySelector("[data-returned-work-secondary]")?.click();
+    answerOnlyReturnedWorkCard?.querySelector("[data-returned-work-action]")?.click();
     const answerOnlyClosedPulsed = document.querySelector('[data-today-section="closed_questions"]')?.classList.contains("pulse") === true;
     const answerOnlyReturn = {
       ok: answerOnlyImport.ok === true,
@@ -4517,7 +4517,7 @@ try {
   assert.match(questionFlow.afterAnswerImport.returnedWorkText, /Returned from phone\/Windows/);
   assert.match(questionFlow.afterAnswerImport.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
   assert.match(questionFlow.afterAnswerImport.returnedWorkText, /1 card ready to refresh/);
-  assert.deepEqual(questionFlow.afterAnswerImport.returnedWorkButtons, ["View captures", "Refresh cards", "Import details", "Dismiss"]);
+  assert.deepEqual(questionFlow.afterAnswerImport.returnedWorkButtons, ["Refresh cards", "View captures", "Import details", "Dismiss"]);
   assert.equal(questionFlow.afterAnswerImport.returnedWorkClosedPulsed, true);
   assert.equal(questionFlow.afterAnswerImport.closedQuestionCards, 1);
   assert.deepEqual(
@@ -4552,7 +4552,7 @@ try {
   assert.equal(questionFlow.answerOnlyReturn.refreshableReviewCards, 0);
   assert.match(questionFlow.answerOnlyReturn.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
   assert.doesNotMatch(questionFlow.answerOnlyReturn.returnedWorkText, /card ready to refresh/);
-  assert.deepEqual(questionFlow.answerOnlyReturn.returnedWorkButtons, ["View captures", "View closed questions", "Import details", "Dismiss"]);
+  assert.deepEqual(questionFlow.answerOnlyReturn.returnedWorkButtons, ["View closed questions", "View captures", "Import details", "Dismiss"]);
   assert.equal(questionFlow.answerOnlyReturn.closedPulsed, true);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
