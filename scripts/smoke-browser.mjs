@@ -5303,7 +5303,32 @@ async function assertPostSaveFlow(cdp) {
         }
       };
     })();
+    let resumedSourceHref = "";
+    const nativePostSaveWindowOpen = window.open;
+    window.open = (href) => {
+      resumedSourceHref = href;
+      return null;
+    };
     document.querySelector("#activityHintBtn").click();
+    window.open = nativePostSaveWindowOpen;
+    const highlightHintResume = readActivity();
+    const highlightHintResumeState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session.captures.find((item) => item.id === highlightBefore.id);
+      const card = session.reviewCards.find((item) => item.sourceCaptureId === highlightBefore.id);
+      return {
+        opened: resumedSourceHref,
+        promoted: Boolean(capture?.promotedToReview),
+        cardExists: Boolean(card),
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        stackNextKind: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"]\`)?.dataset.stackNextStep || "",
+        stackNextText: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"] .capture-stack-next\`)?.textContent || ""
+      };
+    })();
+    [...document.querySelectorAll(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"] button\`)]
+      .find((button) => button.textContent === "Save for recall")
+      ?.click();
     const highlightHintCard = readActivity();
     const highlightHintCardState = (() => {
       const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
@@ -5350,7 +5375,38 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
     const quoteQuestionSaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "No-source highlight branch");
+    setValue("#sourceTitle", "");
+    setValue("#sourceUrl", "");
+    setValue("#timestampInput", "");
+    setValue("#quoteInput", "No source highlight.");
+    setValue("#thoughtInput", "");
+    document.querySelector("#captureBtn").click();
+    const noSourceHighlightId = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return session?.captures[0]?.id || "";
+    })();
+    addThoughtButtonFor(noSourceHighlightId)?.click();
+    const noSourceAnnotationInput = document.querySelector(".highlight-annotation-form textarea");
+    noSourceAnnotationInput.value = "Thought without source should still offer recall.";
+    noSourceAnnotationInput.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector(".highlight-annotation-form button[type='submit']").click();
+    const noSourceHighlightAnnotated = readActivity();
+    const noSourceHighlightBranch = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session?.captures.find((item) => item.id === noSourceHighlightId);
+      return {
+        sourceUrl: capture?.sourceUrl || "",
+        sourceTitle: capture?.sourceTitle || "",
+        promoted: Boolean(capture?.promotedToReview),
+        stackNextKind: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${noSourceHighlightId}"]\`)?.dataset.stackNextStep || "",
+        stackNextText: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${noSourceHighlightId}"] .capture-stack-next\`)?.textContent || ""
+      };
+    })();
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
@@ -5399,10 +5455,11 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightAnnotated.detail, /source page is unchanged/);
   assert.equal(postSaveFlow.highlightAnnotated.action, "View highlight");
   assert.equal(postSaveFlow.highlightAnnotated.hintHidden, false);
-  assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAdded");
-  assert.match(postSaveFlow.highlightAnnotated.hintText, /come back later/);
-  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Save for recall");
-  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Save this annotated highlight for recall");
+  assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAddedSourceLinked");
+  assert.match(postSaveFlow.highlightAnnotated.hintText, /resume the source/);
+  assert.match(postSaveFlow.highlightAnnotated.hintText, /save for recall only if it must come back/);
+  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Resume source");
+  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Resume the source for this annotated highlight");
   assert.equal(postSaveFlow.highlightAnnotated.activeElement, "quoteInput");
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFormVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFocusOnOpen, true);
@@ -5424,6 +5481,18 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This annotation must stay attached to the existing highlight\./);
   assert.equal(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.blockCount, 2);
+  assert.equal(postSaveFlow.highlightHintResume.title, "Source resumed");
+  assert.match(postSaveFlow.highlightHintResume.detail, /Post-save flow fixture reopened/);
+  assert.equal(postSaveFlow.highlightHintResume.action, "View highlight");
+  assert.equal(postSaveFlow.highlightHintResume.hintHidden, true);
+  assert.deepEqual(postSaveFlow.highlightHintResumeState, {
+    opened: "https://example.com/post-save-flow",
+    promoted: false,
+    cardExists: false,
+    activeTab: "captures",
+    stackNextKind: "keep-reading",
+    stackNextText: "Thought captured · card only if recall matters."
+  });
   assert.equal(postSaveFlow.highlightHintCard.title, "Review card created");
   assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
   assert.equal(postSaveFlow.highlightHintCard.hintHidden, false);
@@ -5451,6 +5520,19 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
   assert.equal(postSaveFlow.quoteQuestionSaved.title, "Question saved");
   assert.equal(postSaveFlow.quoteQuestionSaved.action, "Questions");
+  assert.equal(postSaveFlow.noSourceHighlightAnnotated.title, "Highlight annotated");
+  assert.equal(postSaveFlow.noSourceHighlightAnnotated.hintHidden, false);
+  assert.equal(postSaveFlow.noSourceHighlightAnnotated.hintKind, "afterThoughtAdded");
+  assert.match(postSaveFlow.noSourceHighlightAnnotated.hintText, /come back later/);
+  assert.equal(postSaveFlow.noSourceHighlightAnnotated.hintAction, "Save for recall");
+  assert.equal(postSaveFlow.noSourceHighlightAnnotated.hintAria, "Save this annotated highlight for recall");
+  assert.deepEqual(postSaveFlow.noSourceHighlightBranch, {
+    sourceUrl: "",
+    sourceTitle: "",
+    promoted: false,
+    stackNextKind: "keep-reading",
+    stackNextText: "Thought captured · card only if recall matters."
+  });
 }
 
 async function assertCaptureStackNextStepMix(cdp) {

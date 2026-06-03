@@ -1666,6 +1666,15 @@ function resumeCurrentSource() {
   window.open(resume.href, "_blank", "noopener,noreferrer");
 }
 
+function buildCaptureResumeSource(session, capture) {
+  // Capture resume uses the saved capture timestamp directly; buildSourceJumpUrl maps known video hosts to their time parameters.
+  return buildResumeSource({
+    ...session,
+    sourceTitle: capture?.sourceTitle || session.sourceTitle,
+    sourceUrl: capture?.sourceUrl || session.sourceUrl
+  }, capture?.timestamp || "");
+}
+
 function handleCaptureContextSourceAction() {
   const session = getActiveSession(workspace);
   const resume = buildResumeSource(session, dom.timestampInput.value);
@@ -2192,6 +2201,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "If this should come back later, save it for recall.",
     actionLabel: "Save for recall",
     ariaLabel: "Save this annotated highlight for recall"
+  }),
+  afterThoughtAddedSourceLinked: Object.freeze({
+    kind: "afterThoughtAddedSourceLinked",
+    text: "Next: resume the source; save for recall only if it must come back.",
+    actionLabel: "Resume source",
+    ariaLabel: "Resume the source for this annotated highlight"
   }),
   afterThoughtAddedCarded: Object.freeze({
     kind: "afterThoughtAddedCarded",
@@ -2781,6 +2796,10 @@ function runActivityHintAction() {
     promoteCaptureToReview(targetCapture.id, targetSession.id);
     return;
   }
+  if (hint.kind === "afterThoughtAddedSourceLinked") {
+    resumeActivityHintSource(activity);
+    return;
+  }
   if (hint.kind === "afterThoughtAddedCarded") {
     openReviewCardFromCapture(activity.targetId, activity.sessionId);
     return;
@@ -2788,6 +2807,31 @@ function runActivityHintAction() {
   if (hint.kind === "afterCardMade") {
     openReturnFilesMirrorExport();
   }
+}
+
+function resumeActivityHintSource(activity) {
+  const targetSession = workspace.sessions.find((session) => session.id === activity.sessionId);
+  const targetCapture = targetSession?.captures.find((capture) => capture.id === activity.targetId);
+  if (!targetSession || !targetCapture) {
+    showToast("Highlight no longer exists");
+    return;
+  }
+  const resume = buildCaptureResumeSource(targetSession, targetCapture);
+  if (!resume.href) {
+    showToast("Source no longer exists");
+    return;
+  }
+  window.open(resume.href, "_blank", "noopener,noreferrer");
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
+  setActivity(targetSession, {
+    title: "Source resumed",
+    detail: `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
+    tab: "captures",
+    targetId: targetCapture.id,
+    actionLabel: "View highlight"
+  });
+  renderActivity(getActiveSession(workspace));
+  pulseNode(dom.captureContextSource);
 }
 
 function openActivityHighlightAnnotation(activity) {
@@ -5240,9 +5284,12 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
     });
   }
   const hintKey = `${updatedSession.id}:${updatedCapture.id}`;
+  const annotationHintKind = updatedCapture.promotedToReview
+    ? "afterThoughtAddedCarded"
+    : buildCaptureResumeSource(updatedSession, updatedCapture).href ? "afterThoughtAddedSourceLinked" : "afterThoughtAdded";
   const nextHint = highlightThoughtHintKeys.has(hintKey)
     ? null
-    : activityNextHint(updatedCapture.promotedToReview ? "afterThoughtAddedCarded" : "afterThoughtAdded");
+    : activityNextHint(annotationHintKind);
   if (nextHint) highlightThoughtHintKeys.add(hintKey);
   activeHighlightAnnotation = null;
   activeTab = "captures";
