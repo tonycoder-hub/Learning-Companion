@@ -53,6 +53,7 @@ import {
   promoteCapture,
   refreshAnsweredQuestionReviewCard,
   resolveCaptureDraftFocusOverride,
+  resolveDraftSourceMaterialType,
   sanitizeWorkspace,
   searchWorkspace,
   secondsToTimestamp,
@@ -1151,12 +1152,29 @@ function captureDraftSourceChanged(session, draft) {
 
 function draftSourceSnapshotFor(sessionId, sourceTitle, sourceUrl, materialType = "") {
   const draft = getCaptureDraft(sessionId);
+  const resolvedTitle = draft.sourceTitle || sourceTitle;
+  const resolvedUrl = draft.sourceUrl || canonicalDraftSourceUrl(sourceUrl);
+  const resolvedMaterialType = materialTypeForDraftSource(draft, sourceTitle, sourceUrl, materialType, resolvedTitle, resolvedUrl);
   // A draft's source snapshot is its origin, so keep it stable until the draft is captured or cleared.
   return {
-    sourceTitle: draft.sourceTitle || sourceTitle,
-    sourceUrl: draft.sourceUrl || canonicalDraftSourceUrl(sourceUrl),
-    materialType: draft.materialType || materialType
+    sourceTitle: resolvedTitle,
+    sourceUrl: resolvedUrl,
+    materialType: resolvedMaterialType
   };
+}
+
+function materialTypeForDraftSource(draft, sourceTitle, sourceUrl, materialType = "", resolvedTitle = draft?.sourceTitle || sourceTitle, resolvedUrl = draft?.sourceUrl || canonicalDraftSourceUrl(sourceUrl)) {
+  const sourceDraft = draft || {};
+  return resolveDraftSourceMaterialType({
+    draftSourceTitle: sourceDraft.sourceTitle,
+    draftSourceUrl: canonicalDraftSourceUrl(sourceDraft.sourceUrl),
+    draftMaterialType: sourceDraft.materialType,
+    currentSourceTitle: sourceTitle,
+    currentSourceUrl: canonicalDraftSourceUrl(sourceUrl),
+    currentMaterialType: materialType,
+    resolvedSourceTitle: resolvedTitle,
+    resolvedSourceUrl: canonicalDraftSourceUrl(resolvedUrl)
+  });
 }
 
 function canonicalDraftSourceUrl(value) {
@@ -1405,7 +1423,8 @@ function maybeAnchorUnsourcedCaptureDraft(session, event) {
   setCaptureDraft(session.id, {
     ...draft,
     sourceTitle: session.sourceTitle,
-    sourceUrl: session.sourceUrl
+    sourceUrl: session.sourceUrl,
+    materialType: session.materialType
   });
   setActivity(session, {
     title: "Draft source linked",
@@ -1438,7 +1457,7 @@ function capture(promoteToReview) {
     ? {
         sourceTitle: draft.sourceTitle,
         sourceUrl: draft.sourceUrl,
-        materialType: draft.materialType,
+        materialType: materialTypeForDraftSource(draft, session.sourceTitle, session.sourceUrl, session.materialType),
         sourceProvenance: "snapshot"
       }
     : {};

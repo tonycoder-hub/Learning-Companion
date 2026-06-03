@@ -111,6 +111,29 @@ export function normalizeCaptureDraft(value, now = new Date()) {
   };
 }
 
+export function resolveDraftSourceMaterialType(value = {}) {
+  const draftTitle = cleanText(value.draftSourceTitle, MAX_TITLE_LENGTH).replace(/\s+/g, " ").toLowerCase();
+  const currentTitle = cleanText(value.currentSourceTitle, MAX_TITLE_LENGTH).replace(/\s+/g, " ").toLowerCase();
+  const resolvedTitle = cleanText(value.resolvedSourceTitle, MAX_TITLE_LENGTH).replace(/\s+/g, " ").toLowerCase();
+  const draftUrl = cleanUrl(value.draftSourceUrl);
+  const currentUrl = cleanUrl(value.currentSourceUrl);
+  const resolvedUrl = cleanUrl(value.resolvedSourceUrl);
+  const hasResolvedSource = Boolean(resolvedTitle || resolvedUrl);
+  if (!hasResolvedSource) return "";
+  if (MATERIAL_TYPES.has(value.draftMaterialType)) return value.draftMaterialType;
+  const draftHasSource = Boolean(draftTitle || draftUrl);
+  const draftMatchesCurrent = Boolean(
+    draftHasSource && (
+      (draftUrl && currentUrl && draftUrl === currentUrl)
+      || (!draftUrl && draftTitle && currentTitle && draftTitle === currentTitle)
+    )
+  );
+  if (!draftHasSource || draftMatchesCurrent) {
+    return MATERIAL_TYPES.has(value.currentMaterialType) ? value.currentMaterialType : "other";
+  }
+  return "other";
+}
+
 export function hasCaptureDraft(draft) {
   return Boolean(draft?.quote?.trim() || draft?.thought?.trim() || draft?.timestamp?.trim());
 }

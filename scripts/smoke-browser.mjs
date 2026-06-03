@@ -523,8 +523,14 @@ try {
       activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
       activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       draftSourceTitle: noSourceDraft.sourceTitle || "",
-      draftSourceUrl: noSourceDraft.sourceUrl || ""
+      draftSourceUrl: noSourceDraft.sourceUrl || "",
+      draftMaterialType: noSourceDraft.materialType || ""
     };
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    setValue("#materialType", "video");
+    setValue("#timestampInput", "01:23");
+    const timestampOnlyDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
+      .captureDrafts?.[noSourceSession.id] || {};
     document.querySelector("#clearCaptureDraftBtn")?.click();
     document.querySelector('[data-tab="today"]').click();
     const sourceStep = document.querySelector('[data-learning-flow-step="source"]');
@@ -539,7 +545,13 @@ try {
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
       sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
-      noSourceQuestion
+      noSourceQuestion,
+      timestampOnlyDraft: {
+        timestamp: timestampOnlyDraft.timestamp || "",
+        sourceTitle: timestampOnlyDraft.sourceTitle || "",
+        sourceUrl: timestampOnlyDraft.sourceUrl || "",
+        materialType: timestampOnlyDraft.materialType || ""
+      }
     };
     result.startHereButtons = startHereButtonsBeforeQuestion;
     result.startHereText = startHereTextBeforeQuestion;
@@ -581,6 +593,7 @@ try {
     result.lateSourceQuestion = {
       draftSourceTitle: lateSourceDraft.sourceTitle || "",
       draftSourceUrl: lateSourceDraft.sourceUrl || "",
+      draftMaterialType: lateSourceDraft.materialType || "",
       status: document.querySelector("#captureDraftStatus")?.textContent || "",
       statusTitle: document.querySelector("#captureDraftStatus")?.title || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
@@ -680,6 +693,13 @@ try {
   assert.equal(noSourceFlowStep.noSourceQuestion.activityAria, "Open capture");
   assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceTitle, "");
   assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceUrl, "");
+  assert.equal(noSourceFlowStep.noSourceQuestion.draftMaterialType, "");
+  assert.deepEqual(noSourceFlowStep.timestampOnlyDraft, {
+    timestamp: "01:23",
+    sourceTitle: "",
+    sourceUrl: "",
+    materialType: ""
+  });
   assert.deepEqual(noSourceFlowStep.startHereButtons, [
     { action: "source", text: "Set source" },
     { action: "capture", text: "Capture this thought" },
@@ -694,6 +714,7 @@ try {
   assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");
   assert.equal(noSourceFlowStep.lateSourceQuestion.draftSourceTitle, "Late source doc");
   assert.equal(noSourceFlowStep.lateSourceQuestion.draftSourceUrl, "https://example.com/late-source");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.draftMaterialType, "doc");
   assert.equal(noSourceFlowStep.lateSourceQuestion.status, "Draft saved");
   assert.equal(noSourceFlowStep.lateSourceQuestion.statusTitle, "");
   assert.equal(noSourceFlowStep.lateSourceQuestion.activityTitle, "Draft source linked");
@@ -6055,6 +6076,29 @@ async function assertDraftSourceSnapshotCommit(cdp) {
     document.querySelector("#captureBtn").click();
     const reanchoredSaved = activeCapture();
 
+    const reverseSession = {
+      ...commitSession,
+      id: "draft_source_reverse_commit_flow",
+      title: "Draft source reverse commit flow",
+      sourceTitle: "Original doc source",
+      sourceUrl: "https://example.com/original-doc",
+      materialType: "doc",
+      captures: [],
+      reviewCards: []
+    };
+    importWorkspace(reverseSession);
+    setValue("#sourceTitle", "Original doc source");
+    setValue("#sourceUrl", "https://example.com/original-doc");
+    setValue("#materialType", "doc");
+    setValue("#quoteInput", "Document draft should keep its original source.");
+    setValue("#thoughtInput", "This capture is saved after the session changes to video.");
+    setValue("#sourceTitle", "Changed video source");
+    setValue("#sourceUrl", "https://www.youtube.com/watch?v=changed456");
+    setValue("#materialType", "video");
+    const reverseDriftStatusBeforeSave = document.querySelector("#captureDraftStatus")?.textContent || "";
+    document.querySelector("#captureBtn").click();
+    const reverseDriftSaved = activeCapture();
+
     const questionSession = {
       ...commitSession,
       id: "draft_source_answer_flow",
@@ -6102,6 +6146,8 @@ async function assertDraftSourceSnapshotCommit(cdp) {
       reanchorVisibleBeforeClick,
       reanchorStatusBeforeSave,
       reanchoredSaved,
+      reverseDriftStatusBeforeSave,
+      reverseDriftSaved,
       answerDraft,
       committedAnswer
     };
@@ -6117,6 +6163,11 @@ async function assertDraftSourceSnapshotCommit(cdp) {
   assert.equal(result.reanchoredSaved.sourceUrl, "https://example.com/changed-source");
   assert.equal(result.reanchoredSaved.materialType, "doc");
   assert.equal(result.reanchoredSaved.sourceProvenance, "snapshot");
+  assert.equal(result.reverseDriftStatusBeforeSave, "Source changed");
+  assert.equal(result.reverseDriftSaved.sourceTitle, "Original doc source");
+  assert.equal(result.reverseDriftSaved.sourceUrl, "https://example.com/original-doc");
+  assert.equal(result.reverseDriftSaved.materialType, "doc");
+  assert.equal(result.reverseDriftSaved.sourceProvenance, "snapshot");
   assert.equal(result.answerDraft.sourceTitle, "Question original source");
   assert.equal(result.answerDraft.sourceUrl, "https://www.youtube.com/watch?v=question123");
   assert.equal(result.answerDraft.materialType, "video");

@@ -68,6 +68,7 @@ import {
   promoteCapture,
   refreshAnsweredQuestionReviewCard,
   resolveCaptureDraftFocusOverride,
+  resolveDraftSourceMaterialType,
   resolveTodayWindow,
   reviewIntervalDays,
   safeHref,
@@ -386,6 +387,36 @@ assert.equal(normalizeCaptureDraft({ sourceUrl: ` ${"x".repeat(2200)} ` }).sourc
 assert.equal(normalizeCaptureDraft({ quote: "Invalid type", materialType: "slides" }).materialType, "");
 assert.equal(normalizeCaptureDraft({ answersQuestionCaptureId: "bad answer target!" }).answersQuestionCaptureId, "");
 assert.equal(normalizeCaptureDraft({ quote: "x" }, new Date("2026-05-29T00:02:00.000Z")).updatedAt, "2026-05-29T00:02:00.000Z");
+assert.equal(resolveDraftSourceMaterialType({
+  currentMaterialType: "video",
+  resolvedSourceTitle: "",
+  resolvedSourceUrl: ""
+}), "");
+assert.equal(resolveDraftSourceMaterialType({
+  currentSourceTitle: "Doc source",
+  currentSourceUrl: "https://example.com/doc",
+  currentMaterialType: "doc",
+  resolvedSourceTitle: "Doc source",
+  resolvedSourceUrl: "https://example.com/doc"
+}), "doc");
+assert.equal(resolveDraftSourceMaterialType({
+  draftSourceTitle: "Legacy doc",
+  draftSourceUrl: "https://example.com/legacy-doc",
+  currentSourceTitle: "Current video",
+  currentSourceUrl: "https://www.youtube.com/watch?v=legacyvideo",
+  currentMaterialType: "video",
+  resolvedSourceTitle: "Legacy doc",
+  resolvedSourceUrl: "https://example.com/legacy-doc"
+}), "other");
+assert.equal(resolveDraftSourceMaterialType({
+  draftSourceTitle: "Legacy doc",
+  draftSourceUrl: "https://example.com/legacy-doc",
+  currentSourceTitle: "Legacy doc",
+  currentSourceUrl: "https://example.com/legacy-doc",
+  currentMaterialType: "doc",
+  resolvedSourceTitle: "Legacy doc",
+  resolvedSourceUrl: "https://example.com/legacy-doc"
+}), "doc");
 
 const draftSessions = [
   createSession({ id: "draft_a", title: "Draft A" }, workspace.clientId),
