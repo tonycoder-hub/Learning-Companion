@@ -2857,8 +2857,16 @@ try {
       window.dispatchEvent(event);
       return event.defaultPrevented;
     };
+    const initialReturnButtonsDisabled = ["copyProgressBtn", "downloadProgressBtn", "selectProgressBtn", "clearProgressBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
+    const initialNextStep = document.querySelector("#returnNextStep").textContent;
+    const emptyGuardButton = document.querySelector("#copyProgressBtn");
+    emptyGuardButton.disabled = false;
+    emptyGuardButton.click();
+    const emptyGuardStatus = document.querySelector("#progressStatus").textContent;
+    emptyGuardButton.disabled = true;
     document.querySelector('[data-reveal]')?.click();
     document.querySelector('[data-grade="good"]')?.click();
+    const readyReturnButtonsDisabled = ["copyProgressBtn", "downloadProgressBtn", "selectProgressBtn", "clearProgressBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
     const preview = JSON.parse(document.querySelector("#progressPreview").textContent);
     const readyStatus = document.querySelector("#progressStatus").textContent;
     document.querySelector("#selectProgressBtn").click();
@@ -2879,6 +2887,8 @@ try {
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
     const savedReturnSaveMode = document.querySelector("#returnSaveMode").textContent;
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
+    const savedReturnAfterPanelHidden = document.querySelector("#returnAfterSave").hidden;
+    const savedReturnAfterText = document.querySelector("#returnAfterSaveText").textContent;
     const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
     const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
@@ -2886,8 +2896,13 @@ try {
     const dirtyAfterSave = beforeUnloadPrevented();
     document.querySelector("#clearProgressBtn").click();
     const clearedNextStep = document.querySelector("#returnNextStep").textContent;
+    const clearedReturnButtonsDisabled = ["copyProgressBtn", "downloadProgressBtn", "selectProgressBtn", "clearProgressBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
     return {
       heading: document.querySelector("h1").textContent,
+      initialReturnButtonsDisabled,
+      initialNextStep,
+      emptyGuardStatus,
+      readyReturnButtonsDisabled,
       answerVisible: !document.querySelector(".answer").hidden,
       status: readyStatus,
       selectedStatus,
@@ -2897,10 +2912,13 @@ try {
       returnFileHint: savedReturnFileHint,
       returnSaveMode: savedReturnSaveMode,
       returnManualHelp: savedReturnManualHelp,
+      returnAfterPanelHidden: savedReturnAfterPanelHidden,
+      returnAfterText: savedReturnAfterText,
       returnPreviewTitle,
       returnCopyHint,
       returnNextStep: readyNextStep,
       clearedNextStep,
+      clearedReturnButtonsDisabled,
       downloadName,
       dirtyBeforeSave,
       dirtyAfterSave,
@@ -2915,6 +2933,10 @@ try {
 
   assert.equal(exceptions.length, exceptionsBeforeReviewRuntime);
   assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
+  assert.deepEqual(reviewRuntime.initialReturnButtonsDisabled, [true, true, true, true]);
+  assert.equal(reviewRuntime.initialNextStep, "No review return file yet. Reveal and grade a card first.");
+  assert.equal(reviewRuntime.emptyGuardStatus, "No review return file yet. Reveal and grade a card first.");
+  assert.deepEqual(reviewRuntime.readyReturnButtonsDisabled, [false, false, false, false]);
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
   assert.match(reviewRuntime.selectedStatus, /Return file selected/);
@@ -2925,11 +2947,16 @@ try {
   assert.match(reviewRuntime.returnFileHint, /^Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
+  assert.equal(reviewRuntime.returnAfterPanelHidden, false);
+  assert.match(reviewRuntime.returnAfterText, /Return file downloaded/);
+  assert.match(reviewRuntime.returnAfterText, /import or paste it from Today > Return Files/);
+  assert.match(reviewRuntime.returnAfterText, /keep reviewing here/);
   assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(reviewRuntime.returnPreviewTitle, "Return file preview");
   assert.match(reviewRuntime.returnCopyHint, /selected text below is the return file JSON/);
   assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Download to take it back to Mac before closing.");
-  assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
+  assert.equal(reviewRuntime.clearedNextStep, "No review return file yet. Reveal and grade a card first.");
+  assert.deepEqual(reviewRuntime.clearedReturnButtonsDisabled, [true, true, true, true]);
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
   assert.equal(reviewRuntime.dirtyBeforeSave, true);
@@ -3090,6 +3117,7 @@ try {
       nextLabel: nextPanel?.querySelector(".device-next-link strong")?.textContent || ""
     };
   })()`);
+  await resetStaticReturnState(cdp, "learning-companion.review-progress.");
   virtualRoutes.set("/mirror-review-mobile.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-mobile.html` });
   await sleep(300);
@@ -3109,6 +3137,7 @@ try {
       returnCopyHint: document.querySelector(".return-copy-hint").textContent,
       actionButtons: actionButtons.map((button) => ({
         text: button.textContent,
+        disabled: button.disabled,
         width: Math.ceil(button.getBoundingClientRect().width),
         height: Math.ceil(button.getBoundingClientRect().height)
       })),
@@ -3119,6 +3148,7 @@ try {
       }))
     };
   })()`);
+  await resetStaticReturnState(cdp, "learning-companion.inbox.");
   virtualRoutes.set("/mirror-inbox-mobile.html", result.mirrorInboxHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox-mobile.html` });
   await sleep(300);
@@ -3136,6 +3166,7 @@ try {
       returnCopyHint: document.querySelector(".return-copy-hint").textContent,
       actionButtons: actionButtons.map((button) => ({
         text: button.textContent,
+        disabled: button.disabled,
         width: Math.ceil(button.getBoundingClientRect().width),
         height: Math.ceil(button.getBoundingClientRect().height)
       }))
@@ -3158,6 +3189,7 @@ try {
   assert.match(staticReviewMobile.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(staticReviewMobile.returnCopyHint, /selected text below is the return file JSON/);
   assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Download Return File", "Manual Copy", "Clear Progress"]);
+  assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.disabled), [true, true, true, true]);
   staticReviewMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticReviewMobile.actionContainerWidth - 2);
     assert.ok(button.height >= 36);
@@ -3174,6 +3206,7 @@ try {
   assert.match(staticInboxMobile.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(staticInboxMobile.returnCopyHint, /selected text below is the return file JSON/);
   assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.text), ["Add Capture", "Clear Form", "Copy Return File", "Download Return File", "Manual Copy", "Clear Drafts"]);
+  assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.disabled), [false, false, true, true, true, true]);
   staticInboxMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticInboxMobile.maxActionContainerWidth - 2);
     assert.ok(button.height >= 38);
@@ -3194,6 +3227,13 @@ try {
       node.value = value;
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
+    const initialReturnButtonsDisabled = ["copyPatchBtn", "downloadPatchBtn", "selectPatchBtn", "clearDraftsBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
+    const initialNextStep = document.querySelector("#returnNextStep").textContent;
+    const emptyGuardButton = document.querySelector("#copyPatchBtn");
+    emptyGuardButton.disabled = false;
+    emptyGuardButton.click();
+    const emptyGuardStatus = document.querySelector("#statusOutput").textContent;
+    emptyGuardButton.disabled = true;
     setValue("#quoteInput", "Static inbox quote from phone.");
     setValue("#thoughtInput", "This should become an append-only patch.");
     setValue("#timestampInput", "10:15");
@@ -3201,6 +3241,7 @@ try {
     setValue("#sourceTitleInput", "HarmonyOS browser");
     setValue("#sourceUrlInput", "javascript:alert(1)");
     document.querySelector("#addCaptureBtn").click();
+    const readyReturnButtonsDisabled = ["copyPatchBtn", "downloadPatchBtn", "selectPatchBtn", "clearDraftsBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
     const readyStatus = document.querySelector("#statusOutput").textContent;
     document.querySelector("#selectPatchBtn").click();
@@ -3223,6 +3264,8 @@ try {
     const savedReturnFileHint = document.querySelector("#returnFileHint").textContent;
     const savedReturnSaveMode = document.querySelector("#returnSaveMode").textContent;
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
+    const savedReturnAfterPanelHidden = document.querySelector("#returnAfterSave").hidden;
+    const savedReturnAfterText = document.querySelector("#returnAfterSaveText").textContent;
     const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
     const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
@@ -3231,8 +3274,13 @@ try {
     document.querySelector("#clearDraftsBtn").click();
     const clearedNextStep = document.querySelector("#returnNextStep").textContent;
     const clearedDraftCount = document.querySelectorAll("#draftList .capture").length;
+    const clearedReturnButtonsDisabled = ["copyPatchBtn", "downloadPatchBtn", "selectPatchBtn", "clearDraftsBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
     return {
       heading: document.querySelector("h1").textContent,
+      initialReturnButtonsDisabled,
+      initialNextStep,
+      emptyGuardStatus,
+      readyReturnButtonsDisabled,
       topicOptions: document.querySelectorAll("#topicSelect option").length,
       selectedTopicId: document.querySelector("#topicSelect").value,
       selectedTopicTitle: document.querySelector("#topicSelect option:checked")?.textContent || "",
@@ -3257,11 +3305,14 @@ try {
       returnFileHint: savedReturnFileHint,
       returnSaveMode: savedReturnSaveMode,
       returnManualHelp: savedReturnManualHelp,
+      returnAfterPanelHidden: savedReturnAfterPanelHidden,
+      returnAfterText: savedReturnAfterText,
       returnPreviewTitle,
       returnCopyHint,
       returnNextStep: readyNextStep,
       clearedNextStep,
       clearedDraftCount,
+      clearedReturnButtonsDisabled,
       downloadName,
       dirtyBeforeSave,
       dirtyAfterSave
@@ -3270,6 +3321,10 @@ try {
 
   assert.equal(exceptions.length, exceptionsBeforeInboxRuntime);
   assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
+  assert.deepEqual(inboxRuntime.initialReturnButtonsDisabled, [true, true, true, true]);
+  assert.equal(inboxRuntime.initialNextStep, "No draft captures for this topic yet. Add a quote or thought before saving a return file.");
+  assert.equal(inboxRuntime.emptyGuardStatus, "No draft captures for this topic yet. Add a quote or thought before saving a return file.");
+  assert.deepEqual(inboxRuntime.readyReturnButtonsDisabled, [false, false, false, false]);
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
   assert.equal(inboxRuntime.quoteLabel, "Quote");
@@ -3286,12 +3341,17 @@ try {
   assert.match(inboxRuntime.returnFileHint, /^Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
+  assert.equal(inboxRuntime.returnAfterPanelHidden, false);
+  assert.match(inboxRuntime.returnAfterText, /Return file downloaded/);
+  assert.match(inboxRuntime.returnAfterText, /import or paste it from Today > Return Files/);
+  assert.match(inboxRuntime.returnAfterText, /keep capturing here/);
   assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(inboxRuntime.returnPreviewTitle, "Return file preview");
   assert.match(inboxRuntime.returnCopyHint, /selected text below is the return file JSON/);
   assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Download to take it back to Mac before closing.");
-  assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
+  assert.equal(inboxRuntime.clearedNextStep, "No draft captures for this topic yet. Add a quote or thought before saving a return file.");
   assert.equal(inboxRuntime.clearedDraftCount, 0);
+  assert.deepEqual(inboxRuntime.clearedReturnButtonsDisabled, [true, true, true, true]);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
   assert.equal(inboxRuntime.downloadName, inboxRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
   assert.equal(inboxRuntime.dirtyBeforeSave, true);
@@ -5852,6 +5912,7 @@ async function connectCdp(url) {
   const pending = new Map();
   const listeners = new Map();
   let id = 0;
+  let evalId = 0;
 
   await new Promise((resolveOpen, rejectOpen) => {
     socket.addEventListener("open", resolveOpen, { once: true });
@@ -5880,6 +5941,10 @@ async function connectCdp(url) {
       });
     },
     evaluate(expression, timeoutMs = 25000) {
+      const currentEvalId = ++evalId;
+      if (process.env.LC_SMOKE_TRACE_EVAL === "1") {
+        console.error(`[smoke-eval ${currentEvalId}] ${String(expression).slice(0, 90).replace(/\s+/g, " ")}`);
+      }
       return withTimeout(this.send("Runtime.evaluate", {
         expression,
         awaitPromise: true,
@@ -5891,7 +5956,7 @@ async function connectCdp(url) {
             || "Evaluation failed.");
         }
         return result.result.value;
-      }), timeoutMs, `Runtime.evaluate timed out: ${String(expression).slice(0, 120).replace(/\s+/g, " ")}`);
+      }), timeoutMs, `Runtime.evaluate #${currentEvalId} timed out: ${String(expression).slice(0, 120).replace(/\s+/g, " ")}`);
     },
     on(method, callback) {
       listeners.set(method, [...(listeners.get(method) || []), callback]);
@@ -5928,6 +5993,16 @@ async function waitForCdpValue(cdp, expression, predicate, timeoutMs = 3000) {
   }
   if (lastError) throw lastError;
   throw new Error(`Timed out waiting for CDP value: ${JSON.stringify(lastValue)}`);
+}
+
+async function resetStaticReturnState(cdp, storageKeyPrefix) {
+  // Static return pages persist progress per mirror fingerprint; empty-state layout checks need isolated page-local state.
+  await cdp.evaluate(`(() => {
+    const prefix = ${JSON.stringify(storageKeyPrefix)};
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(prefix))
+      .forEach((key) => localStorage.removeItem(key));
+  })()`);
 }
 
 function sleep(ms) {
