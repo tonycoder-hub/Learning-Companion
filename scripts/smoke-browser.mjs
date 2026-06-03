@@ -229,6 +229,14 @@ try {
         text: button.textContent
       }))
     };
+    card?.querySelector('[data-start-action="device-flow"]')?.click();
+    const firstNoteDeviceFlowReveal = {
+      deviceFlowVisible: Boolean(document.querySelector(".learning-flow-panel .handoff-card")),
+      deviceFlowOpen: document.querySelector(".learning-flow-panel .handoff-card")?.open === true,
+      deviceFlowButtonStillVisible: Boolean(document.querySelector('.start-here-inline [data-start-action="device-flow"]')),
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || ""
+    };
     const originalWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
     const nonEmptyWorkspace = JSON.parse(originalWorkspaceJson);
     const nonEmptySession = nonEmptyWorkspace.sessions.find((session) => session.id === nonEmptyWorkspace.activeSessionId) || nonEmptyWorkspace.sessions[0];
@@ -349,6 +357,7 @@ try {
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="capture"]')?.click();
     return {
       ...before,
+      firstNoteDeviceFlowReveal,
       nonEmptyFlowSteps,
       nonEmptyDeviceFlowVisible,
       mixedQuestionDraftFlow,
@@ -403,8 +412,14 @@ try {
   assert.deepEqual(firstRun.buttons, [
     { action: "capture", text: "Capture this thought" },
     { action: "question", text: "Ask about this" },
-    { action: "clipper", text: "Set up page clipper" }
+    { action: "clipper", text: "Set up page clipper" },
+    { action: "device-flow", text: "Phone/Windows" }
   ]);
+  assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowVisible, true);
+  assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowOpen, true);
+  assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowButtonStillVisible, false);
+  assert.equal(firstRun.firstNoteDeviceFlowReveal.activityTitle, "Device Flow opened");
+  assert.match(firstRun.firstNoteDeviceFlowReveal.activityDetail, /Manual phone\/Windows transfer/);
   assert.equal(firstRun.activeTab, "captures");
   assert.equal(firstRun.activeElement, "thoughtInput");
   assert.equal(firstRun.capturePanePulsed, true);
@@ -669,7 +684,8 @@ try {
     { action: "source", text: "Set source" },
     { action: "capture", text: "Capture this thought" },
     { action: "question", text: "Ask about this" },
-    { action: "clipper", text: "Set up page clipper" }
+    { action: "clipper", text: "Set up page clipper" },
+    { action: "device-flow", text: "Phone/Windows" }
   ]);
   assert.match(noSourceFlowStep.startHereText, /First Note/);
   assert.match(noSourceFlowStep.startHereText, /Set a source, then capture the first useful point/);

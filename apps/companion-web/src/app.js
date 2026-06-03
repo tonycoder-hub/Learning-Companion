@@ -281,6 +281,7 @@ let activeHighlightAnnotation = null;
 const revealedReviewCards = new Set();
 const highlightThoughtHintKeys = new Set();
 let returnFilesPickerArmed = false;
+let firstNoteDeviceFlowRevealed = false;
 
 installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
@@ -4329,7 +4330,8 @@ function shouldShowReturnFilesPanel(showStartHere = false) {
   if (!showStartHere) return true;
   const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
   return Boolean(
-    lastImportReceipt
+    firstNoteDeviceFlowRevealed
+    || lastImportReceipt
     || workspace.importedPatches.length
     || workspace.importedReviewPatches.length
     || state?.exportedAt
@@ -4930,8 +4932,27 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
   clipper.type = "button";
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
-  footer.append(...actions, capture, question, clipper);
+  const deviceFlow = textEl("button", "mini-button", "Phone/Windows");
+  deviceFlow.type = "button";
+  deviceFlow.dataset.startAction = "device-flow";
+  deviceFlow.addEventListener("click", revealDeviceFlowFromFirstNote);
+  const optionalActions = shouldShowReturnFilesPanel(true) ? [] : [deviceFlow];
+  footer.append(...actions, capture, question, clipper, ...optionalActions);
   return footer;
+}
+
+function revealDeviceFlowFromFirstNote() {
+  firstNoteDeviceFlowRevealed = true;
+  activeTab = "today";
+  setActivity(getActiveSession(workspace), {
+    title: "Device Flow opened",
+    detail: "Manual phone/Windows transfer stays available after the first capture or an exported mirror.",
+    tab: "today",
+    targetId: ""
+  });
+  renderActivity(getActiveSession(workspace));
+  renderToday();
+  focusReturnFilesPanel();
 }
 
 function todaySectionTitle(label, section) {
