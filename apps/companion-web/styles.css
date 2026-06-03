@@ -289,6 +289,12 @@ textarea:focus {
   display: none;
 }
 
+.storage-notice.update-notice {
+  border-color: rgba(49, 95, 130, 0.25);
+  background: #eef6fb;
+  color: var(--blue);
+}
+
 .import-receipt {
   display: grid;
   gap: 7px;

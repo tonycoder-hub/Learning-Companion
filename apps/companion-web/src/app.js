@@ -88,6 +88,9 @@ const dom = {
   storageNotice: document.querySelector("#storageNotice"),
   storageNoticeText: document.querySelector("#storageNoticeText"),
   storageExportNowBtn: document.querySelector("#storageExportNowBtn"),
+  updateNotice: document.querySelector("#updateNotice"),
+  updateNoticeText: document.querySelector("#updateNoticeText"),
+  updateReloadBtn: document.querySelector("#updateReloadBtn"),
   importReceipt: document.querySelector("#importReceipt"),
   importReceiptTitle: document.querySelector("#importReceiptTitle"),
   importReceiptDetail: document.querySelector("#importReceiptDetail"),
@@ -186,12 +189,51 @@ const dom = {
   toast: document.querySelector("#toast")
 };
 
+// Temporary bridge for stale `learning-companion-static-v4` shells that can load newer app.js before newer HTML.
+// Keep this only until the next cache-bump cleanup proves those shells have drained.
+function installShellCompatibilityNodes() {
+  if (!dom.updateNotice && dom.storageNotice?.parentElement) {
+    const notice = document.createElement("div");
+    notice.id = "updateNotice";
+    notice.className = "storage-notice update-notice";
+    notice.hidden = true;
+    const text = document.createElement("span");
+    text.id = "updateNoticeText";
+    text.textContent = "App update ready";
+    const button = document.createElement("button");
+    button.id = "updateReloadBtn";
+    button.className = "mini-button";
+    button.type = "button";
+    button.textContent = "Reload";
+    notice.append(text, button);
+    dom.storageNotice.insertAdjacentElement("afterend", notice);
+    dom.updateNotice = notice;
+    dom.updateNoticeText = text;
+    dom.updateReloadBtn = button;
+  }
+  if (!dom.sidecarRail) {
+    const activityStrip = document.querySelector(".activity-strip");
+    if (activityStrip) {
+      const rail = document.createElement("nav");
+      rail.id = "sidecarRail";
+      rail.className = "sidecar-rail";
+      rail.setAttribute("aria-label", "Sidecar study rail");
+      rail.setAttribute("aria-live", "off");
+      rail.hidden = true;
+      activityStrip.append(rail);
+      dom.sidecarRail = rail;
+    }
+  }
+}
+
 let workspace = loadWorkspace();
 let uiPrefs = loadUiPrefs();
 let activeTab = "today";
 let notesMode = "edit";
 let saveTimer = null;
 let storageWarning = null;
+let updateNoticeShown = false;
+let updateReloadRequested = false;
 let activeReviewKey = "";
 let activeSearchIndex = -1;
 let searchResultsCollapsed = false;
@@ -203,6 +245,7 @@ let pendingCaptureUndoTimer = null;
 let activeHighlightAnnotation = null;
 const revealedReviewCards = new Set();
 
+installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
 applyUrlCapture();
 render();
@@ -221,6 +264,15 @@ dom.exportWorkspaceBtn.addEventListener("click", () => {
 });
 
 dom.storageExportNowBtn.addEventListener("click", exportWorkspace);
+if (dom.updateReloadBtn) {
+  dom.updateReloadBtn.addEventListener("click", () => {
+    if (updateReloadRequested) return;
+    updateReloadRequested = true;
+    dom.updateReloadBtn.disabled = true;
+    dom.updateReloadBtn.textContent = "Reloading";
+    window.location.reload();
+  });
+}
 dom.importReceiptDismissBtn.addEventListener("click", () => {
   dismissedReturnNudgeKey = returnNudgeKey(lastImportReceipt);
   lastImportReceipt = null;
@@ -2082,6 +2134,7 @@ function activityTargetsQuickCapture(activity) {
 }
 
 function renderSidecarRail(session) {
+  if (!dom.sidecarRail) return;
   clearChildren(dom.sidecarRail);
   dom.sidecarRail.hidden = !uiPrefs.sidecarLayout;
   if (!uiPrefs.sidecarLayout) return;
@@ -5326,9 +5379,39 @@ function buildBookmarklet() {
 
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
+  const hadControllerAtLoad = Boolean(navigator.serviceWorker.controller);
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js").catch(() => {});
+    navigator.serviceWorker.register("./service-worker.js").then((registration) => {
+      watchServiceWorkerUpdate(registration, hadControllerAtLoad);
+    }).catch(() => {});
   });
+}
+
+function watchServiceWorkerUpdate(registration, hadControllerAtLoad) {
+  if (!registration) return;
+  if (hadControllerAtLoad && registration.waiting) showUpdateNotice();
+  registration.addEventListener("updatefound", () => {
+    const worker = registration.installing;
+    if (!worker) return;
+    worker.addEventListener("statechange", () => {
+      if (!hadControllerAtLoad) return;
+      if (worker.state === "installed" || worker.state === "activated") {
+        showUpdateNotice();
+      }
+    });
+  });
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadControllerAtLoad) showUpdateNotice();
+  });
+}
+
+function showUpdateNotice() {
+  if (updateReloadRequested || updateNoticeShown || !dom.updateNotice) return;
+  updateNoticeShown = true;
+  dom.updateNotice.hidden = false;
+  if (dom.updateNoticeText) {
+    dom.updateNoticeText.textContent = "App update ready - reload to use the newest Learning Flow.";
+  }
 }
 
 function hasUserWorkspace(value) {

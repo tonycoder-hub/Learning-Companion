@@ -107,7 +107,9 @@ try {
       startUrl: manifest.start_url,
       iconSrc: manifest.icons?.[0]?.src,
       workerCachesStaticAssets: workerText.includes("STATIC_ASSETS"),
-      registration
+      registration,
+      updateNoticeHidden: document.querySelector("#updateNotice")?.hidden === true,
+      updateNoticeText: document.querySelector("#updateNoticeText")?.textContent || ""
     };
   })()`);
 
@@ -117,6 +119,8 @@ try {
   assert.equal(pwa.iconSrc, "./assets/icon.svg");
   assert.equal(pwa.workerCachesStaticAssets, true);
   assert.notEqual(pwa.registration, "unsupported");
+  assert.equal(pwa.updateNoticeHidden, true);
+  assert.equal(pwa.updateNoticeText, "App update ready");
 
   const firstRun = await cdp.evaluate(`(() => {
     document.querySelector('[data-tab="today"]').click();
