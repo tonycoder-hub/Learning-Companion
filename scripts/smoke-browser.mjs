@@ -9,6 +9,7 @@ import {
   addCapture,
   addSession,
   createDefaultWorkspace,
+  generateInboxHtml,
   generateMirrorIndexHtml,
   generateReviewHtml,
   getActiveSession,
@@ -56,12 +57,15 @@ twoDueReviewWorkspace = addCapture(twoDueReviewWorkspace, secondDueSession.id, {
 const twoDueReviewHtml = generateReviewHtml(twoDueReviewWorkspace, new Date("2026-06-03T09:00:00.000Z"));
 const sourceOnlyMirrorBase = createDefaultWorkspace();
 const sourceOnlyMirrorSession = getActiveSession(sourceOnlyMirrorBase);
-const sourceOnlyMirrorHtml = generateMirrorIndexHtml(updateSession(sourceOnlyMirrorBase, sourceOnlyMirrorSession.id, {
+const sourceOnlyMirrorWorkspace = updateSession(sourceOnlyMirrorBase, sourceOnlyMirrorSession.id, {
   sourceTitle: "Phone source reading target",
   sourceUrl: "https://example.com/phone-source-reading",
   materialType: "article"
-}), new Date("2026-06-03T09:00:00.000Z"));
+});
+const sourceOnlyMirrorHtml = generateMirrorIndexHtml(sourceOnlyMirrorWorkspace, new Date("2026-06-03T09:00:00.000Z"));
+const sourceOnlyInboxHtml = generateInboxHtml(sourceOnlyMirrorWorkspace, new Date("2026-06-03T09:00:00.000Z"));
 virtualRoutes.set("/mirror-source-mobile.html", sourceOnlyMirrorHtml);
+virtualRoutes.set("/mirror-source-inbox-mobile.html", sourceOnlyInboxHtml);
 
 const server = createServer(async (request, response) => {
   try {
@@ -3984,12 +3988,14 @@ try {
     const primary = nextPanel?.querySelector(".device-next-link");
     const primaryStrong = primary?.querySelector("strong");
     const primarySpan = primary?.querySelector("span");
+    const primarySmall = primary?.querySelector("small");
     const secondary = nextPanel?.querySelector(".device-next-secondary");
     return {
       innerWidth: window.innerWidth,
       documentWidth: document.documentElement.scrollWidth,
       nextPanelWidth: Math.ceil(nextPanel?.getBoundingClientRect().width || 0),
       primaryText: primaryStrong?.textContent || "",
+      primaryMeta: primarySmall?.textContent || "",
       primaryHref: primary?.getAttribute("href") || "",
       primaryTarget: primary?.getAttribute("target") || "",
       primaryRel: primary?.getAttribute("rel") || "",
@@ -4005,6 +4011,49 @@ try {
       secondaryScrollWidth: secondary?.scrollWidth || 0,
       secondaryClientWidth: secondary?.clientWidth || 0,
       secondaryHeight: Math.ceil(secondary?.getBoundingClientRect().height || 0)
+    };
+  })()`);
+  await resetStaticReturnState(cdp, "learning-companion.inbox.");
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-source-inbox-mobile.html` });
+  await sleep(300);
+  const staticSourceInboxMobile = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const field = document.querySelector(selector);
+      if (!field) return;
+      field.value = value;
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const hint = document.querySelector("#topicSourceHint");
+    const formPanel = document.querySelector('[aria-label="New mobile capture"]');
+    const sourceTitleBefore = document.querySelector("#sourceTitleInput")?.value || "";
+    const sourceUrlBefore = document.querySelector("#sourceUrlInput")?.value || "";
+    const initialHintText = hint?.textContent || "";
+    const topicAriaDescribedby = document.querySelector("#topicSelect")?.getAttribute("aria-describedby") || "";
+    setValue("#sourceTitleInput", "Override source title");
+    const overrideHintText = hint?.textContent || "";
+    setValue("#sourceTitleInput", "");
+    const restoredHintText = hint?.textContent || "";
+    setValue("#quoteInput", "Source-only phone quote");
+    setValue("#thoughtInput", "Capture after reading the source.");
+    document.querySelector("#addCaptureBtn")?.click();
+    const patch = JSON.parse(document.querySelector("#patchPreview")?.textContent || "{}");
+    const capture = patch.captures?.[0] || {};
+    return {
+      innerWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      formPanelWidth: Math.ceil(formPanel?.getBoundingClientRect().width || 0),
+      hintText: restoredHintText,
+      initialHintText,
+      overrideHintText,
+      topicAriaDescribedby,
+      hintScrollWidth: hint?.scrollWidth || 0,
+      hintClientWidth: hint?.clientWidth || 0,
+      sourceTitleBefore,
+      sourceUrlBefore,
+      previewSchema: patch.schema || "",
+      previewCaptureCount: patch.captures?.length || 0,
+      previewCaptureSourceTitle: capture.sourceTitle || "",
+      previewCaptureSourceUrl: capture.sourceUrl || ""
     };
   })()`);
   await resetStaticReturnState(cdp, "learning-companion.review-progress.");
@@ -4076,6 +4125,7 @@ try {
   assert.ok(staticSourceIndexMobile.documentWidth <= staticSourceIndexMobile.innerWidth + 1);
   assert.ok(staticSourceIndexMobile.nextPanelWidth <= staticSourceIndexMobile.innerWidth - 24);
   assert.equal(staticSourceIndexMobile.primaryText, "Read source on this device");
+  assert.match(staticSourceIndexMobile.primaryMeta, /come back to this mirror tab for return JSON/);
   assert.equal(staticSourceIndexMobile.primaryHref, "https://example.com/phone-source-reading");
   assert.equal(staticSourceIndexMobile.primaryTarget, "_blank");
   assert.match(staticSourceIndexMobile.primaryRel, /noreferrer/);
@@ -4088,6 +4138,20 @@ try {
   assert.equal(staticSourceIndexMobile.secondaryHref, "inbox.html");
   assert.ok(staticSourceIndexMobile.secondaryScrollWidth <= staticSourceIndexMobile.secondaryClientWidth + 2);
   assert.ok(staticSourceIndexMobile.secondaryHeight >= 32);
+  assert.ok(staticSourceInboxMobile.documentWidth <= staticSourceInboxMobile.innerWidth + 1);
+  assert.ok(staticSourceInboxMobile.formPanelWidth <= staticSourceInboxMobile.innerWidth - 24);
+  assert.equal(staticSourceInboxMobile.topicAriaDescribedby, "topicSourceHint");
+  assert.match(staticSourceInboxMobile.initialHintText, /Source: Phone source reading target/);
+  assert.match(staticSourceInboxMobile.initialHintText, /used for new captures unless you fill Source or URL below/);
+  assert.equal(staticSourceInboxMobile.overrideHintText, "Using the Source or URL you entered for this capture.");
+  assert.equal(staticSourceInboxMobile.hintText, staticSourceInboxMobile.initialHintText);
+  assert.ok(staticSourceInboxMobile.hintScrollWidth <= staticSourceInboxMobile.hintClientWidth + 2);
+  assert.equal(staticSourceInboxMobile.sourceTitleBefore, "");
+  assert.equal(staticSourceInboxMobile.sourceUrlBefore, "");
+  assert.equal(staticSourceInboxMobile.previewSchema, "learning-companion.mobile-inbox-patch.v1");
+  assert.equal(staticSourceInboxMobile.previewCaptureCount, 1);
+  assert.equal(staticSourceInboxMobile.previewCaptureSourceTitle, "Phone source reading target");
+  assert.equal(staticSourceInboxMobile.previewCaptureSourceUrl, "https://example.com/phone-source-reading");
   assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
   assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
   assert.equal(staticReviewMobile.returnPreviewTitle, "Return file preview");

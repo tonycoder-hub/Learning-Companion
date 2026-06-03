@@ -172,6 +172,7 @@ function inspectSourceFirstDeviceRoute() {
   const sourceHtml = generateMirrorIndexHtml(sourceWorkspace, new Date("2099-01-02T08:00:00+08:00"));
   assert.match(sourceHtml, /<strong>Read source on this device<\/strong>/);
   assert.match(sourceHtml, /href="https:\/\/example\.com\/static-source-route" target="_blank" rel="noreferrer noopener"/);
+  assert.match(sourceHtml, /come back to this mirror tab for return JSON/);
   assert.match(sourceHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\.<\/a>/);
   assert.doesNotMatch(sourceHtml, /<strong>Capture on this device<\/strong>/);
 

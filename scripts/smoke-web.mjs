@@ -2375,7 +2375,7 @@ assert.match(sourceOnlyMirrorIndexHtml, /Next from this export/);
 assert.match(sourceOnlyMirrorIndexHtml, /Read source on this device/);
 assert.match(sourceOnlyMirrorIndexHtml, /href="https:\/\/example\.com\/device-reading" target="_blank" rel="noreferrer noopener"><strong>Read source on this device/);
 assert.match(sourceOnlyMirrorIndexHtml, /Device reading source · then return to Inbox to save a note for Mac\./);
-assert.match(sourceOnlyMirrorIndexHtml, /Source linked; return by JSON/);
+assert.match(sourceOnlyMirrorIndexHtml, /Source linked; come back to this mirror tab for return JSON/);
 assert.match(sourceOnlyMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
 assert.doesNotMatch(sourceOnlyMirrorIndexHtml, /<strong>Capture on this device/);
 const sourceResumeBase = createDefaultWorkspace();
@@ -2394,7 +2394,7 @@ const sourceResumeMirrorIndexHtml = generateMirrorIndexHtml(sourceResumeWorkspac
 assert.match(sourceResumeMirrorIndexHtml, /Resume source on this device/);
 assert.match(sourceResumeMirrorIndexHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=device123&amp;t=95s" target="_blank" rel="noreferrer noopener"><strong>Resume source on this device/);
 assert.match(sourceResumeMirrorIndexHtml, /Device video source @ 01:35 · then return to Inbox to save a note for Mac\./);
-assert.match(sourceResumeMirrorIndexHtml, /Source moment available; return by JSON/);
+assert.match(sourceResumeMirrorIndexHtml, /Source moment available; come back to this mirror tab for return JSON/);
 assert.match(sourceResumeMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
 const unsafeSourceMirrorWorkspace = updateSession(noSourceBase, noSourceSession.id, {
   sourceTitle: "Unsafe source",
