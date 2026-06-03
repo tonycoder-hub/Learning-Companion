@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const root = resolve("apps/companion-web");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
@@ -2563,6 +2564,56 @@ try {
   assert.equal(mirrorAnswerReturnRestore.ok, true);
   assert.equal(mirrorAnswerReturnRestore.activeTitle, result.restoredTitle);
   assert.equal(mirrorAnswerReturnRestore.closedQuestionCount, 0);
+
+  const exceptionsBeforeFileMirrorClick = exceptions.length;
+  const answerMirrorFileDir = join(smokeRoot, "answer mirror files", "中文");
+  mkdirSync(answerMirrorFileDir, { recursive: true, mode: 0o700 });
+  writeFileSync(join(answerMirrorFileDir, "index.html"), result.answerMirrorIndexHtml);
+  writeFileSync(join(answerMirrorFileDir, "inbox.html"), result.answerMirrorInboxHtml);
+  await cdp.send("Page.navigate", { url: pathToFileURL(join(answerMirrorFileDir, "index.html")).href });
+  await sleep(300);
+  const fileMirrorAnswerClick = await cdp.evaluate(`(() => {
+    const link = document.querySelector('a.device-next-link[href^="inbox.html?"]') || document.querySelector('a.device-next-secondary[href^="inbox.html?"]');
+    const state = {
+      protocol: window.location.protocol,
+      heading: document.querySelector("h1")?.textContent || "",
+      label: link?.textContent || "",
+      href: link?.getAttribute("href") || ""
+    };
+    link?.click();
+    return state;
+  })()`);
+  await sleep(300);
+  const fileMirrorAnswerLanding = await cdp.evaluate(`(() => ({
+    protocol: window.location.protocol,
+    pathname: window.location.pathname,
+    search: window.location.search,
+    answerToCaptureId: new URLSearchParams(window.location.search).get("answerToCaptureId") || "",
+    status: document.querySelector("#statusOutput")?.textContent || "",
+    quoteLabel: document.querySelector("#quoteLabel")?.textContent || "",
+    thoughtLabel: document.querySelector("#thoughtLabel")?.textContent || "",
+    quoteReadOnly: document.querySelector("#quoteInput")?.readOnly === true,
+    thoughtReadOnly: document.querySelector("#thoughtInput")?.readOnly === true,
+    answerContextHidden: document.querySelector("#answerContext")?.hidden,
+    preview: document.querySelector("#answerQuestionPreview")?.textContent || ""
+  }))()`);
+  assert.equal(exceptions.length, exceptionsBeforeFileMirrorClick);
+  assert.equal(fileMirrorAnswerClick.protocol, "file:");
+  assert.equal(fileMirrorAnswerClick.heading, "Learning Companion Mirror");
+  assert.match(fileMirrorAnswerClick.label, /Answer|question/i);
+  assert.match(fileMirrorAnswerClick.href, /^inbox\.html\?/);
+  assert.doesNotMatch(fileMirrorAnswerClick.href, /^(?:\/|https?:|file:)/);
+  assert.equal(fileMirrorAnswerLanding.protocol, "file:");
+  assert.match(fileMirrorAnswerLanding.pathname, /\/inbox\.html$/);
+  assert.match(fileMirrorAnswerLanding.search, /answerToCaptureId=/);
+  assert.equal(fileMirrorAnswerLanding.answerToCaptureId, mirrorIndexAnswerLanding.answerToCaptureId);
+  assert.equal(fileMirrorAnswerLanding.status, "Answer draft loaded from mirror link.");
+  assert.equal(fileMirrorAnswerLanding.quoteLabel, "Question from Mac");
+  assert.equal(fileMirrorAnswerLanding.thoughtLabel, "Answer to return");
+  assert.equal(fileMirrorAnswerLanding.quoteReadOnly, true);
+  assert.equal(fileMirrorAnswerLanding.thoughtReadOnly, false);
+  assert.equal(fileMirrorAnswerLanding.answerContextHidden, false);
+  assert.notEqual(fileMirrorAnswerLanding.preview, "");
 
   const exceptionsBeforeReviewRuntime = exceptions.length;
   virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);
