@@ -2681,7 +2681,8 @@ try {
   assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(reviewRuntime.savedStatus, /Return file download requested/);
   assert.match(reviewRuntime.returnFileHint, /^Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
-  assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C, paste into a text editor such as Notepad/);
+  assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
+  assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(reviewRuntime.clearedNextStep, "No review events yet. Mark a due card to start a return file for Mac.");
@@ -2731,6 +2732,84 @@ try {
   assert.match(reviewGuardRuntime.status, /Save picker unavailable here/);
   assert.equal(reviewGuardRuntime.dirtyAfterBlockedSave, true);
   assert.equal(reviewGuardDownloadCountAfter, reviewGuardDownloadCountBefore);
+
+  const exceptionsBeforeReviewStorageGuard = exceptions.length;
+  const reviewStorageFailureScript = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        value: {
+          getItem() { throw new Error("review progress storage blocked for smoke"); },
+          setItem() { throw new Error("review progress storage blocked for smoke"); },
+          removeItem() {},
+          key() { return null; },
+          get length() { return 0; }
+        }
+      });
+    `
+  });
+  virtualRoutes.set("/mirror-review-storage-guard.html", result.mirrorReviewHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-storage-guard.html` });
+  await sleep(300);
+  await cdp.send("Page.removeScriptToEvaluateOnNewDocument", { identifier: reviewStorageFailureScript.identifier });
+  const reviewStorageGuard = await cdp.evaluate(`(async () => {
+    const rejectClipboard = () => Promise.reject(new Error("clipboard blocked for smoke"));
+    try { if (window.Clipboard?.prototype) Object.defineProperty(window.Clipboard.prototype, "writeText", { configurable: true, value: rejectClipboard }); } catch {}
+    try { Object.defineProperty(Navigator.prototype, "clipboard", { configurable: true, get() { return { writeText: rejectClipboard }; } }); } catch {}
+    try { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: rejectClipboard } }); } catch {}
+    const initialStatus = document.querySelector("#progressStatus").textContent;
+    const cards = Array.from(document.querySelectorAll(".card")).slice(0, 1);
+    cards.forEach((card) => {
+      card.querySelector('[data-reveal]')?.click();
+      card.querySelector('[data-grade="good"]')?.click();
+    });
+    const postGradeStatus = document.querySelector("#progressStatus").textContent;
+    const preview = JSON.parse(document.querySelector("#progressPreview").textContent);
+    document.querySelector("#copyProgressBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const copyFallbackStatus = document.querySelector("#progressStatus").textContent;
+    const copySelectionText = window.getSelection()?.toString() || "";
+    window.__LC_ALLOW_AUTOMATED_DOWNLOADS__ = false;
+    Object.defineProperty(window, "showSaveFilePicker", { value: undefined, configurable: true });
+    document.querySelector("#downloadProgressBtn").click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const saveFallbackStatus = document.querySelector("#progressStatus").textContent;
+    const saveSelectionText = window.getSelection()?.toString() || "";
+    return {
+      heading: document.querySelector("h1").textContent,
+      initialStatus,
+      postGradeStatus,
+      copyFallbackStatus,
+      saveFallbackStatus,
+      copySelectionHasSchema: copySelectionText.includes("learning-companion.review-progress-patch.v1"),
+      saveSelectionHasSchema: saveSelectionText.includes("learning-companion.review-progress-patch.v1"),
+      gradeableCards: cards.length,
+      previewSchema: preview.schema,
+      previewEventCount: preview.events.length,
+      previewGrades: preview.events.map((event) => event.grade),
+      reviewStates: Array.from(document.querySelectorAll(".review-state")).map((node) => node.textContent).filter(Boolean),
+      returnNextStep: document.querySelector("#returnNextStep").textContent,
+      returnManualHelp: document.querySelector("#returnManualHelp").textContent
+    };
+  })()`);
+  assert.equal(exceptions.length, exceptionsBeforeReviewStorageGuard);
+  assert.equal(reviewStorageGuard.heading, "Learning Companion Review Pack");
+  assert.match(reviewStorageGuard.initialStatus, /Browser storage is unavailable/);
+  assert.match(reviewStorageGuard.postGradeStatus, /Browser storage is unavailable/);
+  assert.match(reviewStorageGuard.postGradeStatus, /Manual Copy or Save/);
+  assert.match(reviewStorageGuard.copyFallbackStatus, /Copy failed/);
+  assert.match(reviewStorageGuard.copyFallbackStatus, /copy it manually/);
+  assert.match(reviewStorageGuard.saveFallbackStatus, /Save picker unavailable here/);
+  assert.match(reviewStorageGuard.saveFallbackStatus, /copy it manually/);
+  assert.equal(reviewStorageGuard.copySelectionHasSchema, true);
+  assert.equal(reviewStorageGuard.saveSelectionHasSchema, true);
+  assert.equal(reviewStorageGuard.gradeableCards, 1);
+  assert.equal(reviewStorageGuard.previewSchema, "learning-companion.review-progress-patch.v1");
+  assert.equal(reviewStorageGuard.previewEventCount, 1);
+  assert.deepEqual(reviewStorageGuard.previewGrades, ["good"]);
+  assert.deepEqual(reviewStorageGuard.reviewStates.slice(0, 1), ["Marked good"]);
+  assert.equal(reviewStorageGuard.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
+  assert.match(reviewStorageGuard.returnManualHelp, /Manual Copy/);
 
   const exceptionsBeforeInboxRuntime = exceptions.length;
   virtualRoutes.set("/mirror-inbox.html", result.mirrorInboxHtml);
@@ -2827,7 +2906,8 @@ try {
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(inboxRuntime.savedStatus, /Return file download requested/);
   assert.match(inboxRuntime.returnFileHint, /^Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
-  assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C, paste into a text editor such as Notepad/);
+  assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
+  assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.equal(inboxRuntime.clearedNextStep, "No draft captures yet. Add a quote or thought to start a return file for Mac.");
