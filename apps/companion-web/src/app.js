@@ -3142,8 +3142,8 @@ function renderToday() {
   );
 
   const showStartHere = shouldShowStartHere(pack, draftItems);
-  dom.todayList.append(renderTodaySectionMap(pack, draftItems));
   dom.todayList.append(renderLearningFlowPanel(pack, draftItems, showStartHere));
+  dom.todayList.append(renderTodaySectionMap(pack, draftItems));
   renderTodayDrafts(draftItems);
 
   dom.todayList.append(todaySectionTitle("Due Review", "due_review"));
@@ -4006,7 +4006,12 @@ function todayPrimaryMove(pack, draftItems = []) {
 function startHereActions() {
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const capture = textEl("button", "mini-button primary", "Capture this thought");
+  const sourceStep = resolveSourceSessionState();
+  const source = textEl("button", "mini-button primary", sourceStep.actionLabel);
+  source.type = "button";
+  source.dataset.startAction = "source";
+  source.addEventListener("click", sourceStep.action);
+  const capture = textEl("button", "mini-button", "Capture this thought");
   capture.type = "button";
   capture.dataset.startAction = "capture";
   capture.addEventListener("click", focusQuickCaptureFromStart);
@@ -4018,7 +4023,7 @@ function startHereActions() {
   clipper.type = "button";
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
-  footer.append(capture, question, clipper);
+  footer.append(source, capture, question, clipper);
   return footer;
 }
 

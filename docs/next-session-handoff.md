@@ -217,7 +217,7 @@ Latest local work ports `Answers Today` into the Harmony reader contract:
 
 Latest local work adds a Today section map for density:
 
-- Today now shows a compact section map after the summary stats and before Return Files.
+- Today now keeps Learning Flow as the first action surface after the summary stats, then shows a compact section map for jumping into the denser ledgers.
 - The map shows Due, Questions, Parked, Answers, Closed, Recent, and Drafts only when drafts exist.
 - Each chip has a stable `data-today-map-target`, count, accessible jump label, and clicks to the matching `data-today-section` with a pulse.
 - Browser smoke clicks the Recent chip and verifies the Recent Captures section pulses.
@@ -226,8 +226,8 @@ Latest local work adds a Today section map for density:
 Latest local work folds first-run Start Here into Learning Flow:
 
 - When the workspace has no captures, cards, due items, questions, answers, closed questions, or capture drafts, Today shows `Learning Flow` with `Capture on Mac`, `Close the loop`, and an embedded `Start Here` action row.
-- Actions are concrete and local: `Capture this thought` focuses Quick Capture, `Ask about this` seeds a `Question: ` draft, and `Set up page clipper` opens Export with the bookmarklet selected.
-- Browser smoke pins the Learning Flow copy, button actions, Quick Capture focus, and capture pane pulse.
+- Actions are concrete and local: the primary source action reuses `Read source` (`Open source`, `Resume source`, or `Set source`), `Capture this thought` focuses Quick Capture, `Ask about this` seeds a `Question: ` draft, and `Set up page clipper` opens Export with the bookmarklet selected.
+- Browser smoke pins Learning Flow as the first Today content block, plus copy, button actions, Quick Capture focus, and capture pane pulse.
 - Visual QA covered 1440x900 and 390x844; the Today map's minimum chip width was raised so `Questions` does not split awkwardly on mobile.
 
 Latest local work makes the Mac learning route start from the source:

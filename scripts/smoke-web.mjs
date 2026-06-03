@@ -222,12 +222,12 @@ assert.match(appCss, /\.today-detail-drawer/);
 assert.match(appCss, /\.today-detail-badge/);
 assert.match(appCss, /prefers-reduced-motion: reduce/);
 assert.match(serviceWorker, /CACHE_NAME/);
-assert.match(serviceWorker, /learning-companion-static-v3/);
+assert.match(serviceWorker, /learning-companion-static-v4/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
 assert.match(serviceWorker, /src\/app\.js/);
 assert.match(serviceWorker, /await fetch\(request\)/);
 assert.match(serviceWorker, /cache\.match\(request\)/);
-assert.match(serviceWorker, /names\.filter\(\(name\) => name !== CACHE_NAME\)\.map\(\(name\) => caches\.delete\(name\)\)/);
+assert.match(serviceWorker, /name\.startsWith\("learning-companion-static-"\) && name !== CACHE_NAME/);
 
 let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);

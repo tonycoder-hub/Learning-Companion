@@ -126,6 +126,7 @@ try {
       sourceStep: panel?.querySelector('[data-learning-flow-step="source"]')?.textContent || "",
       sourceActionAria: panel?.querySelector('[data-learning-flow-step="source"] button')?.getAttribute("aria-label") || "",
       sourceWide: panel?.querySelector('[data-learning-flow-step="source"]')?.classList.contains("is-wide") === true,
+      firstTodayBlock: document.querySelector("#todayList")?.firstElementChild?.className || "",
       firstFlowKind: panel?.querySelector(".learning-flow-track")?.firstElementChild?.dataset.learningFlowStep || "",
       flowSteps: [...(panel?.querySelectorAll("[data-learning-flow-step]") || [])].map((step) => ({
         kind: step.dataset.learningFlowStep,
@@ -151,6 +152,11 @@ try {
   assert.match(firstRun.sourceStep, /Open source/);
   assert.match(firstRun.sourceActionAria, /Open Product design desk/);
   assert.equal(firstRun.sourceWide, false);
+  assert.match(
+    firstRun.firstTodayBlock,
+    /learning-flow-panel/,
+    `Expected Today first content block to be learning-flow-panel, got: ${firstRun.firstTodayBlock}`
+  );
   assert.equal(firstRun.firstFlowKind, "source");
   assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(firstRun.text, /Capture on Mac/);
@@ -158,6 +164,7 @@ try {
   assert.match(firstRun.text, /Start Here/);
   assert.match(firstRun.text, /Start with what you are watching or reading/);
   assert.deepEqual(firstRun.buttons, [
+    { action: "source", text: "Open source" },
     { action: "capture", text: "Capture this thought" },
     { action: "question", text: "Ask about this" },
     { action: "clipper", text: "Set up page clipper" }
