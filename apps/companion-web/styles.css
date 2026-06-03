@@ -1557,6 +1557,50 @@ textarea:focus {
   line-height: 1.35;
 }
 
+.start-here-device-route {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(74, 62, 46, 0.12);
+}
+
+.start-here-device-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.start-here-device-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.start-here-device-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.start-here-device-copy strong {
+  font-size: 13px;
+}
+
+.start-here-device-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .today-path-card {
   border-color: rgba(49, 95, 130, 0.28);
   background: #f5f9fc;
@@ -1796,6 +1840,35 @@ textarea:focus {
   .device-flow-summary {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .start-here-device-route {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .start-here-device-route .learning-flow-step-label,
+  .start-here-device-copy {
+    grid-column: 1 / -1;
+  }
+
+  .start-here-device-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .start-here-device-copy strong {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .start-here-device-steps {
+    display: grid;
+    gap: 3px;
+  }
+
+  .start-here-device-route .device-flow-badges {
+    justify-content: flex-start;
   }
 }
 

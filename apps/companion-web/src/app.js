@@ -4847,6 +4847,7 @@ function renderStartHereInline() {
       : "Choose the first thing to bring back from this source.")
   );
   card.append(startHereActions(sourceStep));
+  if (!shouldShowReturnFilesPanel(true)) card.append(renderStartHereDeviceRoute());
   return card;
 }
 
@@ -4951,13 +4952,45 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
   clipper.type = "button";
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
+  footer.append(...actions, capture, question, clipper);
+  return footer;
+}
+
+function renderStartHereDeviceRoute() {
+  const route = document.createElement("div");
+  route.className = "start-here-device-route";
+  route.setAttribute("role", "group");
+  route.setAttribute("aria-label", "Other devices: manual phone and Windows route, no live sync");
+  route.append(
+    textEl("span", "learning-flow-step-label", "Other devices")
+  );
+  const copy = document.createElement("div");
+  copy.className = "start-here-device-copy";
+  const heading = document.createElement("div");
+  heading.className = "start-here-device-heading";
+  heading.append(textEl("strong", "", "Use phone or Windows later"));
+  const badges = document.createElement("span");
+  badges.className = "device-flow-badges";
+  badges.append(
+    textEl("span", "manual-transfer-badge", "Manual"),
+    textEl("span", "manual-transfer-badge is-muted", "No live sync")
+  );
+  heading.append(badges);
+  const steps = document.createElement("div");
+  steps.className = "start-here-device-steps";
+  steps.append(
+    textEl("span", "", "1. Export mirror after first capture"),
+    textEl("span", "", "2. Bring return files back to this Mac")
+  );
+  copy.append(heading, steps);
   const deviceFlow = textEl("button", "mini-button", "Phone/Windows");
   deviceFlow.type = "button";
   deviceFlow.dataset.startAction = "device-flow";
+  deviceFlow.title = "Open manual phone and Windows transfer route";
+  deviceFlow.setAttribute("aria-label", "Open manual phone and Windows transfer route");
   deviceFlow.addEventListener("click", revealDeviceFlowFromFirstNote);
-  const optionalActions = shouldShowReturnFilesPanel(true) ? [] : [deviceFlow];
-  footer.append(...actions, capture, question, clipper, ...optionalActions);
-  return footer;
+  route.append(copy, deviceFlow);
+  return route;
 }
 
 function revealDeviceFlowFromFirstNote() {
@@ -4967,7 +5000,8 @@ function revealDeviceFlowFromFirstNote() {
     title: "Device Flow opened",
     detail: "Manual phone/Windows transfer stays available after the first capture or an exported mirror.",
     tab: "today",
-    targetId: ""
+    targetId: "",
+    actionLabel: "Device Flow"
   });
   renderActivity(getActiveSession(workspace));
   renderToday();

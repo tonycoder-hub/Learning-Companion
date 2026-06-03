@@ -218,6 +218,9 @@ try {
       sourceActionAria: panel?.querySelector('[data-learning-flow-step="source"] button')?.getAttribute("aria-label") || "",
       sourceWide: panel?.querySelector('[data-learning-flow-step="source"]')?.classList.contains("is-wide") === true,
       deviceFlowVisible: Boolean(panel?.querySelector(".handoff-card")),
+      deviceRouteText: panel?.querySelector(".start-here-device-route")?.textContent || "",
+      deviceRouteAria: panel?.querySelector(".start-here-device-route")?.getAttribute("aria-label") || "",
+      deviceRouteActionAria: panel?.querySelector(".start-here-device-route [data-start-action='device-flow']")?.getAttribute("aria-label") || "",
       firstTodayBlock: document.querySelector("#todayList")?.firstElementChild?.className || "",
       firstFlowKind: panel?.querySelector(".learning-flow-track")?.firstElementChild?.dataset.learningFlowStep || "",
       flowSteps: [...(panel?.querySelectorAll("[data-learning-flow-step]") || [])].map((step) => ({
@@ -233,6 +236,7 @@ try {
     const firstNoteDeviceFlowReveal = {
       deviceFlowVisible: Boolean(document.querySelector(".learning-flow-panel .handoff-card")),
       deviceFlowOpen: document.querySelector(".learning-flow-panel .handoff-card")?.open === true,
+      deviceRouteStillVisible: Boolean(document.querySelector(".learning-flow-panel .start-here-device-route")),
       deviceFlowButtonStillVisible: Boolean(document.querySelector('.start-here-inline [data-start-action="device-flow"]')),
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || ""
@@ -409,6 +413,13 @@ try {
   assert.equal(firstRun.reviewQuestionDraftFlow.inspectTarget, "due_review");
   assert.match(firstRun.text, /First Note/);
   assert.match(firstRun.text, /Choose the first thing to bring back from this source/);
+  assert.match(firstRun.deviceRouteText, /Other devices/);
+  assert.match(firstRun.deviceRouteText, /Use phone or Windows later/);
+  assert.match(firstRun.deviceRouteText, /Export mirror after first capture/);
+  assert.match(firstRun.deviceRouteText, /Bring return files back to this Mac/);
+  assert.match(firstRun.deviceRouteText, /No live sync/);
+  assert.match(firstRun.deviceRouteAria, /manual phone and Windows route/);
+  assert.match(firstRun.deviceRouteActionAria, /Open manual phone and Windows transfer route/);
   assert.deepEqual(firstRun.buttons, [
     { action: "capture", text: "Capture this thought" },
     { action: "question", text: "Ask about this" },
@@ -417,6 +428,7 @@ try {
   ]);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowVisible, true);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowOpen, true);
+  assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceRouteStillVisible, false);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowButtonStillVisible, false);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.activityTitle, "Device Flow opened");
   assert.match(firstRun.firstNoteDeviceFlowReveal.activityDetail, /Manual phone\/Windows transfer/);
@@ -434,6 +446,68 @@ try {
   assert.equal(firstRun.linkedQuestion.activityAria, "Open capture");
   assert.equal(firstRun.linkedQuestion.draftSourceTitle, "Product design desk");
   assert.match(firstRun.linkedQuestion.draftSourceUrl, /github\.com\/tonycoder-hub\/Learning-Companion/);
+
+  const firstNoteDeviceRouteLayouts = [];
+  for (const width of [1024, 620, 360]) {
+    await cdp.send("Emulation.setDeviceMetricsOverride", {
+      width,
+      height: 844,
+      deviceScaleFactor: width <= 620 ? 2 : 1,
+      mobile: width <= 620
+    });
+    await cdp.send("Page.navigate", { url: appUrl });
+    await sleep(300);
+    firstNoteDeviceRouteLayouts.push(await cdp.evaluate(`(() => {
+      document.querySelector('[data-tab="today"]').click();
+      const route = document.querySelector(".start-here-device-route");
+      const copy = document.querySelector(".start-here-device-copy");
+      const heading = document.querySelector(".start-here-device-heading");
+      const steps = document.querySelector(".start-here-device-steps");
+      const action = document.querySelector(".start-here-device-route [data-start-action='device-flow']");
+      const badgeRow = document.querySelector(".start-here-device-route .device-flow-badges");
+      const rect = (node) => {
+        const box = node?.getBoundingClientRect();
+        return box ? {
+          width: Math.ceil(box.width),
+          height: Math.ceil(box.height),
+          left: Math.floor(box.left),
+          right: Math.ceil(box.right)
+        } : { width: 0, height: 0, left: 0, right: 0 };
+      };
+      return {
+        viewport: window.innerWidth,
+        documentWidth: document.documentElement.scrollWidth,
+        bodyWidth: document.body.scrollWidth,
+        routeText: route?.textContent || "",
+        routeRect: rect(route),
+        copyClientWidth: copy?.clientWidth || 0,
+        copyScrollWidth: copy?.scrollWidth || 0,
+        headingClientWidth: heading?.clientWidth || 0,
+        headingScrollWidth: heading?.scrollWidth || 0,
+        stepsClientWidth: steps?.clientWidth || 0,
+        stepsScrollWidth: steps?.scrollWidth || 0,
+        actionRect: rect(action),
+        actionText: action?.textContent || "",
+        actionAria: action?.getAttribute("aria-label") || "",
+        badgeRowRect: rect(badgeRow)
+      };
+    })()`));
+  }
+  await cdp.send("Emulation.clearDeviceMetricsOverride");
+  for (const layout of firstNoteDeviceRouteLayouts) {
+    assert.ok(layout.documentWidth <= layout.viewport + 1, JSON.stringify(layout));
+    assert.ok(layout.bodyWidth <= layout.viewport + 1, JSON.stringify(layout));
+    assert.match(layout.routeText, /Use phone or Windows later/);
+    assert.match(layout.routeText, /No live sync/);
+    assert.equal(layout.actionText, "Phone/Windows");
+    assert.match(layout.actionAria, /Open manual phone and Windows transfer route/);
+    assert.ok(layout.routeRect.width <= layout.viewport - 24, JSON.stringify(layout));
+    assert.ok(layout.actionRect.width >= 96, JSON.stringify(layout));
+    assert.ok(layout.actionRect.right <= layout.routeRect.right + 1, JSON.stringify(layout));
+    assert.ok(layout.copyScrollWidth <= layout.copyClientWidth + 1, JSON.stringify(layout));
+    assert.ok(layout.headingScrollWidth <= layout.headingClientWidth + 1, JSON.stringify(layout));
+    assert.ok(layout.stepsScrollWidth <= layout.stepsClientWidth + 1, JSON.stringify(layout));
+  }
 
   const firstNoteWithHandoffFixture = await cdp.evaluate(`(() => {
     const workspaceJson = localStorage.getItem("learning-companion.workspace.v1") || "";
@@ -511,6 +585,7 @@ try {
       text: button.textContent
     }));
     const startHereTextBeforeQuestion = document.querySelector(".start-here-inline")?.textContent || "";
+    const startHereDeviceRouteText = document.querySelector(".start-here-device-route")?.textContent || "";
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
     const noSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
       .captureDrafts?.[noSourceSession.id] || {};
@@ -555,6 +630,7 @@ try {
     };
     result.startHereButtons = startHereButtonsBeforeQuestion;
     result.startHereText = startHereTextBeforeQuestion;
+    result.startHereDeviceRouteText = startHereDeviceRouteText;
     setValue("#sourceTitle", "Transition source");
     setValue("#sourceUrl", "https://example.com/transition-source");
     document.querySelector('[data-tab="today"]').click();
@@ -709,6 +785,8 @@ try {
   ]);
   assert.match(noSourceFlowStep.startHereText, /First Note/);
   assert.match(noSourceFlowStep.startHereText, /Set a source, then capture the first useful point/);
+  assert.match(noSourceFlowStep.startHereDeviceRouteText, /Use phone or Windows later/);
+  assert.match(noSourceFlowStep.startHereDeviceRouteText, /Bring return files back to this Mac/);
   assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);
   assert.equal(noSourceFlowStep.afterSetSource.isWide, false);
   assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");
