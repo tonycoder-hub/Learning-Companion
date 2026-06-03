@@ -44,6 +44,7 @@ const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
 const REVIEW_REPORT_FILE = "review-start-here.html";
 const DEMO_SCRIPT_FILE = "DEMO_SCRIPT.md";
 const STAGE_FILE = "STAGE.md";
+const DOGFOOD_RUNBOOK_FILE = "DOGFOOD_RUNBOOK.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const WINDOWS_STATIC_QA_FILE = "WINDOWS_STATIC_QA.md";
 const STATIC_RETURN_CONTRACT_FILE = "STATIC_RETURN_CONTRACT.md";
@@ -521,6 +522,9 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
   macManualQaStatus,
   windowsStaticQaStatus
 }));
+await writeText(join(OUT_DIR, DOGFOOD_RUNBOOK_FILE), buildDogfoodRunbookMarkdown({
+  sampleMirrorZipFile
+}));
 await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), macManualQaMarkdown);
 await writeText(join(OUT_DIR, WINDOWS_STATIC_QA_FILE), windowsStaticQaMarkdown);
 await writeText(join(OUT_DIR, STATIC_RETURN_CONTRACT_FILE), buildStaticReturnContractMarkdown());
@@ -561,6 +565,7 @@ const reviewReportHtml = buildReviewStartHereHtml({
 assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
 assert.match(reviewReportHtml, /href="DEMO_SCRIPT\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
+assert.match(reviewReportHtml, /href="DOGFOOD_RUNBOOK\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="WINDOWS_STATIC_QA\.md"/);
 assert.match(reviewReportHtml, /href="STATIC_RETURN_CONTRACT\.md"/);
@@ -573,6 +578,8 @@ assert.match(reviewReportHtml, /EVIDENCE: DRY_RUN/);
 assert.match(reviewReportHtml, /open question/);
 assert.match(reviewReportHtml, /parked question/);
 assert.match(reviewReportHtml, /What To Inspect First/);
+assert.match(reviewReportHtml, /Dogfood Route/);
+assert.match(reviewReportHtml, /record step count, time, and every failure/);
 assert.match(reviewReportHtml, /Mac Capture Sidecar/);
 assert.match(reviewReportHtml, /source\/time context strip/);
 assert.match(reviewReportHtml, /First-Run First Note/);
@@ -628,6 +635,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   },
   workspace: SAMPLE_WORKSPACE_FILE,
   reviewReport: REVIEW_REPORT_FILE,
+  dogfoodRunbook: DOGFOOD_RUNBOOK_FILE,
   macManualQa: MAC_MANUAL_QA_FILE,
   windowsStaticQa: WINDOWS_STATIC_QA_FILE,
   staticReturnContract: STATIC_RETURN_CONTRACT_FILE,
@@ -1113,6 +1121,71 @@ function buildMacManualQaMarkdown({
   ].join("\n");
 }
 
+function buildDogfoodRunbookMarkdown({
+  sampleMirrorZipFile
+}) {
+  return [
+    "# Learning Companion Dogfood Runbook",
+    "",
+    buildEvidenceBadgeMarkdown(DOGFOOD_RUNBOOK_FILE).trim(),
+    "",
+    "Stage: pending dogfood gate. This runbook is a checklist for a real session; it is not evidence until the Result column is filled from an actual run.",
+    "",
+    "Use this first in the morning review: record step count, time, and every failure instead of summarizing the route as broadly usable.",
+    "",
+    "## Session Header",
+    "",
+    "| Field | Value |",
+    "| --- | --- |",
+    "| Date/time | TBD |",
+    "| Reviewer | Tony |",
+    "| Mac build/source | TBD |",
+    "| Browser/source used | TBD |",
+    "| Phone browser/device, if used | TBD |",
+    "| Windows browser/device, if used | TBD |",
+    "| Total elapsed time | TBD |",
+    "| Total manual steps | TBD |",
+    "| Biggest friction | TBD |",
+    "",
+    "## Mac Study Loop",
+    "",
+    "| Step | Action | Expected | Result | Time / friction notes |",
+    "| --- | --- | --- | --- | --- |",
+    "| 1 | Open the app beside a real browser lesson. | Today/Learning Flow points to the source or first capture without opening a dashboard-first detour. | NT |  |",
+    "| 2 | Capture one quote or timestamped moment, then add a thought. | Activity stays in the desk or sidecar; the source context remains visible. | NT |  |",
+    "| 3 | Capture one question, resume the source, and save a linked answer. | Today can close the question and expose any card-refresh path. | NT |  |",
+    "| 4 | Promote or refresh one review card, then grade due cards. | Review advances to the next card or clears the queue back to capture/source. | NT |  |",
+    "| 5 | Insert one capture into Notes and view the generated block. | Notes preview opens the actual block without hiding user-authored text. | NT |  |",
+    "| 6 | Export a mirror from the Device Flow path. | Export copy says manual transfer only and points to `index.html` first. | NT |  |",
+    "",
+    "## Manual Device Loop",
+    "",
+    "| Step | Action | Expected | Result | Time / friction notes |",
+    "| --- | --- | --- | --- | --- |",
+    `| 7 | Move or extract \`dist/morning-demo/${sampleMirrorZipFile}\`, or a real exported mirror, onto the phone or Windows machine. | The route starts from \`mirror-folder/index.html\`, not directly from a subpage. | NT |  |`,
+    "| 8 | Follow `Next from this export`. | Due review and open questions outrank generic capture; source-only mirrors open the source separately and keep the mirror tab available. | NT |  |",
+    "| 9 | Use Review or Inbox to create a return JSON. | Copy, Manual Copy, or Save produces a visible append-only return file with `source.returnBaseFingerprint`. | NT |  |",
+    "| 10 | Move the return JSON back to Mac and use Today > Return Files. | The Mac imports only inbox/review return files, reports wrong files, and rejoins Learning Flow. | NT |  |",
+    "| 11 | Export a fresh mirror after the return. | Device Flow stops treating the old mirror as current for the next pass. | NT |  |",
+    "",
+    "## Decision Rules",
+    "",
+    "- Use `PASS` only for a row actually performed in the current run.",
+    "- Use `FAIL` when the route works only after guessing, hidden setup, stale browser state, or unclear file movement.",
+    "- Use `BLOCKED` when approval, device access, permissions, or browser policy prevents execution.",
+    "- Leave rows as `NT` when they were not tried.",
+    "- A complete dogfood pass requires at least the Mac Study Loop rows. Cross-device usability requires the Manual Device Loop rows on a real phone browser or Windows browser.",
+    "",
+    "## Claim Boundary",
+    "",
+    "- Passing Mac rows supports `Mac dogfood usable`, not production packaging.",
+    "- Passing phone or Windows rows supports `manual mirror route usable on that device`, not live sync.",
+    "- Feishu remains a manual file carrier until a separate live-write gate proves otherwise.",
+    "- Fixture receipts such as `npm run check:static-return` can support contract confidence, but cannot fill this table.",
+    ""
+  ].join("\n");
+}
+
 function buildStaticReturnContractMarkdown() {
   return [
     "# Static Return Contract",
@@ -1219,6 +1292,7 @@ function buildDemoScriptMarkdown({
     "## 0-10s: Open The Evidence Pack",
     "",
     "- Open `review-start-here.html`.",
+    `- Open \`${DOGFOOD_RUNBOOK_FILE}\` before calling the Mac or cross-device route usable; it is the timed PASS/FAIL/BLOCKED sheet for the real session.`,
     "- Read `STAGE.md` and `DEFERRED_GATES.json` first; there are no live Feishu, HarmonyOS device, Windows, signing, or completed Mac GUI claims here.",
     `- Deferred gates pending: ${deferredGates.summary.pending}/${deferredGates.summary.total}.`,
     "",
@@ -1446,6 +1520,7 @@ function buildReviewStartHereHtml({
     ["Stage matrix", STAGE_FILE, "Fixture/dry-run/prototype/internal labels for this pack."],
     ["Evidence tiers", EVIDENCE_TIERS_FILE, "Machine-readable evidence tier for each generated artifact."],
     ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
+    ["Dogfood Runbook", DOGFOOD_RUNBOOK_FILE, "Start here in the morning: record real Mac/device steps, time, and failures before calling a route usable."],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["Windows Static QA Receipt", WINDOWS_STATIC_QA_FILE, "PENDING RECEIPT, not QA evidence; fill this during real Windows Edge/Chrome mirror launch, Review/Inbox return files, and Mac Return Files import."],
     ["Static Return Contract", STATIC_RETURN_CONTRACT_FILE, "`npm run check:static-return` boundary: static contract plus fixture model import, not real device/user return-file proof."],
@@ -1506,6 +1581,11 @@ function buildReviewStartHereHtml({
     ["Patch intake", "Mac-import-verified fixture", "sample patch receipts and negative rejection", "off-Mac generated patch"]
   ];
   const inspectRows = [
+    [
+      "0. Dogfood Route",
+      "Start with one real learning session and record step count, time, and every failure before claiming Mac or cross-device usability.",
+      DOGFOOD_RUNBOOK_FILE
+    ],
     [
       "1. Mac Capture Sidecar",
       "In Quick Capture, check the app-focused shortcut, source/time context strip, timestamped URL staging, and -15/+15 Time nudges before inspecting broader review loops.",
@@ -1719,6 +1799,9 @@ function buildEvidenceBadgeMarkdown(path) {
 
 function getEvidenceTierForPath(path) {
   const normalized = String(path).replace(/^dist\/morning-demo\//, "");
+  if (normalized === DOGFOOD_RUNBOOK_FILE) {
+    return evidenceTier("PENDING_USER_GATE", "Runbook rows are intentionally `NT` until a real Mac/device dogfood session fills them.");
+  }
   if (normalized === MAC_MANUAL_QA_FILE) {
     return evidenceTier("PENDING_USER_GATE", "Manual QA rows are intentionally `NT` until Tony runs the Mac dogfood flow.");
   }

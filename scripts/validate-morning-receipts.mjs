@@ -22,6 +22,7 @@ const files = {
   morningReview: "MORNING_REVIEW.md",
   demoScript: "DEMO_SCRIPT.md",
   stage: "STAGE.md",
+  dogfoodRunbook: "DOGFOOD_RUNBOOK.md",
   reviewStartHere: "review-start-here.html",
   staticReturnContract: "STATIC_RETURN_CONTRACT.md",
   mirrorHome: "mirror-folder/index.html",
@@ -45,6 +46,7 @@ const harmonyReaderView = readJson(files.harmonyReaderView);
 const morningReview = readText(files.morningReview);
 const demoScript = readText(files.demoScript);
 const stage = readText(files.stage);
+const dogfoodRunbook = readText(files.dogfoodRunbook);
 const reviewStartHere = readText(files.reviewStartHere);
 const staticReturnContract = readText(files.staticReturnContract);
 const mirrorHome = readText(files.mirrorHome);
@@ -72,6 +74,7 @@ assert.equal(summary.assertions.harmonyReaderOpenQuestions, 1);
 assert.equal(summary.assertions.harmonyReaderOpenQuestionPreviewCount, 1);
 assert.equal(summary.assertions.harmonyReaderAnsweredQuestionFlags >= 1, true);
 assert.equal(summary.windowsStaticQa, files.windowsStaticQa);
+assert.equal(summary.dogfoodRunbook, files.dogfoodRunbook);
 assert.equal(summary.windowsStaticQaReceipt.evidenceTier, "PENDING_USER_GATE");
 assert.equal(summary.windowsStaticQaReceipt.evidenceStatus, "NOT_RUN");
 assert.equal(summary.windowsStaticQaReceipt.receiptOnly, true);
@@ -86,6 +89,13 @@ assert.equal(evidence.artifacts.every((artifact) => {
   return Boolean(artifact.path && artifact.sha256 && artifact.bytes > 0);
 }), true);
 assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.demoScript), true);
+assert.equal(evidence.artifacts.some((artifact) => {
+  if (artifact.path !== files.dogfoodRunbook) {
+    return false;
+  }
+  assertEvidence(artifact.evidence, "PENDING_USER_GATE", files.dogfoodRunbook);
+  return true;
+}), true);
 assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.staticReturnContract), true);
 assert.equal(evidence.artifacts.some((artifact) => {
   if (artifact.path !== files.windowsStaticQa) {
@@ -225,6 +235,9 @@ assert.match(reviewStartHere, /1 open question/);
 assert.match(reviewStartHere, /1 parked question/);
 assert.match(reviewStartHere, /What To Inspect First/);
 assert.match(reviewStartHere, /Start with the Mac learning loop/);
+assert.match(reviewStartHere, /DOGFOOD_RUNBOOK\.md/);
+assert.match(reviewStartHere, /Dogfood Route/);
+assert.match(reviewStartHere, /record step count, time, and every failure/);
 assert.match(reviewStartHere, /Mac Capture Sidecar/);
 assert.match(reviewStartHere, /source\/time context strip/);
 assert.match(reviewStartHere, /First-Run First Note/);
@@ -257,12 +270,23 @@ assert.match(mirrorHome, /1 open question/);
 assert.match(mirrorHome, /How should I compare Rust traits with TypeScript interfaces\?/);
 assert.match(demoScript, /Do not treat dry-run Feishu files/);
 assert.match(demoScript, /STATIC_RETURN_CONTRACT\.md/);
+assert.match(demoScript, /DOGFOOD_RUNBOOK\.md/);
 assert.match(demoScript, /static-return fixture imports/);
 assert.match(demoScript, /Source time receipt/);
 assert.match(demoScript, /WINDOWS_STATIC_QA\.md/);
 assert.match(demoScript, /live video-site playback QA is not proven/);
 assert.match(stage, /Live video-site playback QA is not proven/);
 assert.match(reviewStartHere, /live video-site playback QA is not proven/i);
+assert.match(dogfoodRunbook, /^# Learning Companion Dogfood Runbook$/m);
+assert.match(dogfoodRunbook, /EVIDENCE: PENDING_USER_GATE/);
+assert.match(dogfoodRunbook, /not evidence until the Result column is filled from an actual run/);
+assert.match(dogfoodRunbook, /record step count, time, and every failure/);
+assert.match(dogfoodRunbook, /Total elapsed time/);
+assert.match(dogfoodRunbook, /Mac Study Loop/);
+assert.match(dogfoodRunbook, /Manual Device Loop/);
+assert.match(dogfoodRunbook, /source\.returnBaseFingerprint/);
+assert.match(dogfoodRunbook, /Fixture receipts such as `npm run check:static-return` can support contract confidence, but cannot fill this table/);
+assert.equal((dogfoodRunbook.match(/\| NT \|/g) || []).length, 11);
 assert.match(morningReview, /Harmony reader session/);
 assert.match(morningReview, /accepted reader view after a failed import/);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
