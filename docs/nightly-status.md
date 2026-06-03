@@ -69,6 +69,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Static mirror `review.html` supports due-card review on mobile/Windows and exports append-only review progress patch JSON.
 - Static mirror `inbox.html` supports phone/Windows capture drafts and exports append-only mobile inbox patch JSON.
 - Return File imports route the Mac UI back to Today, open the Device Flow receipt, and pulse that panel so returned phone/Windows work reconnects to the Learning Flow.
+- Returned phone/Windows answer imports now carry answer-specific next steps into the `Returned from phone/Windows` card: resolved questions with refreshable cards get a `Refresh cards` action into Closed Today.
 - Mirror home mixed due+question states now keep `Review due cards` as the primary `Next from this export` action while making the open-question lane a clickable secondary Inbox answer link, so phone/Windows users can continue the question loop without guessing where Inbox is. The static Inbox answer page now shows a visible answer-context banner for that linked question and preserves the append-only return-file contract.
 - Static mirror answer links carry `answersQuestionCaptureId`; importing that answer patch can resolve the original same-topic question while preserving the new answer capture.
 - Mobile inbox patch import appends captures with patch/capture id dedupe, target-resolution fallback, unsafe URL stripping with receipt counts, and a visible import receipt.

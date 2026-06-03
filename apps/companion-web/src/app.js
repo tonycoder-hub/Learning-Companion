@@ -3838,21 +3838,23 @@ function returnedWorkNudge(pack) {
   const fileDetail = returnedFileDetail(receipt);
   const failedDetail = returnedFailedDetail(receipt);
   const captureDetail = work.inboxAdded ? `${work.inboxAdded} returned ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
+  const answerDetail = returnedAnswerDetail(work);
   const reviewDetail = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"} applied` : "";
   const basisDetail = returnedBasisDetail(receipt);
-  const detail = [fileDetail, captureDetail, reviewDetail, basisDetail, failedDetail].filter(Boolean).join(" · ");
+  const detail = [fileDetail, captureDetail, answerDetail, reviewDetail, basisDetail, failedDetail].filter(Boolean).join(" · ");
   if (work.inboxAdded) {
     const hasReviewUpdate = Boolean(work.reviewApplied);
+    const answerFollowup = returnedAnswerFollowup(work);
     return {
       kind: "inbox",
       title: returnedWorkTitle(work),
       detail,
       actionLabel: "View captures",
       run: () => jumpToTodaySection("recent_captures"),
-      secondaryLabel: hasReviewUpdate ? "Review status" : "Import details",
-      secondaryRun: hasReviewUpdate ? () => openReturnedReviewStatus(work) : openLastReturnReceipt,
-      tertiaryLabel: hasReviewUpdate ? "Import details" : "",
-      tertiaryRun: hasReviewUpdate ? openLastReturnReceipt : null
+      secondaryLabel: hasReviewUpdate ? "Review status" : answerFollowup?.label || "Import details",
+      secondaryRun: hasReviewUpdate ? () => openReturnedReviewStatus(work) : answerFollowup?.run || openLastReturnReceipt,
+      tertiaryLabel: hasReviewUpdate || answerFollowup ? "Import details" : "",
+      tertiaryRun: hasReviewUpdate || answerFollowup ? openLastReturnReceipt : null
     };
   }
   return {
@@ -3885,17 +3887,22 @@ function openReturnedReviewStatus(work = returnReceiptNewWork(lastImportReceipt)
 function returnReceiptNewWork(receipt) {
   const inboxAdded = returnedInboxAdded(receipt);
   const reviewApplied = returnedReviewApplied(receipt);
+  const answeredQuestions = returnedInboxAnsweredQuestions(receipt);
+  const refreshableReviewCards = returnedInboxRefreshableReviewCards(receipt);
   return {
     inboxAdded,
     reviewApplied,
+    answeredQuestions,
+    refreshableReviewCards,
     newItems: inboxAdded + reviewApplied
   };
 }
 
 function returnedWorkTitle(work) {
   const captures = work.inboxAdded ? `${work.inboxAdded} new ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
+  const answers = work.answeredQuestions ? `${work.answeredQuestions} ${work.answeredQuestions === 1 ? "question" : "questions"} resolved` : "";
   const reviews = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"}` : "";
-  return `${[captures, reviews].filter(Boolean).join(" · ")} from phone or Windows`;
+  return `${[captures, answers, reviews].filter(Boolean).join(" · ")} from phone or Windows`;
 }
 
 function returnedInboxAdded(receipt) {
@@ -3908,6 +3915,45 @@ function returnedReviewApplied(receipt) {
   if (receipt?.schema === "learning-companion.return-files-receipt.v1") return Number(receipt.review?.applied) || 0;
   if (receipt?.schema === "learning-companion.review-progress-receipt.v1") return Number(receipt.applied) || 0;
   return 0;
+}
+
+function returnedInboxAnsweredQuestions(receipt) {
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return Number(receipt.inbox?.answeredQuestions) || 0;
+  if (receipt?.schema === "learning-companion.mobile-inbox-receipt.v1") return Number(receipt.answeredQuestions) || 0;
+  return 0;
+}
+
+function returnedInboxRefreshableReviewCards(receipt) {
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return Number(receipt.inbox?.refreshableReviewCards) || 0;
+  if (receipt?.schema === "learning-companion.mobile-inbox-receipt.v1") return Number(receipt.refreshableReviewCards) || 0;
+  return 0;
+}
+
+function returnedAnswerDetail(work) {
+  const resolved = work.answeredQuestions
+    ? `${work.answeredQuestions} ${work.answeredQuestions === 1 ? "question" : "questions"} resolved`
+    : "";
+  const refreshable = work.refreshableReviewCards
+    ? `${work.refreshableReviewCards} ${work.refreshableReviewCards === 1 ? "card" : "cards"} ready to refresh`
+    : "";
+  return [resolved, refreshable].filter(Boolean).join(" · ");
+}
+
+function returnedAnswerFollowup(work) {
+  // Returned review-progress events stay higher priority; this helper only fills the inbox-only answer follow-up slot.
+  if (work.refreshableReviewCards) {
+    return {
+      label: "Refresh cards",
+      run: () => jumpToTodaySection("closed_questions")
+    };
+  }
+  if (work.answeredQuestions) {
+    return {
+      label: "View closed questions",
+      run: () => jumpToTodaySection("closed_questions")
+    };
+  }
+  return null;
 }
 
 function returnedFileDetail(receipt) {

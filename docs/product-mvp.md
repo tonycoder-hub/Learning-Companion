@@ -95,6 +95,7 @@ Build a runnable local web app that is ready to be wrapped by a Mac shell later:
 - Mirror home open-question previews link into `inbox.html` with a prefilled Answer draft and a visible answer-context banner, so phone/Windows/Feishu folder review can return an append-only answer patch without mistaking the static mirror for live sync.
 - Answer patches that carry a same-topic `answersQuestionCaptureId` resolve the original open or parked question during Mac import while keeping the new answer capture as evidence.
 - Answer import receipts report when an existing question review card is ready to refresh from the new answer evidence.
+- Returned Work cards on Mac now surface answered-question follow-ups: if a phone/Windows answer closes a question and makes a card refreshable, the card offers a `Refresh cards` path into Closed Today instead of treating the return as a generic capture.
 - Mirror bundle includes static `review.html` for due-card review on phone or Windows, with timestamped append-only return-file export for Mac import and an unsaved-progress leave warning.
 - Mirror bundle includes static `inbox.html` for phone/Windows capture drafts and timestamped append-only return-file export for Mac import, plus an unsaved-draft leave warning.
 - Morning review packs include `WINDOWS_STATIC_QA.md` as a pending receipt for the Windows static mirror/manual return loop, so Windows usability is not claimed until local folder launch, Review/Inbox return files, and Mac Return Files import are filled against a real Windows browser.

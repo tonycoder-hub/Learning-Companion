@@ -3474,6 +3474,11 @@ try {
     const answerTopicAfter = exportedAfterAnswerImport.sessions.find((session) => session.id === answerTopic?.id);
     const answerTargetAfter = answerTopicAfter?.captures.find((capture) => capture.id === answerTarget?.id);
     const answerCaptureAfter = answerTopicAfter?.captures.find((capture) => capture.inboxCaptureId === "browser_question_answer_capture");
+    const answerReturnedWorkCard = document.querySelector(".returned-work-card");
+    const answerReturnedWorkText = answerReturnedWorkCard?.textContent || "";
+    const answerReturnedWorkButtons = [...(answerReturnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
+    answerReturnedWorkCard?.querySelector("[data-returned-work-secondary]")?.click();
+    const answerReturnedWorkClosedPulsed = document.querySelector('[data-today-section="closed_questions"]')?.classList.contains("pulse") === true;
     const afterAnswerImport = {
       ok: answerImport.ok === true,
       kind: answerImport.kind || "",
@@ -3486,7 +3491,10 @@ try {
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
       closedCardButtons: Array.from(document.querySelectorAll("#todayList .closed-question-card button"))
         .map((button) => ({ text: button.textContent, disabled: button.disabled === true })),
-      todayText: document.querySelector("#todayList").textContent
+      todayText: document.querySelector("#todayList").textContent,
+      returnedWorkText: answerReturnedWorkText,
+      returnedWorkButtons: answerReturnedWorkButtons,
+      returnedWorkClosedPulsed: answerReturnedWorkClosedPulsed
     };
     const refreshButton = Array.from(document.querySelectorAll("#todayList .closed-question-card button"))
       .find((button) => button.textContent === "Refresh card");
@@ -3534,6 +3542,54 @@ try {
         .filter((node) => /compactness assumption/.test(node.textContent)).length,
       focusFacts: document.querySelector("#focusBriefFacts").textContent
     };
+    const answerOnlyRestoreJson = window.learningCompanionNative.exportWorkspaceJson();
+    const answerOnlyWorkspace = JSON.parse(answerOnlyRestoreJson);
+    const answerOnlySession = answerOnlyWorkspace.sessions.find((session) => session.id === answerOnlyWorkspace.activeSessionId) || answerOnlyWorkspace.sessions[0];
+    const answerOnlyQuestionId = "browser_answer_only_question";
+    answerOnlySession.captures.unshift({
+      id: answerOnlyQuestionId,
+      quote: "Answer-only returned work question.",
+      thought: "Question: should returned answers without a card still lead to closed questions?",
+      timestamp: "",
+      sourceTitle: answerOnlySession.sourceTitle || "",
+      sourceUrl: answerOnlySession.sourceUrl || "",
+      materialType: answerOnlySession.materialType || "doc",
+      tags: ["question"],
+      capturedAt: "2026-05-29T10:20:00.000Z"
+    });
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(answerOnlyWorkspace));
+    document.querySelector('[data-tab="today"]').click();
+    const answerOnlyImport = window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      schema: "learning-companion.mobile-inbox-patch.v1",
+      appVersion: 1,
+      patchId: "browser_answer_only_patch",
+      createdAt: "2026-05-29T10:21:00.000Z",
+      source: { generatedBy: "inbox.html", workspaceFingerprint: "browser-answer-only", topicId: answerOnlySession.id, topicTitle: answerOnlySession.title },
+      target: { topicId: answerOnlySession.id, topicTitle: answerOnlySession.title },
+      captures: [{
+        id: "browser_answer_only_capture",
+        quote: "The fallback should still navigate to the closed question ledger.",
+        thought: "Answer: yes, because the returned answer closed the loop even without a refreshable card.",
+        tags: "answer",
+        answersQuestionCaptureId: answerOnlyQuestionId,
+        capturedAt: "2026-05-29T10:21:01.000Z"
+      }]
+    }));
+    const answerOnlyReturnedWorkCard = document.querySelector(".returned-work-card");
+    const answerOnlyReturnedWorkText = answerOnlyReturnedWorkCard?.textContent || "";
+    const answerOnlyReturnedWorkButtons = [...(answerOnlyReturnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
+    answerOnlyReturnedWorkCard?.querySelector("[data-returned-work-secondary]")?.click();
+    const answerOnlyClosedPulsed = document.querySelector('[data-today-section="closed_questions"]')?.classList.contains("pulse") === true;
+    const answerOnlyReturn = {
+      ok: answerOnlyImport.ok === true,
+      answeredQuestions: answerOnlyImport.receipt?.answeredQuestions || 0,
+      refreshableReviewCards: answerOnlyImport.receipt?.refreshableReviewCards || 0,
+      returnedWorkText: answerOnlyReturnedWorkText,
+      returnedWorkButtons: answerOnlyReturnedWorkButtons,
+      closedPulsed: answerOnlyClosedPulsed
+    };
+    window.learningCompanionNative.importWorkspaceJson(answerOnlyRestoreJson);
+    document.querySelector('[data-tab="today"]').click();
     return {
       zeroFocusFacts,
       emptyTodayText,
@@ -3564,6 +3620,7 @@ try {
       afterAnswerRefresh,
       afterAnswerEvidence,
       afterAnswerReopen,
+      answerOnlyReturn,
       errors: window.__questionFlowErrors
     };
   })()`);
@@ -3659,6 +3716,11 @@ try {
   assert.equal(questionFlow.afterAnswerImport.answerCaptureLinked, true);
   assert.match(questionFlow.afterAnswerImport.receiptText, /1 question resolved/);
   assert.match(questionFlow.afterAnswerImport.receiptText, /1 card ready to refresh/);
+  assert.match(questionFlow.afterAnswerImport.returnedWorkText, /Returned from phone\/Windows/);
+  assert.match(questionFlow.afterAnswerImport.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
+  assert.match(questionFlow.afterAnswerImport.returnedWorkText, /1 card ready to refresh/);
+  assert.deepEqual(questionFlow.afterAnswerImport.returnedWorkButtons, ["View captures", "Refresh cards", "Import details", "Dismiss"]);
+  assert.equal(questionFlow.afterAnswerImport.returnedWorkClosedPulsed, true);
   assert.equal(questionFlow.afterAnswerImport.closedQuestionCards, 1);
   assert.deepEqual(
     questionFlow.afterAnswerImport.closedCardButtons.find((button) => button.text === "Refresh card"),
@@ -3687,6 +3749,13 @@ try {
   assert.equal(questionFlow.afterAnswerReopen.closedQuestionCards, 0);
   assert.equal(questionFlow.afterAnswerReopen.openQuestionCards, 1);
   assert.match(questionFlow.afterAnswerReopen.focusFacts, /1 open/);
+  assert.equal(questionFlow.answerOnlyReturn.ok, true);
+  assert.equal(questionFlow.answerOnlyReturn.answeredQuestions, 1);
+  assert.equal(questionFlow.answerOnlyReturn.refreshableReviewCards, 0);
+  assert.match(questionFlow.answerOnlyReturn.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
+  assert.doesNotMatch(questionFlow.answerOnlyReturn.returnedWorkText, /card ready to refresh/);
+  assert.deepEqual(questionFlow.answerOnlyReturn.returnedWorkButtons, ["View captures", "View closed questions", "Import details", "Dismiss"]);
+  assert.equal(questionFlow.answerOnlyReturn.closedPulsed, true);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     // Keep this bridge-heavy scenario isolated from the later mobile layout smoke.
