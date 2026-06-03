@@ -30,6 +30,7 @@ import { buildMorningDeterminismReport } from "./morning-determinism-check.mjs";
 import { buildAdversarialGateReport } from "./adversarial-gate-check.mjs";
 
 const OUT_DIR = process.env.MORNING_DEMO_OUT_DIR || "dist/morning-demo";
+const SKIP_CLEAN = process.env.MORNING_DEMO_SKIP_CLEAN === "1";
 const MIRROR_DIR = join(OUT_DIR, "mirror-folder");
 const FEISHU_UPLOAD_DIR = join(OUT_DIR, "feishu-upload");
 const PATCH_DIR = join(OUT_DIR, "patches");
@@ -353,7 +354,7 @@ const reviewConflictResult = applyReviewProgressPatch(demoWorkspace, {
 assert.equal(reviewConflictResult.receipt.applied, 0);
 assert.equal(reviewConflictResult.receipt.skippedConflict, 1);
 
-await rm(OUT_DIR, { recursive: true, force: true });
+if (!SKIP_CLEAN) await rm(OUT_DIR, { recursive: true, force: true });
 await mkdir(MIRROR_DIR, { recursive: true });
 await mkdir(PATCH_DIR, { recursive: true });
 
@@ -386,7 +387,8 @@ await writeFile(join(OUT_DIR, sampleMirrorZipFile), Buffer.from(mirrorZip.data))
 await writeJson(join(PATCH_DIR, SAMPLE_MOBILE_INBOX_PATCH_FILE), mobileInboxPatch);
 await writeJson(join(PATCH_DIR, SAMPLE_REVIEW_PROGRESS_PATCH_FILE), reviewProgressPatch);
 const feishuUploadResult = materializeMirrorBundle(mirrorBundle, FEISHU_UPLOAD_DIR, {
-  plan: feishuUploadPlan
+  plan: feishuUploadPlan,
+  force: SKIP_CLEAN
 });
 const feishuUploadReport = buildFeishuUploadDryRunReport(feishuUploadPlan, join(FEISHU_UPLOAD_DIR, "files"), {
   generatedAt: mirrorBundle.exportedAt
