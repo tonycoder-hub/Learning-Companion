@@ -147,6 +147,7 @@ assert.match(appJs, /Time kept @/);
 assert.match(appJs, /todayDraftSourceMeta/);
 assert.match(appJs, /todayDraftSourceDetail/);
 assert.match(appJs, /Draft began on/);
+assert.match(appJs, /redundantKinds = \["capture", "continue"\]/);
 assert.match(appJs, /data-today-section/);
 assert.match(appJs, /captureContextOpenLabel/);
 assert.match(appJs, /captureIsQuoteOnly/);

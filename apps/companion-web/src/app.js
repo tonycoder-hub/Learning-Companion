@@ -2299,10 +2299,11 @@ function renderFocusBrief() {
 }
 
 function shouldCompressSidecarFocusBrief(brief, draft) {
-  // In sidecar, the rail plus Quick Capture already cover plain capture-ready state.
+  // In sidecar, the rail plus source strip and Quick Capture already cover plain source/capture-ready states.
   const warnings = Array.isArray(brief.warnings) ? brief.warnings : [];
+  const redundantKinds = ["capture", "continue"];
   return uiPrefs.sidecarLayout
-    && brief.nextAction.kind === "capture"
+    && redundantKinds.includes(brief.nextAction.kind)
     && !hasCaptureDraft(draft)
     && !warnings.length;
 }

@@ -67,7 +67,7 @@ What changed in this continuation:
 - Captures with generated note blocks now show `In Notes`, and the button becomes `Update note`; browser smoke verifies the marker block remains idempotent.
 - Note activities now complete the durable-notes loop: `View note` switches Notes to preview, scrolls/pulses/focuses the generated capture block, and the preview hides only valid paired system markers. Unbalanced or hand-pasted marker text remains visible and cannot swallow following user notes.
 - Sidecar activity now treats Quick Capture and quote-only highlight annotation as stay-in-place targets: the strip shows `Capture` or `Resume` for Quick Capture, `Add thought` for fresh highlights, and does not leave compact sidecar for those paths. Saved capture/detail actions still use `Exit + ...` when they need hidden panels. Mira returned `PASS_WITH_NOTES`; accepted helper centralization and simpler aria copy, rejected `lastActivity` rehydration because activity is not persisted.
-- Focused sidecar now suppresses the redundant Focus Brief card when Source/Capture/Loop already says the only next step is plain capture. This keeps the reading screen to rail + Quick Capture + Notes, while drafts, warnings, due review, questions, synthesis, and other loop work still bring Focus Brief back.
+- Focused sidecar now suppresses the redundant Focus Brief card when Source/Capture/Loop already says the only next step is plain capture or source continue. This keeps the reading screen to rail + Quick Capture + Notes, while drafts, warnings, due review, questions, synthesis, and other loop work still bring Focus Brief back.
 
 External review / critique absorbed:
 
