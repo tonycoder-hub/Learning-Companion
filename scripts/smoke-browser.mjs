@@ -2493,7 +2493,11 @@ try {
     timestamp: document.querySelector("#timestampInput").value,
     tags: document.querySelector("#tagsInput").value,
     sourceTitle: document.querySelector("#sourceTitleInput").value,
-    sourceUrl: document.querySelector("#sourceUrlInput").value
+    sourceUrl: document.querySelector("#sourceUrlInput").value,
+    answerContextHidden: document.querySelector("#answerContext").hidden,
+    answerContextTitle: document.querySelector("#answerContextTitle").textContent,
+    answerQuestionPreview: document.querySelector("#answerQuestionPreview").textContent,
+    answerContextText: document.querySelector("#answerContextText").textContent
   }))()`);
 
   assert.equal(inboxAnswerRuntime.status, "Answer draft loaded from mirror link.");
@@ -2505,17 +2509,52 @@ try {
   assert.equal(inboxAnswerRuntime.tags, "question, answer");
   assert.equal(inboxAnswerRuntime.sourceTitle, "Mirror question preview");
   assert.equal(inboxAnswerRuntime.sourceUrl, "");
+  assert.equal(inboxAnswerRuntime.answerContextHidden, false);
+  assert.equal(inboxAnswerRuntime.answerContextTitle, "You're answering a question from this mirror");
+  assert.equal(inboxAnswerRuntime.answerQuestionPreview, "What should I answer from the mirror?");
+  assert.equal(inboxAnswerRuntime.answerContextText, "Your answer will be saved to a return file you move back to Mac.");
   const inboxAnswerPatchRuntime = await cdp.evaluate(`(() => {
     document.querySelector("#addCaptureBtn").click();
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
     const capture = preview.captures.find((item) => item.quote === "What should I answer from the mirror?");
     return {
       status: document.querySelector("#statusOutput").textContent,
-      answersQuestionCaptureId: capture?.answersQuestionCaptureId || ""
+      answersQuestionCaptureId: capture?.answersQuestionCaptureId || "",
+      answerContextHidden: document.querySelector("#answerContext").hidden,
+      answerContextTitle: document.querySelector("#answerContextTitle").textContent,
+      answerQuestionPreview: document.querySelector("#answerQuestionPreview").textContent,
+      answerContextText: document.querySelector("#answerContextText").textContent
     };
   })()`);
-  assert.equal(inboxAnswerPatchRuntime.status, "Capture added to return draft. Save the return file when ready.");
+  assert.equal(inboxAnswerPatchRuntime.status, "Answer captured in return draft. Save the return file when ready.");
   assert.equal(inboxAnswerPatchRuntime.answersQuestionCaptureId, "capture_question_runtime");
+  assert.equal(inboxAnswerPatchRuntime.answerContextHidden, false);
+  assert.equal(inboxAnswerPatchRuntime.answerContextTitle, "Answer captured in this return draft");
+  assert.equal(inboxAnswerPatchRuntime.answerQuestionPreview, "What should I answer from the mirror?");
+  assert.equal(inboxAnswerPatchRuntime.answerContextText, "Save or copy the return file to move it back to Mac.");
+
+  const longAnswerQuote = `Can this preview escape <script>alert("x")</script> & keep a bounded question preview ${"x".repeat(300)}`;
+  const escapedAnswerParams = new URLSearchParams({
+    topicId: inboxRuntime.selectedTopicId,
+    quote: longAnswerQuote,
+    thought: "Answer:",
+    answerToCaptureId: "capture_question_escape_runtime",
+    sourceTitle: "Escaped mirror question"
+  });
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html?${escapedAnswerParams}` });
+  await sleep(300);
+  const escapedAnswerRuntime = await cdp.evaluate(`(() => ({
+    hidden: document.querySelector("#answerContext").hidden,
+    previewText: document.querySelector("#answerQuestionPreview").textContent,
+    previewHtml: document.querySelector("#answerQuestionPreview").innerHTML,
+    quoteField: document.querySelector("#quoteInput").value
+  }))()`);
+  assert.equal(escapedAnswerRuntime.hidden, false);
+  assert.equal(escapedAnswerRuntime.quoteField, longAnswerQuote);
+  assert.ok(escapedAnswerRuntime.previewText.length <= 120);
+  assert.match(escapedAnswerRuntime.previewText, /^Can this preview escape/);
+  assert.equal(escapedAnswerRuntime.previewHtml.includes("<script>"), false);
+  assert.match(escapedAnswerRuntime.previewHtml, /&lt;script&gt;/);
 
   const hostileMirrorQuote = `Can inbox prefill keep <script>alert("x")</script> & #hash ?q=1 emoji 😀 RTL שלום ${"x".repeat(1024)}?`;
   const hostileInboxParams = new URLSearchParams({
@@ -2534,7 +2573,9 @@ try {
       status: document.querySelector("#statusOutput").textContent,
       selectedTopicId: document.querySelector("#topicSelect").value,
       quoteField: document.querySelector("#quoteInput").value,
-      sourceUrlField: document.querySelector("#sourceUrlInput").value
+      sourceUrlField: document.querySelector("#sourceUrlInput").value,
+      answerContextHidden: document.querySelector("#answerContext").hidden,
+      answerContextText: document.querySelector("#answerContext").textContent
     };
     document.querySelector("#addCaptureBtn").click();
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
@@ -2557,6 +2598,8 @@ try {
   assert.equal(hostileInboxRuntime.preAdd.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.preAdd.quoteField, hostileMirrorQuote);
   assert.equal(hostileInboxRuntime.preAdd.sourceUrlField, "");
+  assert.equal(hostileInboxRuntime.preAdd.answerContextHidden, true);
+  assert.doesNotMatch(hostileInboxRuntime.preAdd.answerContextText, /question from this mirror/);
   assert.equal(hostileInboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
   assert.equal(hostileInboxRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.quoteField, "");
