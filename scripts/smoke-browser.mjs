@@ -1339,6 +1339,7 @@ try {
     setValue("#thoughtInput", "Question: How should the phone answer this mirror question?");
     setValue("#timestampInput", "10:24");
     document.querySelector("#captureBtn").click();
+    const answerMirrorWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
     document.querySelector('[data-tab="export"]').click();
     const answerMirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const answerMirrorIndexHtml = answerMirror.files.find((file) => file.path === "index.html")?.content || "";
@@ -1826,6 +1827,7 @@ try {
           mirrorIndexHtml: restoredMirror.files.find((file) => file.path === "index.html")?.content || "",
           answerMirrorIndexHtml,
           answerMirrorWorkspaceRestored,
+          answerMirrorWorkspaceJson,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceReturnBaseFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("Return-ready mirror") && file.content.includes("data-reveal") && file.content.includes("returnBaseFingerprint") && file.content.includes("Content-Security-Policy")),
@@ -2413,6 +2415,7 @@ try {
   assert.equal(mirrorSaveReceipt.mirrorExportLeaksHandoff, false);
 
   const exceptionsBeforeMirrorIndexClick = exceptions.length;
+  const workspaceBeforeMirrorAnswerReturnImport = await cdp.evaluate(`window.learningCompanionNative.exportWorkspaceJson()`);
   assert.match(result.answerMirrorIndexHtml, /1 open question/);
   virtualRoutes.set("/mirror-index.html", result.answerMirrorIndexHtml);
   virtualRoutes.set("/inbox.html", result.answerMirrorInboxHtml);
@@ -2429,28 +2432,48 @@ try {
     return state;
   })()`);
   await sleep(300);
-  const mirrorIndexAnswerLanding = await cdp.evaluate(`(() => ({
-    path: window.location.pathname,
-    search: window.location.search,
-    answerToCaptureId: new URLSearchParams(window.location.search).get("answerToCaptureId") || "",
-    answerContextHidden: document.querySelector("#answerContext")?.hidden,
-    quoteLabel: document.querySelector("#quoteLabel")?.textContent || "",
-    thoughtLabel: document.querySelector("#thoughtLabel")?.textContent || "",
-    quotePlaceholder: document.querySelector("#quoteInput")?.placeholder || "",
-    thoughtPlaceholder: document.querySelector("#thoughtInput")?.placeholder || "",
-    quoteReadOnly: document.querySelector("#quoteInput")?.readOnly === true,
-    thoughtReadOnly: document.querySelector("#thoughtInput")?.readOnly === true,
-    thoughtDisabled: document.querySelector("#thoughtInput")?.disabled === true,
-    answerValueAfterInput: (() => {
+  const mirrorIndexAnswerLanding = await cdp.evaluate(`(() => {
+    const answerToCaptureId = new URLSearchParams(window.location.search).get("answerToCaptureId") || "";
+    const beforeAdd = {
+      path: window.location.pathname,
+      search: window.location.search,
+      answerToCaptureId,
+      answerContextHidden: document.querySelector("#answerContext")?.hidden,
+      quoteLabel: document.querySelector("#quoteLabel")?.textContent || "",
+      thoughtLabel: document.querySelector("#thoughtLabel")?.textContent || "",
+      quotePlaceholder: document.querySelector("#quoteInput")?.placeholder || "",
+      thoughtPlaceholder: document.querySelector("#thoughtInput")?.placeholder || "",
+      quoteReadOnly: document.querySelector("#quoteInput")?.readOnly === true,
+      thoughtReadOnly: document.querySelector("#thoughtInput")?.readOnly === true,
+      thoughtDisabled: document.querySelector("#thoughtInput")?.disabled === true,
+      quoteAriaReadonly: document.querySelector("#quoteInput")?.getAttribute("aria-readonly") || "",
+      preview: document.querySelector("#answerQuestionPreview")?.textContent || ""
+    };
+    const answerText = "Answer: route verified from mirror home and ready for Mac import.";
+    const answerValueAfterInput = (() => {
       const field = document.querySelector("#thoughtInput");
       if (!field) return "";
-      field.value = "Answer: route verified from mirror home.";
+      field.value = answerText;
       field.dispatchEvent(new Event("input", { bubbles: true }));
       return field.value;
-    })(),
-    quoteAriaReadonly: document.querySelector("#quoteInput")?.getAttribute("aria-readonly") || "",
-    preview: document.querySelector("#answerQuestionPreview")?.textContent || ""
-  }))()`);
+    })();
+    document.querySelector("#addCaptureBtn").click();
+    const patch = JSON.parse(document.querySelector("#patchPreview").textContent);
+    const capture = patch.captures.find((item) => item.answersQuestionCaptureId === answerToCaptureId) || {};
+    return {
+      ...beforeAdd,
+      answerValueAfterInput,
+      patchJson: JSON.stringify(patch),
+      patchSchema: patch.schema || "",
+      patchCaptureCount: patch.captures.length,
+      patchThought: capture.thought || "",
+      patchAnswersQuestionCaptureId: capture.answersQuestionCaptureId || "",
+      postAddStatus: document.querySelector("#statusOutput")?.textContent || "",
+      postAddQuoteLabel: document.querySelector("#quoteLabel")?.textContent || "",
+      postAddThoughtLabel: document.querySelector("#thoughtLabel")?.textContent || "",
+      postAddAnswerContextTitle: document.querySelector("#answerContextTitle")?.textContent || ""
+    };
+  })()`);
   assert.equal(exceptions.length, exceptionsBeforeMirrorIndexClick);
   assert.equal(result.answerMirrorWorkspaceRestored, true);
   assert.equal(mirrorIndexAnswerClick.heading, "Learning Companion Mirror");
@@ -2467,9 +2490,79 @@ try {
   assert.equal(mirrorIndexAnswerLanding.quoteReadOnly, true);
   assert.equal(mirrorIndexAnswerLanding.thoughtReadOnly, false);
   assert.equal(mirrorIndexAnswerLanding.thoughtDisabled, false);
-  assert.equal(mirrorIndexAnswerLanding.answerValueAfterInput, "Answer: route verified from mirror home.");
+  assert.equal(mirrorIndexAnswerLanding.answerValueAfterInput, "Answer: route verified from mirror home and ready for Mac import.");
   assert.equal(mirrorIndexAnswerLanding.quoteAriaReadonly, "true");
   assert.notEqual(mirrorIndexAnswerLanding.preview, "");
+  assert.equal(mirrorIndexAnswerLanding.patchSchema, "learning-companion.mobile-inbox-patch.v1");
+  assert.equal(mirrorIndexAnswerLanding.patchCaptureCount, 1);
+  assert.equal(mirrorIndexAnswerLanding.patchThought, "Answer: route verified from mirror home and ready for Mac import.");
+  assert.equal(mirrorIndexAnswerLanding.patchAnswersQuestionCaptureId, mirrorIndexAnswerLanding.answerToCaptureId);
+  assert.equal(mirrorIndexAnswerLanding.postAddStatus, "Answer captured in return draft. Save the return file when ready.");
+  assert.equal(mirrorIndexAnswerLanding.postAddQuoteLabel, "Quote");
+  assert.equal(mirrorIndexAnswerLanding.postAddThoughtLabel, "Thought");
+  assert.equal(mirrorIndexAnswerLanding.postAddAnswerContextTitle, "Answer captured in this return draft");
+
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
+  const mirrorAnswerReturnImport = await cdp.evaluate(`(() => {
+    const answerWorkspace = ${JSON.stringify(result.answerMirrorWorkspaceJson)};
+    const answerPatch = ${JSON.stringify(mirrorIndexAnswerLanding.patchJson)};
+    const expectedAnswerTargetId = ${JSON.stringify(mirrorIndexAnswerLanding.answerToCaptureId)};
+    const restoreResult = window.learningCompanionNative.importWorkspaceJson(answerWorkspace);
+    const importResult = window.learningCompanionNative.importWorkspaceJson(answerPatch);
+    const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const activeSession = workspace.sessions.find((session) => session.id === workspace.activeSessionId) || workspace.sessions[0];
+    const answerCapture = activeSession?.captures.find((capture) => capture.thought === "Answer: route verified from mirror home and ready for Mac import.") || {};
+    const questionCapture = activeSession?.captures.find((capture) => capture.id === answerCapture.answersQuestionCaptureId) || {};
+    const returnedWorkCard = document.querySelector(".returned-work-card");
+    return {
+      restoreOk: restoreResult.ok === true,
+      importOk: importResult.ok === true,
+      importKind: importResult.kind || "",
+      importedAdded: importResult.receipt?.added || 0,
+      importedAnsweredQuestions: importResult.receipt?.answeredQuestions || 0,
+      answerCaptureLinked: answerCapture.answersQuestionCaptureId === expectedAnswerTargetId,
+      answerTargetId: answerCapture.answersQuestionCaptureId || "",
+      questionId: questionCapture.id || "",
+      questionThought: questionCapture.thought || "",
+      questionResolved: Boolean(questionCapture.questionResolvedAt),
+      questionParked: Boolean(questionCapture.questionParkedAt),
+      returnedWorkText: returnedWorkCard?.textContent || "",
+      returnedWorkButtons: Array.from(returnedWorkCard?.querySelectorAll("button") || []).map((button) => button.textContent),
+      closedQuestionsText: document.querySelector('[data-today-section="closed_questions"]')?.textContent || ""
+    };
+  })()`);
+  assert.equal(mirrorAnswerReturnImport.restoreOk, true);
+  assert.equal(mirrorAnswerReturnImport.importOk, true);
+  assert.equal(mirrorAnswerReturnImport.importKind, "mobile-inbox-patch");
+  assert.equal(mirrorAnswerReturnImport.importedAdded, 1);
+  assert.equal(mirrorAnswerReturnImport.importedAnsweredQuestions, 1);
+  assert.equal(mirrorAnswerReturnImport.answerCaptureLinked, true);
+  assert.equal(mirrorAnswerReturnImport.answerTargetId, mirrorIndexAnswerLanding.answerToCaptureId);
+  assert.equal(mirrorAnswerReturnImport.questionId, mirrorIndexAnswerLanding.answerToCaptureId);
+  assert.equal(mirrorAnswerReturnImport.questionThought, "Question: How should the phone answer this mirror question?");
+  assert.equal(mirrorAnswerReturnImport.questionResolved, true);
+  assert.equal(mirrorAnswerReturnImport.questionParked, false);
+  assert.match(mirrorAnswerReturnImport.returnedWorkText, /Returned from phone\/Windows/);
+  assert.match(mirrorAnswerReturnImport.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
+  assert.equal(mirrorAnswerReturnImport.returnedWorkButtons.includes("View closed questions"), true);
+  assert.match(mirrorAnswerReturnImport.closedQuestionsText, /Closed Today/);
+  const mirrorAnswerReturnRestore = await cdp.evaluate(`(() => {
+    const restoreResult = window.learningCompanionNative.importWorkspaceJson(${JSON.stringify(workspaceBeforeMirrorAnswerReturnImport)});
+    document.querySelector('[data-tab="today"]')?.click();
+    const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const closedQuestionCount = workspace.sessions.reduce((count, session) => (
+      count + session.captures.filter((capture) => capture.questionResolvedAt).length
+    ), 0);
+    return {
+      ok: restoreResult.ok === true,
+      activeTitle: document.querySelector("#sessionTitle")?.value || "",
+      closedQuestionCount
+    };
+  })()`);
+  assert.equal(mirrorAnswerReturnRestore.ok, true);
+  assert.equal(mirrorAnswerReturnRestore.activeTitle, result.restoredTitle);
+  assert.equal(mirrorAnswerReturnRestore.closedQuestionCount, 0);
 
   const exceptionsBeforeReviewRuntime = exceptions.length;
   virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);
