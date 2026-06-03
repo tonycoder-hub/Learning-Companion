@@ -4672,7 +4672,8 @@ function focusQuickCaptureFromStart() {
     targetId: ""
   });
   persistAndRender();
-  dom.quoteInput.focus();
+  dom.thoughtInput.focus();
+  dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
   pulseNode(dom.capturePane);
 }
 

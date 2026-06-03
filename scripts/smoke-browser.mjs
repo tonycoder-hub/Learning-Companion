@@ -269,7 +269,7 @@ try {
     { action: "clipper", text: "Set up page clipper" }
   ]);
   assert.equal(firstRun.activeTab, "captures");
-  assert.equal(firstRun.activeElement, "quoteInput");
+  assert.equal(firstRun.activeElement, "thoughtInput");
   assert.equal(firstRun.capturePanePulsed, true);
   assert.equal(firstRun.activity, "Ready to capture");
   await sleep(50);
