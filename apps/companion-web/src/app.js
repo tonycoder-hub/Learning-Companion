@@ -305,14 +305,80 @@ async function readImportFile(file) {
   if (file.size > MAX_MIRROR_BUNDLE_BYTES) {
     throw new Error("Import file is too large");
   }
-  const imported = JSON.parse(await file.text());
-  if (isMobileInboxPatchLike(imported) && file.size > MAX_INBOX_PATCH_BYTES) {
+  return parseImportText(await file.text(), file.size);
+}
+
+function parseImportText(text, byteSize = new Blob([String(text || "")]).size) {
+  if (byteSize > MAX_MIRROR_BUNDLE_BYTES) {
+    throw new Error("Import payload is too large");
+  }
+  const rawText = String(text || "");
+  if (!rawText.trim()) {
+    throw new Error("Import payload is empty.");
+  }
+  let imported;
+  try {
+    imported = JSON.parse(rawText);
+  } catch {
+    throw new Error("Import payload is not valid JSON.");
+  }
+  if (isMobileInboxPatchLike(imported) && byteSize > MAX_INBOX_PATCH_BYTES) {
     throw new Error("Mobile inbox patch is too large.");
   }
-  if (isReviewProgressPatchLike(imported) && file.size > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
+  if (isReviewProgressPatchLike(imported) && byteSize > MAX_REVIEW_PROGRESS_PATCH_BYTES) {
     throw new Error("Review progress patch is too large.");
   }
   return imported;
+}
+
+async function pasteReturnFileFromClipboard() {
+  if (!navigator.clipboard?.readText) {
+    const message = "Clipboard is unavailable. Use Import Return Files or Manual Copy.";
+    recordImportFailure(message, "clipboard");
+    showToast("Clipboard unavailable");
+    focusReturnFilesPanel();
+    return;
+  }
+  const button = document.querySelector('[data-return-files-step="paste"]');
+  const previousLabel = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "...";
+  }
+  try {
+    let text;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      throw new Error("Clipboard permission blocked. Use Import Return Files or Manual Copy.");
+    }
+    if (!String(text || "").trim()) {
+      throw new Error("Clipboard is empty. Copy an inbox or review return file, then use Paste Return File.");
+    }
+    let imported;
+    try {
+      imported = parseImportText(text);
+    } catch (error) {
+      if (error.message === "Import payload is not valid JSON.") {
+        throw new Error("Clipboard text is not valid JSON. Copy an inbox or review return file, then use Paste Return File.");
+      }
+      throw error;
+    }
+    if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
+      throw new Error("Clipboard does not contain an inbox or review return file. Use Import Return Files for full workspace files.");
+    }
+    importPortableData(imported);
+  } catch (error) {
+    const message = error.message || "Paste return file failed";
+    recordImportFailure(message, "clipboard");
+    showToast(message);
+    focusReturnFilesPanel();
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = previousLabel;
+    }
+  }
 }
 
 async function importReturnFiles(files) {
@@ -4675,7 +4741,7 @@ function renderReturnFilesPanel() {
     "Export mirror on this Mac.",
     "Transfer it yourself through USB, AirDrop, email, or any file share, including a manual Feishu Drive upload.",
     "On phone or Windows, open inbox.html or review.html and save inbox/review return files.",
-    "Back on this Mac, import one or many return files at once."
+    "Back on this Mac, import return files or paste a copied return file."
   ].forEach((step) => {
     steps.append(textEl("li", "", step));
   });
@@ -4686,11 +4752,15 @@ function renderReturnFilesPanel() {
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
+  const pasteReturn = textEl("button", "mini-button", "Paste Return File");
+  pasteReturn.type = "button";
+  pasteReturn.dataset.returnFilesStep = "paste";
+  pasteReturn.addEventListener("click", pasteReturnFileFromClipboard);
   const exportMirror = textEl("button", "mini-button", "Export Mirror");
   exportMirror.type = "button";
   exportMirror.dataset.returnFilesStep = "export";
   exportMirror.addEventListener("click", openReturnFilesMirrorExport);
-  footer.append(exportMirror, importPatch);
+  footer.append(exportMirror, importPatch, pasteReturn);
   panel.append(summary, detail, handoffState, steps, boundary, footer);
   return panel;
 }

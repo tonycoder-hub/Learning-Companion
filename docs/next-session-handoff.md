@@ -123,6 +123,7 @@ What changed in this continuation:
 - Static mirror `index.html` now puts `Next from this export` before the general Today/Review/Inbox/Restore entry grid, so the phone/Windows home page leads with a recommendation instead of a choice grid. Browser smoke opens that generated page at 390px and checks no horizontal overflow, next-before-entry order, and full-width entry links.
 - Static Review/Inbox now have storage-failure paths: if `localStorage` get/set fails, each page keeps the current return patch in memory, keeps the preview usable, and tells the user to use Manual Copy or Save before closing. Browser smoke blocks `localStorage` before loading both static return pages and verifies Review grading plus Inbox Add Capture still produce valid return patches; it also forces clipboard and save-picker fallback failure so the visible JSON preview is selected for manual copy.
 - The Review storage-failure browser fixture now uses a dedicated two-due-card static Review page generated through the real model path, so blocked persistence is covered for multiple in-memory review events in one return patch.
+- Mac Return Files now supports `Paste Return File` for copied static return JSON. It is user-triggered, accepts only inbox/review return files, rejects full workspace JSON in that panel with an `Import Return Files` hint, gives distinct empty/blocked/non-JSON clipboard receipts, and reuses the same import receipt/rejoin path as file import without scanning Downloads.
 
 External review / critique absorbed:
 

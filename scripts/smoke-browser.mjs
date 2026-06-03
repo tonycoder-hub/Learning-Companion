@@ -2015,14 +2015,14 @@ try {
   assert.match(result.handoffText, /USB, AirDrop, email, or any file share/);
   assert.match(result.handoffText, /manual Feishu Drive upload/);
   assert.match(result.handoffText, /On phone or Windows, open inbox\.html or review\.html and save inbox\/review return files/);
-  assert.match(result.handoffText, /Back on this Mac, import one or many return files at once/);
+  assert.match(result.handoffText, /Back on this Mac, import return files or paste a copied return file/);
   assert.match(result.handoffText, /No live Feishu sync/);
   assert.match(result.handoffText, /No mirror exported yet/);
   assert.match(result.handoffText, /Last return imported/);
   assert.match(result.handoffText, /2 files/);
   assert.match(result.handoffText, /1 new/);
   assert.match(result.handoffText, /2 older return files from previous mirror export - re-export mirror before next device pass/);
-  assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files"]);
+  assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files", "Paste Return File"]);
   assert.deepEqual(result.handoffExportOpened, {
     activeTab: "export",
     activeElement: "downloadMirrorBtn",
@@ -4926,6 +4926,7 @@ try {
   assert.ok(mobileLayout.timeForwardWidth >= 44);
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
+  await assertPasteReturnFileFromClipboard(cdp);
   await assertPostSaveFlow(cdp);
   await assertSidecarHighlightActivity(cdp);
   await cdp.close();
@@ -4937,6 +4938,150 @@ try {
   if (cleanupSmokeArtifacts) {
     rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+}
+
+async function assertPasteReturnFileFromClipboard(cdp) {
+  const pasteReturn = await cdp.evaluate(`(async () => {
+    const beforeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const beforeWorkspace = JSON.parse(beforeWorkspaceJson);
+    const targetSession = beforeWorkspace.sessions.find((item) => item.id === beforeWorkspace.activeSessionId)
+      || beforeWorkspace.sessions[0];
+    const setClipboard = (text) => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          readText: async () => text,
+          writeText: async () => {}
+        }
+      });
+    };
+    const blockClipboard = () => {
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          readText: async () => { throw new Error("blocked by smoke"); },
+          writeText: async () => {}
+        }
+      });
+    };
+    const clickPaste = async () => {
+      document.querySelector('[data-return-files-step="paste"]')?.click();
+      await new Promise((resolve) => setTimeout(resolve, 160));
+      return document.querySelector("#importReceipt").textContent;
+    };
+    const inboxPatch = {
+      schema: "learning-companion.mobile-inbox-patch.v1",
+      appVersion: 1,
+      patchId: "browser_clipboard_patch_001",
+      createdAt: "2026-06-03T23:20:00+08:00",
+      source: {
+        generatedBy: "inbox.html",
+        workspaceFingerprint: "browser-clipboard",
+        topicId: targetSession.id,
+        topicTitle: targetSession.title
+      },
+      target: {
+        topicId: targetSession.id,
+        topicTitle: targetSession.title
+      },
+      captures: [{
+        id: "browser_clipboard_capture_001",
+        quote: "Clipboard return file capture.",
+        thought: "Paste Return File should import copied JSON without creating a download.",
+        timestamp: "23:20",
+        sourceTitle: "Clipboard return smoke",
+        sourceUrl: "https://example.com/clipboard-return",
+        materialType: "doc",
+        tags: "clipboard return",
+        capturedAt: "2026-06-03T23:20:30+08:00"
+      }]
+    };
+    let result = {};
+    try {
+      document.querySelector('[data-tab="today"]').click();
+      setClipboard(JSON.stringify(inboxPatch));
+      await clickPaste();
+      const afterSuccessJson = window.learningCompanionNative.exportWorkspaceJson();
+      const afterSuccess = JSON.parse(afterSuccessJson);
+      const sessionAfterSuccess = afterSuccess.sessions.find((item) => item.id === afterSuccess.activeSessionId);
+      const pastedCapture = sessionAfterSuccess?.captures.find((capture) => capture.inboxPatchId === "browser_clipboard_patch_001");
+      const successReceipt = document.querySelector("#importReceipt").textContent;
+      const successActivity = {
+        title: document.querySelector("#activityTitle").textContent,
+        detail: document.querySelector("#activityDetail").textContent
+      };
+      const successHandoff = document.querySelector(".handoff-card");
+      setClipboard(beforeWorkspaceJson);
+      const workspaceRejectionReceipt = await clickPaste();
+      const afterRejected = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      const sessionAfterRejected = afterRejected.sessions.find((item) => item.id === afterRejected.activeSessionId);
+      setClipboard("{ broken clipboard json");
+      const malformedReceipt = await clickPaste();
+      setClipboard("   ");
+      const emptyReceipt = await clickPaste();
+      blockClipboard();
+      const blockedReceipt = await clickPaste();
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([beforeWorkspaceJson], "learning-companion-workspace.json", { type: "application/json" }));
+      const importInput = document.querySelector("#importWorkspaceInput");
+      importInput.files = transfer.files;
+      importInput.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 160));
+      const afterFileImport = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      const fileImportedSession = afterFileImport.sessions.find((item) => item.id === afterFileImport.activeSessionId);
+      result = {
+        buttonTexts: [...document.querySelectorAll(".handoff-card button")].map((button) => button.textContent),
+        success: {
+          pastedQuote: pastedCapture?.quote || "",
+          pastedThought: pastedCapture?.thought || "",
+          importedPatch: afterSuccess.importedPatches.includes("browser_clipboard_patch_001"),
+          receipt: successReceipt,
+          activity: successActivity,
+          handoffOpen: successHandoff?.open === true
+        },
+        rejection: {
+          workspaceReceipt: workspaceRejectionReceipt,
+          malformedReceipt,
+          emptyReceipt,
+          blockedReceipt,
+          pastedCaptureStillPresent: Boolean(sessionAfterRejected?.captures.find((capture) => capture.inboxPatchId === "browser_clipboard_patch_001")),
+          importedPatchStillPresent: afterRejected.importedPatches.includes("browser_clipboard_patch_001"),
+          captureCountUnchanged: sessionAfterRejected?.captures.length === sessionAfterSuccess?.captures.length
+        },
+        fileWorkspaceImport: {
+          schema: afterFileImport.schema,
+          sessions: afterFileImport.sessions.length,
+          activeTitle: fileImportedSession?.title || "",
+          importedPatchRemoved: !afterFileImport.importedPatches.includes("browser_clipboard_patch_001")
+        }
+      };
+    } finally {
+      window.learningCompanionNative.importWorkspaceJson(beforeWorkspaceJson);
+    }
+    return result;
+  })()`, 15000);
+
+  assert.deepEqual(pasteReturn.buttonTexts, ["Export Mirror", "Import Return Files", "Paste Return File"]);
+  assert.equal(pasteReturn.success.pastedQuote, "Clipboard return file capture.");
+  assert.equal(pasteReturn.success.pastedThought, "Paste Return File should import copied JSON without creating a download.");
+  assert.equal(pasteReturn.success.importedPatch, true);
+  assert.match(pasteReturn.success.receipt, /Mobile inbox imported/);
+  assert.match(pasteReturn.success.receipt, /1 added/);
+  assert.equal(pasteReturn.success.activity.title, "Mobile inbox imported");
+  assert.match(pasteReturn.success.activity.detail, /1 added/);
+  assert.equal(pasteReturn.success.handoffOpen, true);
+  assert.match(pasteReturn.rejection.workspaceReceipt, /clipboard: Clipboard does not contain an inbox or review return file/);
+  assert.match(pasteReturn.rejection.workspaceReceipt, /Use Import Return Files for full workspace files/);
+  assert.match(pasteReturn.rejection.malformedReceipt, /clipboard: Clipboard text is not valid JSON/);
+  assert.match(pasteReturn.rejection.emptyReceipt, /clipboard: Clipboard is empty/);
+  assert.match(pasteReturn.rejection.blockedReceipt, /clipboard: Clipboard permission blocked/);
+  assert.equal(pasteReturn.rejection.pastedCaptureStillPresent, true);
+  assert.equal(pasteReturn.rejection.importedPatchStillPresent, true);
+  assert.equal(pasteReturn.rejection.captureCountUnchanged, true);
+  assert.equal(pasteReturn.fileWorkspaceImport.schema, "learning-companion.workspace.v1");
+  assert.ok(pasteReturn.fileWorkspaceImport.sessions >= 1);
+  assert.equal(pasteReturn.fileWorkspaceImport.activeTitle.length > 0, true);
+  assert.equal(pasteReturn.fileWorkspaceImport.importedPatchRemoved, true);
 }
 
 async function assertPostSaveFlow(cdp) {
