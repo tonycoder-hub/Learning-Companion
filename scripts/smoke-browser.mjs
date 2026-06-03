@@ -2811,6 +2811,81 @@ try {
   assert.equal(reviewStorageGuard.returnNextStep, "1 review event staged in this return file. Use Copy or Save to take it back to Mac before closing.");
   assert.match(reviewStorageGuard.returnManualHelp, /Manual Copy/);
 
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 2,
+    mobile: true
+  });
+  await sleep(120);
+  virtualRoutes.set("/mirror-review-mobile.html", result.mirrorReviewHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-mobile.html` });
+  await sleep(300);
+  const staticReviewMobile = await cdp.evaluate(`(() => {
+    const panel = document.querySelector(".progress-panel");
+    const actionButtons = Array.from(document.querySelectorAll(".progress-actions button"));
+    const gradeButtons = Array.from(document.querySelectorAll(".grade-actions button"));
+    document.querySelector('[data-reveal]')?.click();
+    return {
+      innerWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      panelWidth: Math.ceil(panel.getBoundingClientRect().width),
+      actionContainerWidth: Math.ceil(document.querySelector(".progress-actions").getBoundingClientRect().width),
+      gradeContainerWidth: Math.ceil(document.querySelector(".grade-actions").getBoundingClientRect().width),
+      actionButtons: actionButtons.map((button) => ({
+        text: button.textContent,
+        width: Math.ceil(button.getBoundingClientRect().width),
+        height: Math.ceil(button.getBoundingClientRect().height)
+      })),
+      gradeButtons: gradeButtons.map((button) => ({
+        text: button.textContent,
+        width: Math.ceil(button.getBoundingClientRect().width),
+        height: Math.ceil(button.getBoundingClientRect().height)
+      }))
+    };
+  })()`);
+  virtualRoutes.set("/mirror-inbox-mobile.html", result.mirrorInboxHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox-mobile.html` });
+  await sleep(300);
+  const staticInboxMobile = await cdp.evaluate(`(() => {
+    const panels = Array.from(document.querySelectorAll(".panel"));
+    const actionButtons = Array.from(document.querySelectorAll(".actions button"));
+    return {
+      innerWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      maxPanelWidth: Math.max(...panels.map((panel) => Math.ceil(panel.getBoundingClientRect().width))),
+      maxActionContainerWidth: Math.max(...Array.from(document.querySelectorAll(".actions")).map((actions) => Math.ceil(actions.getBoundingClientRect().width))),
+      sourceRowColumns: getComputedStyle(document.querySelector(".row")).gridTemplateColumns.split(" ").filter(Boolean).length,
+      actionButtons: actionButtons.map((button) => ({
+        text: button.textContent,
+        width: Math.ceil(button.getBoundingClientRect().width),
+        height: Math.ceil(button.getBoundingClientRect().height)
+      }))
+    };
+  })()`);
+  await cdp.send("Emulation.clearDeviceMetricsOverride");
+  await sleep(120);
+  assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
+  assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
+  assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Save Return File", "Manual Copy", "Clear Progress"]);
+  staticReviewMobile.actionButtons.forEach((button) => {
+    assert.ok(button.width >= staticReviewMobile.actionContainerWidth - 2);
+    assert.ok(button.height >= 36);
+  });
+  assert.deepEqual(staticReviewMobile.gradeButtons.map((button) => button.text), ["Again", "Good"]);
+  staticReviewMobile.gradeButtons.forEach((button) => {
+    assert.ok(button.width >= staticReviewMobile.gradeContainerWidth - 2);
+    assert.ok(button.height >= 36);
+  });
+  assert.ok(staticInboxMobile.documentWidth <= staticInboxMobile.innerWidth + 1);
+  assert.ok(staticInboxMobile.maxPanelWidth <= staticInboxMobile.innerWidth - 24);
+  assert.equal(staticInboxMobile.sourceRowColumns, 1);
+  assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.text), ["Add Capture", "Clear Form", "Copy Return File", "Save Return File", "Manual Copy", "Clear Drafts"]);
+  staticInboxMobile.actionButtons.forEach((button) => {
+    assert.ok(button.width >= staticInboxMobile.maxActionContainerWidth - 2);
+    assert.ok(button.height >= 38);
+  });
+
   const exceptionsBeforeInboxRuntime = exceptions.length;
   virtualRoutes.set("/mirror-inbox.html", result.mirrorInboxHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-inbox.html` });
