@@ -44,7 +44,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Today tab now has a Learning Flow panel before the section-map counters and denser sections. It keeps `Read source`, `Capture on Mac`, and `Close the loop` as the daily route, embeds the returning-user Next Move, makes first-run source setup/opening the primary Start Here action, leaves the device return path as a lower-frequency manual drawer, and folds heavier ledger sections into a `Study Details` drawer with count badges that section-map buttons can open.
 - Sessions, clickable capture destination context, capture intent context, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp. The Quick Capture context button now says `Resume @ time`, `Open source`, or `Set source` so the source action is visible while reading beside a browser, the empty-state intent/placeholders adapt to video moments versus doc/article/book excerpts, and local `Question`/`Answer`/`Takeaway` starter buttons plus app-focused `Cmd/Ctrl+Shift+1/2/3` shortcuts seed the Thought draft without committing data.
 - Capture-level source snapshots with source/time jump links.
-- Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action. Today draft cards surface source drift before resume, and resuming a draft focuses the continuation field instead of always returning to Quote.
+- Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action. Today draft cards surface source drift before resume, and resuming a draft focuses the continuation field instead of always returning to Quote. Draft source snapshots now include source title, URL, and material type, so a video draft saved after the current session changed to a document still commits as video until the user explicitly chooses `Use current`.
 - Quick Capture keeps a Recent Stack in the main desk so sidecar mode still shows the latest captures plus Open, Note, Review/Card, confirmed Delete, and one-step `Undo 10s` for capture deletion without reopening the inspector; delete confirmation names the capture and linked-card count, and unrelated revealed review cards stay revealed.
 - Captured question-thoughts are surfaced as Focus Brief signals and Recent Stack chips, then carried into synthesis as Open Questions.
 - Today and `TODAY.md` include an Open Questions backlog across sessions so handoff does not hide unresolved study questions inside recent captures.
@@ -153,7 +153,7 @@ npm run check:morning:browser
 
 Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, `npm run mac:build`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, smoke temp-download hygiene, save-picker export, and Mac-shell web save bridge work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, picker-vs-fallback backup copy, persistent Review/Inbox return-file next-step cues, the destination-locate action from sidecar layout, native bridge capture labels in and out of sidecar, promoted native bridge review-card labeling, click-through to the saved capture, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA. The Mac-shell bridge has SwiftPM build evidence, not manual NSSavePanel click-through QA.
 
-Latest focused browser smoke also covers three high-friction learning-flow cases: Today's `Close the loop` and `Next Move` now share one due-review > open-question > draft > parked priority contract; Return Files rejects a single mistaken workspace JSON without replacing local state while ordinary sidebar single-file restore still works; and source-drifted Quick Capture drafts commit their original source snapshot unless the user explicitly chooses `Use current`, including linked Answer drafts opened from Today questions.
+Latest focused browser smoke also covers four high-friction learning-flow cases: Today's `Close the loop` and `Next Move` now share one due-review > open-question > draft > parked priority contract; Return Files rejects a single mistaken workspace JSON without replacing local state while ordinary sidebar single-file restore still works; source-drifted Quick Capture drafts commit their original source snapshot unless the user explicitly chooses `Use current`, including linked Answer drafts opened from Today questions; and material-type drift is covered for video draft -> document session plus linked Answer from a video question while the current session is document.
 
 Tonight's no-delete validation used normal `npm run smoke` and `npm run smoke:browser` after changing smoke scripts to keep project-local `.codex-tmp/` artifacts by default; both passed while leaving their run artifacts for later review. Cleanup now requires the explicit `LC_CLEAN_SMOKE_ARTIFACTS=1` switch and was not run tonight.
 
@@ -172,6 +172,7 @@ The long browser smoke has hit a `Runtime.evaluate` timeout during extended loca
 Latest Mira status:
 
 - 2026-06-04 targeted reviews for Today priority alignment, Return Files single-file guard, and draft source snapshot commit all returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, model `re-o-47`, and mode `deep`.
+- 2026-06-04 draft material-type snapshot review returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, model `re-o-47`, and mode `deep`. The first packet was rejected locally by the broker sanitizer as `SECRET_DETECTED`; the reduced v2 packet succeeded.
 - The restricted Hermes SSH broker path was re-smoked on 2026-06-02 with `re-o-47` / `deep`: `ok=true`, `verdict=PASS_WITH_NOTES`, `logid_present=true`, and `cleanup_succeeded=true`.
 - Earlier `SSH_FAILED`/timeout notes remain historical evidence for those specific increments, not the current broker state.
 
@@ -205,6 +206,7 @@ Accepted from Mira:
 - Keep Today primary navigation and the visible loop step on one shared priority contract, so mixed states do not show conflicting next actions.
 - Keep Return Files stricter than generic restore, especially for single-file mistakes from phone/Windows handoff.
 - Commit draft source snapshots into saved captures and linked Answer captures, instead of only warning about source drift in the UI.
+- Keep draft material type with the source snapshot, so saved captures and linked Answer captures do not silently inherit the current session's type after source drift.
 
 Deferred:
 
@@ -216,14 +218,14 @@ Deferred:
 - Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
 - Add broader negative-path demo-generator assertions, such as malformed JSON and oversized patch files; browser smoke already covers visible issue receipts for those cases, while the current demo generator covers duplicate inbox patches, stale review conflicts, unsafe URL stripping, and unsupported inbox patch schema rejection.
 - Keep HarmonyOS import/patch boundary logic pure until DevEco is available; the current module is executable smoke evidence, not a native app. Open-question parity is schema-verified locally, not device-verified.
-- Snapshot draft materialType and add video-to-doc drift coverage; source URL/title correctness is fixed, but material semantics are still inherited from the current session.
+- Add reverse document-to-video drift coverage and clarify unanchored-draft material-type behavior; video-to-document drift is covered and no longer inherits the current session's type.
 - Add a synthetic canceled-picker follow-up for Return Files import mode; current browser smoke proves strict single-file guard and generic restore non-regression, not native picker cancel behavior.
 - Add telemetry or dogfood notes before making draft freshness override open questions; current priority intentionally favors unresolved questions over unfinished drafts.
 
 ## Next Best Commits
 
 1. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
-2. Snapshot draft materialType and add video-to-doc source-drift browser smoke.
+2. Add reverse document-to-video source-drift browser smoke and decide whether unanchored drafts should carry material type before a source is set.
 3. Verify `apps/companion-harmony-dev/` in DevEco Studio once SDK/project setup is available; until then keep the schema reader honest as the executable prototype.
 4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
 5. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
