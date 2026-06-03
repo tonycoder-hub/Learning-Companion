@@ -269,6 +269,9 @@ assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOC
 assert.match(manualQa, /verify the exported JSON file yourself/);
 assert.match(manualQa, /First-run First Note/);
 assert.match(manualQa, /Capture this thought focuses the Thought field/);
+assert.match(manualQa, /Ask about this stages a `Question:` draft/);
+assert.match(manualQa, /ready in Quick Capture for that source/);
+assert.match(manualQa, /link a source later to anchor them/);
 assert.doesNotMatch(manualQa, /First-run Start Here/);
 assert.doesNotMatch(manualQa, /Capture this thought focuses Quick Capture/);
 assert.match(manualQa, /Keyboard quick capture/);
