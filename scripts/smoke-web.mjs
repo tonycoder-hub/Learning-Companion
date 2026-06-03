@@ -262,7 +262,7 @@ assert.match(appCss, /\.today-detail-badge/);
 assert.match(appCss, /\.storage-notice\.update-notice/);
 assert.match(appCss, /prefers-reduced-motion: reduce/);
 assert.match(serviceWorker, /CACHE_NAME/);
-assert.match(serviceWorker, /learning-companion-static-v4/);
+assert.match(serviceWorker, /learning-companion-static-v5/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
 assert.match(serviceWorker, /src\/app\.js/);
 assert.match(serviceWorker, /await fetch\(request\)/);

@@ -189,7 +189,7 @@ const dom = {
   toast: document.querySelector("#toast")
 };
 
-// Temporary bridge for stale `learning-companion-static-v4` shells that can load newer app.js before newer HTML.
+// Temporary bridge for stale cached shells that can load newer app.js before newer HTML.
 // Keep this only until the next cache-bump cleanup proves those shells have drained.
 function installShellCompatibilityNodes() {
   if (!dom.updateNotice && dom.storageNotice?.parentElement) {
