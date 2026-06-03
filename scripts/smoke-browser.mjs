@@ -5909,6 +5909,7 @@ try {
   assert.ok(mobileLayout.timeForwardWidth >= 44);
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
+  await assertDraftSourceSnapshotCommit(cdp);
   await assertReturnFilesImportModeGuard(cdp);
   await assertPasteReturnFileFromClipboard(cdp);
   await assertPostSaveFlow(cdp);
@@ -5923,6 +5924,136 @@ try {
   if (cleanupSmokeArtifacts) {
     rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+}
+
+async function assertDraftSourceSnapshotCommit(cdp) {
+  const result = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const beforeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const beforeWorkspace = JSON.parse(beforeWorkspaceJson);
+    const baseSession = beforeWorkspace.sessions.find((item) => item.id === beforeWorkspace.activeSessionId)
+      || beforeWorkspace.sessions[0];
+    const commitSession = {
+      ...baseSession,
+      id: "draft_source_commit_flow",
+      title: "Draft source commit flow",
+      sourceTitle: "Original source",
+      sourceUrl: "https://example.com/original-source",
+      materialType: "doc",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    const importWorkspace = (session) => {
+      window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+        ...beforeWorkspace,
+        activeSessionId: session.id,
+        sessions: [session],
+        importedPatches: [],
+        importedReviewPatches: []
+      }));
+      document.querySelector('[data-tab="captures"]').click();
+    };
+    const activeCapture = () => {
+      const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId) || workspace.sessions[0];
+      return session.captures[0] || {};
+    };
+
+    importWorkspace(commitSession);
+    setValue("#sourceTitle", "Original source");
+    setValue("#sourceUrl", "https://example.com/original-source");
+    setValue("#quoteInput", "Draft should keep its original source.");
+    setValue("#thoughtInput", "This capture is saved after the session source changes.");
+    setValue("#sourceTitle", "Changed source");
+    setValue("#sourceUrl", "https://example.com/changed-source");
+    const driftStatusBeforeSave = document.querySelector("#captureDraftStatus")?.textContent || "";
+    document.querySelector("#captureBtn").click();
+    const driftSaved = activeCapture();
+
+    setValue("#sourceTitle", "Original source");
+    setValue("#sourceUrl", "https://example.com/original-source");
+    setValue("#quoteInput", "Draft should use current source after reanchor.");
+    setValue("#thoughtInput", "Use current source before saving.");
+    setValue("#sourceTitle", "Changed source");
+    setValue("#sourceUrl", "https://example.com/changed-source");
+    const reanchorVisibleBeforeClick = document.querySelector("#reanchorCaptureDraftBtn")?.hidden === false;
+    document.querySelector("#reanchorCaptureDraftBtn")?.click();
+    const reanchorStatusBeforeSave = document.querySelector("#captureDraftStatus")?.textContent || "";
+    document.querySelector("#captureBtn").click();
+    const reanchoredSaved = activeCapture();
+
+    const questionSession = {
+      ...commitSession,
+      id: "draft_source_answer_flow",
+      title: "Draft source answer flow",
+      sourceTitle: "Current changed source",
+      sourceUrl: "https://example.com/current-changed-source",
+      captures: [{
+        id: "question_original_source",
+        quote: "Question carried from original source.",
+        thought: "Question: what evidence closes this?",
+        timestamp: "02:10",
+        tags: [],
+        sourceTitle: "Question original source",
+        sourceUrl: "https://example.com/question-original-source",
+        materialType: "doc",
+        sourceProvenance: "snapshot",
+        createdAt: "2026-06-04T01:00:00.000Z",
+        capturedAt: "2026-06-04T01:00:00.000Z",
+        updatedAt: "2026-06-04T01:00:00.000Z",
+        originClientId: beforeWorkspace.clientId,
+        answersQuestionCaptureId: "",
+        questionResolvedAt: null,
+        questionParkedAt: null,
+        promotedToReview: false
+      }],
+      reviewCards: []
+    };
+    importWorkspace(questionSession);
+    document.querySelector('[data-tab="today"]').click();
+    const answerButton = [...document.querySelectorAll(".question-card button")]
+      .find((button) => button.textContent === "Answer");
+    answerButton?.click();
+    const answerPrefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const answerDraft = answerPrefs.captureDrafts?.[questionSession.id] || {};
+    setValue("#thoughtInput", "Answer: the original source shows the invariant remains stable through the proof.");
+    document.querySelector("#captureBtn").click();
+    const committedAnswer = activeCapture();
+
+    window.learningCompanionNative.importWorkspaceJson(beforeWorkspaceJson);
+    document.querySelector('[data-tab="today"]').click();
+    return {
+      driftStatusBeforeSave,
+      driftSaved,
+      reanchorVisibleBeforeClick,
+      reanchorStatusBeforeSave,
+      reanchoredSaved,
+      answerDraft,
+      committedAnswer
+    };
+  })()`);
+  assert.equal(result.driftStatusBeforeSave, "Source changed");
+  assert.equal(result.driftSaved.sourceTitle, "Original source");
+  assert.equal(result.driftSaved.sourceUrl, "https://example.com/original-source");
+  assert.equal(result.driftSaved.sourceProvenance, "snapshot");
+  assert.equal(result.reanchorVisibleBeforeClick, true);
+  assert.equal(result.reanchorStatusBeforeSave, "Draft saved");
+  assert.equal(result.reanchoredSaved.sourceTitle, "Changed source");
+  assert.equal(result.reanchoredSaved.sourceUrl, "https://example.com/changed-source");
+  assert.equal(result.reanchoredSaved.sourceProvenance, "snapshot");
+  assert.equal(result.answerDraft.sourceTitle, "Question original source");
+  assert.equal(result.answerDraft.sourceUrl, "https://example.com/question-original-source");
+  assert.equal(result.answerDraft.answersQuestionCaptureId, "question_original_source");
+  assert.equal(result.committedAnswer.sourceTitle, "Question original source");
+  assert.equal(result.committedAnswer.sourceUrl, "https://example.com/question-original-source");
+  assert.equal(result.committedAnswer.sourceProvenance, "snapshot");
+  assert.equal(result.committedAnswer.answersQuestionCaptureId, "question_original_source");
 }
 
 async function assertReturnFilesImportModeGuard(cdp) {

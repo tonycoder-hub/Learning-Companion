@@ -1430,12 +1430,21 @@ function capture(promoteToReview) {
   }
   const draft = getCaptureDraft(session.id);
   const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, dom.thoughtInput.value, { requireReviewReady: true });
+  // A draft's source snapshot wins over the current session source until the user chooses "Use current".
+  const draftSource = hasSourceSnapshot(draft)
+    ? {
+        sourceTitle: draft.sourceTitle,
+        sourceUrl: draft.sourceUrl,
+        sourceProvenance: "snapshot"
+      }
+    : {};
   workspace = addCapture(workspace, session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
     timestamp: dom.timestampInput.value,
     tags: dom.sessionTags.value,
-    answersQuestionCaptureId
+    answersQuestionCaptureId,
+    ...draftSource
   }, {
     promoteToReview: Boolean(promoteToReview),
     reviewPrompt: cloze?.prompt,
@@ -5908,7 +5917,9 @@ function answerQuestionFromToday(captureId, sessionId) {
       quote: capture.quote || capture.thought || "Question",
       thought: "Answer:",
       timestamp: capture.timestamp || "",
-      answersQuestionCaptureId: capture.id
+      answersQuestionCaptureId: capture.id,
+      sourceTitle: capture.sourceTitle || sourceSession.sourceTitle,
+      sourceUrl: capture.sourceUrl || sourceSession.sourceUrl
     });
   }
   const resumedDraft = getCaptureDraft(sourceSession.id);
