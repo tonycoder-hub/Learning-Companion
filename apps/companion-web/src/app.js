@@ -4321,8 +4321,21 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
   const returnNudge = renderReturnedWorkNudge(pack);
   if (returnNudge) panel.append(returnNudge);
   panel.append(showStartHere ? renderStartHereInline() : renderTodayPrimaryAction(pack, draftItems));
-  panel.append(renderReturnFilesPanel());
+  if (shouldShowReturnFilesPanel(showStartHere)) panel.append(renderReturnFilesPanel());
   return panel;
+}
+
+function shouldShowReturnFilesPanel(showStartHere = false) {
+  if (!showStartHere) return true;
+  const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
+  return Boolean(
+    lastImportReceipt
+    || workspace.importedPatches.length
+    || workspace.importedReviewPatches.length
+    || state?.exportedAt
+    || state?.returnBaseFingerprint
+    || state?.lastReturnImport?.importedAt
+  );
 }
 
 function renderLearningFlowStep(step) {

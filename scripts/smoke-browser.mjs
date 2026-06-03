@@ -217,6 +217,7 @@ try {
       sourceStep: panel?.querySelector('[data-learning-flow-step="source"]')?.textContent || "",
       sourceActionAria: panel?.querySelector('[data-learning-flow-step="source"] button')?.getAttribute("aria-label") || "",
       sourceWide: panel?.querySelector('[data-learning-flow-step="source"]')?.classList.contains("is-wide") === true,
+      deviceFlowVisible: Boolean(panel?.querySelector(".handoff-card")),
       firstTodayBlock: document.querySelector("#todayList")?.firstElementChild?.className || "",
       firstFlowKind: panel?.querySelector(".learning-flow-track")?.firstElementChild?.dataset.learningFlowStep || "",
       flowSteps: [...(panel?.querySelectorAll("[data-learning-flow-step]") || [])].map((step) => ({
@@ -247,6 +248,7 @@ try {
       kind: step.dataset.learningFlowStep,
       text: step.textContent
     }));
+    const nonEmptyDeviceFlowVisible = Boolean(document.querySelector(".learning-flow-panel .handoff-card"));
     const mixedQuestionDraftWorkspace = JSON.parse(originalWorkspaceJson);
     const mixedQuestionDraftSession = {
       ...mixedQuestionDraftWorkspace.sessions[0],
@@ -348,6 +350,7 @@ try {
     return {
       ...before,
       nonEmptyFlowSteps,
+      nonEmptyDeviceFlowVisible,
       mixedQuestionDraftFlow,
       draftOnlyFlow,
       reviewQuestionDraftFlow,
@@ -364,6 +367,7 @@ try {
   assert.match(firstRun.sourceStep, /Open source/);
   assert.match(firstRun.sourceActionAria, /Open Product design desk/);
   assert.equal(firstRun.sourceWide, false);
+  assert.equal(firstRun.deviceFlowVisible, false);
   assert.match(
     firstRun.firstTodayBlock,
     /learning-flow-panel/,
@@ -374,6 +378,7 @@ try {
   assert.match(firstRun.text, /Capture on Mac/);
   assert.doesNotMatch(firstRun.text, /Close the loopClear/);
   assert.deepEqual(firstRun.nonEmptyFlowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.equal(firstRun.nonEmptyDeviceFlowVisible, true);
   assert.match(firstRun.nonEmptyFlowSteps.find((step) => step.kind === "loop")?.text || "", /Close the loop/);
   assert.deepEqual(firstRun.mixedQuestionDraftFlow.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(firstRun.mixedQuestionDraftFlow.flowSteps.find((step) => step.kind === "loop")?.text || "", /1 open/);
@@ -414,6 +419,48 @@ try {
   assert.equal(firstRun.linkedQuestion.activityAria, "Open capture");
   assert.equal(firstRun.linkedQuestion.draftSourceTitle, "Product design desk");
   assert.match(firstRun.linkedQuestion.draftSourceUrl, /github\.com\/tonycoder-hub\/Learning-Companion/);
+
+  const firstNoteWithHandoffFixture = await cdp.evaluate(`(() => {
+    const workspaceJson = localStorage.getItem("learning-companion.workspace.v1") || "";
+    const uiJson = localStorage.getItem("learning-companion.ui.v1") || "";
+    const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    workspace.importedPatches = [];
+    workspace.importedReviewPatches = [];
+    workspace.sessions = workspace.sessions.map((session) => ({
+      ...session,
+      captures: [],
+      reviewCards: []
+    }));
+    localStorage.setItem("learning-companion.workspace.v1", JSON.stringify(workspace));
+    localStorage.setItem("learning-companion.ui.v1", JSON.stringify({
+      sidecarLayout: false,
+      captureDrafts: {},
+      mirrorHandoff: {
+        workspaceFingerprint: "12345678",
+        returnBaseFingerprint: "fnv1a-abcdef12",
+        exportedAt: "2026-06-04T04:35:00.000Z",
+        kind: "Mirror JSON",
+        exportStats: {}
+      }
+    }));
+    return { workspaceJson, uiJson };
+  })()`);
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
+  const firstNoteHandoffVisible = await cdp.evaluate(`(() => ({
+    startHere: Boolean(document.querySelector(".start-here-inline")),
+    deviceFlowVisible: Boolean(document.querySelector(".learning-flow-panel .handoff-card")),
+    deviceFlowText: document.querySelector(".learning-flow-panel .handoff-card")?.textContent || ""
+  }))()`);
+  assert.equal(firstNoteHandoffVisible.startHere, true);
+  assert.equal(firstNoteHandoffVisible.deviceFlowVisible, true);
+  assert.match(firstNoteHandoffVisible.deviceFlowText, /Device Flow/);
+  await cdp.evaluate(`(() => {
+    localStorage.setItem("learning-companion.workspace.v1", ${JSON.stringify(firstNoteWithHandoffFixture.workspaceJson)});
+    localStorage.setItem("learning-companion.ui.v1", ${JSON.stringify(firstNoteWithHandoffFixture.uiJson)});
+  })()`);
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
   await sleep(50);
 
   const noSourceFlowStep = await cdp.evaluate(`(() => {
