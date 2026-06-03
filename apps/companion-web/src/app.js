@@ -4699,7 +4699,9 @@ function seedFirstQuestionDraft() {
       ? `Question ready in Quick Capture for ${sourceSnapshotLabel(sourceSnapshot)}.`
       : "Question waiting in Quick Capture; link a source later to anchor it.",
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture"
   });
   persistAndRender();
   dom.thoughtInput.focus();

@@ -244,6 +244,8 @@ try {
       thoughtValue: document.querySelector("#thoughtInput")?.value || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       draftSourceTitle: linkedDraft.sourceTitle || "",
       draftSourceUrl: linkedDraft.sourceUrl || ""
     };
@@ -294,6 +296,8 @@ try {
   assert.equal(firstRun.linkedQuestion.activityTitle, "Question draft started");
   assert.match(firstRun.linkedQuestion.activityDetail, /Question ready in Quick Capture for Product design desk/);
   assert.doesNotMatch(firstRun.linkedQuestion.activityDetail, /no source yet|add a source/i);
+  assert.equal(firstRun.linkedQuestion.activityAction, "Capture");
+  assert.equal(firstRun.linkedQuestion.activityAria, "Open capture");
   assert.equal(firstRun.linkedQuestion.draftSourceTitle, "Product design desk");
   assert.match(firstRun.linkedQuestion.draftSourceUrl, /github\.com\/tonycoder-hub\/Learning-Companion/);
   await sleep(50);
@@ -340,6 +344,8 @@ try {
       thoughtValue: document.querySelector("#thoughtInput")?.value || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       draftSourceTitle: noSourceDraft.sourceTitle || "",
       draftSourceUrl: noSourceDraft.sourceUrl || ""
     };
@@ -390,6 +396,8 @@ try {
   assert.equal(noSourceFlowStep.noSourceQuestion.activityTitle, "Question draft started");
   assert.match(noSourceFlowStep.noSourceQuestion.activityDetail, /link a source later to anchor it/);
   assert.doesNotMatch(noSourceFlowStep.noSourceQuestion.activityDetail, /Product design desk/);
+  assert.equal(noSourceFlowStep.noSourceQuestion.activityAction, "Capture");
+  assert.equal(noSourceFlowStep.noSourceQuestion.activityAria, "Open capture");
   assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceTitle, "");
   assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceUrl, "");
   assert.deepEqual(noSourceFlowStep.startHereButtons, [
