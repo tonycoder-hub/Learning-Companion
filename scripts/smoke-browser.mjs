@@ -2699,7 +2699,7 @@ try {
   assert.equal(result.reviewQueueClearActivity.dueMetric, "0");
   assert.deepEqual(result.reviewQueueClearResume, {
     title: "Source resumed",
-    action: "Question",
+    action: "View capture",
     opened: "https://example.com/review-clear-source",
     target: "_blank",
     features: "noopener,noreferrer",

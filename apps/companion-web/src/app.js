@@ -3065,7 +3065,7 @@ function resumeReviewCardSourceFromActivity(activity) {
     detail: `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`,
     tab: "captures",
     targetId: sourceCapture.id,
-    actionLabel: "Question"
+    actionLabel: captureHasQuestion(sourceCapture) ? "Question" : "View capture"
   });
   renderActivity(getActiveSession(workspace));
   pulseNode(dom.captureContextSource);
