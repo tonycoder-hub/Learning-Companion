@@ -5002,7 +5002,8 @@ function renderReturnFilesPanel() {
   const boundary = textEl("p", "handoff-boundary", "Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.");
   const footer = document.createElement("div");
   footer.className = "item-footer return-files-actions";
-  const importPatch = textEl("button", "mini-button primary", "Import Return Files");
+  const actionState = deviceFlowActionState();
+  const importPatch = textEl("button", actionState.primary === "import" ? "mini-button primary" : "mini-button", "Import Return Files");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
@@ -5010,7 +5011,7 @@ function renderReturnFilesPanel() {
   pasteReturn.type = "button";
   pasteReturn.dataset.returnFilesStep = "paste";
   pasteReturn.addEventListener("click", pasteReturnFileFromClipboard);
-  const exportMirror = textEl("button", "mini-button", "Export Mirror");
+  const exportMirror = textEl("button", actionState.primary === "export" ? "mini-button primary" : "mini-button", actionState.exportLabel);
   exportMirror.type = "button";
   exportMirror.dataset.returnFilesStep = "export";
   exportMirror.addEventListener("click", openReturnFilesMirrorExport);
@@ -5025,6 +5026,23 @@ function renderReturnFilesPanel() {
   footer.append(exportGroup, intakeGroup);
   panel.append(summary, detail, handoffState, steps, boundary, footer);
   return panel;
+}
+
+function deviceFlowActionState() {
+  const state = normalizeMirrorHandoff(uiPrefs.mirrorHandoff);
+  const currentWorkspaceFingerprint = workspaceBackupFingerprint(workspace);
+  const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
+  if (!hasExport) return { primary: "export", exportLabel: "Export Mirror" };
+  if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) {
+    return { primary: "export", exportLabel: "Export Fresh Mirror" };
+  }
+  if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) {
+    return { primary: "export", exportLabel: "Export Fresh Mirror" };
+  }
+  if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
+    return { primary: "export", exportLabel: "Re-export Mirror" };
+  }
+  return { primary: "import", exportLabel: "Export Mirror" };
 }
 
 function deviceFlowSummaryLabel() {
