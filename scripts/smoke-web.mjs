@@ -229,7 +229,7 @@ assert.match(appJs, /captureSaveActivity/);
 assert.match(appJs, /targetSection: "open_questions"/);
 assert.match(appJs, /targetSection: linked \? "closed_questions" : "answers_today"/);
 assert.match(appJs, /Saved in Answers Today\. It did not close a question because no question was linked\./);
-assert.match(appJs, /Turn it into a card if it needs recall/);
+assert.match(appJs, /Save it for recall if needed/);
 assert.match(appJs, /Question draft still needs a body/);
 const captureSaveActivityBody = appJs.match(/function captureSaveActivity[\s\S]*?\n}\n\nfunction captureSaveToast/)?.[0] || "";
 assert.equal((captureSaveActivityBody.match(/actionLabel:/g) || []).length, 8);

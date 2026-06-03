@@ -1413,7 +1413,7 @@ function captureSaveActivity(session, capture, options = {}) {
   if (captureHasQuestion(capture)) {
     return {
       title: "Question saved",
-      detail: "Added to Open Questions. Next: answer it, park it, make a card, or resolve it from Today.",
+      detail: "Added to Open Questions. Next: answer it, park it, save it for recall, or resolve it from Today.",
       tab: "today",
       targetId: "",
       targetSection: "open_questions",
@@ -1436,7 +1436,7 @@ function captureSaveActivity(session, capture, options = {}) {
   if (captureHasTakeawayPrefix(capture)) {
     return {
       title: "Takeaway saved",
-      detail: "Kept as a takeaway. Turn it into a card if it needs recall, or build synthesis after a few captures.",
+      detail: "Kept as a takeaway. Save it for recall if needed, or build synthesis after a few captures.",
       tab: "captures",
       targetId: capture?.id || "",
       actionLabel: "Capture"
@@ -1445,7 +1445,7 @@ function captureSaveActivity(session, capture, options = {}) {
   if (captureIsQuoteOnly(capture)) {
     return {
       title: "Highlight saved",
-      detail: `${summarizeCapture(capture)} · Saved locally as a highlight; the source page is unchanged. Add a thought or make a card when recall matters.`,
+      detail: `${summarizeCapture(capture)} · Saved locally as a highlight; the source page is unchanged. Add a thought or save it for recall when it matters.`,
       tab: "captures",
       targetId: capture?.id || "",
       targetPane: "highlightAnnotation",
@@ -1464,7 +1464,7 @@ function captureSaveActivity(session, capture, options = {}) {
   }
   return {
     title: "Capture saved",
-    detail: `${summarizeCapture(capture)} · Keep reading, make a card when recall matters, or build synthesis later.`,
+    detail: `${summarizeCapture(capture)} · Keep reading, save it for recall when it matters, or build synthesis later.`,
     tab: "captures",
     targetId: capture?.id || "",
     actionLabel: "Capture"
@@ -2176,9 +2176,9 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
   }),
   afterThoughtAdded: Object.freeze({
     kind: "afterThoughtAdded",
-    text: "If this should come back later, make it a review card.",
-    actionLabel: "Make card",
-    ariaLabel: "Make a review card from this annotated highlight"
+    text: "If this should come back later, save it for recall.",
+    actionLabel: "Save for recall",
+    ariaLabel: "Save this annotated highlight for recall"
   }),
   afterThoughtAddedCarded: Object.freeze({
     kind: "afterThoughtAddedCarded",
@@ -3654,7 +3654,7 @@ function renderToday() {
       answer.type = "button";
       answer.addEventListener("click", () => answerQuestionFromToday(capture.id, sessionId));
       footer.append(answer);
-      const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Make card");
+      const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Save for recall");
       card.type = "button";
       card.disabled = capture.promotedToReview;
       card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
@@ -4751,7 +4751,7 @@ function renderCaptureStack(session) {
     noteButton.type = "button";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
-    const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Review" : "Make card");
+    const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Review" : "Save for recall");
     cardButton.type = "button";
     cardButton.addEventListener("click", () => {
       if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
@@ -5324,7 +5324,7 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
 }
 
 function closedQuestionCardLabel(capture, answerCapture) {
-  if (!capture.promotedToReview) return "Make card";
+  if (!capture.promotedToReview) return "Save for recall";
   return answerCapture ? "Refresh card" : "Card";
 }
 
@@ -5509,7 +5509,7 @@ function renderCaptures() {
     promoteButton.className = "mini-button";
     promoteButton.type = "button";
     promoteButton.disabled = capture.promotedToReview;
-    promoteButton.textContent = capture.promotedToReview ? "Card" : "Make card";
+    promoteButton.textContent = capture.promotedToReview ? "Card" : "Save for recall";
     promoteButton.addEventListener("click", () => promoteCaptureToReview(capture.id));
     actions.append(promoteButton);
     if (captureHasQuestion(capture)) {

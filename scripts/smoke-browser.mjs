@@ -3911,13 +3911,13 @@ try {
       cards: document.querySelector("#cardMetric").textContent,
       reviewText: document.querySelector("#reviewList").textContent,
       stackMakeCardEnabled: [...document.querySelectorAll("#captureStack .capture-stack-row button")]
-        .some((button) => button.textContent === "Make card" && !button.disabled)
+        .some((button) => button.textContent === "Save for recall" && !button.disabled)
     };
     document.querySelector('[data-tab="captures"]').click();
     const captureCard = [...document.querySelectorAll("#captureList .item-card")]
       .find((item) => item.textContent.includes("Temporary capture for deletion."));
     const makeCardEnabled = [...captureCard.querySelectorAll("button")]
-      .find((button) => button.textContent === "Make card" && !button.disabled);
+      .find((button) => button.textContent === "Save for recall" && !button.disabled);
     [...captureCard.querySelectorAll("button")].find((button) => button.textContent === "Delete").click();
     const afterCaptureDelete = {
       captures: document.querySelector("#captureMetric").textContent,
@@ -4257,7 +4257,7 @@ try {
     const answerQuestionCard = Array.from(document.querySelectorAll("#todayList .question-card"))
       .find((node) => /compactness assumption/.test(node.textContent));
     Array.from(answerQuestionCard?.querySelectorAll("button") || [])
-      .find((button) => button.textContent === "Make card")
+      .find((button) => button.textContent === "Save for recall")
       ?.click();
     const afterQuestionCard = {
       activity: document.querySelector("#activityTitle").textContent,
@@ -4514,7 +4514,7 @@ try {
   assert.equal(questionFlow.questionSignalClick.after.sectionPulsed, true);
   assert.equal(questionFlow.questionSignalClick.after.sectionText, "Open Questions");
   assert.equal(questionFlow.questionButtons.includes("Answer"), true);
-  assert.equal(questionFlow.questionButtons.includes("Make card"), true);
+  assert.equal(questionFlow.questionButtons.includes("Save for recall"), true);
   assert.equal(questionFlow.questionButtons.includes("Park"), true);
   assert.equal(questionFlow.afterPark.activity, "Question parked");
   assert.match(questionFlow.afterPark.detail, /Loop: 0 active · 1 parked · 0 closed today · 0 cards today/);
@@ -5356,12 +5356,12 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.unlinkedAnswerDetails.answersText, /Answers Today/);
   assert.equal(postSaveFlow.unlinkedAnswerDetails.answersPulsed, true);
   assert.equal(postSaveFlow.takeawaySaved.title, "Takeaway saved");
-  assert.match(postSaveFlow.takeawaySaved.detail, /Turn it into a card/);
+  assert.match(postSaveFlow.takeawaySaved.detail, /Save it for recall/);
   assert.equal(postSaveFlow.takeawaySaved.action, "Capture");
   assert.equal(postSaveFlow.highlightSaved.title, "Highlight saved");
   assert.match(postSaveFlow.highlightSaved.detail, /Saved locally as a highlight/);
   assert.match(postSaveFlow.highlightSaved.detail, /source page is unchanged/);
-  assert.match(postSaveFlow.highlightSaved.detail, /make a card/);
+  assert.match(postSaveFlow.highlightSaved.detail, /save it for recall/);
   assert.equal(postSaveFlow.highlightSaved.action, "Add thought");
   assert.equal(postSaveFlow.highlightSaved.aria, "Add thought to saved highlight");
   assert.equal(postSaveFlow.highlightSaved.hintHidden, false);
@@ -5382,8 +5382,8 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightAnnotated.hintHidden, false);
   assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAdded");
   assert.match(postSaveFlow.highlightAnnotated.hintText, /come back later/);
-  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Make card");
-  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Make a review card from this annotated highlight");
+  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Save for recall");
+  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Save this annotated highlight for recall");
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFormVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFocusOnOpen, true);
   assert.equal(postSaveFlow.highlightAnnotationState.singleFormAfterSecondOpen, true);
@@ -5466,9 +5466,9 @@ async function assertCaptureStackNextStepMix(cdp) {
     "Needs your why — or leave it as a quote."
   ]);
   assert.deepEqual(stackMix.map((row) => row.buttons), [
-    ["Open source", "Note", "Make card", "Delete"],
+    ["Open source", "Note", "Save for recall", "Delete"],
     ["Open source", "Note", "Review", "Delete + 1 card"],
-    ["Open source", "Add thought", "Note", "Make card", "Delete"]
+    ["Open source", "Add thought", "Note", "Save for recall", "Delete"]
   ]);
 }
 
