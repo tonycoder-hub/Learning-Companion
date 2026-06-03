@@ -93,6 +93,12 @@ import {
   materializeMirrorBundle
 } from "./feishu-mirror-uploader.mjs";
 
+function extractStaticSeed(html) {
+  const match = html.match(/const seed = (.+);/);
+  assert.ok(match, "static page seed should be embedded");
+  return JSON.parse(match[1]);
+}
+
 const tempBase = resolve(".codex-tmp/smoke-web");
 mkdirSync(tempBase, { recursive: true, mode: 0o700 });
 const cleanupSmokeArtifacts = process.env.LC_CLEAN_SMOKE_ARTIFACTS === "1";
@@ -1736,6 +1742,15 @@ const mixedSecondaryHref = mixedMirrorIndexHtml.match(/class="device-next-second
 assert.match(mixedSecondaryHref, /^inbox\.html\?[^#]+$/);
 assert.match(mixedSecondaryHref, /answerToCaptureId=/);
 assert.doesNotMatch(mixedSecondaryHref, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
+const mixedReviewHtml = generateReviewHtml(questionTodayWorkspace, frozenToday);
+const mixedReviewFollowup = extractStaticSeed(mixedReviewHtml).followup;
+assert.equal(mixedReviewFollowup.label, "Answer 1 open question");
+assert.match(mixedReviewFollowup.href, /^inbox\.html\?[^#]+$/);
+assert.match(mixedReviewFollowup.href, /answerToCaptureId=/);
+assert.doesNotMatch(mixedReviewFollowup.href, /(?:^|\/)\.\.(?:\/|$)/);
+assert.match(mixedReviewFollowup.detail, /Save this review return file/);
+assert.doesNotMatch(mixedReviewFollowup.href, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
+assert.equal(extractStaticSeed(generateReviewHtml(multiReviewWorkspace, frozenToday)).followup, null);
 const twoQuestionMirrorWorkspace = addCapture(questionTodayWorkspace, algorithmsSession.id, {
   quote: "Another stale heap edge case.",
   thought: "Question: Which tie-breaker keeps the exported path deterministic?",
@@ -1861,6 +1876,7 @@ const questionOnlyMirrorPack = buildTodayPack(questionOnlyMirrorWorkspace, froze
 });
 assert.equal(questionOnlyMirrorPack.stats.due, 0);
 assert.equal(questionOnlyMirrorPack.stats.questions, 1);
+assert.equal(extractStaticSeed(generateReviewHtml(questionOnlyMirrorWorkspace, frozenToday)).followup, null);
 const questionMirrorIndexHtml = generateMirrorIndexHtml(questionOnlyMirrorWorkspace, frozenToday);
 assert.match(questionMirrorIndexHtml, /Next from this export/);
 assert.match(questionMirrorIndexHtml, /Answer next question/);
@@ -1987,9 +2003,11 @@ assert.match(reviewHtml, /Notepad/);
 assert.match(reviewHtml, /returnNextStep/);
 assert.match(reviewHtml, /role="status" aria-live="polite"/);
 assert.match(reviewHtml, /returnAfterSave/);
+assert.match(reviewHtml, /returnAfterSaveFollowup/);
 assert.match(reviewHtml, /Next: send this return file back to your Mac/);
 assert.match(reviewHtml, /showReturnAfterSave/);
 assert.match(reviewHtml, /hideReturnAfterSave/);
+assert.match(reviewHtml, /renderReturnFollowup/);
 assert.match(reviewHtml, /You can keep reviewing here/);
 assert.match(reviewHtml, /Return file preview/);
 assert.match(reviewHtml, /selected text below is the return file JSON/);
@@ -2169,9 +2187,11 @@ assert.match(inboxHtml, /textarea\[readonly\]/);
 assert.match(inboxHtml, /returnNextStep/);
 assert.match(inboxHtml, /role="status" aria-live="polite"/);
 assert.match(inboxHtml, /returnAfterSave/);
+assert.match(inboxHtml, /returnAfterSaveFollowup/);
 assert.match(inboxHtml, /Next: send this return file back to your Mac/);
 assert.match(inboxHtml, /showReturnAfterSave/);
 assert.match(inboxHtml, /hideReturnAfterSave/);
+assert.match(inboxHtml, /renderReturnFollowup/);
 assert.match(inboxHtml, /You can keep capturing here/);
 assert.match(inboxHtml, /Return file preview/);
 assert.match(inboxHtml, /selected text below is the return file JSON/);
@@ -2214,6 +2234,13 @@ assert.match(inboxHtml, /Your answer will be saved to a return file you move bac
 assert.match(inboxHtml, /renderAnswerContext/);
 assert.match(inboxHtml, /Answer draft loaded from mirror link/);
 assert.match(inboxHtml, /original topic was not found/);
+const inboxFollowup = extractStaticSeed(inboxHtml).followup;
+assert.equal(inboxFollowup.label, "Review 2 due cards");
+assert.equal(inboxFollowup.href, "review.html");
+assert.match(inboxFollowup.detail, /Save this inbox return file/);
+assert.doesNotMatch(inboxFollowup.href, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
+assert.equal(extractStaticSeed(generateInboxHtml(createDefaultWorkspace(), frozenToday)).followup, null);
+assert.equal(extractStaticSeed(generateInboxHtml(questionOnlyMirrorWorkspace, frozenToday)).followup, null);
 assert.equal(inboxHtml.includes("<link"), false);
 assert.equal(/<script[^>]+src=/i.test(inboxHtml), false);
 assert.equal(/<iframe/i.test(inboxHtml), false);

@@ -17,8 +17,9 @@ The product bias is a study cockpit, not a generic note app. Every feature shoul
 
 Current branch: `main`.
 
-Latest committed product slices:
+Latest product slices:
 
+- Static Review/Inbox post-save follow-up links preserve the other exported lane inside a phone/Windows mirror without changing return JSON schemas.
 - `cb16b41 feat: continue after review grading`
 - `3062b88 feat: resume source after refreshing cards`
 - `297e72d feat: refresh cards after linked answers`
@@ -26,7 +27,9 @@ Latest committed product slices:
 Current real evidence:
 
 - `node --check apps/companion-web/src/app.js`
+- `node --check apps/companion-web/src/model.js`
 - `node --check scripts/smoke-browser.mjs`
+- `node --check scripts/smoke-web.mjs`
 - `git diff --check`
 - `npm run smoke` -> `smoke_web_ok`
 - `npm run smoke:browser` -> `smoke_browser_ok`
@@ -38,12 +41,14 @@ What changed:
 - The refresh-card hint is checked at render time and click time; if the card disappears before click, the hint hides or fails safely.
 - Refreshing the card replaces stale evidence with the linked answer evidence, opens Review, then offers `Resume source` so the learner can return to reading.
 - Review grading now aligns Activity with the actual review queue: `Next card` targets the next due card, and the last graded card produces `Review queue clear` with a return to Quick Capture plus guarded source resume when available.
+- Static Review/Inbox pages now show post-save follow-up links to the other exported lane when applicable: Review can continue to prefilled Inbox answers, and Inbox can continue to Review. Negative smoke keeps single-lane mirrors from rendering a follow-up.
 
 External review status:
 
 - Mira returned `PASS_WITH_NOTES` on all three slices above, with no blockers.
 - Accepted notes: stale-evidence replacement assertion, no-Resume-source negative assertion while refresh is needed, new-tab safety assertions, cleaner post-resume primary action label, and next-card/queue-clear smoke coverage.
 - Deferred notes: Seed/Doubao critique retry, telemetry, screenshot strips, rapid double-click semantics, and no-source queue-clear focus specialization.
+- Mira also returned `PASS_WITH_NOTES` for the static return cross-page follow-up slice. Accepted: add 0-count/single-lane negative smoke and relative-href checks. Deferred: hiding the follow-up after repeated same-page use, because static pages cannot reliably know whether another return file already completed the other lane.
 
 Current scratch/cleanup status:
 

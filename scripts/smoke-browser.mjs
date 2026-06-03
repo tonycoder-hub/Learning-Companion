@@ -1812,6 +1812,7 @@ try {
     document.querySelector('[data-tab="export"]').click();
     const answerMirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const answerMirrorIndexHtml = answerMirror.files.find((file) => file.path === "index.html")?.content || "";
+    const answerMirrorReviewHtml = answerMirror.files.find((file) => file.path === "review.html")?.content || "";
     const answerMirrorInboxHtml = answerMirror.files.find((file) => file.path === "inbox.html")?.content || "";
     window.learningCompanionNative.importWorkspaceJson(baselineWorkspaceForAnswerMirror);
     const answerMirrorWorkspaceRestored = workspaceStateSignature(window.learningCompanionNative.exportWorkspaceJson()) === baselineWorkspaceSignatureForAnswerMirror;
@@ -2316,6 +2317,7 @@ try {
           mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes("Next from this export") && file.content.includes("Return-ready mirror") && file.content.includes("Mac return-base check") && file.content.includes("source.returnBaseFingerprint") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
           mirrorIndexHtml: restoredMirror.files.find((file) => file.path === "index.html")?.content || "",
           answerMirrorIndexHtml,
+          answerMirrorReviewHtml,
           answerMirrorWorkspaceRestored,
           answerMirrorWorkspaceJson,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
@@ -2906,6 +2908,9 @@ try {
   assert.doesNotMatch(result.mirrorReviewHtml, /Copy Return JSON/);
   assert.doesNotMatch(result.mirrorReviewHtml, /Return JSON file/);
   assert.match(result.mirrorReviewHtml, /returnNextStep/);
+  assert.match(result.mirrorReviewHtml, /returnAfterSaveFollowup/);
+  assert.match(result.answerMirrorReviewHtml, /Answer 1 open question/);
+  assert.match(result.answerMirrorReviewHtml, /inbox\.html\?/);
   assert.equal(result.mirrorHasInboxHtml, true);
   assert.match(result.mirrorInboxHtml, /Learning Companion Inbox/);
   assert.match(result.mirrorInboxHtml, /Return to Mac/);
@@ -2914,6 +2919,8 @@ try {
   assert.doesNotMatch(result.mirrorInboxHtml, /Copy Return JSON/);
   assert.doesNotMatch(result.mirrorInboxHtml, /Return JSON file/);
   assert.match(result.mirrorInboxHtml, /returnNextStep/);
+  assert.match(result.mirrorInboxHtml, /returnAfterSaveFollowup/);
+  assert.match(result.mirrorInboxHtml, /Review \d+ due card/);
   assert.equal(result.mirrorTodayEscapesScript, true);
   assert.equal(result.mirrorReviewEscapesScript, true);
   assert.equal(result.mirrorHasMarkdown, true);
@@ -3388,6 +3395,7 @@ try {
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
     const savedReturnAfterPanelHidden = document.querySelector("#returnAfterSave").hidden;
     const savedReturnAfterText = document.querySelector("#returnAfterSaveText").textContent;
+    const savedReturnAfterFollowup = document.querySelector("#returnAfterSaveFollowup");
     const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
     const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
@@ -3413,6 +3421,9 @@ try {
       returnManualHelp: savedReturnManualHelp,
       returnAfterPanelHidden: savedReturnAfterPanelHidden,
       returnAfterText: savedReturnAfterText,
+      returnAfterFollowupHidden: savedReturnAfterFollowup?.hidden,
+      returnAfterFollowupText: savedReturnAfterFollowup?.textContent || "",
+      returnAfterFollowupHref: savedReturnAfterFollowup?.getAttribute("href") || "",
       returnPreviewTitle,
       returnCopyHint,
       returnNextStep: readyNextStep,
@@ -3466,6 +3477,41 @@ try {
   assert.equal(reviewRuntime.previewGrade, "good");
   assert.equal(reviewRuntime.hasBaseUpdatedAt, true);
   assert.match(reviewRuntime.storageKey, /^learning-companion\.review-progress\./);
+
+  const exceptionsBeforeReviewFollowupRuntime = exceptions.length;
+  virtualRoutes.set("/answer-mirror-review.html", result.answerMirrorReviewHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}answer-mirror-review.html` });
+  await sleep(300);
+  const reviewFollowupRuntime = await cdp.evaluate(`(async () => {
+    document.querySelector('[data-reveal]')?.click();
+    document.querySelector('[data-grade="good"]')?.click();
+    let downloadName = "";
+    const originalClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { downloadName = this.download; };
+    try {
+      document.querySelector("#downloadProgressBtn")?.click();
+    } finally {
+      HTMLAnchorElement.prototype.click = originalClick;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const followup = document.querySelector("#returnAfterSaveFollowup");
+    return {
+      panelHidden: document.querySelector("#returnAfterSave")?.hidden,
+      followupHidden: followup?.hidden,
+      followupText: followup?.textContent || "",
+      followupHref: followup?.getAttribute("href") || "",
+      downloadName
+    };
+  })()`);
+  assert.equal(exceptions.length, exceptionsBeforeReviewFollowupRuntime);
+  assert.equal(reviewFollowupRuntime.panelHidden, false);
+  assert.equal(reviewFollowupRuntime.followupHidden, false);
+  assert.match(reviewFollowupRuntime.followupText, /Answer 1 open question/);
+  assert.match(reviewFollowupRuntime.followupText, /open Inbox/);
+  assert.match(reviewFollowupRuntime.followupHref, /^inbox\.html\?[^#]+$/);
+  assert.match(reviewFollowupRuntime.followupHref, /answerToCaptureId=/);
+  assert.doesNotMatch(reviewFollowupRuntime.followupHref, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
+  assert.match(reviewFollowupRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
 
   const reviewGuardDownloadCountBefore = readdirSync(downloadPath).length;
   virtualRoutes.set("/mirror-review-guard.html", result.mirrorReviewHtml);
@@ -3765,6 +3811,7 @@ try {
     const savedReturnManualHelp = document.querySelector("#returnManualHelp").textContent;
     const savedReturnAfterPanelHidden = document.querySelector("#returnAfterSave").hidden;
     const savedReturnAfterText = document.querySelector("#returnAfterSaveText").textContent;
+    const savedReturnAfterFollowup = document.querySelector("#returnAfterSaveFollowup");
     const returnPreviewTitle = document.querySelector(".return-preview-title").textContent;
     const returnCopyHint = document.querySelector(".return-copy-hint").textContent;
     const readyNextStep = document.querySelector("#returnNextStep").textContent;
@@ -3806,6 +3853,9 @@ try {
       returnManualHelp: savedReturnManualHelp,
       returnAfterPanelHidden: savedReturnAfterPanelHidden,
       returnAfterText: savedReturnAfterText,
+      returnAfterFollowupHidden: savedReturnAfterFollowup?.hidden,
+      returnAfterFollowupText: savedReturnAfterFollowup?.textContent || "",
+      returnAfterFollowupHref: savedReturnAfterFollowup?.getAttribute("href") || "",
       returnPreviewTitle,
       returnCopyHint,
       returnNextStep: readyNextStep,
@@ -3844,6 +3894,10 @@ try {
   assert.match(inboxRuntime.returnAfterText, /Return file downloaded/);
   assert.match(inboxRuntime.returnAfterText, /import or paste it from Today > Return Files/);
   assert.match(inboxRuntime.returnAfterText, /keep capturing here/);
+  assert.equal(inboxRuntime.returnAfterFollowupHidden, false);
+  assert.match(inboxRuntime.returnAfterFollowupText, /Review \d+ due card/);
+  assert.match(inboxRuntime.returnAfterFollowupText, /open Review/);
+  assert.equal(inboxRuntime.returnAfterFollowupHref, "review.html");
   assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(inboxRuntime.returnPreviewTitle, "Return file preview");
   assert.match(inboxRuntime.returnCopyHint, /selected text below is the return file JSON/);

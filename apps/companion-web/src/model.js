@@ -2311,7 +2311,8 @@ function returnAfterSaveCss() {
   return [
     "    .return-after-save { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #b9d7cb; border-radius: 8px; background: #f0faf5; }",
     "    .return-after-save strong { color: #2f6f5e; }",
-    "    .return-after-save span { color: #4b5358; font-size: 13px; line-height: 1.4; }"
+    "    .return-after-save span { color: #4b5358; font-size: 13px; line-height: 1.4; }",
+    "    .return-after-save a { color: #315f82; font-size: 13px; font-weight: 700; }"
   ];
 }
 
@@ -2320,8 +2321,28 @@ function returnAfterSaveHtml() {
     "      <div id=\"returnAfterSave\" class=\"return-after-save\" role=\"status\" aria-live=\"polite\" hidden>",
     "        <strong>Next: send this return file back to your Mac</strong>",
     "        <span id=\"returnAfterSaveText\">Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today &gt; Return Files in the Mac app. You can keep working here; new changes will stage into the next return file.</span>",
+    "        <a id=\"returnAfterSaveFollowup\" hidden></a>",
     "      </div>"
   ];
+}
+
+function buildReviewReturnFollowup(pack) {
+  if (!pack.dueItems.length || !pack.questionItems.length) return null;
+  const item = pack.questionItems[0];
+  return {
+    label: `Answer ${formatCount(pack.stats.questions, "open question")}`,
+    href: buildInboxAnswerHref(item.sessionId, item.capture),
+    detail: "This mirror also has open questions. Save this review return file, then open Inbox if you want to answer one before moving files back to Mac."
+  };
+}
+
+function buildInboxReturnFollowup(pack) {
+  if (!pack.dueItems.length) return null;
+  return {
+    label: `Review ${formatCount(pack.stats.due, "due card")}`,
+    href: "review.html",
+    detail: "This mirror also has due review. Save this inbox return file, then open Review if you want to finish the exported queue before moving files back to Mac."
+  };
 }
 
 export function generateReviewHtml(workspace, now = new Date()) {
@@ -2330,12 +2351,14 @@ export function generateReviewHtml(workspace, now = new Date()) {
   const workspaceFingerprint = fingerprintText(workspaceJson);
   const returnBaseFingerprint = buildReturnBaseFingerprint(cleanWorkspace);
   const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 50, recentLimit: 1 });
+  const followup = buildReviewReturnFollowup(pack);
   const seed = JSON.stringify({
     schema: "learning-companion.review-progress-seed.v1",
     appVersion: WORKSPACE_SCHEMA_VERSION,
     generatedAt: pack.generatedAt,
     workspaceFingerprint,
     returnBaseFingerprint,
+    followup,
     cards: pack.dueItems.map(({ sessionId, sessionTitle, card }) => ({
       sessionId,
       sessionTitle,
@@ -2542,9 +2565,19 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      if (!panel || !text) return;",
     "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
     "      text.textContent = `Return file ${action}. Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today > Return Files in the Mac app. You can keep reviewing here; new grades will stage into the next return file.`;",
+    "      renderReturnFollowup();",
     "      panel.hidden = false;",
     "    }",
     "    function hideReturnAfterSave() { const panel = document.querySelector('#returnAfterSave'); if (panel) panel.hidden = true; }",
+    "    function renderReturnFollowup() {",
+    "      const link = document.querySelector('#returnAfterSaveFollowup');",
+    "      const followup = seed.followup || null;",
+    "      if (!link) return;",
+    "      if (!followup?.href) { link.hidden = true; link.removeAttribute('href'); link.textContent = ''; return; }",
+    "      link.href = followup.href;",
+    "      link.textContent = `${followup.label}: ${followup.detail}`;",
+    "      link.hidden = false;",
+    "    }",
     "    function loadProgress() { try { const value = JSON.parse(localStorage.getItem(storageKey) || '{}'); return { events: value.events && typeof value.events === 'object' ? value.events : {} }; } catch { storageAvailable = false; return { events: {} }; } }",
     "    function saveProgress() { try { localStorage.setItem(storageKey, JSON.stringify(progress)); return true; } catch { storageAvailable = false; return false; } }",
     "    function storageUnavailableStatus(prefix = 'Review progress staged in this return file.') { return `${prefix} Browser storage is unavailable, so keep this page open and use Copy, Manual Copy, or the available save action before closing.`; }",
@@ -2636,6 +2669,8 @@ export function generateInboxHtml(workspace, now = new Date()) {
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
   const workspaceFingerprint = fingerprintText(workspaceJson);
   const returnBaseFingerprint = buildReturnBaseFingerprint(cleanWorkspace);
+  const pack = buildTodayPack(cleanWorkspace, now, { dueLimit: 50, recentLimit: 1 });
+  const followup = buildInboxReturnFollowup(pack);
   const topics = cleanWorkspace.sessions.map((session) => ({
     id: session.id,
     title: session.title,
@@ -2650,6 +2685,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     generatedAt: formatLocalIso(now),
     workspaceFingerprint,
     returnBaseFingerprint,
+    followup,
     activeSessionId: cleanWorkspace.activeSessionId,
     topics
   }).replace(/</g, "\\u003c");
@@ -2966,9 +3002,19 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      if (!panel || !text) return;",
     "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
     "      text.textContent = `Return file ${action}. Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today > Return Files in the Mac app. You can keep capturing here; new drafts will stage into the next return file.`;",
+    "      renderReturnFollowup();",
     "      panel.hidden = false;",
     "    }",
     "    function hideReturnAfterSave() { const panel = document.querySelector('#returnAfterSave'); if (panel) panel.hidden = true; }",
+    "    function renderReturnFollowup() {",
+    "      const link = document.querySelector('#returnAfterSaveFollowup');",
+    "      const followup = seed.followup || null;",
+    "      if (!link) return;",
+    "      if (!followup?.href) { link.hidden = true; link.removeAttribute('href'); link.textContent = ''; return; }",
+    "      link.href = followup.href;",
+    "      link.textContent = `${followup.label}: ${followup.detail}`;",
+    "      link.hidden = false;",
+    "    }",
     "    function clearForm(options = {}) { Object.values(fields).forEach((field) => { field.value = ''; }); sourceUrlExplicit = false; answerToCaptureId = ''; if (!options.keepAnswerContext) { answerContextState = ''; answerContextQuestion = ''; } renderAnswerContext(); }",
     "    function clean(value, max) { return String(value || '').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim().slice(0, max); }",
     "    function safeUrl(value) { const raw = clean(value, 2048); if (!raw) return ''; try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }",
