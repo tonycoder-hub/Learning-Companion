@@ -19,6 +19,7 @@ Current branch: `main`.
 
 Latest product slices:
 
+- `11c712b feat: clarify first note device route`
 - `4007f73 fix: clarify unanchored draft type`
 - `5c96f6b feat: add first note device entry`
 - `2ce9767 fix: keep first note flow focused`
@@ -48,10 +49,11 @@ Current real evidence:
 - For `2ce9767`, `node --check apps/companion-web/src/app.js`, `node --check scripts/smoke-browser.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. In-app browser reload/read-only inspection showed Today + Learning Flow + First Note visible, no first-note Device Flow handoff card, and no horizontal overflow.
 - For `5c96f6b`, the same syntax checks, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Browser smoke verifies the `Phone/Windows` first-note action opens Device Flow, opens the drawer, removes the redundant first-note button, and preserves the existing handoff-state direct-render path.
 - For `4007f73`, `node --check apps/companion-web/src/app.js`, `node --check apps/companion-web/src/model.js`, `node --check scripts/smoke-browser.mjs`, `node --check scripts/smoke-web.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Mira returned `PASS_WITH_NOTES` for the reduced v2 packet; the first packet was rejected locally by broker sanitizer as `SECRET_DETECTED`, not by Mira.
+- For `11c712b`, `node --check apps/companion-web/src/app.js`, `node --check scripts/smoke-browser.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Browser smoke now measures the First Note device route at 1024px, 620px, and 360px for no page overflow, route text fit, button fit, and accessible action labeling. In-app Browser URL/title were readable, but DOM evaluate and screenshot still hit the known CDP timeout flake.
 
 What changed:
 
-- Empty first-note Today now keeps `Learning Flow` focused on `Read source`, `Capture on Mac`, and `First Note`; the manual `Device Flow` panel no longer appears before there is learning work or handoff state. First Note still has a lightweight `Phone/Windows` action that reveals Device Flow on demand. If a mirror export/import/return signal exists, or once the workspace is non-empty, Device Flow appears directly.
+- Empty first-note Today now keeps `Learning Flow` focused on `Read source`, `Capture on Mac`, and `First Note`; the manual `Device Flow` panel no longer appears before there is learning work or handoff state. First Note now shows a lightweight `Other devices` route with `Use phone or Windows later`, `Manual`, `No live sync`, and two explicit steps: export a mirror after the first capture, then bring return files back to this Mac. The `Phone/Windows` action reveals full Device Flow on demand. If a mirror export/import/return signal exists, or once the workspace is non-empty, Device Flow appears directly.
 - Today `Close the loop` and `Next Move` now share one priority contract: due review, open question, unfinished draft, parked follow-up, then clear. Browser smoke covers draft-only, open-question-plus-draft, and review-plus-question-plus-draft states.
 - `Today > Device Flow > Import Return Files` now forces even a single selected file through the strict inbox/review return-file path. A mistaken workspace JSON selected from Return Files produces an error receipt and does not replace the workspace, while the ordinary sidebar single-file import still restores workspace JSON.
 - Quick Capture drafts now commit their saved `sourceTitle/sourceUrl` snapshot into the capture until the user chooses `Use current`. Linked Answer drafts opened from Today questions inherit the question capture's source, and browser smoke verifies both the draft and committed answer capture keep the original question source.
@@ -68,6 +70,7 @@ What changed:
 External review status:
 
 - Mira returned `PASS_WITH_NOTES` for first-note Device Flow focus. Accepted: add the cross-state smoke proving first-note + existing mirror handoff still renders Device Flow, and add a lightweight `Phone/Windows` entry rather than restoring the full drawer to the opening task. Deferred: non-Mac UA-specific rendering and appearance transition/highlight, because those need a broader cross-device entry design rather than a narrow render gate.
+- Mira returned `PASS_WITH_NOTES` for the First Note device route. Accepted: user-facing naming (`Other devices`, `Use phone or Windows later`), `Manual` / `No live sync` prominence, two-step microcopy, button aria-label, and multi-breakpoint layout assertions. Rejected for now: keeping a separate route state after the first capture, because the app exits First Note after real work and restores full Device Flow with the export action.
 - Mira returned `PASS_WITH_NOTES` for Today priority alignment, Return Files single-file guard, and draft source snapshot commit. Accepted: shared priority helper, broader priority smoke cases, Return Files armed-flag reset/comment, source provenance and committed linked-answer assertions. Deferred: draft freshness telemetry, canceled native picker synthetic test, partial source snapshot tests, and real device QA.
 - Mira returned `PASS_WITH_NOTES` for draft material type snapshot and the follow-up unanchored draft type guard. Accepted: invalid material-type normalization assertion, explicit no-source material-type emptiness, safe-link anchoring to the new source type, document-to-video reverse drift coverage, timestamp-only draft coverage, and a shared pure resolver for legacy source-without-type cases. Deferred: save-time source/type race stress only if it becomes reproducible.
 - Mira returned `PASS_WITH_NOTES` on all three slices above, with no blockers.
