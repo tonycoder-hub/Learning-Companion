@@ -1136,6 +1136,7 @@ function buildStaticReturnContractMarkdown() {
     "- `index.html`, `review.html`, and `inbox.html` exist in the generated mirror folder.",
     "- Review and Inbox links are relative local-file links.",
     "- Static Review/Inbox pages expose Manual Copy and Return Files instructions.",
+    "- Static Review/Inbox post-save follow-up links preserve the other exported lane in mixed due-review/open-question mirrors, using relative hrefs only.",
     "- Static pages do not reference external scripts, styles, fetch/XHR/import/service worker, WebSocket/EventSource/sendBeacon, BroadcastChannel, iframe, or inline event-handler paths.",
     "- Embedded seed fingerprints match `sample-workspace.json`.",
     "- Generated review and inbox return payloads import through the real Mac model functions as fixture payloads.",

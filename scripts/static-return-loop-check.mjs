@@ -142,6 +142,7 @@ function inspectMirrorHome(html) {
 function buildReviewReturnFromStaticContract(html, workspace) {
   const seed = extractSeed(html, "learning-companion.review-progress-seed.v1");
   assertSeedMatchesWorkspace(seed, workspace);
+  const followup = assertReviewFollowup(seed, workspace);
   assertStaticReturnContract(html, {
     heading: "Learning Companion Review Pack",
     schema: "learning-companion.review-progress-patch.v1",
@@ -190,7 +191,9 @@ function buildReviewReturnFromStaticContract(html, workspace) {
       seedMatchesSampleWorkspace: true,
       hasManualCopy: /Manual Copy/.test(html),
       hasReturnBaseFingerprint: /^fnv1a-[a-f0-9]{8}$/.test(patch.source.returnBaseFingerprint || ""),
-      hasSuggestedFilenameTemplate: /returnFileName\('learning-companion-review-progress-patch'/.test(html)
+      hasSuggestedFilenameTemplate: /returnFileName\('learning-companion-review-progress-patch'/.test(html),
+      hasCrossPageFollowup: Boolean(followup),
+      followupHref: followup?.href || ""
     }
   };
 }
@@ -198,6 +201,7 @@ function buildReviewReturnFromStaticContract(html, workspace) {
 function buildInboxReturnFromStaticContract(html, workspace) {
   const seed = extractSeed(html, "learning-companion.mobile-inbox-seed.v1");
   assertSeedMatchesWorkspace(seed, workspace);
+  const followup = assertInboxFollowup(seed);
   assertStaticReturnContract(html, {
     heading: "Learning Companion Inbox",
     schema: "learning-companion.mobile-inbox-patch.v1",
@@ -271,9 +275,39 @@ function buildInboxReturnFromStaticContract(html, workspace) {
       hasManualCopy: /Manual Copy/.test(html),
       hasSafeUrlFunction: /function safeUrl\(/.test(html),
       hasReturnBaseFingerprint: /^fnv1a-[a-f0-9]{8}$/.test(patch.source.returnBaseFingerprint || ""),
-      hasSuggestedFilenameTemplate: /returnFileName\('learning-companion-inbox-patch'/.test(html)
+      hasSuggestedFilenameTemplate: /returnFileName\('learning-companion-inbox-patch'/.test(html),
+      hasCrossPageFollowup: Boolean(followup),
+      followupHref: followup?.href || ""
     }
   };
+}
+
+function assertReviewFollowup(seed, workspace) {
+  const openQuestions = countOpenQuestions(workspace);
+  assert.equal(seed.cards.length > 0, true, "Review fixture needs due cards for cross-page follow-up.");
+  assert.equal(openQuestions > 0, true, "Review fixture needs open questions for cross-page follow-up.");
+  const followup = seed.followup;
+  assert.ok(followup, "Review seed should include an Inbox follow-up for mixed due+question mirrors.");
+  assert.equal(followup.label, `Answer ${formatCount(openQuestions, "open question")}`);
+  assert.match(followup.href, /^inbox\.html\?[^#]+$/);
+  assert.match(followup.href, /answerToCaptureId=/);
+  assertRelativeStaticHref(followup.href);
+  const params = new URLSearchParams(followup.href.split("?")[1] || "");
+  assert.notEqual(params.get("answerToCaptureId") || "", "");
+  assert.equal(params.get("thought"), "Answer:");
+  assert.match(followup.detail, /Save this review return file/);
+  return followup;
+}
+
+function assertInboxFollowup(seed) {
+  assert.equal(seed.cards?.length, undefined);
+  const followup = seed.followup;
+  assert.ok(followup, "Inbox seed should include a Review follow-up for mixed due+question mirrors.");
+  assert.match(followup.label, /^Review [1-9]\d* due card/);
+  assert.equal(followup.href, "review.html");
+  assertRelativeStaticHref(followup.href);
+  assert.match(followup.detail, /Save this inbox return file/);
+  return followup;
 }
 
 function assertStaticReturnContract(html, {
@@ -324,6 +358,30 @@ function extractSeed(html, expectedSchema) {
   assert.match(seed.workspaceFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   assert.match(seed.returnBaseFingerprint, /^fnv1a-[a-f0-9]{8}$/);
   return seed;
+}
+
+function assertRelativeStaticHref(href) {
+  assert.doesNotMatch(href, /^(?:\/|https?:|file:)/);
+  assert.doesNotMatch(href, /(?:^|\/)\.\.(?:\/|$)/);
+  assert.doesNotMatch(href, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
+}
+
+function countOpenQuestions(workspace) {
+  return (workspace.sessions || []).reduce((count, session) => (
+    count + (session.captures || []).filter((capture) => (
+      isQuestionText(capture.thought || capture.quote || "")
+        && !capture.questionResolvedAt
+        && !capture.questionParkedAt
+    )).length
+  ), 0);
+}
+
+function isQuestionText(value) {
+  return /^(?:q|question)\s*[:：]/i.test(String(value || "").trim()) || /[?？]/.test(String(value || ""));
+}
+
+function formatCount(count, noun) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function assertSeedMatchesWorkspace(seed, workspace) {
