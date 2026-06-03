@@ -1967,7 +1967,7 @@ try {
   assert.match(result.reviewReceiptBeforeInbox, /mirror base changed/);
   assert.match(result.reviewReceiptBeforeInbox, /legacy mirror check/);
   assert.match(result.reviewReceiptBeforeInbox, /older return file from previous mirror export/);
-  assert.match(result.reviewReceiptBeforeInbox, /re-export mirror before next device pass/);
+  assert.match(result.reviewReceiptBeforeInbox, /export updated mirror before next device pass/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /Review progress imported/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /0 applied/);
   assert.match(result.duplicateReviewReceiptBeforeInbox, /1 duplicate/);
@@ -1983,19 +1983,19 @@ try {
   assert.match(result.singleInboxReceiptText, /mirror base changed/);
   assert.match(result.singleInboxReceiptText, /legacy mirror check/);
   assert.match(result.singleInboxReceiptText, /older return file from previous mirror export/);
-  assert.match(result.singleInboxReceiptText, /re-export mirror before next device pass/);
+  assert.match(result.singleInboxReceiptText, /export updated mirror before next device pass/);
   assert.match(result.singleInboxReceiptText, /topic id matched/);
   assert.equal(result.singleInboxActiveTab, "today");
-  assert.match(result.singleReturnedWorkText, /older return file from previous mirror export - re-export mirror before next device pass/);
+  assert.match(result.singleReturnedWorkText, /older return file from previous mirror export - export updated mirror before next device pass/);
   assert.doesNotMatch(result.singleReturnedWorkText, /1 older return files/);
-  assert.match(result.singleHandoffText, /1 older return file from previous mirror export - re-export mirror before next device pass/);
+  assert.match(result.singleHandoffText, /1 older return file from previous mirror export - export updated mirror before next device pass/);
   assert.doesNotMatch(result.singleHandoffText, /1 older return files/);
   assert.match(result.batchReceiptText, /Return files imported/);
   assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /2 mirror bases changed/);
   assert.match(result.batchReceiptText, /2 legacy mirror checks/);
   assert.match(result.batchReceiptText, /older return files from previous mirror export/);
-  assert.match(result.batchReceiptText, /re-export mirror before next device pass/);
+  assert.match(result.batchReceiptText, /export updated mirror before next device pass/);
   assert.match(result.batchReceiptText, /learning-companion-inbox-patch-20260529-0902-002\.json/);
   assert.match(result.batchReceiptText, /learning-companion-review-progress-patch-20260529-0906-missing\.json/);
   assert.match(result.batchReceiptText, /inbox: 1 added, 0 skipped/);
@@ -2011,7 +2011,7 @@ try {
   assert.match(result.returnedWorkText, /Returned from phone\/Windows/);
   assert.match(result.returnedWorkText, /1 new capture from phone or Windows/);
   assert.match(result.returnedWorkText, /3 return files checked/);
-  assert.match(result.returnedWorkText, /2 older return files from previous mirror export - re-export mirror before next device pass/);
+  assert.match(result.returnedWorkText, /2 older return files from previous mirror export - export updated mirror before next device pass/);
   assert.match(result.returnedWorkText, /2 succeeded/);
   assert.match(result.returnedWorkText, /1 returned capture/);
   assert.match(result.returnedWorkText, /1 failed - open Import details/);
@@ -2046,7 +2046,7 @@ try {
   assert.match(result.handoffText, /Last return imported/);
   assert.match(result.handoffText, /2 files/);
   assert.match(result.handoffText, /1 new/);
-  assert.match(result.handoffText, /2 older return files from previous mirror export - re-export mirror before next device pass/);
+  assert.match(result.handoffText, /2 older return files from previous mirror export - export updated mirror before next device pass/);
   assert.deepEqual(result.handoffButtons, ["Export Mirror", "Import Return Files", "Paste Return File"]);
   assert.deepEqual(result.handoffActionGroups, [
     { label: "Send mirror out", steps: ["export"] },
@@ -2610,11 +2610,11 @@ try {
   assert.match(mirrorSaveReceipt.staleHandoffText, /Since Mirror JSON export: 1 new capture/);
   assert.match(mirrorSaveReceipt.staleHandoffSummary, /Mac changed · 1 new capture/);
   assert.deepEqual(mirrorSaveReceipt.staleHandoffActions, [
-    { text: "Re-export Mirror", step: "export", primary: true },
+    { text: "Export Updated Mirror", step: "export", primary: true },
     { text: "Import Return Files", step: "import", primary: false },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
-  assert.match(mirrorSaveReceipt.staleActionHint, /re-export before another phone or Windows/);
+  assert.match(mirrorSaveReceipt.staleActionHint, /export an updated mirror before another phone or Windows/);
   assert.equal(mirrorSaveReceipt.reExportOpenedTab, "export");
   assert.match(mirrorSaveReceipt.reExportedHandoffSummary, /Mirror ready/);
   assert.doesNotMatch(mirrorSaveReceipt.reExportedHandoffSummary, /Mac changed/);
@@ -2633,7 +2633,7 @@ try {
   assert.match(mirrorSaveReceipt.returnedHandoffText, /Return imported/);
   assert.match(mirrorSaveReceipt.returnedHandoffText, /Ready to export a fresh mirror/);
   assert.deepEqual(mirrorSaveReceipt.returnedHandoffActions, [
-    { text: "Export Fresh Mirror", step: "export", primary: true },
+    { text: "Export Updated Mirror", step: "export", primary: true },
     { text: "Import Return Files", step: "import", primary: false },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
@@ -5256,7 +5256,7 @@ async function assertPasteReturnFileFromClipboard(cdp) {
     return result;
   })()`, 15000);
 
-  assert.deepEqual(pasteReturn.buttonTexts, ["Re-export Mirror", "Import Return Files", "Paste Return File"]);
+  assert.deepEqual(pasteReturn.buttonTexts, ["Export Updated Mirror", "Import Return Files", "Paste Return File"]);
   assert.deepEqual(pasteReturn.actionGroups, [
     { label: "Send mirror out", steps: ["export"] },
     { label: "Bring return files back", steps: ["import", "paste"] }

@@ -2307,6 +2307,23 @@ function returnReadyBadgeHtml() {
   ];
 }
 
+function returnAfterSaveCss() {
+  return [
+    "    .return-after-save { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #b9d7cb; border-radius: 8px; background: #f0faf5; }",
+    "    .return-after-save strong { color: #2f6f5e; }",
+    "    .return-after-save span { color: #4b5358; font-size: 13px; line-height: 1.4; }"
+  ];
+}
+
+function returnAfterSaveHtml() {
+  return [
+    "      <div id=\"returnAfterSave\" class=\"return-after-save\" role=\"status\" aria-live=\"polite\" hidden>",
+    "        <strong>Next: send this return file back to your Mac</strong>",
+    "        <span id=\"returnAfterSaveText\">Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today &gt; Return Files in the Mac app. You can keep working here; new changes will stage into the next return file.</span>",
+    "      </div>"
+  ];
+}
+
 export function generateReviewHtml(workspace, now = new Date()) {
   const cleanWorkspace = sanitizeWorkspace(workspace);
   const workspaceJson = JSON.stringify(cleanWorkspace, null, 2);
@@ -2375,6 +2392,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "    .return-note { display: grid; gap: 6px; margin: 14px 0; padding: 12px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
     "    .return-note strong { color: #2f6f5e; }",
     ...returnReadyBadgeCss(),
+    ...returnAfterSaveCss(),
     "    code { border: 1px solid #e7e2d5; border-radius: 6px; padding: 1px 5px; background: #fbfaf6; }",
     "    .card { display: grid; gap: 12px; margin: 12px 0; padding: 14px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; }",
     "    button { min-height: 36px; border: 1px solid #2f6f5e; border-radius: 8px; background: #2f6f5e; color: white; font-weight: 700; }",
@@ -2410,6 +2428,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      <p id=\"returnSaveMode\" class=\"meta\"></p>",
     "      <p id=\"returnManualHelp\" class=\"meta\"></p>",
     "      <p id=\"returnNextStep\" class=\"meta\" role=\"status\" aria-live=\"polite\"></p>",
+    ...returnAfterSaveHtml(),
     "      <h3 class=\"return-preview-title\">Return file preview</h3>",
     "      <p class=\"return-copy-hint meta\">If Copy or Save is blocked, use Manual Copy; the selected text below is the return file JSON.</p>",
     "      <pre id=\"progressPreview\"></pre>",
@@ -2460,7 +2479,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      if (!savedProgress) setStatus(storageUnavailableStatus('Review marked in this return file.'));",
     "    });",
     "    document.querySelector('#copyProgressBtn').addEventListener('click', async () => {",
-    "      try { const patch = buildPatch(); await navigator.clipboard.writeText(JSON.stringify(patch, null, 2)); markSaved(); setStatus(`Return file copied. Name it ${returnFileName('learning-companion-review-progress-patch', patch.patchId)} when you save it.`); }",
+    "      try { const patch = buildPatch(); await navigator.clipboard.writeText(JSON.stringify(patch, null, 2)); markSaved(); showReturnAfterSave('copied'); setStatus(`Return file copied. Name it ${returnFileName('learning-companion-review-progress-patch', patch.patchId)} when you save it.`); }",
     "      catch { selectReturnJson('progressPreview', storageAvailable ? 'Copy failed. Return file selected; copy it manually.' : 'Copy failed. Return file selected; copy it manually before closing this page.'); }",
     "    });",
     "    document.querySelector('#selectProgressBtn').addEventListener('click', () => { selectReturnJson('progressPreview', 'Return file selected. Copy it manually, then bring it back to the Mac.'); });",
@@ -2470,6 +2489,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      const mode = await saveReturnJson(returnFileName('learning-companion-review-progress-patch', patch.patchId), body);",
     "      if (!mode) return;",
     "      markSaved();",
+    "      showReturnAfterSave(mode);",
     "      setStatus(mode === 'picker' ? 'Return file saved. Move it back to the Mac and import it from Today > Return Files.' : 'Return file download requested. Move it back to the Mac and import it from Today > Return Files.');",
     "    });",
     "    document.querySelector('#clearProgressBtn').addEventListener('click', clearProgress);",
@@ -2503,11 +2523,21 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      document.querySelector('#returnFileHint').textContent = `Suggested JSON file: ${filename}`;",
     "      document.querySelector('#returnManualHelp').textContent = `Locked-down browser: use Manual Copy, press Ctrl+C or Command+C, or long-press the selected text on phone, paste into a text editor such as Notepad, and save as ${filename} before moving it back to Mac.`;",
     "      document.querySelector('#returnNextStep').textContent = count ? `${count} review ${count === 1 ? 'event' : 'events'} staged in this return file. Use Copy or ${returnFileActionVerb()} to take it back to Mac before closing.` : 'No review events yet. Mark a due card to start a return file for Mac.';",
+    "      if (!count || hasUnsavedProgress()) hideReturnAfterSave();",
     "      setStatus(count ? `${count} review ${count === 1 ? 'event' : 'events'} ready. Save the return file, move it back to the Mac, then import from Today > Return Files.` : 'Grade cards here, then save a return file for the Mac app.');",
     "    }",
     "    function progressFingerprint() { return JSON.stringify(progress.events || {}); }",
     "    function markSaved() { lastSavedFingerprint = progressFingerprint(); }",
     "    function hasUnsavedProgress() { return Object.keys(progress.events || {}).length > 0 && progressFingerprint() !== lastSavedFingerprint; }",
+    "    function showReturnAfterSave(mode) {",
+    "      const panel = document.querySelector('#returnAfterSave');",
+    "      const text = document.querySelector('#returnAfterSaveText');",
+    "      if (!panel || !text) return;",
+    "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
+    "      text.textContent = `Return file ${action}. Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today > Return Files in the Mac app. You can keep reviewing here; new grades will stage into the next return file.`;",
+    "      panel.hidden = false;",
+    "    }",
+    "    function hideReturnAfterSave() { const panel = document.querySelector('#returnAfterSave'); if (panel) panel.hidden = true; }",
     "    function loadProgress() { try { const value = JSON.parse(localStorage.getItem(storageKey) || '{}'); return { events: value.events && typeof value.events === 'object' ? value.events : {} }; } catch { storageAvailable = false; return { events: {} }; } }",
     "    function saveProgress() { try { localStorage.setItem(storageKey, JSON.stringify(progress)); return true; } catch { storageAvailable = false; return false; } }",
     "    function storageUnavailableStatus(prefix = 'Review progress staged in this return file.') { return `${prefix} Browser storage is unavailable, so keep this page open and use Copy, Manual Copy, or the available save action before closing.`; }",
@@ -2639,6 +2669,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    .summary, label, .meta, output { color: #697077; font-size: 13px; }",
     "    .panel { display: grid; gap: 10px; border: 1px solid #dcd8cc; border-radius: 8px; background: white; padding: 14px; }",
     ...returnReadyBadgeCss(),
+    ...returnAfterSaveCss(),
     "    label { display: grid; gap: 5px; }",
     "    input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #dcd8cc; border-radius: 8px; padding: 10px; font: inherit; }",
     "    textarea { min-height: 96px; resize: vertical; }",
@@ -2704,6 +2735,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
       "      <p id=\"returnSaveMode\" class=\"meta\"></p>",
       "      <p id=\"returnManualHelp\" class=\"meta\"></p>",
     "      <p id=\"returnNextStep\" class=\"meta\" role=\"status\" aria-live=\"polite\"></p>",
+    ...returnAfterSaveHtml(),
     "      <h3 class=\"return-preview-title\">Return file preview</h3>",
     "      <p class=\"return-copy-hint meta\">If Copy or Save is blocked, use Manual Copy; the selected text below is the return file JSON.</p>",
     "      <pre id=\"patchPreview\"></pre>",
@@ -2750,7 +2782,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    fields.sourceUrl.addEventListener('input', () => { sourceUrlExplicit = false; });",
     "    document.querySelector('#clearDraftsBtn').addEventListener('click', clearDrafts);",
     "    document.querySelector('#copyPatchBtn').addEventListener('click', async () => {",
-    "      try { const patch = buildPatch(); await navigator.clipboard.writeText(JSON.stringify(patch, null, 2)); markSaved(); answerContextState = ''; answerContextQuestion = ''; renderAnswerContext(); setStatus(`Return file copied. Name it ${returnFileName('learning-companion-inbox-patch', patch.patchId)} when you save it.`); }",
+    "      try { const patch = buildPatch(); await navigator.clipboard.writeText(JSON.stringify(patch, null, 2)); markSaved(); showReturnAfterSave('copied'); answerContextState = ''; answerContextQuestion = ''; renderAnswerContext(); setStatus(`Return file copied. Name it ${returnFileName('learning-companion-inbox-patch', patch.patchId)} when you save it.`); }",
     "      catch { selectReturnJson('patchPreview', storageAvailable ? 'Copy failed. Return file selected; copy it manually.' : 'Copy failed. Return file selected; copy it manually before closing this page.'); }",
     "    });",
     "    document.querySelector('#selectPatchBtn').addEventListener('click', () => { selectReturnJson('patchPreview', 'Return file selected. Copy it manually, then bring it back to the Mac.'); });",
@@ -2760,6 +2792,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      const mode = await saveReturnJson(returnFileName('learning-companion-inbox-patch', patch.patchId), body);",
     "      if (!mode) return;",
     "      markSaved();",
+    "      showReturnAfterSave(mode);",
     "      answerContextState = '';",
     "      answerContextQuestion = '';",
     "      renderAnswerContext();",
@@ -2843,6 +2876,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      document.querySelector('#returnFileHint').textContent = `Suggested JSON file: ${filename}`;",
     "      document.querySelector('#returnManualHelp').textContent = `Locked-down browser: use Manual Copy, press Ctrl+C or Command+C, or long-press the selected text on phone, paste into a text editor such as Notepad, and save as ${filename} before moving it back to Mac.`;",
     "      document.querySelector('#returnNextStep').textContent = topicDrafts.length ? `${topicDrafts.length} draft ${topicDrafts.length === 1 ? 'capture' : 'captures'} staged in this return file. Use Copy or ${returnFileActionVerb()} to take it back to Mac before closing.` : 'No draft captures yet. Add a quote or thought to start a return file for Mac.';",
+    "      if (!topicDrafts.length || hasUnsavedDrafts()) hideReturnAfterSave();",
     "      renderAnswerContext();",
     "    }",
     "    function renderDraft(item) {",
@@ -2909,6 +2943,15 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "    function draftsFingerprint() { return JSON.stringify(drafts || []); }",
     "    function markSaved() { lastSavedFingerprint = draftsFingerprint(); }",
     "    function hasUnsavedDrafts() { return drafts.length > 0 && draftsFingerprint() !== lastSavedFingerprint; }",
+    "    function showReturnAfterSave(mode) {",
+    "      const panel = document.querySelector('#returnAfterSave');",
+    "      const text = document.querySelector('#returnAfterSaveText');",
+    "      if (!panel || !text) return;",
+    "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
+    "      text.textContent = `Return file ${action}. Move it through AirDrop, USB, email, file share, or manual Feishu Drive upload, then import or paste it from Today > Return Files in the Mac app. You can keep capturing here; new drafts will stage into the next return file.`;",
+    "      panel.hidden = false;",
+    "    }",
+    "    function hideReturnAfterSave() { const panel = document.querySelector('#returnAfterSave'); if (panel) panel.hidden = true; }",
     "    function clearForm(options = {}) { Object.values(fields).forEach((field) => { field.value = ''; }); sourceUrlExplicit = false; answerToCaptureId = ''; if (!options.keepAnswerContext) { answerContextState = ''; answerContextQuestion = ''; } renderAnswerContext(); }",
     "    function clean(value, max) { return String(value || '').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim().slice(0, max); }",
     "    function safeUrl(value) { const raw = clean(value, 2048); if (!raw) return ''; try { const url = new URL(raw); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } }",

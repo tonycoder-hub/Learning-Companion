@@ -3148,7 +3148,7 @@ function formatInboxReceipt(receipt) {
   const answerSkipped = receipt.skippedAnswerTargets
     ? ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips)}`
     : "";
-  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed" : "";
+  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed - export updated mirror before next device pass" : "";
   const legacyBasis = formatLegacyBasisNote(receipt);
   return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped}${baseChanged}${legacyBasis} · ${resolution} · ${receipt.targetSessionTitle}`;
 }
@@ -3177,7 +3177,7 @@ function formatReviewProgressReceipt(receipt) {
   const missing = receipt.skippedMissing ? `, ${receipt.skippedMissing} missing` : "";
   const conflict = receipt.skippedConflict ? `, ${receipt.skippedConflict} stale` : "";
   const invalid = receipt.skippedInvalid ? `, ${receipt.skippedInvalid} invalid` : "";
-  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed" : "";
+  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed - export updated mirror before next device pass" : "";
   const legacyBasis = formatLegacyBasisNote(receipt);
   return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events${baseChanged}${legacyBasis}`;
 }
@@ -3186,10 +3186,10 @@ function formatReturnFilesReceipt(receipt) {
   if (!receipt) return "";
   const parts = [`${receipt.processedFiles}/${receipt.fileCount} files processed`];
   if (receipt.baseChangedFiles) {
-    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)}`);
+    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)} - export updated mirror before next device pass`);
   }
   if (receipt.legacyBasisFiles) {
-    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)} - older return ${receipt.legacyBasisFiles === 1 ? "file" : "files"} from previous mirror export, re-export mirror before next device pass`);
+    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)} - older return ${receipt.legacyBasisFiles === 1 ? "file" : "files"} from previous mirror export, export updated mirror before next device pass`);
   }
   if (receipt.inbox?.files) {
     const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
@@ -3214,7 +3214,7 @@ function formatReturnFilesReceipt(receipt) {
 
 function formatLegacyBasisNote(receipt) {
   return receipt?.sourceFingerprintBasis === "workspace"
-    ? " · legacy mirror check (older return file from previous mirror export; re-export mirror before next device pass)"
+    ? " · legacy mirror check (older return file from previous mirror export; export updated mirror before next device pass)"
     : "";
 }
 
@@ -4453,16 +4453,16 @@ function returnedFailedDetail(receipt) {
 
 function returnedBasisDetail(receipt) {
   if (receipt?.schema !== "learning-companion.return-files-receipt.v1") {
-    if (receipt?.sourceFingerprintBasis === "workspace") return "older return file from previous mirror export - re-export mirror before next device pass";
-    if (receipt?.sourceFingerprintMatches === false) return "mirror base changed";
+    if (receipt?.sourceFingerprintBasis === "workspace") return "older return file from previous mirror export - export updated mirror before next device pass";
+    if (receipt?.sourceFingerprintMatches === false) return "mirror base changed - export updated mirror before next device pass";
     return "";
   }
   const parts = [];
   if (receipt.legacyBasisFiles) {
-    parts.push(`${oldReturnFileCountLabel(receipt.legacyBasisFiles)} from previous mirror export - re-export mirror before next device pass`);
+    parts.push(`${oldReturnFileCountLabel(receipt.legacyBasisFiles)} from previous mirror export - export updated mirror before next device pass`);
   }
   if (receipt.baseChangedFiles) {
-    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed`);
+    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed - export updated mirror before next device pass`);
   }
   return parts.join(" · ");
 }
@@ -5044,22 +5044,22 @@ function deviceFlowActionState() {
   if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) {
     return {
       primary: "export",
-      exportLabel: "Export Fresh Mirror",
+      exportLabel: "Export Updated Mirror",
       hint: "Next: export a fresh mirror so the next device pass starts after this return."
     };
   }
   if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) {
     return {
       primary: "export",
-      exportLabel: "Export Fresh Mirror",
+      exportLabel: "Export Updated Mirror",
       hint: "Next: export a fresh mirror to replace the legacy handoff check."
     };
   }
   if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
     return {
       primary: "export",
-      exportLabel: "Re-export Mirror",
-      hint: "Next: re-export before another phone or Windows study pass."
+      exportLabel: "Export Updated Mirror",
+      hint: "Next: export an updated mirror before another phone or Windows study pass."
     };
   }
   return {
@@ -5104,7 +5104,7 @@ function renderMirrorHandoffStatus() {
   } else if (legacyReturnImported) {
     grid.append(renderHandoffStateItem(
       "Return imported (legacy check)",
-      "Re-export a fresh mirror to update the handoff baseline."
+      "Export an updated mirror to replace the legacy handoff baseline."
     ));
   } else if (!mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
     grid.append(renderHandoffStateItem(
@@ -5114,7 +5114,7 @@ function renderMirrorHandoffStatus() {
   } else {
     grid.append(renderHandoffStateItem(
       "Mac changed since mirror export",
-      `${mirrorExportChangeDetail(state)}. Re-export before another phone or Windows study pass.`
+      `${mirrorExportChangeDetail(state)}. Export an updated mirror before another phone or Windows study pass.`
     ));
   }
 
@@ -5236,7 +5236,7 @@ function mirrorReturnImportDetail(importState) {
   ];
   if (importState.baseChangedFiles) parts.push(`${importState.baseChangedFiles} changed base`);
   if (importState.legacyBasisFiles) {
-    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles)} from previous mirror export - re-export mirror before next device pass`);
+    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles)} from previous mirror export - export updated mirror before next device pass`);
   }
   return parts.join(" · ");
 }
