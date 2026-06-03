@@ -19,7 +19,7 @@ Current branch is `main`, ahead of `origin/main` with local product commits.
 
 Local scratch rule: keep all Codex/Mira/Seed/smoke temporary artifacts under the project-ignored `.codex-tmp/` directory. Do not use `/private/tmp`, `/tmp`, `$TMPDIR`, or Downloads for new working files unless the user explicitly re-approves that path in the moment.
 
-No-delete night rule: Tony asked not to delete files tonight. Smoke scripts now support `LC_KEEP_SMOKE_ARTIFACTS=1`, which keeps their project-local `.codex-tmp/` run directories instead of deleting them. Use that flag for tonight's validation; cleanup remains deferred until Tony approves it.
+No-delete night rule: Tony asked not to delete files tonight. Smoke scripts now keep their project-local `.codex-tmp/` run directories by default. Do not run the explicit cleanup switch tonight; tomorrow, if Tony approves cleanup, use `LC_CLEAN_SMOKE_ARTIFACTS=1` for smoke-script-owned `.codex-tmp/` cleanup paths only.
 
 Service-worker update visibility: cache key is now `learning-companion-static-v5`. The web shell surfaces an `App update ready` notice with a manual `Reload` action when an already-controlled page detects a newer service worker. The service worker still uses its existing `skipWaiting()` / `clients.claim()` activation behavior; the product boundary is that the app does not auto-reload the page, unregister workers, or clear browser state. Browser verification exposed a real stale-HTML/new-JS mismatch, so `app.js` now installs compatibility-only shell nodes for the update notice and sidecar rail before first render, and browser smoke now loads a virtual stale shell to exercise that JS shim only. This is not a full stale-SW cache regression test.
 
