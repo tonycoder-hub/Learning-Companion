@@ -1347,7 +1347,8 @@ function captureSaveActivity(session, capture, options = {}) {
       detail: `${summarizeCapture(capture)} · Saved locally as a highlight; the source page is unchanged. Add a thought or make a card when recall matters.`,
       tab: "captures",
       targetId: capture?.id || "",
-      actionLabel: "View highlight"
+      targetPane: "highlightAnnotation",
+      actionLabel: "Add thought"
     };
   }
   if (captureHasStarterPrefix(capture, "question")) {
@@ -2130,11 +2131,7 @@ function renderActivity(session) {
     : activity.tab === "export" ? "Export" : activity.tab === "today" ? "Today" : "Details");
   const staysInSidecar = activityStaysInSidecar(activity);
   const actionText = uiPrefs.sidecarLayout && !staysInSidecar ? `Exit + ${baseAction}` : baseAction;
-  const actionLabel = staysInSidecar
-    ? "Focus Quick Capture"
-    : uiPrefs.sidecarLayout
-    ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
-    : `Open ${baseAction.toLowerCase()}`;
+  const actionLabel = activityActionLabel(activity, baseAction, staysInSidecar);
   dom.activityTitle.textContent = activity.title;
   dom.activityDetail.textContent = activity.detail;
   dom.activityUndoBtn.hidden = !canUndoCaptureDelete;
@@ -2148,11 +2145,25 @@ function renderActivity(session) {
 }
 
 function activityStaysInSidecar(activity) {
-  return uiPrefs.sidecarLayout && activityTargetsQuickCapture(activity);
+  return uiPrefs.sidecarLayout && (
+    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity)
+  );
 }
 
 function activityTargetsQuickCapture(activity) {
   return activity.targetPane === "quickCapture";
+}
+
+function activityTargetsHighlightAnnotation(activity) {
+  return activity.targetPane === "highlightAnnotation";
+}
+
+function activityActionLabel(activity, baseAction, staysInSidecar) {
+  if (activityTargetsHighlightAnnotation(activity)) return "Add thought to saved highlight";
+  if (staysInSidecar && activityTargetsQuickCapture(activity)) return "Focus Quick Capture";
+  return uiPrefs.sidecarLayout && !staysInSidecar
+    ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
+    : `Open ${baseAction.toLowerCase()}`;
 }
 
 function renderSidecarRail(session) {
@@ -2536,6 +2547,10 @@ function showActivityDetails() {
     focusQuickCapture();
     return;
   }
+  if (activityTargetsHighlightAnnotation(activity)) {
+    openActivityHighlightAnnotation(activity);
+    return;
+  }
   activeTab = activity.tab;
   if (activity.targetPane === "notes") {
     notesMode = "preview";
@@ -2549,6 +2564,28 @@ function showActivityDetails() {
   renderInspector();
   scrollActivityTarget(activity);
   renderActivity(getActiveSession(workspace));
+}
+
+function openActivityHighlightAnnotation(activity) {
+  const targetSession = workspace.sessions.find((session) => session.id === activity.sessionId);
+  const targetCapture = targetSession?.captures.find((capture) => capture.id === activity.targetId);
+  if (!targetSession || !targetCapture) {
+    showToast("Highlight no longer exists");
+    scrollActivityTarget(activity);
+    return;
+  }
+  if (!captureIsQuoteOnly(targetCapture)) {
+    showToast("Highlight already has a thought");
+    scrollActivityTarget(activity);
+    return;
+  }
+  // This context fork mirrors activityStaysInSidecar(): sidecar opens the visible Recent Stack, full desk opens Captures details.
+  const context = uiPrefs.sidecarLayout ? "stack" : "details";
+  workspace = selectSession(workspace, targetSession.id);
+  workspace = updateSession(workspace, targetSession.id, { focusMode: "capture" });
+  activeTab = "captures";
+  persist();
+  startHighlightAnnotation(targetSession.id, targetCapture.id, context);
 }
 
 function scrollActivityTarget(activity) {

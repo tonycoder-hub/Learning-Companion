@@ -3956,7 +3956,7 @@ try {
       sidecarOffOk: sidecarOff.ok === true && sidecarOff.sidecarLayout === false,
       restoreOk: restoreResult.ok === true
     };
-  })()`);
+  })()`, 60000);
 
   assert.equal(nativeClipboardCapture.ok, true);
   assert.equal(nativeClipboardCapture.browserOk, true);
@@ -4142,6 +4142,7 @@ try {
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
   await assertPostSaveFlow(cdp);
+  await assertSidecarHighlightActivity(cdp);
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {
@@ -4164,6 +4165,7 @@ async function assertPostSaveFlow(cdp) {
       title: document.querySelector("#activityTitle").textContent,
       detail: document.querySelector("#activityDetail").textContent,
       action: document.querySelector("#activityDetailsBtn").textContent,
+      aria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
       activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
     });
     const openQuestionButton = () => {
@@ -4240,6 +4242,12 @@ async function assertPostSaveFlow(cdp) {
         quote: session.captures[0]?.quote || ""
       };
     })();
+    document.querySelector("#activityDetailsBtn").click();
+    const highlightActivityAnnotation = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      detailsFormVisible: document.querySelector('.highlight-annotation-form[data-highlight-annotation-context="details"]')?.dataset.highlightAnnotationId === highlightBefore.id,
+      focused: document.activeElement?.classList.contains("highlight-annotation-input") === true
+    };
     const addThoughtButtonFor = (captureId) => [...document.querySelectorAll("#captureStack .capture-stack-row button")]
       .find((button) => button.textContent === "Add thought" && button.dataset.highlightAnnotationTrigger === captureId);
     const highlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
@@ -4320,8 +4328,8 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
     const quoteQuestionSaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightAnnotated, highlightAnnotationState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
-  })()`, 45000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
+  })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
   assert.equal(postSaveFlow.questionSaved.action, "Questions");
@@ -4351,7 +4359,11 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightSaved.detail, /Saved locally as a highlight/);
   assert.match(postSaveFlow.highlightSaved.detail, /source page is unchanged/);
   assert.match(postSaveFlow.highlightSaved.detail, /make a card/);
-  assert.equal(postSaveFlow.highlightSaved.action, "View highlight");
+  assert.equal(postSaveFlow.highlightSaved.action, "Add thought");
+  assert.equal(postSaveFlow.highlightSaved.aria, "Add thought to saved highlight");
+  assert.equal(postSaveFlow.highlightActivityAnnotation.activeTab, "captures");
+  assert.equal(postSaveFlow.highlightActivityAnnotation.detailsFormVisible, true);
+  assert.equal(postSaveFlow.highlightActivityAnnotation.focused, true);
   assert.equal(postSaveFlow.highlightAnnotated.title, "Highlight annotated");
   assert.match(postSaveFlow.highlightAnnotated.detail, /Thought added to the saved highlight/);
   assert.match(postSaveFlow.highlightAnnotated.detail, /source page is unchanged/);
@@ -4384,6 +4396,89 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
   assert.equal(postSaveFlow.quoteQuestionSaved.title, "Question saved");
   assert.equal(postSaveFlow.quoteQuestionSaved.action, "Questions");
+}
+
+async function assertSidecarHighlightActivity(cdp) {
+  const sidecarHighlight = await cdp.evaluate(`(async () => {
+    const beforeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    let result = {};
+    try {
+      const workspace = JSON.parse(beforeWorkspaceJson);
+      const baseSession = workspace.sessions[0];
+      const fixtureSession = {
+        ...baseSession,
+        id: "sidecar_highlight_activity_fixture",
+        title: "Sidecar highlight activity fixture",
+        sourceTitle: "Reader article",
+        sourceUrl: "https://example.com/reader-article",
+        materialType: "article",
+        notesMarkdown: "",
+        captures: [],
+        reviewCards: [],
+        focusMode: "capture"
+      };
+      window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+        ...workspace,
+        activeSessionId: fixtureSession.id,
+        sessions: [fixtureSession],
+        importedPatches: [],
+        importedReviewPatches: []
+      }));
+      window.learningCompanionNative.setSidecarLayout(true);
+      const quote = "Sidecar quote-only highlight should open its thought form without leaving focus.";
+      document.querySelector("#quoteInput").value = quote;
+      document.querySelector("#thoughtInput").value = "";
+      document.querySelector("#captureBtn").click();
+      const activity = {
+        title: document.querySelector("#activityTitle").textContent,
+        detail: document.querySelector("#activityDetail").textContent,
+        action: document.querySelector("#activityDetailsBtn").textContent,
+        aria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || ""
+      };
+      const afterCapture = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      const savedSession = afterCapture.sessions.find((session) => session.id === afterCapture.activeSessionId);
+      const savedCapture = savedSession?.captures[0];
+      document.querySelector("#activityDetailsBtn").click();
+      const stackForm = document.querySelector('.highlight-annotation-form[data-highlight-annotation-context="stack"]');
+      const focusedBeforeTick = document.activeElement?.classList.contains("highlight-annotation-input") === true;
+      await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+      result = {
+        activity,
+        savedId: savedCapture?.id || "",
+        savedQuote: savedCapture?.quote || "",
+        savedThought: savedCapture?.thought || "",
+        savedCount: savedSession?.captures.length || 0,
+        stillSidecar: document.querySelector(".app-shell").classList.contains("sidecar-layout"),
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        stackFormVisible: Boolean(stackForm) && !stackForm.closest(".inspector"),
+        stackFormId: stackForm?.dataset.highlightAnnotationId || "",
+        focused: focusedBeforeTick,
+        focusedAfterTick: document.activeElement?.classList.contains("highlight-annotation-input") === true,
+        formContexts: [...document.querySelectorAll(".highlight-annotation-form")].map((form) => ({
+          id: form.dataset.highlightAnnotationId || "",
+          context: form.dataset.highlightAnnotationContext || "",
+          hiddenByInspector: Boolean(form.closest(".inspector"))
+        }))
+      };
+    } finally {
+      window.learningCompanionNative.setSidecarLayout(false);
+      window.learningCompanionNative.importWorkspaceJson(beforeWorkspaceJson);
+    }
+    return result;
+  })()`, 15000);
+
+  assert.equal(sidecarHighlight.activity.title, "Highlight saved", JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.activity.action, "Add thought", JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.activity.aria, "Add thought to saved highlight", JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.savedCount, 1, JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.savedQuote, "Sidecar quote-only highlight should open its thought form without leaving focus.", JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.savedThought, "", JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.stillSidecar, true, JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.activeTab, "captures", JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.stackFormVisible, true, JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.stackFormId, sidecarHighlight.savedId, JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.focused, true, JSON.stringify(sidecarHighlight));
+  assert.equal(sidecarHighlight.focusedAfterTick, true, JSON.stringify(sidecarHighlight));
 }
 
 async function waitForTarget(port) {
