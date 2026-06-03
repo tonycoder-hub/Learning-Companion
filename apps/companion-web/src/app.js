@@ -4374,9 +4374,9 @@ function captureFlowStatus(pack, draftItems = []) {
 }
 
 function resolveCloseLoopState(pack, draftItems = []) {
-  // Keep the loop priority in one place: due review > unanswered question > unfinished draft > parked follow-up > clear.
-  const [dueItem] = pack.dueItems;
-  if (dueItem) {
+  const priority = todayLoopPriority(pack, draftItems);
+  if (priority.kind === "review") {
+    const dueItem = priority.item;
     return {
       label: "Close the loop",
       status: `${pack.stats.due} due`,
@@ -4388,8 +4388,8 @@ function resolveCloseLoopState(pack, draftItems = []) {
     };
   }
 
-  const [questionItem] = pack.questionItems;
-  if (questionItem) {
+  if (priority.kind === "question") {
+    const questionItem = priority.item;
     return {
       label: "Close the loop",
       status: `${pack.stats.questions} open`,
@@ -4401,8 +4401,8 @@ function resolveCloseLoopState(pack, draftItems = []) {
     };
   }
 
-  const [draftItem] = draftItems;
-  if (draftItem) {
+  if (priority.kind === "draft") {
+    const draftItem = priority.item;
     return {
       label: "Close the loop",
       status: `${draftItems.length} ${draftItems.length === 1 ? "draft" : "drafts"}`,
@@ -4414,8 +4414,8 @@ function resolveCloseLoopState(pack, draftItems = []) {
     };
   }
 
-  const [parkedItem] = pack.parkedQuestionItems;
-  if (parkedItem) {
+  if (priority.kind === "parked") {
+    const parkedItem = priority.item;
     return {
       label: "Close the loop",
       status: `${pack.stats.parkedQuestions} parked`,
@@ -4436,6 +4436,19 @@ function resolveCloseLoopState(pack, draftItems = []) {
     kind: "loop",
     tone: "clear"
   };
+}
+
+function todayLoopPriority(pack, draftItems = []) {
+  // One priority contract drives both the visual loop step and the primary Next Move card.
+  const [dueItem] = pack.dueItems;
+  if (dueItem) return { kind: "review", item: dueItem };
+  const [questionItem] = pack.questionItems;
+  if (questionItem) return { kind: "question", item: questionItem };
+  const [draftItem] = draftItems;
+  if (draftItem) return { kind: "draft", item: draftItem };
+  const [parkedItem] = pack.parkedQuestionItems;
+  if (parkedItem) return { kind: "parked", item: parkedItem };
+  return { kind: "clear", item: null };
 }
 
 function renderReturnedWorkNudge(pack) {
@@ -4772,8 +4785,9 @@ function renderStartHereInline() {
 }
 
 function todayPrimaryMove(pack, draftItems = []) {
-  const [dueItem] = pack.dueItems;
-  if (dueItem) {
+  const priority = todayLoopPriority(pack, draftItems);
+  if (priority.kind === "review") {
+    const dueItem = priority.item;
     return {
       kind: "review",
       title: `Review ${pack.stats.due} due ${pack.stats.due === 1 ? "card" : "cards"}`,
@@ -4785,21 +4799,8 @@ function todayPrimaryMove(pack, draftItems = []) {
     };
   }
 
-  const [draftItem] = draftItems;
-  if (draftItem) {
-    return {
-      kind: "draft",
-      title: "Resume capture draft",
-      detail: `${draftItem.session.title} · ${summarizeCaptureDraft(draftItem.draft)}`,
-      actionLabel: "Resume",
-      inspectLabel: "Drafts",
-      targetSection: "capture_drafts",
-      run: () => resumeCaptureDraft(draftItem.session.id)
-    };
-  }
-
-  const [questionItem] = pack.questionItems;
-  if (questionItem) {
+  if (priority.kind === "question") {
+    const questionItem = priority.item;
     return {
       kind: "question",
       title: `Answer ${pack.stats.questions} open ${pack.stats.questions === 1 ? "question" : "questions"}`,
@@ -4811,8 +4812,21 @@ function todayPrimaryMove(pack, draftItems = []) {
     };
   }
 
-  const [parkedItem] = pack.parkedQuestionItems;
-  if (parkedItem) {
+  if (priority.kind === "draft") {
+    const draftItem = priority.item;
+    return {
+      kind: "draft",
+      title: "Resume capture draft",
+      detail: `${draftItem.session.title} · ${summarizeCaptureDraft(draftItem.draft)}`,
+      actionLabel: "Resume",
+      inspectLabel: "Drafts",
+      targetSection: "capture_drafts",
+      run: () => resumeCaptureDraft(draftItem.session.id)
+    };
+  }
+
+  if (priority.kind === "parked") {
+    const parkedItem = priority.item;
     return {
       kind: "parked",
       title: `Resume ${pack.stats.parkedQuestions} saved ${pack.stats.parkedQuestions === 1 ? "question" : "questions"}`,

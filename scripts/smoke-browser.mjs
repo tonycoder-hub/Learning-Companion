@@ -194,6 +194,21 @@ try {
   await sleep(500);
 
   const firstRun = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const readTodayFlowMove = () => ({
+      flowSteps: [...(document.querySelectorAll(".learning-flow-panel [data-learning-flow-step]") || [])].map((step) => ({
+        kind: step.dataset.learningFlowStep,
+        text: step.textContent
+      })),
+      nextMoveText: document.querySelector(".today-path-card")?.textContent || "",
+      nextMoveKind: document.querySelector("[data-today-path-action]")?.dataset.todayPathAction || "",
+      nextMoveAction: document.querySelector("[data-today-path-action]")?.textContent || "",
+      inspectTarget: document.querySelector("[data-today-path-target]")?.dataset.todayPathTarget || ""
+    });
     document.querySelector('[data-tab="today"]').click();
     const panel = document.querySelector(".learning-flow-panel");
     const card = document.querySelector(".start-here-inline");
@@ -232,6 +247,84 @@ try {
       kind: step.dataset.learningFlowStep,
       text: step.textContent
     }));
+    const mixedQuestionDraftWorkspace = JSON.parse(originalWorkspaceJson);
+    const mixedQuestionDraftSession = {
+      ...mixedQuestionDraftWorkspace.sessions[0],
+      id: "mixed_question_draft_flow",
+      title: "Mixed question draft flow",
+      sourceTitle: "Mixed flow source",
+      sourceUrl: "https://example.com/mixed-flow",
+      materialType: "doc",
+      notesMarkdown: "",
+      captures: [{
+        id: "capture_mixed_open_question",
+        quote: "The proof hints at a missing invariant.",
+        thought: "Question: Why does the invariant make this step safe?",
+        timestamp: "",
+        tags: [],
+        capturedAt: "2026-06-03T09:10:00.000Z",
+        createdAt: "2026-06-03T09:10:00.000Z",
+        updatedAt: "2026-06-03T09:10:00.000Z",
+        sourceTitle: "Mixed flow source",
+        sourceUrl: "https://example.com/mixed-flow"
+      }],
+      reviewCards: []
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...mixedQuestionDraftWorkspace,
+      activeSessionId: mixedQuestionDraftSession.id,
+      sessions: [mixedQuestionDraftSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="captures"]').click();
+    setValue("#thoughtInput", "Takeaway: this unfinished draft should wait behind the open question.");
+    document.querySelector('[data-tab="today"]').click();
+    const mixedQuestionDraftFlow = readTodayFlowMove();
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...mixedQuestionDraftWorkspace,
+      activeSessionId: mixedQuestionDraftSession.id,
+      sessions: [{
+        ...mixedQuestionDraftSession,
+        captures: [],
+        reviewCards: []
+      }],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="captures"]').click();
+    setValue("#thoughtInput", "Takeaway: this draft should be the next move when no question is open.");
+    document.querySelector('[data-tab="today"]').click();
+    const draftOnlyFlow = readTodayFlowMove();
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...mixedQuestionDraftWorkspace,
+      activeSessionId: mixedQuestionDraftSession.id,
+      sessions: [{
+        ...mixedQuestionDraftSession,
+        reviewCards: [{
+          id: "review_mixed_priority_card",
+          prompt: "Recall the highest-priority review card.",
+          answer: "Due review stays ahead of question and draft work.",
+          sourceCaptureId: "capture_mixed_open_question",
+          evidenceCaptureId: "",
+          dueAt: "2026-05-29T08:00:00.000Z",
+          strength: 0,
+          createdAt: "2026-05-29T08:00:00.000Z",
+          updatedAt: "2026-05-29T08:00:00.000Z",
+          lastReviewedAt: null,
+          originClientId: mixedQuestionDraftWorkspace.clientId
+        }]
+      }],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="captures"]').click();
+    setValue("#thoughtInput", "Takeaway: this draft should wait behind review and question work.");
+    document.querySelector('[data-tab="today"]').click();
+    const reviewQuestionDraftFlow = readTodayFlowMove();
+    document.querySelector("#clearCaptureDraftBtn")?.click();
     window.learningCompanionNative.importWorkspaceJson(originalWorkspaceJson);
     document.querySelector('[data-tab="today"]').click();
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
@@ -255,6 +348,9 @@ try {
     return {
       ...before,
       nonEmptyFlowSteps,
+      mixedQuestionDraftFlow,
+      draftOnlyFlow,
+      reviewQuestionDraftFlow,
       linkedQuestion,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activeElement: document.activeElement?.id || "",
@@ -279,6 +375,24 @@ try {
   assert.doesNotMatch(firstRun.text, /Close the loopClear/);
   assert.deepEqual(firstRun.nonEmptyFlowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(firstRun.nonEmptyFlowSteps.find((step) => step.kind === "loop")?.text || "", /Close the loop/);
+  assert.deepEqual(firstRun.mixedQuestionDraftFlow.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.match(firstRun.mixedQuestionDraftFlow.flowSteps.find((step) => step.kind === "loop")?.text || "", /1 open/);
+  assert.match(firstRun.mixedQuestionDraftFlow.flowSteps.find((step) => step.kind === "loop")?.text || "", /Answer/);
+  assert.match(firstRun.mixedQuestionDraftFlow.nextMoveText, /Answer 1 open question/);
+  assert.doesNotMatch(firstRun.mixedQuestionDraftFlow.nextMoveText, /Resume capture draft/);
+  assert.equal(firstRun.mixedQuestionDraftFlow.nextMoveKind, "question");
+  assert.equal(firstRun.mixedQuestionDraftFlow.nextMoveAction, "Answer");
+  assert.equal(firstRun.mixedQuestionDraftFlow.inspectTarget, "open_questions");
+  assert.match(firstRun.draftOnlyFlow.flowSteps.find((step) => step.kind === "loop")?.text || "", /1 draft/);
+  assert.match(firstRun.draftOnlyFlow.nextMoveText, /Resume capture draft/);
+  assert.equal(firstRun.draftOnlyFlow.nextMoveKind, "draft");
+  assert.equal(firstRun.draftOnlyFlow.nextMoveAction, "Resume");
+  assert.equal(firstRun.draftOnlyFlow.inspectTarget, "capture_drafts");
+  assert.match(firstRun.reviewQuestionDraftFlow.flowSteps.find((step) => step.kind === "loop")?.text || "", /1 due/);
+  assert.match(firstRun.reviewQuestionDraftFlow.nextMoveText, /Review 1 due card/);
+  assert.equal(firstRun.reviewQuestionDraftFlow.nextMoveKind, "review");
+  assert.equal(firstRun.reviewQuestionDraftFlow.nextMoveAction, "Review");
+  assert.equal(firstRun.reviewQuestionDraftFlow.inspectTarget, "due_review");
   assert.match(firstRun.text, /First Note/);
   assert.match(firstRun.text, /Choose the first thing to bring back from this source/);
   assert.deepEqual(firstRun.buttons, [
