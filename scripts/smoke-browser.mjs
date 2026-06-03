@@ -925,7 +925,11 @@ try {
       quotePlaceholder: document.querySelector("#quoteInput").placeholder,
       thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder,
       contextSource: document.querySelector("#captureContextSource").textContent,
+      contextSourceState: document.querySelector("#captureContext").dataset.sourceState,
+      contextSourceBorderStyle: getComputedStyle(document.querySelector("#captureContextSource")).borderStyle,
       contextTime: document.querySelector("#captureContextTime").textContent,
+      contextTimeState: document.querySelector("#captureContext").dataset.timeState,
+      contextAria: document.querySelector("#captureContext").getAttribute("aria-label"),
       contextOpenDisabled: document.querySelector("#captureContextOpenBtn").disabled,
       contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
       contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
@@ -1504,7 +1508,11 @@ try {
       targetTitle: document.querySelector("#captureContextTarget").title,
       intent: document.querySelector("#captureContextIntent").textContent,
       source: document.querySelector("#captureContextSource").textContent,
+      sourceState: document.querySelector("#captureContext").dataset.sourceState,
+      sourceBorderStyle: getComputedStyle(document.querySelector("#captureContextSource")).borderStyle,
       timeHidden: document.querySelector("#captureContextTime").hidden,
+      timeState: document.querySelector("#captureContext").dataset.timeState,
+      contextAria: document.querySelector("#captureContext").getAttribute("aria-label"),
       openDisabled: document.querySelector("#captureContextOpenBtn").disabled,
       openText: document.querySelector("#captureContextOpenBtn").textContent,
       openLabel: document.querySelector("#captureContextOpenBtn").getAttribute("aria-label"),
@@ -2074,7 +2082,14 @@ try {
   assert.equal(result.sourceTimestampStage.quotePlaceholder, "Transcript line or key phrase at this moment");
   assert.equal(result.sourceTimestampStage.thoughtPlaceholder, "Your question, takeaway, or answer for this moment");
   assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
+  assert.equal(result.sourceTimestampStage.contextSourceState, "linked");
+  assert.equal(result.sourceTimestampStage.contextSourceBorderStyle, "solid");
   assert.equal(result.sourceTimestampStage.contextTime, "@ 08:12");
+  assert.equal(result.sourceTimestampStage.contextTimeState, "set");
+  assert.equal(
+    result.sourceTimestampStage.contextAria,
+    "Capture context: to Learning Companion MVP; Video moment; source RustConf ownership talk; time 08:12."
+  );
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
   assert.equal(result.sourceTimestampStage.contextOpenText, "Resume @ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12");
@@ -2191,7 +2206,11 @@ try {
     targetTitle: "Captures save to New learning session",
     intent: "Ready",
     source: "No source",
+    sourceState: "missing",
+    sourceBorderStyle: "dashed",
     timeHidden: true,
+    timeState: "unset",
+    contextAria: "Capture context: to New learning session; Ready; source no source set; no timestamp.",
     openDisabled: false,
     openText: "Set source",
     openLabel: "Set source URL",

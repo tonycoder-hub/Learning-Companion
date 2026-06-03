@@ -1918,10 +1918,16 @@ function renderCaptureContext(session) {
   const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
   const openLabel = captureContextOpenLabel(resume);
   const targetLabel = `To ${session.title || "current topic"}`;
+  const hasSource = Boolean(resume.href);
+  const hasTime = Boolean(resume.timestamp);
+  const intent = captureDraftIntent(session);
+  dom.captureContext.dataset.sourceState = hasSource ? "linked" : "missing";
+  dom.captureContext.dataset.timeState = hasTime ? "set" : "unset";
+  dom.captureContext.dataset.materialType = session.materialType || "article";
+  dom.captureContext.setAttribute("aria-label", captureContextSummary(session, resume, intent, sourceLabel));
   dom.captureContextTarget.textContent = targetLabel;
   dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
   dom.captureContextTarget.setAttribute("aria-label", `Show capture destination: ${session.title || "current topic"}`);
-  const intent = captureDraftIntent(session);
   dom.captureContextIntent.textContent = intent.label;
   dom.captureContextIntent.title = intent.title;
   dom.captureContextSource.textContent = sourceLabel;
@@ -1939,6 +1945,13 @@ function renderCaptureContext(session) {
   dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Set source URL");
   renderCaptureGuidance(session, resume);
   renderCaptureStarters();
+}
+
+function captureContextSummary(session, resume, intent, sourceLabel) {
+  const destination = session.title || "current topic";
+  const source = resume.href ? sourceLabel : "no source set";
+  const time = resume.timestamp ? `time ${resume.timestamp}` : "no timestamp";
+  return `Capture context: to ${destination}; ${intent.label}; source ${source}; ${time}.`;
 }
 
 function captureContextOpenLabel(resume) {

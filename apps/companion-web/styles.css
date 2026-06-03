@@ -837,11 +837,13 @@ textarea:focus {
 }
 
 .capture-context-source {
+  position: relative;
   min-width: 0;
   min-height: 28px;
-  padding: 0;
+  padding: 0 8px 0 20px;
   overflow: hidden;
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--ink);
   cursor: pointer;
@@ -850,6 +852,38 @@ textarea:focus {
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.capture-context-source::before {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--muted);
+  content: "";
+  transform: translateY(-50%);
+}
+
+.capture-context[data-source-state="linked"] .capture-context-source {
+  border-color: rgba(47, 111, 94, 0.14);
+  background: rgba(238, 246, 243, 0.7);
+}
+
+.capture-context[data-source-state="linked"] .capture-context-source::before {
+  background: var(--green);
+}
+
+.capture-context[data-source-state="missing"] .capture-context-source {
+  border-color: rgba(156, 104, 40, 0.24);
+  border-style: dashed;
+  background: #fff7ea;
+  color: #7d551d;
+}
+
+.capture-context[data-source-state="missing"] .capture-context-source::before {
+  background: #b97824;
 }
 
 .capture-context-source:hover {
