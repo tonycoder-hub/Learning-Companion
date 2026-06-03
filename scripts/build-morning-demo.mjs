@@ -46,6 +46,7 @@ const DEMO_SCRIPT_FILE = "DEMO_SCRIPT.md";
 const STAGE_FILE = "STAGE.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const WINDOWS_STATIC_QA_FILE = "WINDOWS_STATIC_QA.md";
+const STATIC_RETURN_CONTRACT_FILE = "STATIC_RETURN_CONTRACT.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 const HARMONY_SCAFFOLD_REPORT_FILE = "HARMONY_SCAFFOLD_REPORT.json";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
@@ -522,6 +523,7 @@ await writeText(join(OUT_DIR, STAGE_FILE), buildStageMarkdown({
 }));
 await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), macManualQaMarkdown);
 await writeText(join(OUT_DIR, WINDOWS_STATIC_QA_FILE), windowsStaticQaMarkdown);
+await writeText(join(OUT_DIR, STATIC_RETURN_CONTRACT_FILE), buildStaticReturnContractMarkdown());
 await writeText(
   join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE),
   `${buildEvidenceBadgeMarkdown(HARMONY_DEVECO_HANDOFF_FILE)}${await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8")}`
@@ -561,6 +563,7 @@ assert.match(reviewReportHtml, /href="DEMO_SCRIPT\.md"/);
 assert.match(reviewReportHtml, /href="STAGE\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="WINDOWS_STATIC_QA\.md"/);
+assert.match(reviewReportHtml, /href="STATIC_RETURN_CONTRACT\.md"/);
 assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
 assert.match(reviewReportHtml, /href="EVIDENCE_TIERS\.json"/);
 assert.match(reviewReportHtml, /href="DEFERRED_GATES\.json"/);
@@ -572,8 +575,10 @@ assert.match(reviewReportHtml, /parked question/);
 assert.match(reviewReportHtml, /What To Inspect First/);
 assert.match(reviewReportHtml, /Mac Capture Sidecar/);
 assert.match(reviewReportHtml, /source\/time context strip/);
-assert.match(reviewReportHtml, /First-Run Start Here/);
+assert.match(reviewReportHtml, /First-Run First Note/);
+assert.match(reviewReportHtml, /without repeating Open source/);
 assert.match(reviewReportHtml, /Capture this thought/);
+assert.match(reviewReportHtml, /npm run check:static-return/);
 assert.match(reviewReportHtml, /Today section map/);
 assert.match(reviewReportHtml, /Harmony Reader Session/);
 assert.match(reviewReportHtml, /rejected-kept-current/);
@@ -625,6 +630,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   reviewReport: REVIEW_REPORT_FILE,
   macManualQa: MAC_MANUAL_QA_FILE,
   windowsStaticQa: WINDOWS_STATIC_QA_FILE,
+  staticReturnContract: STATIC_RETURN_CONTRACT_FILE,
   harmonyDevEcoHandoff: HARMONY_DEVECO_HANDOFF_FILE,
   harmonyScaffoldReport: HARMONY_SCAFFOLD_REPORT_FILE,
   evidenceTiers: EVIDENCE_TIERS_FILE,
@@ -1081,7 +1087,7 @@ function buildMacManualQaMarkdown({
     "| Source time staging | Paste a supported video URL that contains a timestamp into the source URL field, then use `-15`, `+15`, ArrowDown, and ArrowUp while Time is focused. | The Time field is filled and pulsed, Quick Capture shows the source/time context, the context Open button includes that time, mouse and keyboard nudges adjust the context time, the activity strip reports `Source time staged` or `Time adjusted`, and the stored source URL no longer includes only the time parameter. | NT |  |",
     "| Paste Source setup | Copy a browser URL that contains a video timestamp, then click the URL-field Paste Source button in the app. Repeat with a non-URL clipboard value and with a typed topic that already has a capture. | The app fills a safe source URL, derives or keeps an editable source title, infers Video when safe, syncs Time from the URL, focuses Quick Capture, non-URL clipboard text is discarded with a manual-entry prompt, and existing typed topics are not silently reclassified after captures exist. | NT |  |",
     "| Today draft resume | Leave a non-empty Quick Capture draft, open Today, then use the draft Resume action. | Today shows a device-local/not-exported draft card and Resume returns focus to Quick Capture. | NT |  |",
-    "| First-run Start Here | Open the app with an empty workspace or fresh browser profile. | Today shows Learning Flow with an embedded Start Here row; Capture this thought focuses Quick Capture, Ask about this seeds a `Question:` draft, and Set up page clipper opens the bookmarklet/export area. | NT |  |",
+    "| First-run First Note | Open the app with an empty workspace or fresh browser profile. Repeat once after linking a source. | Today shows Learning Flow with a compact First Note row; no-source state offers Set source first, linked-source state offers Capture this thought, Ask about this, and Set up page clipper without repeating Open source. Capture this thought focuses the Thought field. | NT |  |",
     "| Today section map | In Today with the sample workspace imported, click the Due, Questions, Parked, Answers, Closed, and Recent chips. | Each chip jumps to the matching section without horizontal overflow at sidecar/mobile widths. | NT |  |",
     "| Focus Brief draft precedence | In a workspace with both a due review and a fresh Quick Capture draft, open Focus Brief. | Due review stays the primary next action; the draft remains recoverable from Today instead of being treated as synced/exported data. | NT |  |",
     "| Focus Brief question signal | In a topic with an open question and due review or synthesis, click the Focus Brief open-question signal. | The primary Focus Brief action stays Review or Build, while the signal opens Today at Open Questions and exits sidecar layout if needed. | NT |  |",
@@ -1103,6 +1109,48 @@ function buildMacManualQaMarkdown({
     "- Permission prompts are expected for Accessibility or browser Automation. If a prompt appears, record it instead of treating it as a product failure.",
     "- If a step needs a user approval tonight, mark `BLOCKED` and continue with the rest.",
     `- Real Windows static mirror runs belong in \`${WINDOWS_STATIC_QA_FILE}\`; real HarmonyOS runs still belong in a later device roundtrip receipt.`,
+    ""
+  ].join("\n");
+}
+
+function buildStaticReturnContractMarkdown() {
+  return [
+    "# Static Return Contract",
+    "",
+    buildEvidenceBadgeMarkdown(STATIC_RETURN_CONTRACT_FILE).trim(),
+    "",
+    "This note explains what `npm run check:static-return` proves and what it deliberately does not prove.",
+    "",
+    "Positive scope: it proves the generated static Review/Inbox HTML matches the declared local return contract, and that verifier-generated review/inbox return payloads import through the real Mac model functions as fixtures.",
+    "",
+    "## Run It",
+    "",
+    "```bash",
+    "npm run check:static-return",
+    "```",
+    "",
+    "The verifier reads the generated morning mirror files from `dist/morning-demo/mirror-folder/` and writes its receipt under the project-local ignored `.codex-tmp/static-return-loop-check/` directory. It does not write to Downloads.",
+    "",
+    "## Proven By The Local Contract",
+    "",
+    "- `index.html`, `review.html`, and `inbox.html` exist in the generated mirror folder.",
+    "- Review and Inbox links are relative local-file links.",
+    "- Static Review/Inbox pages expose Manual Copy and Return Files instructions.",
+    "- Static pages do not reference external scripts, styles, fetch/XHR/import/service worker, WebSocket/EventSource/sendBeacon, BroadcastChannel, iframe, or inline event-handler paths.",
+    "- Embedded seed fingerprints match `sample-workspace.json`.",
+    "- Generated review and inbox return payloads import through the real Mac model functions as fixture payloads.",
+    "- Unsafe inbox URL inputs are stripped in the verifier matrix.",
+    "",
+    "## Not Proven",
+    "",
+    "- It does not prove a real user-created return file.",
+    "- It does not prove browser-executed `file://` behavior on macOS, Windows, or HarmonyOS.",
+    "- It does not prove native file pickers, Downloads immutability, Feishu sync, or a phone-device roundtrip.",
+    "- It does not replace `MAC_MANUAL_QA.md`, `WINDOWS_STATIC_QA.md`, or the HarmonyOS DevEco/device gates.",
+    "",
+    "## Evidence Label",
+    "",
+    "The expected verifier receipt tier is `STATIC_CONTRACT_PLUS_FIXTURE_MODEL_IMPORT`. Treat that as stronger than a static link check, but weaker than a real manual return-file pass.",
     ""
   ].join("\n");
 }
@@ -1183,6 +1231,7 @@ function buildDemoScriptMarkdown({
     "## 25-40s: Check Cross-End Boundaries",
     "",
     `- Open \`mirror-folder/review.html\` and \`mirror-folder/inbox.html\`; they are static patch exporters for phone/Windows/manual transport.`,
+    `- Read \`${STATIC_RETURN_CONTRACT_FILE}\`, then run \`npm run check:static-return\` when you want the local static return contract receipt without touching Downloads.`,
     `- Open \`${WINDOWS_STATIC_QA_FILE}\` before claiming Windows usability; it is the pending receipt for local browser launch, Review/Inbox return files, and Mac Return Files import.`,
     `- Open \`${sampleMirrorZipFile}\` or \`sample-feishu-mirror.json\`; mirror integrity checked ${mirrorIntegrityReport.summary.internalLinks} internal links with ${mirrorIntegrityReport.summary.brokenLinks} broken.`,
     `- Open \`HARMONY_SCAFFOLD_REPORT.json\`; it checks ${harmonyScaffoldReport.fileCount} scaffold files, not an SDK compile.`,
@@ -1195,7 +1244,7 @@ function buildDemoScriptMarkdown({
     "## 55-60s: Decide The Next Gate",
     "",
     "- If the sidecar capture loop feels right, the next honest gates are `npm run check:morning:browser`, `npm run check:morning:native`, and one real Mac GUI dogfood pass.",
-    "- Do not treat dry-run Feishu files, Harmony scaffold shape, or static Windows mirror files as live cross-end completion.",
+    "- Do not treat dry-run Feishu files, Harmony scaffold shape, static-return fixture imports, or static Windows mirror files as live cross-end completion.",
     ""
   ].join("\n");
 }
@@ -1246,11 +1295,13 @@ function buildMorningReviewMarkdown({
     "0e. Read `dist/morning-demo/DEFERRED_GATES.json` so green local checks are not mistaken for live readiness.",
     "0f. Read `dist/morning-demo/CAPTURE_RESUME_RECEIPT.json` if you want the exact model evidence that due review blocks a fresh Quick Capture draft from owning the Focus Brief.",
     `0g. Read \`dist/morning-demo/${SOURCE_TIME_LINKS_RECEIPT_FILE}\` for the local source-time parser evidence; it does not prove real video-site playback.`,
-    "0h. Check the first-run `Start Here` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
-    "0i. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
+    `0h. Read \`dist/morning-demo/${STATIC_RETURN_CONTRACT_FILE}\`, then run \`npm run check:static-return\` if you need the local static return contract receipt.`,
+    "0i. Check the first-run `First Note` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
+    "0j. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
+    "1c. Run `npm run check:static-return` separately for the static return contract; it writes receipts under `.codex-tmp/`, not Downloads.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
     "4. Open the Export tab and compare it with `dist/morning-demo/mirror-folder/index.html`.",
@@ -1269,6 +1320,7 @@ function buildMorningReviewMarkdown({
     `- Deferred gates: \`${DEFERRED_GATES_FILE}\` (${deferredGates.summary.pending} approval/device/signing gates still pending)`,
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- Windows static QA receipt: \`${WINDOWS_STATIC_QA_FILE}\` (fill during real Windows folder/review/inbox/Return Files pass; ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total} rows filled now)`,
+    `- Static return contract: \`${STATIC_RETURN_CONTRACT_FILE}\` (explains the \`npm run check:static-return\` verifier and its evidence boundary)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract, import file guard, reader session handoff, and device gates)`,
     `- HarmonyOS scaffold report: \`${HARMONY_SCAFFOLD_REPORT_FILE}\` (${harmonyScaffoldReport.fileCount} scaffold files checked, including reader session/page wiring; no SDK compile claimed)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
@@ -1295,7 +1347,7 @@ function buildMorningReviewMarkdown({
     "- Source time links: do supported provider links resume to the intended timestamp locally, and is the absence of live playback QA explicit enough?",
     "- Workspace Find: can you find a prior capture or card quickly?",
     "- Today pack: does it tell you what to resume?",
-    "- First-run Start Here: does an empty workspace offer capture, first-question, and browser-clipper entry points without becoming onboarding fluff?",
+    "- First-run First Note: does an empty workspace offer source setup before capture, and does a linked source offer capture, first-question, and browser-clipper entry points without duplicating Open source?",
     "- Today section map: does the denser cockpit stay skimmable by jumping to due, question, answer, closed, and recent sections?",
     "- Local durability: does the app ask for a workspace export after real learning changes without pretending the browser download is already durable?",
     "- Mirror folder: would this be readable in Feishu Drive or Windows?",
@@ -1314,6 +1366,7 @@ function buildMorningReviewMarkdown({
     "- No completed Mac GUI QA; `MAC_MANUAL_QA.md` rows stay `NT` until a real dogfood pass.",
     "- No executed local browser smoke in this run; `npm run check:morning:browser` remains a separate permissioned gate.",
     "- Live video-site playback QA is not proven; source time links are local parser/jump fixtures only.",
+    "- No real static return-file QA is claimed by `npm run check:static-return`; it proves static contract plus fixture model import only.",
     "",
     "## Safety Receipts Verified By Generator",
     "",
@@ -1340,6 +1393,7 @@ function buildMorningReviewMarkdown({
     "## What This Does Not Prove",
     "",
     "- This is still manual transport, not real Feishu OpenAPI sync.",
+    "- Static return verifier receipts are `STATIC_CONTRACT_PLUS_FIXTURE_MODEL_IMPORT`, not real user-created return-file evidence.",
     "- The Feishu upload plan is local-folder materialization only; it does not authenticate or write to Drive.",
     "- HarmonyOS browser behavior needs a real device roundtrip.",
     "- localStorage is temporary; the app prompts after committed learning data changes or a stale seven-day export, but real file exports are still the user's durability checkpoint.",
@@ -1355,6 +1409,7 @@ function buildMorningReviewMarkdown({
     "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, receipt contracts, determinism, and mirror integrity.",
     "- `npm run check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.",
     "- `npm run check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.",
+    "- `npm run check:static-return` runs the static mirror return contract and writes project-local ignored receipts under `.codex-tmp/`.",
     ""
   ].join("\n");
 }
@@ -1392,6 +1447,7 @@ function buildReviewStartHereHtml({
     ["Deferred gates", DEFERRED_GATES_FILE, `${deferredGates.summary.pending} approval/device/signing gates are explicitly not proven.`],
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["Windows Static QA Receipt", WINDOWS_STATIC_QA_FILE, "PENDING RECEIPT, not QA evidence; fill this during real Windows Edge/Chrome mirror launch, Review/Inbox return files, and Mac Return Files import."],
+    ["Static Return Contract", STATIC_RETURN_CONTRACT_FILE, "`npm run check:static-return` boundary: static contract plus fixture model import, not real device/user return-file proof."],
     ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, reader session handoff, patch boundary, and device test gates."],
     ["HarmonyOS Scaffold Report", HARMONY_SCAFFOLD_REPORT_FILE, `${harmonyScaffoldReport.fileCount} scaffold files checked; reader session/page wiring covered; no SDK compile claimed.`],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
@@ -1439,6 +1495,7 @@ function buildReviewStartHereHtml({
     ["Source time links", "executed-local-parser", `${sourceTimeLinksReceipt.summary.passed}/${sourceTimeLinksReceipt.summary.cases} provider/edge cases`, "live video-site playback QA is not proven"],
     ["Patch intake negatives", "executed-negative-fixture", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed`, "real off-Mac patch origination"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, `Windows manual rows live in ${WINDOWS_STATIC_QA_FILE}`],
+    ["Static return loop", "static-contract-fixture", "`npm run check:static-return` verifies local mirror return contracts and fixture model import", "real user-created return file, file:// runtime, Windows, HarmonyOS, native picker, Feishu"],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
@@ -1454,8 +1511,8 @@ function buildReviewStartHereHtml({
       MAC_MANUAL_QA_FILE
     ],
     [
-      "2. First-Run Start Here",
-      "Open an empty workspace and confirm Learning Flow embeds Start Here actions for Capture this thought, Ask about this, and Set up page clipper before any study trail exists.",
+      "2. First-Run First Note",
+      "Open an empty workspace and confirm Learning Flow keeps only Read source and Capture on Mac before First Note; linked-source state should offer Capture this thought, Ask about this, and Set up page clipper without repeating Open source.",
       MAC_MANUAL_QA_FILE
     ],
     [
@@ -1494,7 +1551,12 @@ function buildReviewStartHereHtml({
       WINDOWS_STATIC_QA_FILE
     ],
     [
-      "10. Evidence Boundary",
+      "10. Static Return Contract",
+      "Read the static return contract and run npm run check:static-return before treating Review/Inbox return files as locally contract-checked; this still is not real Windows, HarmonyOS, or file picker QA.",
+      STATIC_RETURN_CONTRACT_FILE
+    ],
+    [
+      "11. Evidence Boundary",
       `${deferredGates.summary.pending} approval/device/live-write gates are still deferred; do not treat this pack as live sync or production packaging.`,
       DEFERRED_GATES_FILE
     ]
@@ -1555,7 +1617,7 @@ function buildReviewStartHereHtml({
       <p class="banner"><strong>Freshness note.</strong> Offline and native gates were rerun against HEAD. Latest Today draft-resume UI assertions are receipt + syntax checked and still need the separate local browser smoke gate.</p>
       <p class="meta">Scope: cross-end fixture-ready · no live Feishu sync · no device run · no signed packaging · see <a href="${escapeHtml(STAGE_FILE)}">STAGE.md</a></p>
       <p><span class="badge">${escapeHtml(getEvidenceTierForPath(REVIEW_REPORT_FILE).label)}</span></p>
-      <p>Start here in the morning: open the app, import the sample workspace, then inspect the static mirror, mobile inbox, and review progress loop.</p>
+      <p>Start with the Mac learning loop: open the app beside a browser source, check First Note and Quick Capture, then inspect the static mirror and bounded return-file evidence.</p>
     </header>
     <section>
       <h2>What To Inspect First</h2>
@@ -1566,9 +1628,9 @@ function buildReviewStartHereHtml({
     <section>
       <h2>Fast Path</h2>
       <div class="grid">
-        <div class="card"><strong>1. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
-        <div class="card"><strong>2. Import</strong><p>Open the app and import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>.</p></div>
-        <div class="card"><strong>3. Dogfood</strong><p>Type a half-finished Quick Capture thought, switch sessions, and confirm Today/Focus Brief make it easy to resume without calling it synced data.</p></div>
+        <div class="card"><strong>1. Mac Loop</strong><p>Open the app beside a browser source. Check First Note, then use Capture this thought and confirm the Thought lane is the focused writing target.</p></div>
+        <div class="card"><strong>2. Import</strong><p>Import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>, type a half-finished Quick Capture thought, switch sessions, and confirm Today/Focus Brief can resume it without calling it synced data.</p></div>
+        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate. Run <code>npm run check:static-return</code> for the static Review/Inbox return contract. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
         <div class="card"><strong>4. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
     </section>
@@ -1613,6 +1675,7 @@ function buildReviewStartHereHtml({
       <ul>
         <li>Live Feishu OpenAPI sync is not implemented; upload plan is local only.</li>
         <li>HarmonyOS behavior still needs real-device verification; Windows still needs the manual static receipt in <a href="${escapeHtml(WINDOWS_STATIC_QA_FILE)}">${escapeHtml(WINDOWS_STATIC_QA_FILE)}</a>.</li>
+        <li>The static return verifier is contract-plus-fixture evidence only; it does not prove a real user-created return file or target-device file picker behavior.</li>
         <li>The Mac shell is an internal WKWebView shell, not a signed production app.</li>
         <li>Native selected-text capture has no live GUI matrix in this generator.</li>
         <li>Latest Today draft-resume browser assertions still need the separate local browser smoke gate.</li>
@@ -1660,6 +1723,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === WINDOWS_STATIC_QA_FILE) {
     return evidenceTier("PENDING_USER_GATE", "Manual QA rows are intentionally `NT` until Tony runs the Windows static mirror and Return Files loop.");
+  }
+  if (normalized === STATIC_RETURN_CONTRACT_FILE) {
+    return evidenceTier("EXECUTED", "Generated contract note for the separate static return verifier; the verifier receipt itself is project-local and ignored.");
   }
   if (normalized === HARMONY_DEVECO_HANDOFF_FILE) {
     return evidenceTier("HANDOFF_ONLY", "DevEco/ArkTS scaffold guidance and interface contract only; no HarmonyOS device run is claimed.");

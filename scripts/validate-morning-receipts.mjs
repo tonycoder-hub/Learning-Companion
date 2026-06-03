@@ -23,6 +23,7 @@ const files = {
   demoScript: "DEMO_SCRIPT.md",
   stage: "STAGE.md",
   reviewStartHere: "review-start-here.html",
+  staticReturnContract: "STATIC_RETURN_CONTRACT.md",
   mirrorHome: "mirror-folder/index.html",
   manualQa: "MAC_MANUAL_QA.md",
   windowsStaticQa: "WINDOWS_STATIC_QA.md",
@@ -45,6 +46,7 @@ const morningReview = readText(files.morningReview);
 const demoScript = readText(files.demoScript);
 const stage = readText(files.stage);
 const reviewStartHere = readText(files.reviewStartHere);
+const staticReturnContract = readText(files.staticReturnContract);
 const mirrorHome = readText(files.mirrorHome);
 const sourceTimeLinksRaw = readText(files.sourceTimeLinks);
 const manualQa = readText(files.manualQa);
@@ -84,6 +86,7 @@ assert.equal(evidence.artifacts.every((artifact) => {
   return Boolean(artifact.path && artifact.sha256 && artifact.bytes > 0);
 }), true);
 assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.demoScript), true);
+assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.staticReturnContract), true);
 assert.equal(evidence.artifacts.some((artifact) => {
   if (artifact.path !== files.windowsStaticQa) {
     return false;
@@ -205,6 +208,9 @@ assert.match(morningReview, /WINDOWS_STATIC_QA\.md/);
 assert.match(morningReview, /No executed local browser smoke in this run/);
 assert.match(morningReview, /Live video-site playback QA is not proven/);
 assert.match(morningReview, /When the separate browser gate is allowed/);
+assert.match(morningReview, /npm run check:static-return/);
+assert.match(morningReview, /STATIC_CONTRACT_PLUS_FIXTURE_MODEL_IMPORT/);
+assert.match(morningReview, /\.codex-tmp/);
 assert.match(morningReview, /stale seven-day export/);
 assert.match(morningReview, /1 open question/);
 assert.match(morningReview, /1 parked question/);
@@ -218,10 +224,18 @@ assert.match(stage, /WINDOWS_STATIC_QA\.md/);
 assert.match(reviewStartHere, /1 open question/);
 assert.match(reviewStartHere, /1 parked question/);
 assert.match(reviewStartHere, /What To Inspect First/);
+assert.match(reviewStartHere, /Start with the Mac learning loop/);
 assert.match(reviewStartHere, /Mac Capture Sidecar/);
 assert.match(reviewStartHere, /source\/time context strip/);
-assert.match(reviewStartHere, /First-Run Start Here/);
+assert.match(reviewStartHere, /First-Run First Note/);
+assert.match(reviewStartHere, /without repeating Open source/);
 assert.match(reviewStartHere, /Capture this thought/);
+assert.match(reviewStartHere, /Mac Loop/);
+assert.match(reviewStartHere, /Thought lane is the focused writing target/);
+assert.match(reviewStartHere, /STATIC_RETURN_CONTRACT\.md/);
+assert.match(reviewStartHere, /npm run check:static-return/);
+assert.doesNotMatch(reviewStartHere, /First-Run Start Here/);
+assert.doesNotMatch(reviewStartHere, /First-run Start Here/);
 assert.match(reviewStartHere, /Today Section Map/);
 assert.match(reviewStartHere, /Harmony Reader Session/);
 assert.match(reviewStartHere, /rejected-kept-current/);
@@ -231,10 +245,19 @@ assert.match(reviewStartHere, /Question Queue Health/);
 assert.match(reviewStartHere, /Windows Static Return/);
 assert.match(reviewStartHere, /WINDOWS_STATIC_QA\.md/);
 assert.match(reviewStartHere, /Evidence Boundary/);
+assert.match(staticReturnContract, /^# Static Return Contract$/m);
+assert.match(staticReturnContract, /npm run check:static-return/);
+assert.match(staticReturnContract, /Positive scope:/);
+assert.match(staticReturnContract, /generated static Review\/Inbox HTML matches the declared local return contract/);
+assert.match(staticReturnContract, /does not write to Downloads/);
+assert.match(staticReturnContract, /STATIC_CONTRACT_PLUS_FIXTURE_MODEL_IMPORT/);
+assert.match(staticReturnContract, /does not prove a real user-created return file/);
 assert.match(mirrorHome, /Open Question Preview/);
 assert.match(mirrorHome, /1 open question/);
 assert.match(mirrorHome, /How should I compare Rust traits with TypeScript interfaces\?/);
 assert.match(demoScript, /Do not treat dry-run Feishu files/);
+assert.match(demoScript, /STATIC_RETURN_CONTRACT\.md/);
+assert.match(demoScript, /static-return fixture imports/);
 assert.match(demoScript, /Source time receipt/);
 assert.match(demoScript, /WINDOWS_STATIC_QA\.md/);
 assert.match(demoScript, /live video-site playback QA is not proven/);
@@ -244,8 +267,10 @@ assert.match(morningReview, /Harmony reader session/);
 assert.match(morningReview, /accepted reader view after a failed import/);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
 assert.match(manualQa, /verify the exported JSON file yourself/);
-assert.match(manualQa, /First-run Start Here/);
-assert.match(manualQa, /Capture this thought focuses Quick Capture/);
+assert.match(manualQa, /First-run First Note/);
+assert.match(manualQa, /Capture this thought focuses the Thought field/);
+assert.doesNotMatch(manualQa, /First-run Start Here/);
+assert.doesNotMatch(manualQa, /Capture this thought focuses Quick Capture/);
 assert.match(manualQa, /Keyboard quick capture/);
 assert.match(manualQa, /quote-only draft focuses Thought/);
 assert.match(manualQa, /Source changed/);
