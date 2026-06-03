@@ -4042,7 +4042,7 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
 
   const track = document.createElement("div");
   track.className = "learning-flow-track";
-  track.append(
+  const flowSteps = [
     renderLearningFlowStep(resolveSourceSessionState()),
     renderLearningFlowStep({
       kind: "capture",
@@ -4052,9 +4052,10 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
       actionLabel: showStartHere ? "Capture this thought" : "Capture",
       action: focusQuickCaptureFromStart,
       tone: "capture"
-    }),
-    renderLearningFlowStep(resolveCloseLoopState(pack, draftItems))
-  );
+    })
+  ];
+  if (!showStartHere) flowSteps.push(renderLearningFlowStep(resolveCloseLoopState(pack, draftItems)));
+  track.append(...flowSteps);
   panel.append(track);
 
   const returnNudge = renderReturnedWorkNudge(pack);

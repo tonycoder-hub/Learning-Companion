@@ -213,9 +213,31 @@ try {
         text: button.textContent
       }))
     };
-    card?.querySelector('[data-start-action="capture"]')?.click();
+    const originalWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const nonEmptyWorkspace = JSON.parse(originalWorkspaceJson);
+    const nonEmptySession = nonEmptyWorkspace.sessions.find((session) => session.id === nonEmptyWorkspace.activeSessionId) || nonEmptyWorkspace.sessions[0];
+    nonEmptySession.captures = [{
+      id: "capture_loop_reappears",
+      quote: "Loop reappears after the first capture.",
+      thought: "This keeps empty-state simplification from hiding later loop pressure.",
+      timestamp: "",
+      tags: [],
+      capturedAt: "2026-06-03T09:00:00.000Z",
+      createdAt: "2026-06-03T09:00:00.000Z",
+      updatedAt: "2026-06-03T09:00:00.000Z"
+    }];
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(nonEmptyWorkspace));
+    document.querySelector('[data-tab="today"]').click();
+    const nonEmptyFlowSteps = [...(document.querySelectorAll(".learning-flow-panel [data-learning-flow-step]") || [])].map((step) => ({
+      kind: step.dataset.learningFlowStep,
+      text: step.textContent
+    }));
+    window.learningCompanionNative.importWorkspaceJson(originalWorkspaceJson);
+    document.querySelector('[data-tab="today"]').click();
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="capture"]')?.click();
     return {
       ...before,
+      nonEmptyFlowSteps,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activeElement: document.activeElement?.id || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true,
@@ -234,9 +256,11 @@ try {
     `Expected Today first content block to be learning-flow-panel, got: ${firstRun.firstTodayBlock}`
   );
   assert.equal(firstRun.firstFlowKind, "source");
-  assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture"]);
   assert.match(firstRun.text, /Capture on Mac/);
-  assert.match(firstRun.text, /Close the loop/);
+  assert.doesNotMatch(firstRun.text, /Close the loopClear/);
+  assert.deepEqual(firstRun.nonEmptyFlowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.match(firstRun.nonEmptyFlowSteps.find((step) => step.kind === "loop")?.text || "", /Close the loop/);
   assert.match(firstRun.text, /Start Here/);
   assert.match(firstRun.text, /Start with what you are watching or reading/);
   assert.deepEqual(firstRun.buttons, [
