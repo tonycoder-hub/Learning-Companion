@@ -3,7 +3,7 @@
 ## Current Branch
 
 ```text
-product/mvp-learning-sidecar
+main
 ```
 
 ## Stage Wording
@@ -53,6 +53,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Today Open Questions can be parked and resumed, keeping unresolved low-priority follow-up out of the active focus queue without losing the original capture.
 - Captured questions can be marked resolved or reopened, and resolved questions stop counting in Focus Brief, synthesis, Today, HarmonyOS reader backlog, and handoff exports without losing the original capture.
 - Local Quick Capture Answer drafts opened from a question preserve `answersQuestionCaptureId`; sufficiently detailed local answers close the original question, while weak answers such as `Answer: ok` stay non-closing drafts. The Answer action now refuses to overwrite an unrelated text draft, or a video timestamp-only draft, in that topic; it keeps parked questions parked until the draft is cleared and resumes an existing linked Answer draft without resetting partial text.
+- Linked-source questions now carry a local reading loop after save: the Activity hint can resume the source, start a linked answer draft, close the question with that answer, refresh an existing question review card from the answer evidence, and then resume the source again after the card is current. The refresh-card hint is revalidated at render and click time so a removed card does not leave a dead action.
 - One-click capture insertion into Notes with idempotent capture blocks.
 - Confirmed delete for mistaken captures and review cards.
 - Synthesis draft generation from captures into notes, with stale-source warning and idempotent insertion.
@@ -61,6 +62,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Workspace-wide due review queue with simple strength buckets.
 - Self-graded Again/Good review outcomes with isolated scheduling policy.
 - Review answers are reveal-gated before grading.
+- Review grading keeps Activity aligned with the actual queue: after a graded card, `Next card` targets the next due card when one remains; after the last due card, `Review queue clear` returns the learner to Quick Capture and can resume the reviewed source.
 - Desk-native review pane works in focused sidecar layout.
 - Today tab summarizes workspace due review and recent captures.
 - Static mirror `index.html` provides a portable folder home page for Today, Review, Restore, and sessions.

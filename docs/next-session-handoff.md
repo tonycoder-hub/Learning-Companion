@@ -13,6 +13,44 @@ Build a Mac-first learning companion for browser-based study. The core loop is:
 
 The product bias is a study cockpit, not a generic note app. Every feature should help the user decide what to inspect, capture, close, or review next.
 
+## 2026-06-04 Continuation Addendum
+
+Current branch: `main`.
+
+Latest committed product slices:
+
+- `cb16b41 feat: continue after review grading`
+- `3062b88 feat: resume source after refreshing cards`
+- `297e72d feat: refresh cards after linked answers`
+
+Current real evidence:
+
+- `node --check apps/companion-web/src/app.js`
+- `node --check scripts/smoke-browser.mjs`
+- `git diff --check`
+- `npm run smoke` -> `smoke_web_ok`
+- `npm run smoke:browser` -> `smoke_browser_ok`
+- In-app Browser sanity on `http://127.0.0.1:5173/`: Learning Companion page visible, Quick Capture visible, Today visible, no horizontal overflow.
+
+What changed:
+
+- A linked answer that closes a question with an existing review card now prioritizes `Refresh card` over `Resume source`, because stale review evidence is a learning-correctness risk.
+- The refresh-card hint is checked at render time and click time; if the card disappears before click, the hint hides or fails safely.
+- Refreshing the card replaces stale evidence with the linked answer evidence, opens Review, then offers `Resume source` so the learner can return to reading.
+- Review grading now aligns Activity with the actual review queue: `Next card` targets the next due card, and the last graded card produces `Review queue clear` with a return to Quick Capture plus guarded source resume when available.
+
+External review status:
+
+- Mira returned `PASS_WITH_NOTES` on all three slices above, with no blockers.
+- Accepted notes: stale-evidence replacement assertion, no-Resume-source negative assertion while refresh is needed, new-tab safety assertions, cleaner post-resume primary action label, and next-card/queue-clear smoke coverage.
+- Deferred notes: Seed/Doubao critique retry, telemetry, screenshot strips, rapid double-click semantics, and no-source queue-clear focus specialization.
+
+Current scratch/cleanup status:
+
+- Working tree should be clean except for the root untracked file named `{`, which Tony asked not to delete tonight.
+- `.mira-review/*response.md` and failed sanitizer status files from these reviews are ignored runtime artifacts and are listed in `.codex-tmp/pending-cleanup.md`.
+- Do not use `/tmp`, `/private/tmp`, `$TMPDIR`, or Downloads for new artifacts; keep using project-local `.codex-tmp/` and `.mira-review/`.
+
 ## 2026-06-03 Continuation Addendum
 
 Current branch: `main`, ahead of `origin/main` by local product commits. Latest committed slice is `c55c774 fix: label static return save capability`.
