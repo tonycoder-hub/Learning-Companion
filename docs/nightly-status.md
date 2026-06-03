@@ -42,6 +42,7 @@ Use [promotion-gates.md](promotion-gates.md) to distinguish local fixtures, dry-
 - Workspace Find is deterministic local find over source titles, notes, captures, tags, and review cards, supports multi-term matches within the same candidate object, then jumps back to the matching session and surface.
 - Today tab includes capture drafts, Return Files counts, latest import receipt, direct import/export handoff actions, and a device-labeled manual return path for phone/Windows return files. The device path now sits inside a `Manual transfer` Device Flow drawer below the daily Mac Learning Flow, so it does not pretend to be live sync. The export action opens the Mirror Folder controls, mirror saves record a handoff receipt, and the exported static mirror pages now label their return-file path back to Mac import. Review and Inbox return filenames carry timestamp/short-id suffixes, both static pages warn before leaving with unsaved local work, and the Mac import picker can process multiple return files with a combined receipt, stable inbox-before-review ordering, per-file errors, and `mirror base changed` warnings that name affected files when a return file came from an older return-base fingerprint.
 - Today tab now has a Learning Flow panel before the section-map counters and denser sections. It keeps `Read source`, `Capture on Mac`, and `Close the loop` as the daily route, embeds the returning-user Next Move, makes first-run source setup/opening the primary Start Here action, leaves the device return path as a lower-frequency manual drawer, and folds heavier ledger sections into a `Study Details` drawer with count badges that section-map buttons can open.
+- In the empty first-note state, Today hides the manual Device Flow drawer unless there is already a mirror export/import/return signal. This keeps the first screen focused on source setup and first capture, while browser smoke proves Device Flow returns after the first real capture and remains visible for a first-note fixture with existing mirror handoff state.
 - Sessions, clickable capture destination context, capture intent context, source context, timestamp, tags, and source-open jumps that honor a valid typed video time, extract supported YouTube/Bilibili/Vimeo time-link parameters into the local capture timestamp, and otherwise resume from the latest captured timestamp. The Quick Capture context button now says `Resume @ time`, `Open source`, or `Set source` so the source action is visible while reading beside a browser, the empty-state intent/placeholders adapt to video moments versus doc/article/book excerpts, and local `Question`/`Answer`/`Takeaway` starter buttons plus app-focused `Cmd/Ctrl+Shift+1/2/3` shortcuts seed the Thought draft without committing data.
 - Capture-level source snapshots with source/time jump links.
 - Quick capture quote/thought with per-session draft persistence, visible draft status, Today resume, and a clear-draft action. Today draft cards surface source drift before resume, and resuming a draft focuses the continuation field instead of always returning to Quote. Draft source snapshots now include source title, URL, and material type, so a video draft saved after the current session changed to a document still commits as video until the user explicitly chooses `Use current`.
@@ -153,7 +154,7 @@ npm run check:morning:browser
 
 Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, `npm run mac:build`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, smoke temp-download hygiene, save-picker export, and Mac-shell web save bridge work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, picker-vs-fallback backup copy, persistent Review/Inbox return-file next-step cues, the destination-locate action from sidecar layout, native bridge capture labels in and out of sidecar, promoted native bridge review-card labeling, click-through to the saved capture, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA. The Mac-shell bridge has SwiftPM build evidence, not manual NSSavePanel click-through QA.
 
-Latest focused browser smoke also covers four high-friction learning-flow cases: Today's `Close the loop` and `Next Move` now share one due-review > open-question > draft > parked priority contract; Return Files rejects a single mistaken workspace JSON without replacing local state while ordinary sidebar single-file restore still works; source-drifted Quick Capture drafts commit their original source snapshot unless the user explicitly chooses `Use current`, including linked Answer drafts opened from Today questions; and material-type drift is covered for video draft -> document session plus linked Answer from a video question while the current session is document.
+Latest focused browser smoke also covers five high-friction learning-flow cases: empty first-note Today stays focused by hiding Device Flow until learning work or handoff state exists; Today's `Close the loop` and `Next Move` share one due-review > open-question > draft > parked priority contract; Return Files rejects a single mistaken workspace JSON without replacing local state while ordinary sidebar single-file restore still works; source-drifted Quick Capture drafts commit their original source snapshot unless the user explicitly chooses `Use current`, including linked Answer drafts opened from Today questions; and material-type drift is covered for video draft -> document session plus linked Answer from a video question while the current session is document.
 
 Tonight's no-delete validation used normal `npm run smoke` and `npm run smoke:browser` after changing smoke scripts to keep project-local `.codex-tmp/` artifacts by default; both passed while leaving their run artifacts for later review. Cleanup now requires the explicit `LC_CLEAN_SMOKE_ARTIFACTS=1` switch and was not run tonight.
 
@@ -171,6 +172,7 @@ The long browser smoke has hit a `Runtime.evaluate` timeout during extended loca
 
 Latest Mira status:
 
+- 2026-06-04 first-note Device Flow focus review returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, model `re-o-47`, and mode `deep`. Accepted: add cross-state smoke for first-note + existing mirror handoff. Deferred: a lightweight cross-device entry, non-Mac UA-specific rendering, and an appearance transition/highlight.
 - 2026-06-04 targeted reviews for Today priority alignment, Return Files single-file guard, and draft source snapshot commit all returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, model `re-o-47`, and mode `deep`.
 - 2026-06-04 draft material-type snapshot review returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, model `re-o-47`, and mode `deep`. The first packet was rejected locally by the broker sanitizer as `SECRET_DETECTED`; the reduced v2 packet succeeded.
 - The restricted Hermes SSH broker path was re-smoked on 2026-06-02 with `re-o-47` / `deep`: `ok=true`, `verdict=PASS_WITH_NOTES`, `logid_present=true`, and `cleanup_succeeded=true`.
@@ -207,6 +209,7 @@ Accepted from Mira:
 - Keep Return Files stricter than generic restore, especially for single-file mistakes from phone/Windows handoff.
 - Commit draft source snapshots into saved captures and linked Answer captures, instead of only warning about source drift in the UI.
 - Keep draft material type with the source snapshot, so saved captures and linked Answer captures do not silently inherit the current session's type after source drift.
+- Keep empty first-note Today focused on source/capture, while retaining Device Flow when handoff state already exists.
 
 Deferred:
 
@@ -220,15 +223,17 @@ Deferred:
 - Keep HarmonyOS import/patch boundary logic pure until DevEco is available; the current module is executable smoke evidence, not a native app. Open-question parity is schema-verified locally, not device-verified.
 - Add reverse document-to-video drift coverage and clarify unanchored-draft material-type behavior; video-to-document drift is covered and no longer inherits the current session's type.
 - Add a synthetic canceled-picker follow-up for Return Files import mode; current browser smoke proves strict single-file guard and generic restore non-regression, not native picker cancel behavior.
+- Decide the explicit cross-device discovery affordance for first-note users before adding UA-specific Device Flow behavior.
 - Add telemetry or dogfood notes before making draft freshness override open questions; current priority intentionally favors unresolved questions over unfinished drafts.
 
 ## Next Best Commits
 
 1. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
 2. Add reverse document-to-video source-drift browser smoke and decide whether unanchored drafts should carry material type before a source is set.
-3. Verify `apps/companion-harmony-dev/` in DevEco Studio once SDK/project setup is available; until then keep the schema reader honest as the executable prototype.
-4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
-5. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
+3. Design a minimal cross-device discovery affordance for first-note users that does not reintroduce the full Device Flow drawer into the opening learning task.
+4. Verify `apps/companion-harmony-dev/` in DevEco Studio once SDK/project setup is available; until then keep the schema reader honest as the executable prototype.
+5. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
+6. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
 
 ## Known Risks
 
