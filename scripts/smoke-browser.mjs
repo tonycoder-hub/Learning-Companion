@@ -2763,7 +2763,7 @@ try {
   assert.match(result.handoffText, /Export mirror on this Mac/);
   assert.match(result.handoffText, /USB, AirDrop, email, or any file share/);
   assert.match(result.handoffText, /manual Feishu Drive upload/);
-  assert.match(result.handoffText, /On phone or Windows, open inbox\.html or review\.html and save inbox\/review return files/);
+  assert.match(result.handoffText, /On phone or Windows, open index\.html first; it will point you to Review, Inbox, or the source/);
   assert.match(result.handoffText, /Back on this Mac, import return files or paste a copied return file/);
   assert.match(result.handoffText, /No live Feishu sync/);
   assert.match(result.handoffText, /No mirror exported yet/);
@@ -3387,7 +3387,7 @@ try {
       };
   })()`);
   assert.equal(mirrorSaveReceipt.activityTitle, "Mirror JSON handoff ready");
-  assert.equal(mirrorSaveReceipt.activityDetail, "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return file.");
+  assert.equal(mirrorSaveReceipt.activityDetail, "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then open index.html on the device and follow its Next from this export route.");
   assert.equal(mirrorSaveReceipt.toast, "Mirror download requested");
   assert.match(mirrorSaveReceipt.handoffText, /Mirror current/);
   assert.match(mirrorSaveReceipt.handoffText, /Waiting for return file/);

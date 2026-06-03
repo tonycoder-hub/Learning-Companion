@@ -5375,7 +5375,7 @@ function renderReturnFilesPanel() {
   [
     "Export mirror on this Mac.",
     "Transfer it yourself through USB, AirDrop, email, or any file share, including a manual Feishu Drive upload.",
-    "On phone or Windows, open inbox.html or review.html and save inbox/review return files.",
+    "On phone or Windows, open index.html first; it will point you to Review, Inbox, or the source.",
     "Back on this Mac, import return files or paste a copied return file."
   ].forEach((step) => {
     steps.append(textEl("li", "", step));
@@ -6390,7 +6390,7 @@ function recordReturnFileExportReceipt(kind) {
   const session = getActiveSession(workspace);
   setActivity(session, {
     title: `${kind} handoff ready`,
-    detail: `Move the ${kind} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return file.`,
+    detail: `Move the ${kind} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then open index.html on the device and follow its Next from this export route.`,
     tab: "export",
     targetId: ""
   });
