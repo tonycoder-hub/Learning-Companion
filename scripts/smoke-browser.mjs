@@ -32,8 +32,10 @@ const virtualRoutes = new Map();
 const indexHtmlFixture = await readFile(join(root, "index.html"), "utf8");
 const staleShellHtml = indexHtmlFixture
   .replace(/\n\s*<div id="updateNotice" class="storage-notice update-notice" hidden>[\s\S]*?<\/div>(?=\n\s*<div id="importReceipt")/, "")
+  .replace(/\n\s*<div id="activityHint" class="next-step-hint" data-next-step-hint="" data-hint-installed="true" hidden>[\s\S]*?<\/div>(?=\n\s*<\/div>\n\s*<div class="activity-actions")/, "")
   .replace(/\n\s*<nav id="sidecarRail" class="sidecar-rail" aria-label="Sidecar study rail" aria-live="off" hidden><\/nav>/, "");
 assert.equal(staleShellHtml.includes('id="updateNotice"'), false);
+assert.equal(staleShellHtml.includes('id="activityHint"'), false);
 assert.equal(staleShellHtml.includes('id="sidecarRail"'), false);
 virtualRoutes.set("/stale-shell.html", staleShellHtml);
 
@@ -160,6 +162,11 @@ try {
     updateNoticeHidden: document.querySelector("#updateNotice")?.hidden === true,
     updateNoticeText: document.querySelector("#updateNoticeText")?.textContent || "",
     updateReloadText: document.querySelector("#updateReloadBtn")?.textContent || "",
+    activityHintExists: Boolean(document.querySelector("#activityHint")),
+    activityHintCount: document.querySelectorAll("#activityHint").length,
+    activityHintHidden: document.querySelector("#activityHint")?.hidden === true,
+    activityHintInstalled: document.querySelector("#activityHint")?.dataset.hintInstalled || "",
+    activityHintButtonExists: Boolean(document.querySelector("#activityHintBtn")),
     sidecarRailExists: Boolean(document.querySelector("#sidecarRail")),
     sidecarRailCount: document.querySelectorAll("#sidecarRail").length,
     sidecarRailHidden: document.querySelector("#sidecarRail")?.hidden === true,
@@ -171,6 +178,11 @@ try {
     updateNoticeHidden: true,
     updateNoticeText: "App update ready",
     updateReloadText: "Reload",
+    activityHintExists: true,
+    activityHintCount: 1,
+    activityHintHidden: true,
+    activityHintInstalled: "true",
+    activityHintButtonExists: true,
     sidecarRailExists: true,
     sidecarRailCount: 1,
     sidecarRailHidden: true,
@@ -5108,13 +5120,24 @@ async function assertPostSaveFlow(cdp) {
       node.value = value;
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
-    const readActivity = () => ({
-      title: document.querySelector("#activityTitle").textContent,
-      detail: document.querySelector("#activityDetail").textContent,
-      action: document.querySelector("#activityDetailsBtn").textContent,
-      aria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
-      activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
-    });
+    const readActivity = () => {
+      const hint = document.querySelector("#activityHint");
+      const hintButton = document.querySelector("#activityHintBtn");
+      return {
+        title: document.querySelector("#activityTitle").textContent,
+        detail: document.querySelector("#activityDetail").textContent,
+        action: document.querySelector("#activityDetailsBtn").textContent,
+        aria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        hintHidden: hint?.hidden !== false,
+        hintKind: hint?.dataset.nextStepHint || "",
+        hintText: document.querySelector("#activityHintText")?.textContent || "",
+        hintAction: hintButton?.textContent || "",
+        hintAria: hintButton?.getAttribute("aria-label") || "",
+        hintParentClass: hint?.parentElement?.className || "",
+        activeElement: document.activeElement?.id || ""
+      };
+    };
     const openQuestionButton = () => {
       const questionCard = [...document.querySelectorAll(".question-card")]
         .find((card) => card.textContent.includes("Why does ownership matter?"));
@@ -5251,6 +5274,27 @@ async function assertPostSaveFlow(cdp) {
         }
       };
     })();
+    document.querySelector("#activityHintBtn").click();
+    const highlightHintCard = readActivity();
+    const highlightHintCardState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session.captures.find((item) => item.id === highlightBefore.id);
+      const card = session.reviewCards.find((item) => item.sourceCaptureId === highlightBefore.id);
+      return {
+        promoted: Boolean(capture?.promotedToReview),
+        cardExists: Boolean(card),
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || ""
+      };
+    })();
+    document.querySelector("#activityHintBtn").click();
+    const highlightHintExport = readActivity();
+    const highlightHintExportState = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      mirrorSectionPulsed: document.querySelector("#mirrorExportSection")?.classList.contains("pulse") === true
+    };
+    document.querySelector('[data-tab="captures"]').click();
     addThoughtButtonFor(highlightBefore.previousId)?.click();
     const noNoteAnnotationInput = document.querySelector(".highlight-annotation-form textarea");
     noNoteAnnotationInput.value = "This annotation should stay out of notes.";
@@ -5275,7 +5319,7 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
     const quoteQuestionSaved = readActivity();
-    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
+    return { questionSaved, questionDetails, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.match(postSaveFlow.questionSaved.detail, /Open Questions/);
@@ -5308,6 +5352,12 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightSaved.detail, /make a card/);
   assert.equal(postSaveFlow.highlightSaved.action, "Add thought");
   assert.equal(postSaveFlow.highlightSaved.aria, "Add thought to saved highlight");
+  assert.equal(postSaveFlow.highlightSaved.hintHidden, false);
+  assert.equal(postSaveFlow.highlightSaved.hintKind, "afterQuoteSave");
+  assert.match(postSaveFlow.highlightSaved.hintText, /add a thought/);
+  assert.equal(postSaveFlow.highlightSaved.hintAction, "Add thought");
+  assert.equal(postSaveFlow.highlightSaved.hintAria, "Add a thought to this saved highlight");
+  assert.equal(postSaveFlow.highlightSaved.hintParentClass, "activity-copy");
   assert.equal(postSaveFlow.highlightActivityAnnotation.activeTab, "captures");
   assert.equal(postSaveFlow.highlightActivityAnnotation.detailsFormVisible, true);
   assert.equal(postSaveFlow.highlightActivityAnnotation.focused, true);
@@ -5315,6 +5365,11 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightAnnotated.detail, /Thought added to the saved highlight/);
   assert.match(postSaveFlow.highlightAnnotated.detail, /source page is unchanged/);
   assert.equal(postSaveFlow.highlightAnnotated.action, "View highlight");
+  assert.equal(postSaveFlow.highlightAnnotated.hintHidden, false);
+  assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAdded");
+  assert.match(postSaveFlow.highlightAnnotated.hintText, /come back later/);
+  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Make card");
+  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Make a review card from this annotated highlight");
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFormVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFocusOnOpen, true);
   assert.equal(postSaveFlow.highlightAnnotationState.singleFormAfterSecondOpen, true);
@@ -5333,6 +5388,21 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This annotation must stay attached to the existing highlight\./);
   assert.equal(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.blockCount, 2);
+  assert.equal(postSaveFlow.highlightHintCard.title, "Review card created");
+  assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
+  assert.equal(postSaveFlow.highlightHintCard.hintHidden, false);
+  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMade");
+  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Export Mirror");
+  assert.deepEqual(postSaveFlow.highlightHintCardState, {
+    promoted: true,
+    cardExists: true,
+    activeTab: "review"
+  });
+  assert.equal(postSaveFlow.highlightHintExport.title, "Mirror export ready");
+  assert.match(postSaveFlow.highlightHintExport.detail, /manual Feishu Drive upload/);
+  assert.equal(postSaveFlow.highlightHintExportState.activeTab, "export");
+  assert.equal(postSaveFlow.highlightHintExportState.activeElement, "downloadMirrorBtn");
+  assert.equal(postSaveFlow.highlightHintExportState.mirrorSectionPulsed, true);
   assert.equal(postSaveFlow.noNoteHighlightAnnotated.title, "Highlight annotated");
   assert.doesNotMatch(postSaveFlow.noNoteHighlightAnnotated.detail, /generated note block/);
   assert.equal(postSaveFlow.noNoteHighlightState.thought, "This annotation should stay out of notes.");

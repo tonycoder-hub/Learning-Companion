@@ -468,6 +468,32 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.next-step-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.next-step-hint[hidden] {
+  display: none;
+}
+
+.activity-copy .next-step-hint span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.next-step-hint .mini-button {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+}
+
 .activity-actions {
   display: flex;
   align-items: center;

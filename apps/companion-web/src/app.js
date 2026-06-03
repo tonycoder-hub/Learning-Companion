@@ -114,6 +114,9 @@ const dom = {
   sizeMetric: document.querySelector("#sizeMetric"),
   activityTitle: document.querySelector("#activityTitle"),
   activityDetail: document.querySelector("#activityDetail"),
+  activityHint: document.querySelector("#activityHint"),
+  activityHintText: document.querySelector("#activityHintText"),
+  activityHintBtn: document.querySelector("#activityHintBtn"),
   activityUndoBtn: document.querySelector("#activityUndoBtn"),
   activityDetailsBtn: document.querySelector("#activityDetailsBtn"),
   sidecarRail: document.querySelector("#sidecarRail"),
@@ -225,6 +228,30 @@ function installShellCompatibilityNodes() {
       dom.sidecarRail = rail;
     }
   }
+  if (!dom.activityHint) {
+    const activityCopy = document.querySelector(".activity-copy");
+    if (activityCopy) {
+      const hint = document.createElement("div");
+      hint.id = "activityHint";
+      hint.className = "next-step-hint";
+      hint.dataset.nextStepHint = "";
+      hint.dataset.hintInstalled = "true";
+      hint.hidden = true;
+      const text = document.createElement("span");
+      text.id = "activityHintText";
+      const button = document.createElement("button");
+      button.id = "activityHintBtn";
+      button.className = "mini-button";
+      button.type = "button";
+      hint.append(text, button);
+      activityCopy.append(hint);
+      dom.activityHint = hint;
+      dom.activityHintText = text;
+      dom.activityHintBtn = button;
+    }
+  } else if (!dom.activityHint.dataset.hintInstalled) {
+    dom.activityHint.dataset.hintInstalled = "true";
+  }
 }
 
 let workspace = loadWorkspace();
@@ -245,6 +272,7 @@ let pendingCaptureUndo = null;
 let pendingCaptureUndoTimer = null;
 let activeHighlightAnnotation = null;
 const revealedReviewCards = new Set();
+const highlightThoughtHintKeys = new Set();
 
 installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
@@ -615,6 +643,7 @@ dom.timeForwardBtn.addEventListener("click", () => nudgeCaptureTime(15));
 
 dom.sidecarLayoutBtn.addEventListener("click", toggleSidecarLayout);
 dom.activityDetailsBtn.addEventListener("click", showActivityDetails);
+dom.activityHintBtn?.addEventListener("click", runActivityHintAction);
 dom.activityUndoBtn.addEventListener("click", restorePendingCaptureDelete);
 dom.focusBriefActionBtn.addEventListener("click", runFocusBriefAction);
 
@@ -1367,7 +1396,8 @@ function captureSaveActivity(session, capture, options = {}) {
       detail: `${summarizeCapture(capture)} · Review card is due now. Reveal it from Review when you are ready.`,
       tab: "review",
       targetId: options.savedCard?.id || "",
-      actionLabel: "Review"
+      actionLabel: "Review",
+      nextHint: activityNextHint("afterCardMade")
     };
   }
   if (options.promotedToReview) {
@@ -1376,7 +1406,8 @@ function captureSaveActivity(session, capture, options = {}) {
       detail: `${summarizeCapture(capture)} · A review card was created, so the point can come back when it is due.`,
       tab: "review",
       targetId: options.savedCard?.id || "",
-      actionLabel: "Review"
+      actionLabel: "Review",
+      nextHint: activityNextHint("afterCardMade")
     };
   }
   if (captureHasQuestion(capture)) {
@@ -1418,7 +1449,8 @@ function captureSaveActivity(session, capture, options = {}) {
       tab: "captures",
       targetId: capture?.id || "",
       targetPane: "highlightAnnotation",
-      actionLabel: "Add thought"
+      actionLabel: "Add thought",
+      nextHint: activityNextHint("afterQuoteSave")
     };
   }
   if (captureHasStarterPrefix(capture, "question")) {
@@ -1522,7 +1554,8 @@ function captureTextFromNative(text, options = {}) {
       : summarizeCapture(capture),
     tab: activeTab,
     targetId: promoteToReview ? updated.reviewCards[0]?.id : capture?.id,
-    actionLabel: promoteToReview ? "Review card" : "Saved capture"
+    actionLabel: promoteToReview ? "Review card" : "Saved capture",
+    nextHint: promoteToReview ? activityNextHint("afterCardMade") : activityNextHint("afterQuoteSave")
   });
   persistAndRender(activityTitle);
   return {
@@ -2134,6 +2167,44 @@ function starterTextFor(value, prefix) {
   return `${prefix}${body}`;
 }
 
+const ACTIVITY_NEXT_HINTS = Object.freeze({
+  afterQuoteSave: Object.freeze({
+    kind: "afterQuoteSave",
+    text: "Next: add a thought while the source is still fresh.",
+    actionLabel: "Add thought",
+    ariaLabel: "Add a thought to this saved highlight"
+  }),
+  afterThoughtAdded: Object.freeze({
+    kind: "afterThoughtAdded",
+    text: "If this should come back later, make it a review card.",
+    actionLabel: "Make card",
+    ariaLabel: "Make a review card from this annotated highlight"
+  }),
+  afterThoughtAddedCarded: Object.freeze({
+    kind: "afterThoughtAddedCarded",
+    text: "Next: review the card this highlight already feeds.",
+    actionLabel: "Review card",
+    ariaLabel: "Review the card made from this highlight"
+  }),
+  afterCardMade: Object.freeze({
+    kind: "afterCardMade",
+    text: "Later: export a mirror when you want to continue on phone or Windows.",
+    actionLabel: "Export Mirror",
+    ariaLabel: "Open Return Files mirror export"
+  })
+});
+
+function activityNextHint(kind) {
+  const hint = ACTIVITY_NEXT_HINTS[kind];
+  return hint ? { ...hint } : null;
+}
+
+function normalizeActivityNextHint(value) {
+  if (!value) return null;
+  const kind = typeof value === "string" ? value : value.kind;
+  return activityNextHint(kind);
+}
+
 function answerDraftTargetForThought(targetId, thought, options = {}) {
   if (!targetId) return "";
   const text = String(thought || "").trim();
@@ -2192,7 +2263,8 @@ function setActivity(session, activity) {
     targetId: activity.targetId || "",
     targetSection: activity.targetSection || "",
     targetPane: activity.targetPane || "",
-    actionLabel: activity.actionLabel || ""
+    actionLabel: activity.actionLabel || "",
+    nextHint: normalizeActivityNextHint(activity.nextHint)
   };
 }
 
@@ -2214,7 +2286,28 @@ function renderActivity(session) {
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
+  renderActivityHint(activity);
   renderSidecarRail(session);
+}
+
+function renderActivityHint(activity) {
+  if (!dom.activityHint || !dom.activityHintText || !dom.activityHintBtn) return;
+  const hint = normalizeActivityNextHint(activity.nextHint);
+  if (!hint) {
+    dom.activityHint.hidden = true;
+    dom.activityHint.dataset.nextStepHint = "";
+    dom.activityHintText.textContent = "";
+    dom.activityHintBtn.textContent = "";
+    dom.activityHintBtn.title = "";
+    dom.activityHintBtn.setAttribute("aria-label", "No suggested next step");
+    return;
+  }
+  dom.activityHint.hidden = false;
+  dom.activityHint.dataset.nextStepHint = hint.kind;
+  dom.activityHintText.textContent = hint.text;
+  dom.activityHintBtn.textContent = hint.actionLabel;
+  dom.activityHintBtn.title = hint.ariaLabel;
+  dom.activityHintBtn.setAttribute("aria-label", hint.ariaLabel);
 }
 
 function activityStaysInSidecar(activity) {
@@ -2651,6 +2744,37 @@ function showActivityDetails() {
   renderInspector();
   scrollActivityTarget(activity);
   renderActivity(getActiveSession(workspace));
+}
+
+function runActivityHintAction() {
+  const activity = getActivity(getActiveSession(workspace));
+  const hint = normalizeActivityNextHint(activity.nextHint);
+  if (!hint) return;
+  if (hint.kind === "afterQuoteSave") {
+    openActivityHighlightAnnotation(activity);
+    return;
+  }
+  if (hint.kind === "afterThoughtAdded") {
+    const targetSession = workspace.sessions.find((session) => session.id === activity.sessionId);
+    const targetCapture = targetSession?.captures.find((capture) => capture.id === activity.targetId);
+    if (!targetSession || !targetCapture) {
+      showToast("Highlight no longer exists");
+      return;
+    }
+    if (targetCapture.promotedToReview) {
+      openReviewCardFromCapture(targetCapture.id, targetSession.id);
+      return;
+    }
+    promoteCaptureToReview(targetCapture.id, targetSession.id);
+    return;
+  }
+  if (hint.kind === "afterThoughtAddedCarded") {
+    openReviewCardFromCapture(activity.targetId, activity.sessionId);
+    return;
+  }
+  if (hint.kind === "afterCardMade") {
+    openReturnFilesMirrorExport();
+  }
 }
 
 function openActivityHighlightAnnotation(activity) {
@@ -5050,6 +5174,11 @@ function saveHighlightAnnotation(sessionId, captureId, thought) {
       notesMarkdown: upsertCaptureNoteBlock(updatedSession.notesMarkdown, updatedCapture)
     });
   }
+  const hintKey = `${updatedSession.id}:${updatedCapture.id}`;
+  const nextHint = highlightThoughtHintKeys.has(hintKey)
+    ? null
+    : activityNextHint(updatedCapture.promotedToReview ? "afterThoughtAddedCarded" : "afterThoughtAdded");
+  if (nextHint) highlightThoughtHintKeys.add(hintKey);
   activeHighlightAnnotation = null;
   activeTab = "captures";
   setActivity(updatedSession, {
@@ -5057,7 +5186,8 @@ function saveHighlightAnnotation(sessionId, captureId, thought) {
     detail: `${summarizeCapture(updatedCapture)} · Thought added to the saved highlight${existingNoteBlockUpdated ? "; its generated note block was refreshed" : ""}; the source page is unchanged.`,
     tab: "captures",
     targetId: updatedCapture.id,
-    actionLabel: "View highlight"
+    actionLabel: "View highlight",
+    nextHint
   });
   persistAndRender("Highlight annotated");
   scrollActivityTarget({ tab: "captures", targetId: updatedCapture.id });
@@ -5082,7 +5212,8 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
     title: "Review card created",
     detail: questionActionDetail(targetSession, capture),
     tab: "review",
-    targetId: getActiveSession(workspace).reviewCards[0]?.id
+    targetId: getActiveSession(workspace).reviewCards[0]?.id,
+    nextHint: activityNextHint("afterCardMade")
   });
   persistAndRender("Review card created");
 }
