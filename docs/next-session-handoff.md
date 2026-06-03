@@ -19,6 +19,9 @@ Current branch: `main`.
 
 Latest product slices:
 
+- `b181226 fix: preserve draft source on capture`
+- `3e91f08 fix: guard return file import mode`
+- `4514f3f fix: align today next move priority`
 - Static Review/Inbox post-save follow-up links preserve the other exported lane inside a phone/Windows mirror without changing return JSON schemas.
 - `cb16b41 feat: continue after review grading`
 - `3062b88 feat: resume source after refreshing cards`
@@ -35,9 +38,14 @@ Current real evidence:
 - `npm run smoke:browser` -> `smoke_browser_ok`
 - `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`
 - In-app Browser sanity on `http://127.0.0.1:5173/`: Learning Companion page visible, Quick Capture visible, Today visible, no horizontal overflow.
+- `npm run mac:build` -> SwiftPM `Build complete` before the latest three product slices.
+- After the latest three product slices, `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` was rerun and returned `morning_offline_check_ok`; latest static-return receipt path: `.codex-tmp/static-return-loop-check/static-return-loop-1780517469153/receipt.json`.
 
 What changed:
 
+- Today `Close the loop` and `Next Move` now share one priority contract: due review, open question, unfinished draft, parked follow-up, then clear. Browser smoke covers draft-only, open-question-plus-draft, and review-plus-question-plus-draft states.
+- `Today > Device Flow > Import Return Files` now forces even a single selected file through the strict inbox/review return-file path. A mistaken workspace JSON selected from Return Files produces an error receipt and does not replace the workspace, while the ordinary sidebar single-file import still restores workspace JSON.
+- Quick Capture drafts now commit their saved `sourceTitle/sourceUrl` snapshot into the capture until the user chooses `Use current`. Linked Answer drafts opened from Today questions inherit the question capture's source, and browser smoke verifies both the draft and committed answer capture keep the original question source.
 - A linked answer that closes a question with an existing review card now prioritizes `Refresh card` over `Resume source`, because stale review evidence is a learning-correctness risk.
 - The refresh-card hint is checked at render time and click time; if the card disappears before click, the hint hides or fails safely.
 - Refreshing the card replaces stale evidence with the linked answer evidence, opens Review, then offers `Resume source` so the learner can return to reading.
@@ -49,6 +57,7 @@ What changed:
 
 External review status:
 
+- Mira returned `PASS_WITH_NOTES` for Today priority alignment, Return Files single-file guard, and draft source snapshot commit. Accepted: shared priority helper, broader priority smoke cases, Return Files armed-flag reset/comment, source provenance and committed linked-answer assertions. Deferred: draft freshness telemetry, canceled native picker synthetic test, draft materialType snapshot, partial source snapshot tests, and real device QA.
 - Mira returned `PASS_WITH_NOTES` on all three slices above, with no blockers.
 - Accepted notes: stale-evidence replacement assertion, no-Resume-source negative assertion while refresh is needed, new-tab safety assertions, cleaner post-resume primary action label, and next-card/queue-clear smoke coverage.
 - Deferred notes: Seed/Doubao critique retry, telemetry, screenshot strips, rapid double-click semantics, and no-source queue-clear focus specialization.

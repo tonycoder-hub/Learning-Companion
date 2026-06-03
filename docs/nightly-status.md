@@ -153,9 +153,13 @@ npm run check:morning:browser
 
 Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`, `npm run check:morning`, `npm run check:morning:native`, `npm run mac:build`, and `npm run smoke:browser`. The browser gate was rerun after the Quick Capture intent, local Answer draft linkage, linked Answer readiness, smoke temp-download hygiene, save-picker export, and Mac-shell web save bridge work; it now covers capture destination/source/time/intent context, linked local answer save-and-close behavior, answer-draft readiness before closure, temporary download routing for automated export checks, picker-vs-fallback backup copy, persistent Review/Inbox return-file next-step cues, the destination-locate action from sidecar layout, native bridge capture labels in and out of sidecar, promoted native bridge review-card labeling, click-through to the saved capture, promoted stack labels, richer confirmation copy, canceling deletion, direct sidecar deletion, one-step capture restore, unrelated revealed-review preservation, the existing inspector delete path, and the earlier source-time parser/jump evidence without claiming live video-site playback QA. The Mac-shell bridge has SwiftPM build evidence, not manual NSSavePanel click-through QA.
 
+Latest focused browser smoke also covers three high-friction learning-flow cases: Today's `Close the loop` and `Next Move` now share one due-review > open-question > draft > parked priority contract; Return Files rejects a single mistaken workspace JSON without replacing local state while ordinary sidebar single-file restore still works; and source-drifted Quick Capture drafts commit their original source snapshot unless the user explicitly chooses `Use current`, including linked Answer drafts opened from Today questions.
+
 Tonight's no-delete validation used normal `npm run smoke` and `npm run smoke:browser` after changing smoke scripts to keep project-local `.codex-tmp/` artifacts by default; both passed while leaving their run artifacts for later review. Cleanup now requires the explicit `LC_CLEAN_SMOKE_ARTIFACTS=1` switch and was not run tonight.
 
 The full offline headline gate was also run in no-delete mode with `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning`, and it returned `morning_offline_check_ok`. `LC_KEEP_CHECK_ARTIFACTS=1` keeps project-local `.codex-tmp` gate run directories instead of deleting them.
+
+After the latest Today priority, Return Files guard, and draft source snapshot fixes, the same no-delete headline gate was rerun and returned `morning_offline_check_ok`; the static-return receipt was kept at `.codex-tmp/static-return-loop-check/static-return-loop-1780517469153/receipt.json`.
 
 The current in-app browser tab remained on stale service-worker/app-shell state tonight, and cleanup was intentionally deferred. The update notice path is covered by static and controlled browser smoke, but its real-world appearance on that stale tab should be rechecked after tomorrow's browser/service-worker reset.
 
@@ -167,6 +171,7 @@ The long browser smoke has hit a `Runtime.evaluate` timeout during extended loca
 
 Latest Mira status:
 
+- 2026-06-04 targeted reviews for Today priority alignment, Return Files single-file guard, and draft source snapshot commit all returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, model `re-o-47`, and mode `deep`.
 - The restricted Hermes SSH broker path was re-smoked on 2026-06-02 with `re-o-47` / `deep`: `ok=true`, `verdict=PASS_WITH_NOTES`, `logid_present=true`, and `cleanup_succeeded=true`.
 - Earlier `SSH_FAILED`/timeout notes remain historical evidence for those specific increments, not the current broker state.
 
@@ -197,6 +202,9 @@ Accepted from Mira:
 - Make stage labels visible on the morning dashboard itself, not only in docs or commit history; every generated pack now includes `STAGE.md`.
 - Put dry-run boundaries inside artifacts, including a Feishu upload report field stating that no network call was made.
 - Route browser inbound captures by normalized source before using the active topic, preserving matched-session source fields so focus mistakes in the sidecar do not silently attach or rewrite the wrong learning material.
+- Keep Today primary navigation and the visible loop step on one shared priority contract, so mixed states do not show conflicting next actions.
+- Keep Return Files stricter than generic restore, especially for single-file mistakes from phone/Windows handoff.
+- Commit draft source snapshots into saved captures and linked Answer captures, instead of only warning about source drift in the UI.
 
 Deferred:
 
@@ -208,13 +216,17 @@ Deferred:
 - Mobile inbox and review progress patches should be called Mac-import-verified, not HarmonyOS-verified, until a real phone roundtrip passes.
 - Add broader negative-path demo-generator assertions, such as malformed JSON and oversized patch files; browser smoke already covers visible issue receipts for those cases, while the current demo generator covers duplicate inbox patches, stale review conflicts, unsafe URL stripping, and unsupported inbox patch schema rejection.
 - Keep HarmonyOS import/patch boundary logic pure until DevEco is available; the current module is executable smoke evidence, not a native app. Open-question parity is schema-verified locally, not device-verified.
+- Snapshot draft materialType and add video-to-doc drift coverage; source URL/title correctness is fixed, but material semantics are still inherited from the current session.
+- Add a synthetic canceled-picker follow-up for Return Files import mode; current browser smoke proves strict single-file guard and generic restore non-regression, not native picker cancel behavior.
+- Add telemetry or dogfood notes before making draft freshness override open questions; current priority intentionally favors unresolved questions over unfinished drafts.
 
 ## Next Best Commits
 
 1. Fill `dist/morning-demo/MAC_MANUAL_QA.md` with GUI/manual QA evidence for selected-text capture, browser context, Mac import, and relaunch on Tony's Mac.
-2. Verify `apps/companion-harmony-dev/` in DevEco Studio once SDK/project setup is available; until then keep the schema reader honest as the executable prototype.
-3. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
-4. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
+2. Snapshot draft materialType and add video-to-doc source-drift browser smoke.
+3. Verify `apps/companion-harmony-dev/` in DevEco Studio once SDK/project setup is available; until then keep the schema reader honest as the executable prototype.
+4. Manually test bookmarklet capture on YouTube, Feishu Docs, and developer docs; automated smoke now covers virtual video/document pages but not real-site CSP, popup, or DOM quirks.
+5. Add real Feishu OpenAPI transport only behind explicit credential configuration and approval.
 
 ## Known Risks
 
