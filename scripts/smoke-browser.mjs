@@ -5875,6 +5875,38 @@ async function assertPostSaveFlow(cdp) {
       closedQuestionText: document.querySelector("[data-today-section='closed_questions']")?.textContent || "",
       closedQuestionPulsed: document.querySelector("[data-today-section='closed_questions']")?.classList.contains("pulse") === true
     };
+    const linkedAnswerWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const linkedAnswerSourceRemoved = {
+      ...linkedAnswerWorkspace,
+      sessions: linkedAnswerWorkspace.sessions.map((session) => session.id === linkedAnswerWorkspace.activeSessionId
+        ? {
+          ...session,
+          sourceTitle: "",
+          sourceUrl: "",
+          captures: session.captures.map((capture) => /Ownership matters because/.test(capture.thought || "")
+            ? { ...capture, sourceTitle: "", sourceUrl: "" }
+            : capture)
+        }
+        : session)
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(linkedAnswerSourceRemoved));
+    const linkedAnswerMissingSource = readActivity();
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(linkedAnswerWorkspace));
+    let linkedAnswerResumeHref = "";
+    const nativeLinkedAnswerWindowOpen = window.open;
+    window.open = (href, target, features) => {
+      linkedAnswerResumeHref = href;
+      return { target, features };
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeLinkedAnswerWindowOpen;
+    const linkedAnswerHintResume = readActivity();
+    const linkedAnswerHintResumeState = {
+      opened: linkedAnswerResumeHref,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+    };
     setValue("#quoteInput", "");
     setValue("#thoughtInput", "Answer: This unlinked answer is useful but does not close a question.");
     document.querySelector("#captureBtn").click();
@@ -6128,7 +6160,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -6168,15 +6200,34 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.questionAnswerDraftState.capturePanePulsed, true);
   assert.equal(postSaveFlow.linkedAnswerSaved.title, "Answer saved");
   assert.match(postSaveFlow.linkedAnswerSaved.detail, /Closed the linked question/);
+  assert.doesNotMatch(postSaveFlow.linkedAnswerSaved.detail, /Resume the source/);
   assert.equal(postSaveFlow.linkedAnswerSaved.action, "Closed");
+  assert.equal(postSaveFlow.linkedAnswerSaved.hintHidden, false);
+  assert.equal(postSaveFlow.linkedAnswerSaved.hintKind, "afterLinkedAnswerSavedSourceLinked");
+  assert.equal(postSaveFlow.linkedAnswerSaved.hintAction, "Resume source");
+  assert.equal(postSaveFlow.linkedAnswerSaved.hintAria, "Resume the source after saving this answer");
   assert.deepEqual(postSaveFlow.linkedQuestionState, { resolved: true, parked: false });
   assert.equal(postSaveFlow.linkedAnswerDetails.activeTab, "today");
   assert.equal(postSaveFlow.linkedAnswerDetails.drawerOpen, true);
   assert.match(postSaveFlow.linkedAnswerDetails.closedQuestionText, /Closed Today/);
   assert.equal(postSaveFlow.linkedAnswerDetails.closedQuestionPulsed, true);
+  assert.equal(postSaveFlow.linkedAnswerMissingSource.title, "Answer saved");
+  assert.equal(postSaveFlow.linkedAnswerMissingSource.hintHidden, true);
+  assert.equal(postSaveFlow.linkedAnswerMissingSource.hintKind, "");
+  assert.equal(postSaveFlow.linkedAnswerHintResume.title, "Source resumed");
+  assert.equal(postSaveFlow.linkedAnswerHintResume.action, "View capture");
+  assert.equal(postSaveFlow.linkedAnswerHintResume.hintHidden, true);
+  assert.deepEqual(postSaveFlow.linkedAnswerHintResumeState, {
+    opened: "https://example.com/post-save-flow",
+    activeTab: "captures",
+    activeElement: "thoughtInput",
+    capturePanePulsed: true
+  });
   assert.equal(postSaveFlow.unlinkedAnswerSaved.title, "Answer note saved");
   assert.match(postSaveFlow.unlinkedAnswerSaved.detail, /did not close a question/);
   assert.equal(postSaveFlow.unlinkedAnswerSaved.action, "Answers");
+  assert.equal(postSaveFlow.unlinkedAnswerSaved.hintHidden, true);
+  assert.equal(postSaveFlow.unlinkedAnswerSaved.hintKind, "");
   assert.equal(postSaveFlow.unlinkedAnswerDetails.activeTab, "today");
   assert.equal(postSaveFlow.unlinkedAnswerDetails.drawerOpen, true);
   assert.match(postSaveFlow.unlinkedAnswerDetails.answersText, /Answers Today/);

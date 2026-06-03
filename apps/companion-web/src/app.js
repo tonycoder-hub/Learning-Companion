@@ -1481,15 +1481,19 @@ function captureSaveActivity(session, capture, options = {}) {
   }
   if (captureHasAnswer(capture)) {
     const linked = Boolean(options.isLinkedAnswer);
+    const hasSourceResume = linked && Boolean(buildCaptureResumeSource(session, capture).href);
     return {
       title: linked ? "Answer saved" : "Answer note saved",
       detail: linked
-        ? "Closed the linked question and kept this answer as evidence in Answers Today."
+        ? hasSourceResume
+          ? "Closed the linked question and kept this answer as evidence."
+          : "Closed the linked question and kept this answer as evidence in Answers Today."
         : "Saved in Answers Today. It did not close a question because no question was linked.",
       tab: "today",
-      targetId: "",
+      targetId: capture?.id || "",
       targetSection: linked ? "closed_questions" : "answers_today",
-      actionLabel: linked ? "Closed" : "Answers"
+      actionLabel: linked ? "Closed" : "Answers",
+      nextHint: hasSourceResume ? activityNextHint("afterLinkedAnswerSavedSourceLinked") : null
     };
   }
   if (captureHasTakeawayPrefix(capture)) {
@@ -2290,6 +2294,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "When evidence is ready, start a linked answer draft.",
     actionLabel: "Answer question",
     ariaLabel: "Start a linked answer draft for this question"
+  }),
+  afterLinkedAnswerSavedSourceLinked: Object.freeze({
+    kind: "afterLinkedAnswerSavedSourceLinked",
+    text: "Question closed. Resume the source for the next point.",
+    actionLabel: "Resume source",
+    ariaLabel: "Resume the source after saving this answer"
   })
 });
 
@@ -2393,7 +2403,7 @@ function renderActivity(session) {
 function renderActivityHint(activity) {
   if (!dom.activityHint || !dom.activityHintText || !dom.activityHintBtn) return;
   const hint = normalizeActivityNextHint(activity.nextHint);
-  if (!hint) {
+  if (!hint || !activityHintAvailable(activity, hint)) {
     dom.activityHint.hidden = true;
     dom.activityHint.dataset.nextStepHint = "";
     dom.activityHintText.textContent = "";
@@ -2408,6 +2418,21 @@ function renderActivityHint(activity) {
   dom.activityHintBtn.textContent = hint.actionLabel;
   dom.activityHintBtn.title = hint.ariaLabel;
   dom.activityHintBtn.setAttribute("aria-label", hint.ariaLabel);
+}
+
+function activityHintAvailable(activity, hint) {
+  if (!hint) return false;
+  if (["afterThoughtAddedSourceLinked", "afterQuestionSavedSourceLinked", "afterLinkedAnswerSavedSourceLinked"].includes(hint.kind)) {
+    return Boolean(activityResumeSource(activity).href);
+  }
+  return true;
+}
+
+function activityResumeSource(activity) {
+  const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+  const targetCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
+  if (!targetSession || !targetCapture) return { href: "" };
+  return buildCaptureResumeSource(targetSession, targetCapture);
 }
 
 function activityStaysInSidecar(activity) {
@@ -2868,7 +2893,7 @@ function runActivityHintAction() {
     promoteCaptureToReview(targetCapture.id, targetSession.id);
     return;
   }
-  if (hint.kind === "afterThoughtAddedSourceLinked" || hint.kind === "afterQuestionSavedSourceLinked") {
+  if (hint.kind === "afterThoughtAddedSourceLinked" || hint.kind === "afterQuestionSavedSourceLinked" || hint.kind === "afterLinkedAnswerSavedSourceLinked") {
     resumeActivityHintSource(activity);
     return;
   }
@@ -2892,7 +2917,7 @@ function resumeActivityHintSource(activity) {
     showToast("Highlight no longer exists");
     return;
   }
-  const resume = buildCaptureResumeSource(targetSession, targetCapture);
+  const resume = activityResumeSource(activity);
   if (!resume.href) {
     showToast("Source no longer exists");
     return;
