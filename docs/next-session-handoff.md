@@ -19,6 +19,7 @@ Current branch: `main`.
 
 Latest product slices:
 
+- `41ca482 fix: explain browser clipper setup`
 - `11c712b feat: clarify first note device route`
 - `4007f73 fix: clarify unanchored draft type`
 - `5c96f6b feat: add first note device entry`
@@ -50,10 +51,12 @@ Current real evidence:
 - For `5c96f6b`, the same syntax checks, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Browser smoke verifies the `Phone/Windows` first-note action opens Device Flow, opens the drawer, removes the redundant first-note button, and preserves the existing handoff-state direct-render path.
 - For `4007f73`, `node --check apps/companion-web/src/app.js`, `node --check apps/companion-web/src/model.js`, `node --check scripts/smoke-browser.mjs`, `node --check scripts/smoke-web.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Mira returned `PASS_WITH_NOTES` for the reduced v2 packet; the first packet was rejected locally by broker sanitizer as `SECRET_DETECTED`, not by Mira.
 - For `11c712b`, `node --check apps/companion-web/src/app.js`, `node --check scripts/smoke-browser.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed. Browser smoke now measures the First Note device route at 1024px, 620px, and 360px for no page overflow, route text fit, button fit, and accessible action labeling. In-app Browser URL/title were readable, but DOM evaluate and screenshot still hit the known CDP timeout flake.
+- For `41ca482`, `node --check apps/companion-web/src/app.js`, `node --check scripts/smoke-browser.mjs`, `git diff --check`, `npm run smoke`, and `npm run smoke:browser` passed.
 
 What changed:
 
 - Empty first-note Today now keeps `Learning Flow` focused on `Read source`, `Capture on Mac`, and `First Note`; the manual `Device Flow` panel no longer appears before there is learning work or handoff state. First Note now shows a lightweight `Other devices` route with `Use phone or Windows later`, `Manual`, `No live sync`, and two explicit steps: export a mirror after the first capture, then bring return files back to this Mac. The `Phone/Windows` action reveals full Device Flow on demand. If a mirror export/import/return signal exists, or once the workspace is non-empty, Device Flow appears directly.
+- First Note's `Set up page clipper` path now lands on Export with concrete setup copy: `Copy Clip`, add it as a browser bookmark, then click it on a source page to send selected text, title, URL, and video time back. Browser smoke verifies the activity copy, selected bookmarklet textarea, and Browser Capture setup note.
 - Today `Close the loop` and `Next Move` now share one priority contract: due review, open question, unfinished draft, parked follow-up, then clear. Browser smoke covers draft-only, open-question-plus-draft, and review-plus-question-plus-draft states.
 - `Today > Device Flow > Import Return Files` now forces even a single selected file through the strict inbox/review return-file path. A mistaken workspace JSON selected from Return Files produces an error receipt and does not replace the workspace, while the ordinary sidebar single-file import still restores workspace JSON.
 - Quick Capture drafts now commit their saved `sourceTitle/sourceUrl` snapshot into the capture until the user chooses `Use current`. Linked Answer drafts opened from Today questions inherit the question capture's source, and browser smoke verifies both the draft and committed answer capture keep the original question source.
