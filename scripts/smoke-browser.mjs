@@ -2470,7 +2470,7 @@ try {
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
 
-  const mirrorSaveReceipt = await cdp.evaluate(`(() => new Promise((resolve) => {
+  const mirrorSaveReceipt = await cdp.evaluate(`(async () => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
       node.value = value;
@@ -2487,7 +2487,7 @@ try {
     document.querySelector('[data-tab="export"]').click();
     const mirrorExportBeforeSave = document.querySelector("#mirrorExport").value;
     document.querySelector("#downloadMirrorBtn").click();
-    setTimeout(() => {
+    await new Promise((resolve) => setTimeout(resolve, 20));
       document.querySelector('[data-tab="today"]').click();
       const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
       const exportActivityTitle = document.querySelector("#activityTitle").textContent;
@@ -2504,7 +2504,17 @@ try {
       const staleHandoffText = document.querySelector(".handoff-card")?.textContent || "";
       const staleHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       const staleHandoffActions = actionSnapshot();
+      document.querySelector('[data-return-files-step="export"]')?.click();
+      const reExportOpenedTab = document.querySelector(".tab.active")?.dataset.tab || "";
+      document.querySelector("#downloadMirrorBtn").click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      document.querySelector('[data-tab="today"]').click();
+      const reExportedHandoffSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
+      const reExportedHandoffActions = actionSnapshot();
       window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
+      document.querySelector('[data-tab="export"]').click();
+      document.querySelector("#downloadMirrorBtn").click();
+      await new Promise((resolve) => setTimeout(resolve, 20));
       document.querySelector('[data-tab="today"]').click();
       const returnPatch = {
         schema: "learning-companion.mobile-inbox-patch.v1",
@@ -2547,7 +2557,7 @@ try {
       const postReturnStaleSummary = document.querySelector(".device-flow-summary .item-meta")?.textContent || "";
       window.learningCompanionNative.importWorkspaceJson(workspaceBeforeStaleCheck);
       document.querySelector('[data-tab="today"]').click();
-      resolve({
+      return {
         activityTitle: exportActivityTitle,
         activityDetail: exportActivityDetail,
         toast: exportToast,
@@ -2557,6 +2567,9 @@ try {
         staleHandoffText,
         staleHandoffSummary,
         staleHandoffActions,
+        reExportOpenedTab,
+        reExportedHandoffSummary,
+        reExportedHandoffActions,
         returnImportOk: returnImportResult.ok === true,
         returnImportKind: returnImportResult.kind || "",
         returnedHandoffText,
@@ -2570,9 +2583,8 @@ try {
         mirrorHandoffHasFingerprint: /^fnv1a-[a-f0-9]{8}$/.test(prefs.mirrorHandoff?.returnBaseFingerprint || ""),
         mirrorHandoffExportStats: prefs.mirrorHandoff?.exportStats || {},
         mirrorExportLeaksHandoff: mirrorExportBeforeSave.includes("mirrorHandoff")
-      });
-    }, 20);
-  }))()`);
+      };
+  })()`);
   assert.equal(mirrorSaveReceipt.activityTitle, "Mirror JSON handoff ready");
   assert.equal(mirrorSaveReceipt.activityDetail, "Move the Mirror JSON through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then use inbox.html or review.html to create a return file.");
   assert.equal(mirrorSaveReceipt.toast, "Mirror download requested");
@@ -2590,6 +2602,14 @@ try {
   assert.deepEqual(mirrorSaveReceipt.staleHandoffActions, [
     { text: "Re-export Mirror", step: "export", primary: true },
     { text: "Import Return Files", step: "import", primary: false },
+    { text: "Paste Return File", step: "paste", primary: false }
+  ]);
+  assert.equal(mirrorSaveReceipt.reExportOpenedTab, "export");
+  assert.match(mirrorSaveReceipt.reExportedHandoffSummary, /Mirror ready/);
+  assert.doesNotMatch(mirrorSaveReceipt.reExportedHandoffSummary, /Mac changed/);
+  assert.deepEqual(mirrorSaveReceipt.reExportedHandoffActions, [
+    { text: "Export Mirror", step: "export", primary: false },
+    { text: "Import Return Files", step: "import", primary: true },
     { text: "Paste Return File", step: "paste", primary: false }
   ]);
   assert.equal(mirrorSaveReceipt.returnImportOk, true);
