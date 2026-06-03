@@ -280,6 +280,7 @@ let pendingCaptureUndoTimer = null;
 let activeHighlightAnnotation = null;
 const revealedReviewCards = new Set();
 const highlightThoughtHintKeys = new Set();
+let returnFilesPickerArmed = false;
 
 installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
@@ -319,8 +320,11 @@ dom.importReceiptDismissBtn.addEventListener("click", () => {
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
+  const importMode = event.target.dataset.importMode === "return-files" ? "return-files" : "portable";
+  returnFilesPickerArmed = false;
   try {
-    if (files.length > 1) {
+    // Multi-file selection is reserved for return-file batches; full workspace restore stays single-file only.
+    if (importMode === "return-files" || files.length > 1) {
       await importReturnFiles(files);
       return;
     }
@@ -332,8 +336,17 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
     recordImportFailure(message, files[0]?.name || "");
     showToast(message);
   } finally {
+    delete event.target.dataset.importMode;
     event.target.value = "";
   }
+});
+
+dom.importWorkspaceInput.addEventListener("click", (event) => {
+  if (returnFilesPickerArmed) {
+    returnFilesPickerArmed = false;
+    return;
+  }
+  delete event.currentTarget.dataset.importMode;
 });
 
 async function readImportFile(file) {
@@ -423,7 +436,7 @@ async function importReturnFiles(files) {
     try {
       const imported = await readImportFile(file);
       if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
-        throw new Error("Multi-file import only accepts inbox or review return files.");
+        throw new Error("Return Files import only accepts inbox or review return files.");
       }
       returnFiles.push({
         fileName: file.name,
@@ -469,6 +482,12 @@ function focusReturnFilesPanel() {
   panel.open = true;
   panel.scrollIntoView({ behavior: "smooth", block: "center" });
   pulseNode(panel);
+}
+
+function openReturnFilesImportPicker() {
+  returnFilesPickerArmed = true;
+  dom.importWorkspaceInput.dataset.importMode = "return-files";
+  dom.importWorkspaceInput.click();
 }
 
 function compareReturnFiles(a, b) {
@@ -5270,7 +5289,7 @@ function renderReturnFilesPanel() {
   const importPatch = textEl("button", actionState.primary === "import" ? "mini-button primary" : "mini-button", "Import Return Files");
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
-  importPatch.addEventListener("click", () => dom.importWorkspaceInput.click());
+  importPatch.addEventListener("click", openReturnFilesImportPicker);
   const pasteReturn = textEl("button", "mini-button", "Paste Return File");
   pasteReturn.type = "button";
   pasteReturn.dataset.returnFilesStep = "paste";

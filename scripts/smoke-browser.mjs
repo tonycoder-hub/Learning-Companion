@@ -3356,7 +3356,12 @@ try {
   assert.equal(mirrorIndexAnswerLanding.postAddAnswerContextTitle, "Answer captured in this return draft");
 
   await cdp.send("Page.navigate", { url: appUrl });
-  await waitForCdpValue(cdp, `typeof window.learningCompanionNative?.importWorkspaceJson === "function"`, Boolean, 5000);
+  await waitForCdpValue(
+    cdp,
+    `typeof window.learningCompanionNative?.importWorkspaceJson === "function"`,
+    Boolean,
+    15000
+  ); // The smoke crosses file:// static mirror pages before returning to the app; Chrome can lag script readiness here.
   const mirrorAnswerReturnImport = await cdp.evaluate(`(() => {
     const answerWorkspace = ${JSON.stringify(result.answerMirrorWorkspaceJson)};
     const answerPatch = ${JSON.stringify(mirrorIndexAnswerLanding.patchJson)};
@@ -5904,6 +5909,7 @@ try {
   assert.ok(mobileLayout.timeForwardWidth >= 44);
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
+  await assertReturnFilesImportModeGuard(cdp);
   await assertPasteReturnFileFromClipboard(cdp);
   await assertPostSaveFlow(cdp);
   await assertCaptureStackNextStepMix(cdp);
@@ -5917,6 +5923,57 @@ try {
   if (cleanupSmokeArtifacts) {
     rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+}
+
+async function assertReturnFilesImportModeGuard(cdp) {
+  const result = await cdp.evaluate(`(async () => {
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const beforeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const beforeWorkspace = JSON.parse(beforeWorkspaceJson);
+    const beforeTitle = beforeWorkspace.sessions.find((item) => item.id === beforeWorkspace.activeSessionId)?.title || "";
+    const wrongWorkspace = {
+      ...beforeWorkspace,
+      sessions: beforeWorkspace.sessions.map((session) => session.id === beforeWorkspace.activeSessionId
+        ? { ...session, title: "Wrong workspace through Return Files" }
+        : session)
+    };
+    const input = document.querySelector("#importWorkspaceInput");
+    const importFile = async (mode) => {
+      if (mode) input.dataset.importMode = mode;
+      else delete input.dataset.importMode;
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([JSON.stringify(wrongWorkspace)], "workspace-return-mistake-single.json", { type: "application/json" }));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await wait(180);
+      const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      const active = workspace.sessions.find((item) => item.id === workspace.activeSessionId) || workspace.sessions[0] || {};
+      return {
+        title: active.title || "",
+        receipt: document.querySelector("#importReceipt")?.textContent || "",
+        receiptError: document.querySelector("#importReceipt")?.classList.contains("import-receipt-error") === true,
+        modeAfter: input.dataset.importMode || "",
+        inputValue: input.value
+      };
+    };
+    const returnFiles = await importFile("return-files");
+    const portable = await importFile("");
+    window.learningCompanionNative.importWorkspaceJson(beforeWorkspaceJson);
+    document.querySelector('[data-tab="today"]').click();
+    return { beforeTitle, returnFiles, portable };
+  })()`);
+  assert.equal(result.returnFiles.title, result.beforeTitle);
+  assert.match(result.returnFiles.receipt, /Return files imported/);
+  assert.match(result.returnFiles.receipt, /0\/1 files processed/);
+  assert.match(result.returnFiles.receipt, /1 failed/);
+  assert.match(result.returnFiles.receipt, /workspace-return-mistake-single\.json/);
+  assert.match(result.returnFiles.receipt, /Return Files import only accepts inbox or review return files/);
+  assert.equal(result.returnFiles.receiptError, true);
+  assert.equal(result.returnFiles.modeAfter, "");
+  assert.equal(result.returnFiles.inputValue, "");
+  assert.equal(result.portable.title, "Wrong workspace through Return Files");
+  assert.equal(result.portable.modeAfter, "");
+  assert.equal(result.portable.inputValue, "");
 }
 
 async function assertPasteReturnFileFromClipboard(cdp) {
