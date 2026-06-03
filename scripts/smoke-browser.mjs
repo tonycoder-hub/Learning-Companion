@@ -1671,6 +1671,7 @@ try {
           setTimeout(() => {
           const afterInboxImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterInboxSession = afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId);
+          const batchReturnedCaptureId = afterInboxSession.captures.find((capture) => capture.inboxPatchId === "browser_patch_002")?.id || "";
           const batchReceiptText = document.querySelector("#importReceipt").textContent;
           const batchActivityTitle = document.querySelector("#activityTitle").textContent;
           const batchActivityDetail = document.querySelector("#activityDetail").textContent;
@@ -1678,6 +1679,9 @@ try {
           const handoffAfterBatchImport = document.querySelector(".handoff-card");
           const handoffOpenAfterBatchImport = handoffAfterBatchImport?.open === true;
           const handoffPulsedAfterBatchImport = handoffAfterBatchImport?.classList.contains("pulse") === true;
+          const uiPrefsAfterBatchImport = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+          const persistedReturnImportJson = JSON.stringify(uiPrefsAfterBatchImport.mirrorHandoff?.lastReturnImport || {});
+          const persistedReturnImportHasLocalRejoin = /localRejoinTargets|rejoinTargets/.test(persistedReturnImportJson);
           document.querySelector('[data-tab="today"]').click();
           const returnedWorkCard = document.querySelector(".returned-work-card");
           const returnedWorkText = returnedWorkCard?.textContent || "";
@@ -1686,8 +1690,11 @@ try {
           const returnedWorkReceiptOpened = document.querySelector(".handoff-card")?.open === true;
           returnedWorkCard?.querySelector("[data-returned-work-action]")?.click();
           const returnedWorkActionResult = {
-            detailDrawerOpen: document.querySelector('[data-today-detail-drawer="study_details"]')?.open === true,
-            recentPulsed: document.querySelector('[data-today-section="recent_captures"]')?.classList.contains("pulse") === true
+            activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+            returnedCaptureVisible: Boolean(batchReturnedCaptureId && document.querySelector('[data-capture-id="' + CSS.escape(batchReturnedCaptureId) + '"]')),
+            returnedCapturePulsed: Boolean(batchReturnedCaptureId && document.querySelector('[data-capture-id="' + CSS.escape(batchReturnedCaptureId) + '"]')?.classList.contains("pulse")),
+            activityTitle: document.querySelector("#activityTitle").textContent,
+            activityDetail: document.querySelector("#activityDetail").textContent
           };
           returnedWorkCard?.querySelector('[data-returned-work-dismiss="true"]')?.click();
           const returnedWorkDismissed = !document.querySelector(".returned-work-card");
@@ -1737,6 +1744,7 @@ try {
           activeTabAfterBatchImport,
           handoffOpenAfterBatchImport,
           handoffPulsedAfterBatchImport,
+          persistedReturnImportHasLocalRejoin,
           returnedWorkText,
           returnedWorkButtons,
           returnedWorkReceiptOpened,
@@ -1974,6 +1982,7 @@ try {
   assert.equal(result.activeTabAfterBatchImport, "today");
   assert.equal(result.handoffOpenAfterBatchImport, true);
   assert.equal(result.handoffPulsedAfterBatchImport, true);
+  assert.equal(result.persistedReturnImportHasLocalRejoin, false);
   assert.match(result.returnedWorkText, /Returned from phone\/Windows/);
   assert.match(result.returnedWorkText, /1 new capture from phone or Windows/);
   assert.match(result.returnedWorkText, /3 return files checked/);
@@ -1981,12 +1990,13 @@ try {
   assert.match(result.returnedWorkText, /2 succeeded/);
   assert.match(result.returnedWorkText, /1 returned capture/);
   assert.match(result.returnedWorkText, /1 failed - open Import details/);
-  assert.deepEqual(result.returnedWorkButtons, ["View captures", "Import details", "Dismiss"]);
+  assert.deepEqual(result.returnedWorkButtons, ["View latest capture", "Import details", "Dismiss"]);
   assert.equal(result.returnedWorkReceiptOpened, true);
-  assert.deepEqual(result.returnedWorkActionResult, {
-    detailDrawerOpen: true,
-    recentPulsed: true
-  });
+  assert.equal(result.returnedWorkActionResult.activeTab, "captures");
+  assert.equal(result.returnedWorkActionResult.returnedCaptureVisible, true);
+  assert.equal(result.returnedWorkActionResult.returnedCapturePulsed, true);
+  assert.equal(result.returnedWorkActionResult.activityTitle, "Capture selected");
+  assert.match(result.returnedWorkActionResult.activityDetail, /Batch import should report multiple files at once/);
   assert.equal(result.returnedWorkDismissed, true);
   assert.equal(result.inboxLatestSourceUrl, "");
   assert.equal(result.inboxLatestProvenance, "inbox");
@@ -4274,7 +4284,7 @@ try {
     const answerReturnedWorkText = answerReturnedWorkCard?.textContent || "";
     const answerReturnedWorkButtons = [...(answerReturnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
     answerReturnedWorkCard?.querySelector("[data-returned-work-action]")?.click();
-    const answerReturnedWorkClosedPulsed = document.querySelector('[data-today-section="closed_questions"]')?.classList.contains("pulse") === true;
+    const answerReturnedWorkClosedCardPulsed = Boolean(answerTarget?.id && document.querySelector('[data-capture-id="' + CSS.escape(answerTarget.id) + '"]')?.classList.contains("pulse"));
     const afterAnswerImport = {
       ok: answerImport.ok === true,
       kind: answerImport.kind || "",
@@ -4290,7 +4300,7 @@ try {
       todayText: document.querySelector("#todayList").textContent,
       returnedWorkText: answerReturnedWorkText,
       returnedWorkButtons: answerReturnedWorkButtons,
-      returnedWorkClosedPulsed: answerReturnedWorkClosedPulsed
+      returnedWorkClosedCardPulsed: answerReturnedWorkClosedCardPulsed
     };
     const refreshButton = Array.from(document.querySelectorAll("#todayList .closed-question-card button"))
       .find((button) => button.textContent === "Refresh card");
@@ -4375,14 +4385,14 @@ try {
     const answerOnlyReturnedWorkText = answerOnlyReturnedWorkCard?.textContent || "";
     const answerOnlyReturnedWorkButtons = [...(answerOnlyReturnedWorkCard?.querySelectorAll("button") || [])].map((button) => button.textContent);
     answerOnlyReturnedWorkCard?.querySelector("[data-returned-work-action]")?.click();
-    const answerOnlyClosedPulsed = document.querySelector('[data-today-section="closed_questions"]')?.classList.contains("pulse") === true;
+    const answerOnlyClosedCardPulsed = Boolean(document.querySelector('[data-capture-id="' + CSS.escape(answerOnlyQuestionId) + '"]')?.classList.contains("pulse"));
     const answerOnlyReturn = {
       ok: answerOnlyImport.ok === true,
       answeredQuestions: answerOnlyImport.receipt?.answeredQuestions || 0,
       refreshableReviewCards: answerOnlyImport.receipt?.refreshableReviewCards || 0,
       returnedWorkText: answerOnlyReturnedWorkText,
       returnedWorkButtons: answerOnlyReturnedWorkButtons,
-      closedPulsed: answerOnlyClosedPulsed
+      closedCardPulsed: answerOnlyClosedCardPulsed
     };
     window.learningCompanionNative.importWorkspaceJson(answerOnlyRestoreJson);
     document.querySelector('[data-tab="today"]').click();
@@ -4548,7 +4558,7 @@ try {
   assert.match(questionFlow.afterAnswerImport.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
   assert.match(questionFlow.afterAnswerImport.returnedWorkText, /1 card ready to refresh/);
   assert.deepEqual(questionFlow.afterAnswerImport.returnedWorkButtons, ["Refresh cards", "View captures", "Import details", "Dismiss"]);
-  assert.equal(questionFlow.afterAnswerImport.returnedWorkClosedPulsed, true);
+  assert.equal(questionFlow.afterAnswerImport.returnedWorkClosedCardPulsed, true);
   assert.equal(questionFlow.afterAnswerImport.closedQuestionCards, 1);
   assert.deepEqual(
     questionFlow.afterAnswerImport.closedCardButtons.find((button) => button.text === "Refresh card"),
@@ -4583,7 +4593,7 @@ try {
   assert.match(questionFlow.answerOnlyReturn.returnedWorkText, /1 new capture · 1 question resolved from phone or Windows/);
   assert.doesNotMatch(questionFlow.answerOnlyReturn.returnedWorkText, /card ready to refresh/);
   assert.deepEqual(questionFlow.answerOnlyReturn.returnedWorkButtons, ["View closed questions", "View captures", "Import details", "Dismiss"]);
-  assert.equal(questionFlow.answerOnlyReturn.closedPulsed, true);
+  assert.equal(questionFlow.answerOnlyReturn.closedCardPulsed, true);
 
   const nativeClipboardCapture = await cdp.evaluate(`(() => {
     // Keep this bridge-heavy scenario isolated from the later mobile layout smoke.

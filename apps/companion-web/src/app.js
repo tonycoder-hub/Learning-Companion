@@ -73,6 +73,7 @@ const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
 const UI_PREFS_SCHEMA_VERSION = 3;
 const CAPTURE_DELETE_UNDO_MS = 10000;
+const CAPTURE_NODE_ATTR = "data-capture-id";
 const nativeSaveRequests = new Map();
 
 const dom = {
@@ -392,25 +393,28 @@ function importPortableData(imported, options = {}) {
   if (isMobileInboxPatch(imported)) {
     const result = applyMobileInboxPatch(workspace, imported);
     workspace = result.workspace;
-    recordMirrorReturnImport(result.receipt);
-    if (!quiet) {
-      lastImportReceipt = result.receipt;
-      dismissedReturnNudgeKey = "";
-      setActivity(getActiveSession(workspace), {
-        title: "Mobile inbox imported",
-        detail: formatInboxReceipt(result.receipt),
-        tab: "today",
-        targetId: ""
-      });
-      finishReturnFileImport(`Inbox import: ${result.receipt.added} added`);
-    }
-    return {
+    const response = {
       ok: true,
       kind: "mobile-inbox-patch",
       receipt: result.receipt,
       activeSessionId: workspace.activeSessionId,
       sessions: workspace.sessions.length
     };
+    const localRejoinTargets = collectInboxRejoinTargets(response);
+    if (localRejoinTargets.length) response.receipt = { ...response.receipt, localRejoinTargets };
+    recordMirrorReturnImport(response.receipt);
+    if (!quiet) {
+      lastImportReceipt = response.receipt;
+      dismissedReturnNudgeKey = "";
+      setActivity(getActiveSession(workspace), {
+        title: "Mobile inbox imported",
+        detail: formatInboxReceipt(response.receipt),
+        tab: "today",
+        targetId: ""
+      });
+      finishReturnFileImport(`Inbox import: ${response.receipt.added} added`);
+    }
+    return response;
   }
   if (isReviewProgressPatch(imported)) {
     const result = applyReviewProgressPatch(workspace, imported);
@@ -2628,10 +2632,22 @@ function scrollActivityTarget(activity) {
   if (!activity.targetId) return;
   const selector = activity.tab === "review"
     ? `[data-card-id="${CSS.escape(activity.targetId)}"]`
-    : `[data-capture-id="${CSS.escape(activity.targetId)}"]`;
+    : captureNodeSelector(activity.targetId);
   const target = document.querySelector(selector);
   target?.scrollIntoView({ behavior: "smooth", block: "center" });
   pulseNode(target);
+}
+
+function captureNodeSelector(captureId) {
+  return `[${CAPTURE_NODE_ATTR}="${CSS.escape(captureId)}"]`;
+}
+
+function findCaptureNode(captureId, scope = document) {
+  return captureId ? (scope || document).querySelector(captureNodeSelector(captureId)) : null;
+}
+
+function markCaptureNode(node, captureId) {
+  if (node && captureId) node.dataset.captureId = captureId;
 }
 
 function pulseNode(target) {
@@ -2720,6 +2736,7 @@ function emptyReturnFilesReceipt(fileCount) {
     legacyBasisFiles: 0,
     legacyBasisFileNames: [],
     sourceReturnBaseFingerprints: [],
+    localRejoinTargets: [],
     errors: []
   };
 }
@@ -2735,6 +2752,7 @@ function addReturnFileImportResult(summary, fileName, result) {
     summary.inbox.answeredQuestions += Number(receipt.answeredQuestions) || 0;
     summary.inbox.refreshableReviewCards += Number(receipt.refreshableReviewCards) || 0;
     summary.inbox.skippedAnswerTargets += Number(receipt.skippedAnswerTargets) || 0;
+    addReturnRejoinTargets(summary, collectInboxRejoinTargets(result));
     return;
   }
   if (result.kind === "review-progress-patch") {
@@ -2750,6 +2768,55 @@ function addReturnFileImportResult(summary, fileName, result) {
     return;
   }
   addReturnFileImportError(summary, fileName, "Unsupported return file.");
+}
+
+function addReturnRejoinTargets(summary, targets = []) {
+  if (!Array.isArray(summary.localRejoinTargets)) summary.localRejoinTargets = [];
+  targets.forEach((target) => {
+    if (!target?.kind || !target.sessionId || !target.targetId) return;
+    const key = `${target.kind}::${target.sessionId}::${target.targetId}`;
+    if (summary.localRejoinTargets.some((item) => `${item.kind}::${item.sessionId}::${item.targetId}` === key)) return;
+    // Mac-only, short-lived UI hints; mirrorReturnImportState() intentionally does not serialize these.
+    summary.localRejoinTargets.push({
+      kind: cleanBackupText(target.kind, 32),
+      sessionId: cleanBackupText(target.sessionId, 128),
+      targetId: cleanBackupText(target.targetId, 128),
+      label: trimActivityText(target.label, 140),
+      relatedCaptureId: cleanBackupText(target.relatedCaptureId, 128)
+    });
+  });
+  summary.localRejoinTargets = summary.localRejoinTargets.slice(0, 8);
+}
+
+function collectInboxRejoinTargets(result) {
+  const receipt = result?.receipt || {};
+  const patchId = cleanBackupText(receipt.patchId, 128);
+  const session = workspace.sessions.find((item) => item.id === receipt.targetSessionId);
+  if (!patchId || !session) return [];
+  const targets = [];
+  session.captures
+    .filter((capture) => capture.inboxPatchId === patchId)
+    .forEach((capture) => {
+      const answeredQuestion = capture.answersQuestionCaptureId
+        ? session.captures.find((item) => item.id === capture.answersQuestionCaptureId)
+        : null;
+      if (answeredQuestion?.questionResolvedAt) {
+        targets.push({
+          kind: "closed_question",
+          sessionId: session.id,
+          targetId: answeredQuestion.id,
+          relatedCaptureId: capture.id,
+          label: summarizeCapture(answeredQuestion)
+        });
+      }
+      targets.push({
+        kind: "capture",
+        sessionId: session.id,
+        targetId: capture.id,
+        label: summarizeCapture(capture)
+      });
+    });
+  return targets;
 }
 
 function addReturnFileBaseStatus(summary, fileName, receipt) {
@@ -3367,6 +3434,7 @@ function renderToday() {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
       const item = document.createElement("article");
       item.className = "item-card question-card";
+      markCaptureNode(item, capture.id);
       item.append(textEl("div", "item-meta", [
         sessionTitle,
         capture.timestamp || "",
@@ -3423,6 +3491,7 @@ function renderToday() {
     pack.parkedQuestionItems.forEach(({ sessionId, sessionTitle, capture }) => {
       const item = document.createElement("article");
       item.className = "item-card question-card parked-question-card";
+      markCaptureNode(item, capture.id);
       item.append(textEl("div", "item-meta", [
         sessionTitle,
         capture.questionParkedAt ? `Parked since ${new Date(capture.questionParkedAt).toLocaleString()}` : "",
@@ -3466,6 +3535,7 @@ function renderToday() {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
       const item = document.createElement("article");
       item.className = "item-card answer-card";
+      markCaptureNode(item, capture.id);
       item.append(textEl("div", "item-meta", [
         sessionTitle,
         formatAnswerReason(answerReason),
@@ -3511,6 +3581,7 @@ function renderToday() {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
       const item = document.createElement("article");
       item.className = "item-card question-card closed-question-card";
+      markCaptureNode(item, capture.id);
       item.append(textEl("div", "item-meta", [
         sessionTitle,
         capture.questionResolvedAt ? `Closed ${new Date(capture.questionResolvedAt).toLocaleString()}` : "",
@@ -3921,15 +3992,17 @@ function returnedWorkNudge(pack) {
   if (work.inboxAdded) {
     const hasReviewUpdate = Boolean(work.reviewApplied);
     const answerFollowup = returnedAnswerFollowup(work);
+    const closedQuestionTarget = returnRejoinTarget(receipt, "closed_question");
+    const captureTarget = returnRejoinTarget(receipt, "capture");
     if (answerFollowup && !hasReviewUpdate) {
       return {
         kind: "inbox",
         title: returnedWorkTitle(work),
         detail,
         actionLabel: answerFollowup.label,
-        run: answerFollowup.run,
+        run: closedQuestionTarget ? () => openReturnRejoinTarget(closedQuestionTarget, "closed_questions") : answerFollowup.run,
         secondaryLabel: "View captures",
-        secondaryRun: () => jumpToTodaySection("recent_captures"),
+        secondaryRun: captureTarget ? () => openReturnRejoinTarget(captureTarget, "recent_captures") : () => jumpToTodaySection("recent_captures"),
         tertiaryLabel: "Import details",
         tertiaryRun: openLastReturnReceipt
       };
@@ -3938,10 +4011,12 @@ function returnedWorkNudge(pack) {
       kind: "inbox",
       title: returnedWorkTitle(work),
       detail,
-      actionLabel: "View captures",
-      run: () => jumpToTodaySection("recent_captures"),
+      actionLabel: captureTarget ? "View latest capture" : "View captures",
+      run: captureTarget ? () => openReturnRejoinTarget(captureTarget, "recent_captures") : () => jumpToTodaySection("recent_captures"),
       secondaryLabel: hasReviewUpdate ? "Review status" : answerFollowup?.label || "Import details",
-      secondaryRun: hasReviewUpdate ? () => openReturnedReviewStatus(work) : answerFollowup?.run || openLastReturnReceipt,
+      secondaryRun: hasReviewUpdate
+        ? () => openReturnedReviewStatus(work)
+        : closedQuestionTarget ? () => openReturnRejoinTarget(closedQuestionTarget, "closed_questions") : answerFollowup?.run || openLastReturnReceipt,
       tertiaryLabel: hasReviewUpdate || answerFollowup ? "Import details" : "",
       tertiaryRun: hasReviewUpdate || answerFollowup ? openLastReturnReceipt : null
     };
@@ -4043,6 +4118,56 @@ function returnedAnswerFollowup(work) {
     };
   }
   return null;
+}
+
+function returnRejoinTarget(receipt, kind) {
+  return (Array.isArray(receipt?.localRejoinTargets) ? receipt.localRejoinTargets : [])
+    .find((target) => target.kind === kind && target.sessionId && target.targetId) || null;
+}
+
+function openReturnRejoinTarget(target, fallbackSection) {
+  if (!target) {
+    jumpToTodaySection(fallbackSection);
+    return;
+  }
+  const session = workspace.sessions.find((item) => item.id === target.sessionId);
+  if (target.kind === "capture") {
+    const capture = session?.captures.find((item) => item.id === target.targetId);
+    if (session && capture) {
+      openCaptureFromToday(session.id, capture);
+      return;
+    }
+  }
+  if (target.kind === "closed_question") {
+    openReturnedTodayTarget(target, "closed_questions");
+    return;
+  }
+  jumpToTodaySection(fallbackSection);
+}
+
+function openReturnedTodayTarget(target, sectionName) {
+  activeTab = "today";
+  if (uiPrefs.sidecarLayout) {
+    uiPrefs = { ...uiPrefs, sidecarLayout: false };
+    saveUiPrefs();
+    renderShellMode();
+  }
+  renderInspector();
+  const section = document.querySelector(`[data-today-section="${CSS.escape(sectionName)}"]`);
+  const drawer = section?.closest("details");
+  if (drawer && !drawer.open) drawer.open = true;
+  const node = findCaptureNode(target.targetId, document.querySelector("#todayList"));
+  const scrollTarget = node || section;
+  setActivity(getActiveSession(workspace), {
+    title: "Returned work opened",
+    detail: target.label || "Returned item from phone or Windows",
+    tab: "today",
+    targetSection: sectionName,
+    actionLabel: "Returned work"
+  });
+  renderActivity(getActiveSession(workspace));
+  scrollTarget?.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (scrollTarget) pulseNode(scrollTarget);
 }
 
 function returnedFileDetail(receipt) {
@@ -5066,7 +5191,7 @@ function renderCaptures() {
   session.captures.forEach((capture) => {
     const item = document.createElement("article");
     item.className = "item-card";
-    item.dataset.captureId = capture.id;
+    markCaptureNode(item, capture.id);
     const isInNotes = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
     item.append(textEl("div", "item-meta", [
       capture.timestamp || "No time",
