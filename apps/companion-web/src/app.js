@@ -4532,11 +4532,14 @@ function renderTodayPrimaryAction(pack, draftItems = []) {
 function renderStartHereInline() {
   const card = document.createElement("article");
   card.className = "start-here-inline";
+  const sourceStep = resolveSourceSessionState();
   card.append(
-    textEl("div", "item-meta", "Start Here"),
-    textEl("p", "card-prompt", "Start with what you are watching or reading.")
+    textEl("div", "item-meta", "First Note"),
+    textEl("p", "card-prompt", sourceStep.status === "Needs source"
+      ? "Set a source, then capture the first useful point."
+      : "Choose the first thing to bring back from this source.")
   );
-  card.append(startHereActions());
+  card.append(startHereActions(sourceStep));
   return card;
 }
 
@@ -4617,10 +4620,9 @@ function todayPrimaryMove(pack, draftItems = []) {
   };
 }
 
-function startHereActions() {
+function startHereActions(sourceStep = resolveSourceSessionState()) {
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const sourceStep = resolveSourceSessionState();
   const actions = [];
   if (sourceStep.status === "Needs source") {
     const source = textEl("button", "mini-button", sourceStep.actionLabel);

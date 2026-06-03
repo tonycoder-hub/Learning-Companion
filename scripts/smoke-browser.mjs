@@ -261,8 +261,8 @@ try {
   assert.doesNotMatch(firstRun.text, /Close the loopClear/);
   assert.deepEqual(firstRun.nonEmptyFlowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(firstRun.nonEmptyFlowSteps.find((step) => step.kind === "loop")?.text || "", /Close the loop/);
-  assert.match(firstRun.text, /Start Here/);
-  assert.match(firstRun.text, /Start with what you are watching or reading/);
+  assert.match(firstRun.text, /First Note/);
+  assert.match(firstRun.text, /Choose the first thing to bring back from this source/);
   assert.deepEqual(firstRun.buttons, [
     { action: "capture", text: "Capture this thought" },
     { action: "question", text: "Ask about this" },
@@ -319,6 +319,7 @@ try {
       action: button.dataset.startAction,
       text: button.textContent
     }));
+    result.startHereText = document.querySelector(".start-here-inline")?.textContent || "";
     setValue("#sourceTitle", "Transition source");
     setValue("#sourceUrl", "https://example.com/transition-source");
     document.querySelector('[data-tab="today"]').click();
@@ -348,6 +349,8 @@ try {
     { action: "question", text: "Ask about this" },
     { action: "clipper", text: "Set up page clipper" }
   ]);
+  assert.match(noSourceFlowStep.startHereText, /First Note/);
+  assert.match(noSourceFlowStep.startHereText, /Set a source, then capture the first useful point/);
   assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);
   assert.equal(noSourceFlowStep.afterSetSource.isWide, false);
   assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");
