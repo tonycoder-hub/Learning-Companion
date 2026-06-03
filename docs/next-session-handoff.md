@@ -15,7 +15,7 @@ The product bias is a study cockpit, not a generic note app. Every feature shoul
 
 ## 2026-06-03 Continuation Addendum
 
-Current branch: `main`, ahead of `origin/main` by local product commits. Latest committed slice is `e2c92e1 feat: rejoin returned work at target`.
+Current branch: `main`, ahead of `origin/main` by local product commits. Latest committed slice is `c55c774 fix: label static return save capability`.
 
 Current scratch and cleanup rules:
 
@@ -26,11 +26,11 @@ Current scratch and cleanup rules:
 
 Latest committed product changes:
 
+- `c55c774 fix: label static return save capability`
+- `fdc1c50 docs: refresh continuation handoff`
 - `e2c92e1 feat: rejoin returned work at target`
 - `06f0861 docs: record flow continuity reviews`
 - `4af47c9 fix: make sidecar entry explicit`
-- `5dbc078 fix: label static return previews`
-- `704b7ee fix: prioritize returned answer followups`
 
 Latest return-flow change:
 
@@ -41,15 +41,16 @@ Latest return-flow change:
 
 Latest Mira status:
 
+- Static return save-mode review returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, and model `re-o-47` / mode `deep`. Accepted: button/cue/note lockstep and explicit no-disk-save no-picker copy. Deferred: real HarmonyOS/Windows visual/storage checks.
 - The first return-rejoin review packet was rejected by the Hermes broker sanitizer with `SECRET_DETECTED`; that was a broker rejection, not a Mira verdict.
 - A sanitized second packet returned `PASS_WITH_NOTES` with `cleanup_succeeded=true`, `logid_present=true`, and model `re-o-47` / mode `deep`.
 - Accepted: rename the transient field to `localRejoinTargets`, add a shared capture-card marker helper, and add persisted-handoff exclusion coverage.
 - Rejected/deferred: TTL/debug logging and portable return-format expansion tonight; the current list is capped and external device regression is still pending.
 
-Latest verification for `e2c92e1`:
+Latest verification for `c55c774`:
 
 - `git diff --check`
-- `node --check apps/companion-web/src/app.js`
+- `node --check apps/companion-web/src/model.js`
 - `node --check scripts/smoke-browser.mjs`
 - `node --check scripts/smoke-web.mjs`
 - `npm run smoke` -> `smoke_web_ok`
