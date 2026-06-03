@@ -358,6 +358,16 @@ try {
     };
     document.querySelector("#clearCaptureDraftBtn")?.click();
     document.querySelector('[data-tab="today"]').click();
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="clipper"]')?.click();
+    const clipperHandoff = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      bookmarkletSelected: document.querySelector("#bookmarkletExport")?.selectionStart === 0
+        && document.querySelector("#bookmarkletExport")?.selectionEnd === document.querySelector("#bookmarkletExport")?.value.length
+    };
+    document.querySelector('[data-tab="today"]').click();
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="capture"]')?.click();
     return {
       ...before,
@@ -368,6 +378,7 @@ try {
       draftOnlyFlow,
       reviewQuestionDraftFlow,
       linkedQuestion,
+      clipperHandoff,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activeElement: document.activeElement?.id || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true,
@@ -446,6 +457,12 @@ try {
   assert.equal(firstRun.linkedQuestion.activityAria, "Open capture");
   assert.equal(firstRun.linkedQuestion.draftSourceTitle, "Product design desk");
   assert.match(firstRun.linkedQuestion.draftSourceUrl, /github\.com\/tonycoder-hub\/Learning-Companion/);
+  assert.equal(firstRun.clipperHandoff.activeTab, "export");
+  assert.equal(firstRun.clipperHandoff.activeElement, "bookmarkletExport");
+  assert.equal(firstRun.clipperHandoff.activityTitle, "Current page clipper ready");
+  assert.match(firstRun.clipperHandoff.activityDetail, /Copy Clip/);
+  assert.match(firstRun.clipperHandoff.activityDetail, /browser bookmark/);
+  assert.equal(firstRun.clipperHandoff.bookmarkletSelected, true);
 
   const firstNoteDeviceRouteLayouts = [];
   for (const width of [1024, 620, 360]) {
@@ -2051,6 +2068,9 @@ try {
     document.querySelector("#insertSynthesisBtn").click();
     document.querySelector('[data-tab="export"]').click();
     const bookmarklet = document.querySelector("#bookmarkletExport").value;
+    const bookmarkletSetupNote = [...document.querySelectorAll(".export-section-title")]
+      .find((item) => item.textContent === "Browser Capture")
+      ?.nextElementSibling?.textContent || "";
     const workspaceExport = JSON.parse(document.querySelector("#workspaceExport").value);
     const reviewPackExport = document.querySelector("#reviewPackExport").value;
     const todayExport = document.querySelector("#todayExport").value;
@@ -2555,6 +2575,7 @@ try {
           hasScriptNode: Boolean(document.querySelector("#notesPreview script")),
           hasBoldNode: Boolean(document.querySelector("#notesPreview b")),
           bookmarklet: document.querySelector("#bookmarkletExport").value,
+          bookmarkletSetupNote,
           workspaceExportSchema: workspaceExport.schema,
           workspaceExportSessions: workspaceExport.sessions.length,
           workspaceExportActiveSession: workspaceExport.sessions.find((item) => item.id === workspaceExport.activeSessionId)?.title || "",
@@ -3112,6 +3133,9 @@ try {
   assert.match(result.bookmarklet, /^javascript:/);
   assert.match(result.bookmarklet, /127\.0\.0\.1/);
   assert.match(result.bookmarklet, /currentTime/);
+  assert.match(result.bookmarkletSetupNote, /Copy Clip/);
+  assert.match(result.bookmarkletSetupNote, /browser bookmark/);
+  assert.match(result.bookmarkletSetupNote, /selected text, title, URL, and video time/);
   assert.equal(result.workspaceExportSchema, "learning-companion.workspace.v1");
   assert.equal(result.workspaceExportSessions, 1);
   assert.equal(result.workspaceExportActiveSession, "Learning Companion MVP");

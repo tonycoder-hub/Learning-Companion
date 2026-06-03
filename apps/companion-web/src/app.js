@@ -5071,7 +5071,7 @@ function openBookmarkletHandoff() {
   activeTab = "export";
   setActivity(session, {
     title: "Current page clipper ready",
-    detail: "Bookmarklet selected in Export.",
+    detail: "Copy Clip, add it as a browser bookmark, then click it on the source page.",
     tab: "export",
     targetId: ""
   });
