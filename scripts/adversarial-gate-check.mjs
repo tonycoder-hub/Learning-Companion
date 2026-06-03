@@ -7,6 +7,7 @@ import { compareOutputDirs } from "./morning-determinism-check.mjs";
 import { buildMirrorIntegrityReport } from "./mirror-integrity-check.mjs";
 
 export const ADVERSARIAL_GATES_SCHEMA = "learning-companion.adversarial-gates-report.v1";
+const KEEP_CHECK_ARTIFACTS = process.env.LC_KEEP_CHECK_ARTIFACTS === "1";
 
 export function buildAdversarialGateReport(options = {}) {
   const checkedAt = options.checkedAt || new Date().toISOString();
@@ -33,7 +34,7 @@ export function buildAdversarialGateReport(options = {}) {
       checks
     };
   } finally {
-    rmSync(tempRoot, { recursive: true, force: true });
+    if (!KEEP_CHECK_ARTIFACTS) rmSync(tempRoot, { recursive: true, force: true });
   }
 }
 

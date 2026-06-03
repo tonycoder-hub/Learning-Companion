@@ -33,6 +33,7 @@ Current real evidence:
 - `git diff --check`
 - `npm run smoke` -> `smoke_web_ok`
 - `npm run smoke:browser` -> `smoke_browser_ok`
+- `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`
 - In-app Browser sanity on `http://127.0.0.1:5173/`: Learning Companion page visible, Quick Capture visible, Today visible, no horizontal overflow.
 
 What changed:
@@ -44,6 +45,7 @@ What changed:
 - Static Review/Inbox pages now show post-save follow-up links to the other exported lane when applicable: Review can continue to prefilled Inbox answers, and Inbox can continue to Review. Negative smoke keeps single-lane mirrors from rendering a follow-up.
 - `npm run check:static-return` now verifies the morning-demo static files include those relative cross-page follow-ups and records them in the project-local receipt.
 - `npm run check:morning` now runs `check:static-return` after `demo:morning`, so the headline offline gate includes that static return contract.
+- Tonight's full offline gate was run with `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1` so generated project-local check artifacts were kept instead of deleted.
 
 External review status:
 

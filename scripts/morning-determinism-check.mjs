@@ -6,6 +6,7 @@ import { join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export const MORNING_DETERMINISM_SCHEMA = "learning-companion.morning-determinism-report.v1";
+const KEEP_CHECK_ARTIFACTS = process.env.LC_KEEP_CHECK_ARTIFACTS === "1";
 
 export function buildMorningDeterminismReport(options = {}) {
   const repoRoot = resolve(options.repoRoot || process.cwd());
@@ -39,7 +40,7 @@ export function buildMorningDeterminismReport(options = {}) {
       secondOutputSha256: sha256Text(JSON.stringify(secondFiles))
     };
   } finally {
-    rmSync(tempRoot, { recursive: true, force: true });
+    if (!KEEP_CHECK_ARTIFACTS) rmSync(tempRoot, { recursive: true, force: true });
   }
 }
 

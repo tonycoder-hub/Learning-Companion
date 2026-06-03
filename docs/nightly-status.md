@@ -155,6 +155,8 @@ Latest checks passed: JS syntax checks, `npm run smoke`, `npm run demo:morning`,
 
 Tonight's no-delete validation used normal `npm run smoke` and `npm run smoke:browser` after changing smoke scripts to keep project-local `.codex-tmp/` artifacts by default; both passed while leaving their run artifacts for later review. Cleanup now requires the explicit `LC_CLEAN_SMOKE_ARTIFACTS=1` switch and was not run tonight.
 
+The full offline headline gate was also run in no-delete mode with `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning`, and it returned `morning_offline_check_ok`. `LC_KEEP_CHECK_ARTIFACTS=1` keeps project-local `.codex-tmp` gate run directories instead of deleting them.
+
 The current in-app browser tab remained on stale service-worker/app-shell state tonight, and cleanup was intentionally deferred. The update notice path is covered by static and controlled browser smoke, but its real-world appearance on that stale tab should be rechecked after tomorrow's browser/service-worker reset.
 
 Workflow/Seed fanout used `ark/seed-code-0602` with three read-only tasks at concurrency 3. Two workers reached the max-turn cap without useful output; the PWA stale-update worker succeeded. I accepted its concrete stale-shell runtime coverage gap and added a virtual stale-shell browser smoke case for the JS compat shim only, while treating the broader service-worker lifecycle/cache regression smoke as a follow-up.

@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } 
 import { pathToFileURL } from "node:url";
 
 export const PERF_BUDGET_SCHEMA = "learning-companion.perf-budget-report.v1";
+const KEEP_CHECK_ARTIFACTS = process.env.LC_KEEP_CHECK_ARTIFACTS === "1";
 
 const DEFAULT_BUDGETS = Object.freeze({
   generatorElapsedMs: 5000,
@@ -66,7 +67,7 @@ export function buildPerfBudgetReport(options = {}) {
       checks
     };
   } finally {
-    if (ownsOutDir) rmSync(outDir, { recursive: true, force: true });
+    if (ownsOutDir && !KEEP_CHECK_ARTIFACTS) rmSync(outDir, { recursive: true, force: true });
   }
 }
 

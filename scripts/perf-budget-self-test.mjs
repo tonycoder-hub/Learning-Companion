@@ -5,6 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 const tempBase = resolve(".codex-tmp/perf-budget-self-test");
+const keepCheckArtifacts = process.env.LC_KEEP_CHECK_ARTIFACTS === "1";
 mkdirSync(tempBase, { recursive: true, mode: 0o700 });
 const outDir = mkdtempSync(join(tempBase, "run-"));
 const outFile = join(outDir, "PERF_BUDGET.json");
@@ -35,5 +36,5 @@ try {
   assert.equal(report.checks.some((check) => check.name === "file_count" && check.ok === false), true);
   console.log("perf_budget_selftest_ok");
 } finally {
-  rmSync(outDir, { recursive: true, force: true });
+  if (!keepCheckArtifacts) rmSync(outDir, { recursive: true, force: true });
 }
