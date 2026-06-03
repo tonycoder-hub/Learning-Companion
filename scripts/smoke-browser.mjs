@@ -234,10 +234,26 @@ try {
     }));
     window.learningCompanionNative.importWorkspaceJson(originalWorkspaceJson);
     document.querySelector('[data-tab="today"]').click();
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
+    const originalWorkspace = JSON.parse(originalWorkspaceJson);
+    const linkedDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
+      .captureDrafts?.[originalWorkspace.activeSessionId] || {};
+    const linkedQuestion = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      thoughtValue: document.querySelector("#thoughtInput")?.value || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      draftSourceTitle: linkedDraft.sourceTitle || "",
+      draftSourceUrl: linkedDraft.sourceUrl || ""
+    };
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    document.querySelector('[data-tab="today"]').click();
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="capture"]')?.click();
     return {
       ...before,
       nonEmptyFlowSteps,
+      linkedQuestion,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activeElement: document.activeElement?.id || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true,
@@ -272,6 +288,14 @@ try {
   assert.equal(firstRun.activeElement, "thoughtInput");
   assert.equal(firstRun.capturePanePulsed, true);
   assert.equal(firstRun.activity, "Ready to capture");
+  assert.equal(firstRun.linkedQuestion.activeTab, "captures");
+  assert.equal(firstRun.linkedQuestion.activeElement, "thoughtInput");
+  assert.equal(firstRun.linkedQuestion.thoughtValue, "Question:");
+  assert.equal(firstRun.linkedQuestion.activityTitle, "Question draft started");
+  assert.match(firstRun.linkedQuestion.activityDetail, /Question ready in Quick Capture for Product design desk/);
+  assert.doesNotMatch(firstRun.linkedQuestion.activityDetail, /no source yet|add a source/i);
+  assert.equal(firstRun.linkedQuestion.draftSourceTitle, "Product design desk");
+  assert.match(firstRun.linkedQuestion.draftSourceUrl, /github\.com\/tonycoder-hub\/Learning-Companion/);
   await sleep(50);
 
   const noSourceFlowStep = await cdp.evaluate(`(() => {
@@ -302,6 +326,25 @@ try {
       importedReviewPatches: []
     }));
     document.querySelector('[data-tab="today"]').click();
+    const startHereButtonsBeforeQuestion = [...(document.querySelector(".start-here-inline")?.querySelectorAll("button") || [])].map((button) => ({
+      action: button.dataset.startAction,
+      text: button.textContent
+    }));
+    const startHereTextBeforeQuestion = document.querySelector(".start-here-inline")?.textContent || "";
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
+    const noSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
+      .captureDrafts?.[noSourceSession.id] || {};
+    const noSourceQuestion = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      thoughtValue: document.querySelector("#thoughtInput")?.value || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      draftSourceTitle: noSourceDraft.sourceTitle || "",
+      draftSourceUrl: noSourceDraft.sourceUrl || ""
+    };
+    document.querySelector("#clearCaptureDraftBtn")?.click();
+    document.querySelector('[data-tab="today"]').click();
     const sourceStep = document.querySelector('[data-learning-flow-step="source"]');
     sourceStep?.querySelector("button")?.click();
     const result = {
@@ -313,13 +356,11 @@ try {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
-      sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true
+      sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
+      noSourceQuestion
     };
-    result.startHereButtons = [...(document.querySelector(".start-here-inline")?.querySelectorAll("button") || [])].map((button) => ({
-      action: button.dataset.startAction,
-      text: button.textContent
-    }));
-    result.startHereText = document.querySelector(".start-here-inline")?.textContent || "";
+    result.startHereButtons = startHereButtonsBeforeQuestion;
+    result.startHereText = startHereTextBeforeQuestion;
     setValue("#sourceTitle", "Transition source");
     setValue("#sourceUrl", "https://example.com/transition-source");
     document.querySelector('[data-tab="today"]').click();
@@ -343,6 +384,14 @@ try {
   assert.equal(noSourceFlowStep.activityTitle, "Add a source");
   assert.match(noSourceFlowStep.activityDetail, /Paste the browser page or video URL/);
   assert.equal(noSourceFlowStep.sourceStripPulsed, true);
+  assert.equal(noSourceFlowStep.noSourceQuestion.activeTab, "captures");
+  assert.equal(noSourceFlowStep.noSourceQuestion.activeElement, "thoughtInput");
+  assert.equal(noSourceFlowStep.noSourceQuestion.thoughtValue, "Question:");
+  assert.equal(noSourceFlowStep.noSourceQuestion.activityTitle, "Question draft started");
+  assert.match(noSourceFlowStep.noSourceQuestion.activityDetail, /link a source later to anchor it/);
+  assert.doesNotMatch(noSourceFlowStep.noSourceQuestion.activityDetail, /Product design desk/);
+  assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceTitle, "");
+  assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceUrl, "");
   assert.deepEqual(noSourceFlowStep.startHereButtons, [
     { action: "source", text: "Set source" },
     { action: "capture", text: "Capture this thought" },

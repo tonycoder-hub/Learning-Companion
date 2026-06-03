@@ -280,6 +280,8 @@ assert.match(appJs, /Refresh cards/);
 assert.match(appJs, /View closed questions/);
 assert.match(appJs, /Returned review-progress events stay higher priority/);
 assert.match(appJs, /seedFirstQuestionDraft/);
+assert.match(appJs, /Question ready in Quick Capture for/);
+assert.match(appJs, /link a source later to anchor it/);
 assert.match(appJs, /todayMapTarget/);
 assert.match(appJs, /older return file/);
 assert.match(appJs, /export updated mirror/);

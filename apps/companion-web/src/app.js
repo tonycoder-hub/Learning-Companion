@@ -1145,6 +1145,10 @@ function sourceSnapshotLabel(source) {
   return source?.sourceTitle || readableSourceHost(source?.sourceUrl) || "(no source)";
 }
 
+function hasSourceSnapshot(source) {
+  return Boolean(normalizeInboundSourceTitle(source?.sourceTitle) || cleanUrl(source?.sourceUrl));
+}
+
 function applyUrlCapture() {
   const params = new URLSearchParams(window.location.search);
   const quote = params.get("quote");
@@ -4680,16 +4684,20 @@ function focusQuickCaptureFromStart() {
 function seedFirstQuestionDraft() {
   const session = getActiveSession(workspace);
   const draft = getCaptureDraft(session.id);
+  const sourceSnapshot = draftSourceSnapshotFor(session.id, session.sourceTitle, session.sourceUrl);
   workspace = updateSession(workspace, session.id, { focusMode: "capture" });
   setCaptureDraft(session.id, {
     quote: draft.quote,
     thought: draft.thought || "Question: ",
-    timestamp: draft.timestamp
+    timestamp: draft.timestamp,
+    ...sourceSnapshot
   });
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
     title: "Question draft started",
-    detail: "Question waiting in Quick Capture (no source yet).",
+    detail: hasSourceSnapshot(sourceSnapshot)
+      ? `Question ready in Quick Capture for ${sourceSnapshotLabel(sourceSnapshot)}.`
+      : "Question waiting in Quick Capture; link a source later to anchor it.",
     tab: "captures",
     targetId: ""
   });
