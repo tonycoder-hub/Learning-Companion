@@ -95,6 +95,7 @@ import {
 
 const tempBase = resolve(".codex-tmp/smoke-web");
 mkdirSync(tempBase, { recursive: true, mode: 0o700 });
+const keepSmokeArtifacts = process.env.LC_KEEP_SMOKE_ARTIFACTS === "1";
 
 const manifest = JSON.parse(readFileSync("apps/companion-web/manifest.webmanifest", "utf8"));
 const indexHtml = readFileSync("apps/companion-web/index.html", "utf8");
@@ -2211,7 +2212,7 @@ try {
   assert.equal(dryRunReport.files.every((file) => file.status === "would-upsert"), true);
   assert.equal(dryRunReport.files.every((file) => /^[a-f0-9]{64}$/.test(file.payloadSha256)), true);
 } finally {
-  rmSync(uploadOutDir, { recursive: true, force: true });
+  if (!keepSmokeArtifacts) rmSync(uploadOutDir, { recursive: true, force: true });
 }
 assert.throws(() => buildFeishuUploadPlan({
   ...mirror,
@@ -2250,7 +2251,7 @@ try {
   materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan });
   assert.throws(() => materializeMirrorBundle(mirror, overwriteOutDir, { plan: uploadPlan }), /already exists/);
 } finally {
-  rmSync(overwriteOutDir, { recursive: true, force: true });
+  if (!keepSmokeArtifacts) rmSync(overwriteOutDir, { recursive: true, force: true });
 }
 const symlinkOutDir = mkdtempSync(join(tempBase, "feishu-symlink-"));
 try {
@@ -2260,7 +2261,7 @@ try {
   symlinkSync(symlinkTarget, join(symlinkOutDir, "files", "sessions"), "dir");
   assert.throws(() => materializeMirrorBundle(mirror, symlinkOutDir, { plan: uploadPlan, force: true }), /symbolic link/);
 } finally {
-  rmSync(symlinkOutDir, { recursive: true, force: true });
+  if (!keepSmokeArtifacts) rmSync(symlinkOutDir, { recursive: true, force: true });
 }
 
 const restoredWorkspaceFile = mirror.files.find((file) => file.path === "workspace.json");

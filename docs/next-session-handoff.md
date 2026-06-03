@@ -19,7 +19,7 @@ Current branch is `main`, ahead of `origin/main` with local product commits.
 
 Local scratch rule: keep all Codex/Mira/Seed/smoke temporary artifacts under the project-ignored `.codex-tmp/` directory. Do not use `/private/tmp`, `/tmp`, `$TMPDIR`, or Downloads for new working files unless the user explicitly re-approves that path in the moment.
 
-No-delete night rule: Tony asked not to delete files tonight. `npm run smoke` and `npm run smoke:browser` both delete their own temporary run directories, so the current Return File copy slice only ran non-deleting verification (`git diff --check`, `node --check`, and static copy scans). Full smoke should be rerun tomorrow after deletion is approved.
+No-delete night rule: Tony asked not to delete files tonight. Smoke scripts now support `LC_KEEP_SMOKE_ARTIFACTS=1`, which keeps their project-local `.codex-tmp/` run directories instead of deleting them. Use that flag for tonight's validation; cleanup remains deferred until Tony approves it.
 
 Latest commits:
 

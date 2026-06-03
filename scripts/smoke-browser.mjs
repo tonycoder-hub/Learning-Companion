@@ -10,6 +10,7 @@ const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
 const smokeBase = resolve(".codex-tmp/browser-smoke");
 const SMOKE_ROOT_PREFIX = "lc-browser-smoke-";
 const STALE_SMOKE_ROOT_MS = 30 * 60 * 1000;
+const keepSmokeArtifacts = process.env.LC_KEEP_SMOKE_ARTIFACTS === "1";
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -50,7 +51,7 @@ const listenPort = await new Promise((resolvePort) => {
 
 const debuggingPort = 9400 + Math.floor(Math.random() * 300);
 mkdirSync(smokeBase, { recursive: true, mode: 0o700 });
-cleanupStaleSmokeRoots(smokeBase, Date.now() - STALE_SMOKE_ROOT_MS);
+if (!keepSmokeArtifacts) cleanupStaleSmokeRoots(smokeBase, Date.now() - STALE_SMOKE_ROOT_MS);
 
 const smokeRoot = join(smokeBase, `${SMOKE_ROOT_PREFIX}${Date.now()}`);
 const profile = join(smokeRoot, "profile");
@@ -3910,7 +3911,9 @@ try {
   chrome.kill("SIGTERM");
   await waitForProcessExit(chrome, 3000);
   server.close();
-  rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  if (!keepSmokeArtifacts) {
+    rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
 }
 
 async function assertPostSaveFlow(cdp) {
