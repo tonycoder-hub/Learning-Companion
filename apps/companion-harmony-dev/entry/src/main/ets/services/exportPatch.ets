@@ -11,6 +11,7 @@ export interface PatchBuildOptions {
   patchId: string;
   nowIso: string;
   workspaceFingerprint: string;
+  returnBaseFingerprint?: string;
   topicId: string;
   topicTitle: string;
 }
@@ -32,6 +33,7 @@ export function buildInboxPatch(options: PatchBuildOptions, captures: Partial<In
     source: {
       generatedBy: 'harmony-dev-scaffold',
       workspaceFingerprint: options.workspaceFingerprint,
+      returnBaseFingerprint: options.returnBaseFingerprint || '',
       topicId: options.topicId,
       topicTitle: options.topicTitle
     },
@@ -68,6 +70,7 @@ export function buildReviewProgressPatch(options: PatchBuildOptions, events: Arr
     source: {
       generatedBy: 'harmony-dev-scaffold',
       workspaceFingerprint: options.workspaceFingerprint,
+      returnBaseFingerprint: options.returnBaseFingerprint || '',
       topicId: options.topicId,
       topicTitle: options.topicTitle
     },

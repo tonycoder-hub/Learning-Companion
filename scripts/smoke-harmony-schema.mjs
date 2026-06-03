@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import {
   addCapture,
+  applyMobileInboxPatch,
   applyGrade,
+  buildReturnBaseFingerprint,
   buildMirrorBundle,
   createDefaultWorkspace,
   getActiveSession,
@@ -9,7 +11,8 @@ import {
   sanitizeWorkspace,
   setCaptureQuestionParked,
   setCaptureQuestionResolved,
-  updateSession
+  updateSession,
+  workspaceFingerprint
 } from "../apps/companion-web/src/model.js";
 import {
   HARMONY_READER_NEXT_ACTION_PRIORITY,
@@ -417,6 +420,7 @@ const inboxEnvelope = buildHarmonyPatchEnvelope("inbox", {
   now,
   patchId: "harmony_inbox_patch_001",
   workspaceFingerprint: "fnv1a-test",
+  returnBaseFingerprint: "fnv1a-return-base",
   target: { topicId: active.id, topicTitle: active.title },
   captures: [{
     quote: "Harmony native capture draft.",
@@ -425,13 +429,47 @@ const inboxEnvelope = buildHarmonyPatchEnvelope("inbox", {
   }]
 });
 assert.equal(inboxEnvelope.schema, "learning-companion.mobile-inbox-patch.v1");
+assert.equal(inboxEnvelope.source.workspaceFingerprint, "fnv1a-test");
+assert.equal(inboxEnvelope.source.returnBaseFingerprint, "fnv1a-return-base");
+assert.notEqual(inboxEnvelope.source.returnBaseFingerprint, inboxEnvelope.source.workspaceFingerprint);
 assert.equal(inboxEnvelope.captures[0].id, "harmony_inbox_patch_001_capture_1");
 assert.equal(inboxEnvelope.target.topicId, active.id);
+const roundTripInboxEnvelope = JSON.parse(JSON.stringify(inboxEnvelope));
+assert.equal(roundTripInboxEnvelope.source.returnBaseFingerprint, "fnv1a-return-base");
+const currentHarmonyWorkspaceFingerprint = `fnv1a-${workspaceFingerprint(JSON.stringify(sanitizeWorkspace(workspace), null, 2))}`;
+const currentHarmonyReturnBaseFingerprint = buildReturnBaseFingerprint(workspace);
+const missingReturnBaseEnvelope = buildHarmonyPatchEnvelope("inbox", {
+  now,
+  patchId: "harmony_inbox_patch_missing_return_base",
+  workspaceFingerprint: currentHarmonyWorkspaceFingerprint,
+  target: { topicId: active.id, topicTitle: active.title },
+  captures: []
+});
+assert.equal(missingReturnBaseEnvelope.source.returnBaseFingerprint, "");
+const missingReturnBaseResult = applyMobileInboxPatch(workspace, missingReturnBaseEnvelope, now);
+assert.equal(missingReturnBaseResult.receipt.sourceReturnBaseFingerprint, "");
+assert.equal(missingReturnBaseResult.receipt.sourceFingerprintBasis, "workspace");
+assert.equal(missingReturnBaseResult.receipt.sourceFingerprintMatches, true);
+const staleReturnBaseEnvelope = buildHarmonyPatchEnvelope("inbox", {
+  now,
+  patchId: "harmony_inbox_patch_stale_return_base",
+  workspaceFingerprint: currentHarmonyWorkspaceFingerprint,
+  returnBaseFingerprint: "fnv1a-stale-return-base",
+  target: { topicId: active.id, topicTitle: active.title },
+  captures: []
+});
+const staleReturnBaseResult = applyMobileInboxPatch(workspace, staleReturnBaseEnvelope, now);
+assert.equal(staleReturnBaseResult.receipt.sourceReturnBaseFingerprint, "fnv1a-stale-return-base");
+assert.equal(staleReturnBaseResult.receipt.currentReturnBaseFingerprint, currentHarmonyReturnBaseFingerprint);
+assert.equal(staleReturnBaseResult.receipt.sourceWorkspaceFingerprint, currentHarmonyWorkspaceFingerprint);
+assert.equal(staleReturnBaseResult.receipt.sourceFingerprintBasis, "return-base");
+assert.equal(staleReturnBaseResult.receipt.sourceFingerprintMatches, false);
 
 const reviewEnvelope = buildHarmonyPatchEnvelope("review-progress", {
   now,
   patchId: "harmony_review_patch_001",
   workspaceFingerprint: "fnv1a-test",
+  returnBaseFingerprint: "fnv1a-return-base",
   target: { topicId: active.id, topicTitle: active.title },
   events: [{
     cardId: card.id,
@@ -442,6 +480,9 @@ const reviewEnvelope = buildHarmonyPatchEnvelope("review-progress", {
   }]
 });
 assert.equal(reviewEnvelope.schema, "learning-companion.review-progress-patch.v1");
+assert.equal(reviewEnvelope.source.workspaceFingerprint, "fnv1a-test");
+assert.equal(reviewEnvelope.source.returnBaseFingerprint, "fnv1a-return-base");
+assert.notEqual(reviewEnvelope.source.returnBaseFingerprint, reviewEnvelope.source.workspaceFingerprint);
 assert.equal(reviewEnvelope.events[0].id, "harmony_review_patch_001_event_1");
 assert.equal(reviewEnvelope.events[0].sessionId, active.id);
 

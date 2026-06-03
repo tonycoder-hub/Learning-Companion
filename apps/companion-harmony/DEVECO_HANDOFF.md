@@ -92,6 +92,7 @@ ArkTS `validatePortableFileCandidate()` is a scaffold mirror, not a DevEco-execu
   - `learning-companion.mobile-inbox-patch.v1`
   - `learning-companion.review-progress-patch.v1`
 - Each patch needs a stable `patchId` and stable item ids.
+- Each patch source should include both `workspaceFingerprint` and `returnBaseFingerprint`; the return-base value is the Mac merge-safety key, while the full workspace value is legacy compatibility. When `returnBaseFingerprint` is present, never use `workspaceFingerprint` as the merge-base decision input.
 - Never overwrite Mac workspace state directly.
 - Import of these patches remains Mac-side and conflict-aware.
 

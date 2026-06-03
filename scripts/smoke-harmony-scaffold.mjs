@@ -50,6 +50,7 @@ export function buildHarmonyScaffoldReport(options = {}) {
   const diskFiles = listFiles(root);
   const arktsSchemas = extractArktsSchemaConstants(files.get("entry/src/main/ets/model/workspace.ets"));
   const readerNextActionFields = extractArktsInterfaceFields(files.get("entry/src/main/ets/model/workspace.ets"), "HarmonyReaderNextAction");
+  const patchSourceFields = extractArktsInterfaceFields(files.get("entry/src/main/ets/model/workspace.ets"), "PatchSource");
   const jsReaderSessionText = readFileSync("apps/companion-harmony/src/import-session.mjs", "utf8");
   const arktsReaderSessionText = files.get("entry/src/main/ets/services/readerSessionState.ets");
   const topicDetailText = files.get("entry/src/main/ets/pages/TopicDetail.ets");
@@ -107,6 +108,7 @@ export function buildHarmonyScaffoldReport(options = {}) {
     check("return_to_mac_pages_shared_source", ["entry/src/main/ets/pages/Index.ets", "entry/src/main/ets/pages/TopicDetail.ets", "entry/src/main/ets/pages/ReviewQueue.ets", "entry/src/main/ets/pages/ImportReceipt.ets"].every((path) => /returnToMac\[\d\]/.test(files.get(path)) && !/manual Feishu Drive|Today > Return Files/.test(files.get(path)))),
     check("inbox_patch_export", /buildInboxPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("review_patch_export", /buildReviewProgressPatch/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
+    check("patch_source_return_base_fingerprint", patchSourceFields.includes("returnBaseFingerprint") && /returnBaseFingerprint: options\.returnBaseFingerprint \|\| ''/.test(files.get("entry/src/main/ets/services/exportPatch.ets"))),
     check("focus_action_open_source_kind", /'open_source'/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
     check("focus_action_detail_reason", /detail: string/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /reason: string/.test(files.get("entry/src/main/ets/model/workspace.ets"))),
     check("reader_next_action_contract", /HarmonyReaderNextActionKind/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /HarmonyReaderRoute/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /HarmonyReaderSurface/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /HARMONY_READER_NEXT_ACTION_PRIORITY/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /interface HarmonyReaderNextAction/.test(files.get("entry/src/main/ets/model/workspace.ets")) && /readerNextAction: HarmonyReaderNextAction/.test(files.get("entry/src/main/ets/model/workspace.ets"))),

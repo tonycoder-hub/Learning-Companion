@@ -111,9 +111,12 @@ export function buildHarmonyPatchEnvelope(kind, options = {}) {
     topicId: cleanText(options.target?.topicId, 128),
     topicTitle: cleanText(options.target?.topicTitle, 160)
   };
+  const returnBaseFingerprint = cleanText(options.returnBaseFingerprint, 128);
   const source = {
     generatedBy: "harmony-import-boundary",
     workspaceFingerprint: cleanText(options.workspaceFingerprint, 128),
+    // Expected format is fnv1a-*. Empty string means absent; Mac import treats it as missing.
+    returnBaseFingerprint,
     topicId: target.topicId,
     topicTitle: target.topicTitle
   };

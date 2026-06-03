@@ -205,6 +205,7 @@ export interface ReviewProgressPatch {
 export interface PatchSource {
   generatedBy: string;
   workspaceFingerprint: string;
+  returnBaseFingerprint: string;
   topicId: string;
   topicTitle: string;
 }
