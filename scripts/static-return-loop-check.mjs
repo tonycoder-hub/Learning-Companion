@@ -3,11 +3,16 @@ import { existsSync, mkdirSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import {
+  addCapture,
   applyMobileInboxPatch,
   applyReviewProgressPatch,
   buildReturnBaseFingerprint,
+  createDefaultWorkspace,
+  generateMirrorIndexHtml,
+  getActiveSession,
   workspaceFingerprint,
-  sanitizeWorkspace
+  sanitizeWorkspace,
+  updateSession
 } from "../apps/companion-web/src/model.js";
 
 const mirrorRoot = resolve("dist/morning-demo/mirror-folder");
@@ -28,6 +33,7 @@ const sampleWorkspace = sanitizeWorkspace(JSON.parse(sampleWorkspaceJson));
 const gitignoreText = await readFile(gitignorePath, "utf8");
 assert.equal(isGitignored(gitignoreText, ".codex-tmp/"), true);
 const indexState = inspectMirrorHome(indexHtml);
+const sourceFirstRoute = inspectSourceFirstDeviceRoute();
 const review = buildReviewReturnFromStaticContract(reviewHtml, sampleWorkspace);
 const inbox = buildInboxReturnFromStaticContract(inboxHtml, sampleWorkspace);
 const modelImport = await importReturnsThroughModel({
@@ -49,6 +55,7 @@ const receipt = {
   summary: {
     ok: true,
     staticMirrorHomeContract: indexState.heading === "Learning Companion Mirror",
+    sourceFirstDeviceRoute: sourceFirstRoute.ok,
     reviewReturnBuilt: review.patch.schema === "learning-companion.review-progress-patch.v1",
     inboxReturnBuilt: inbox.patch.schema === "learning-companion.mobile-inbox-patch.v1",
     modelImportedReview: modelImport.reviewImportOk,
@@ -57,7 +64,10 @@ const receipt = {
     downloadsDirectoryObserved: false
   },
   staticPages: {
-    index: indexState,
+    index: {
+      ...indexState,
+      sourceFirstDeviceRoute: sourceFirstRoute
+    },
     review: review.safeSummary,
     inbox: inbox.safeSummary
   },
@@ -82,6 +92,7 @@ const receipt = {
   boundaries: {
     proves: [
       "The exported mirror home uses relative Review/Inbox links and the manual-return/static-mirror copy.",
+      "The generated mirror home routes source-only device exports to the safe source first, while preserving Inbox fallback and due/question priority.",
       "The exported review.html contains the Manual Copy return contract and a schema-valid review return payload can be built from its embedded seed.",
       "The exported inbox.html contains the Manual Copy return contract, safe URL handling, and a schema-valid inbox return payload can be built from its embedded seed.",
       "The current Mac model importer accepts both return payloads against the demo workspace."
@@ -137,6 +148,76 @@ function inspectMirrorHome(html) {
   assert.equal(state.hasExternalScript, false);
   assert.equal(state.hasExternalStylesheet, false);
   return state;
+}
+
+function inspectSourceFirstDeviceRoute() {
+  const noSourceBase = createDefaultWorkspace();
+  const noSourceSession = getActiveSession(noSourceBase);
+  const noSourceWorkspace = updateSession(noSourceBase, noSourceSession.id, {
+    sourceTitle: "",
+    sourceUrl: "",
+    materialType: "other"
+  });
+  const noSourceHtml = generateMirrorIndexHtml(noSourceWorkspace, new Date("2099-01-02T08:00:00+08:00"));
+  assert.match(noSourceHtml, /<strong>Capture on this device<\/strong>/);
+  assert.doesNotMatch(noSourceHtml, /Read source on this device|Resume source on this device/);
+
+  const sourceBase = createDefaultWorkspace();
+  const sourceSession = getActiveSession(sourceBase);
+  const sourceWorkspace = updateSession(sourceBase, sourceSession.id, {
+    sourceTitle: "Static source route",
+    sourceUrl: "https://example.com/static-source-route",
+    materialType: "article"
+  });
+  const sourceHtml = generateMirrorIndexHtml(sourceWorkspace, new Date("2099-01-02T08:00:00+08:00"));
+  assert.match(sourceHtml, /<strong>Read source on this device<\/strong>/);
+  assert.match(sourceHtml, /href="https:\/\/example\.com\/static-source-route"/);
+  assert.match(sourceHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\.<\/a>/);
+  assert.doesNotMatch(sourceHtml, /<strong>Capture on this device<\/strong>/);
+
+  const resumeBase = createDefaultWorkspace();
+  const resumeBaseSession = getActiveSession(resumeBase);
+  let resumeWorkspace = updateSession(resumeBase, resumeBaseSession.id, {
+    sourceTitle: "Static video route",
+    sourceUrl: "https://www.youtube.com/watch?v=static123",
+    materialType: "video"
+  });
+  const resumeSession = getActiveSession(resumeWorkspace);
+  resumeWorkspace = addCapture(resumeWorkspace, resumeSession.id, {
+    quote: "Static route timestamp.",
+    thought: "Resume this source moment on the device.",
+    timestamp: "01:35"
+  }, { now: "2099-01-02T00:45:00.000Z" });
+  const resumeHtml = generateMirrorIndexHtml(resumeWorkspace, new Date("2099-01-02T08:00:00+08:00"));
+  assert.match(resumeHtml, /<strong>Resume source on this device<\/strong>/);
+  assert.match(resumeHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=static123&amp;t=95s"/);
+
+  const unsafeWorkspace = updateSession(noSourceBase, noSourceSession.id, {
+    sourceTitle: "Unsafe source",
+    sourceUrl: "javascript:alert(1)",
+    materialType: "article"
+  });
+  const unsafeHtml = generateMirrorIndexHtml(unsafeWorkspace, new Date("2099-01-02T08:00:00+08:00"));
+  assert.match(unsafeHtml, /<strong>Capture on this device<\/strong>/);
+  assert.doesNotMatch(unsafeHtml, /Read source on this device|Resume source on this device|javascript:alert/);
+
+  const questionWorkspace = addCapture(sourceWorkspace, sourceSession.id, {
+    quote: "Static source question.",
+    thought: "Question: does question priority outrank source reading?",
+    tags: "question"
+  }, { now: "2099-01-02T00:46:00.000Z" });
+  const questionHtml = generateMirrorIndexHtml(questionWorkspace, new Date("2099-01-02T08:00:00+08:00"));
+  assert.match(questionHtml, /<strong>Answer next question<\/strong>/);
+  assert.doesNotMatch(questionHtml, /Read source on this device|Resume source on this device/);
+
+  return {
+    ok: true,
+    noSourceFallsBackToInbox: /<strong>Capture on this device<\/strong>/.test(noSourceHtml),
+    sourceOnlyReadsFirst: /<strong>Read source on this device<\/strong>/.test(sourceHtml),
+    resumeSourceUsesTimestamp: /t=95s/.test(resumeHtml),
+    unsafeSourceFallsBackToInbox: /<strong>Capture on this device<\/strong>/.test(unsafeHtml),
+    openQuestionBeatsSource: /<strong>Answer next question<\/strong>/.test(questionHtml)
+  };
 }
 
 function buildReviewReturnFromStaticContract(html, workspace) {

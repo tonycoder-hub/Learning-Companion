@@ -163,6 +163,8 @@ The full offline headline gate was also run in no-delete mode with `MORNING_DEMO
 
 After the latest Today priority, Return Files guard, and draft source snapshot fixes, the same no-delete headline gate was rerun and returned `morning_offline_check_ok`; the static-return receipt was kept at `.codex-tmp/static-return-loop-check/static-return-loop-1780517469153/receipt.json`.
 
+After the static mirror source-first route, `npm run check:static-return` returned `static_return_loop_ok` and kept `.codex-tmp/static-return-loop-check/static-return-loop-1780522575028/receipt.json`, whose summary includes `sourceFirstDeviceRoute=true` with no-source fallback, source-only read-first, timestamp resume, unsafe-source fallback, and open-question-priority checks.
+
 The current in-app browser tab remained on stale service-worker/app-shell state tonight, and cleanup was intentionally deferred. The update notice path is covered by static and controlled browser smoke, but its real-world appearance on that stale tab should be rechecked after tomorrow's browser/service-worker reset.
 
 Workflow/Seed fanout used `ark/seed-code-0602` with three read-only tasks at concurrency 3. Two workers reached the max-turn cap without useful output; the PWA stale-update worker succeeded. I accepted its concrete stale-shell runtime coverage gap and added a virtual stale-shell browser smoke case for the JS compat shim only, while treating the broader service-worker lifecycle/cache regression smoke as a follow-up.
