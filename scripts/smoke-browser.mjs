@@ -376,6 +376,110 @@ try {
       isWide: collapsedSourceStep?.classList.contains("is-wide") === true,
       button: collapsedSourceStep?.querySelector("button")?.textContent || ""
     };
+    const lateSourceSession = {
+      ...workspace.sessions[0],
+      id: "late_source_question_flow",
+      title: "Late source question flow",
+      sourceTitle: "",
+      sourceUrl: "",
+      materialType: "doc",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...workspace,
+      activeSessionId: lateSourceSession.id,
+      sessions: [lateSourceSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="today"]').click();
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
+    setValue("#sourceTitle", "Late source doc");
+    setValue("#sourceUrl", "https://example.com/late-source");
+    document.querySelector("#sourceUrl")?.dispatchEvent(new Event("change", { bubbles: true }));
+    const lateSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
+      .captureDrafts?.[lateSourceSession.id] || {};
+    result.lateSourceQuestion = {
+      draftSourceTitle: lateSourceDraft.sourceTitle || "",
+      draftSourceUrl: lateSourceDraft.sourceUrl || "",
+      status: document.querySelector("#captureDraftStatus")?.textContent || "",
+      statusTitle: document.querySelector("#captureDraftStatus")?.title || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || ""
+    };
+    const existingSnapshotSession = {
+      ...workspace.sessions[0],
+      id: "existing_snapshot_question_flow",
+      title: "Existing snapshot question flow",
+      sourceTitle: "Original source doc",
+      sourceUrl: "https://example.com/original-source",
+      materialType: "doc",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...workspace,
+      activeSessionId: existingSnapshotSession.id,
+      sessions: [existingSnapshotSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="today"]').click();
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
+    setValue("#sourceTitle", "Changed source doc");
+    setValue("#sourceUrl", "https://example.com/changed-source");
+    document.querySelector("#sourceUrl")?.dispatchEvent(new Event("change", { bubbles: true }));
+    const existingSnapshotDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
+      .captureDrafts?.[existingSnapshotSession.id] || {};
+    result.existingSnapshotQuestion = {
+      draftSourceTitle: existingSnapshotDraft.sourceTitle || "",
+      draftSourceUrl: existingSnapshotDraft.sourceUrl || "",
+      status: document.querySelector("#captureDraftStatus")?.textContent || "",
+      statusTitle: document.querySelector("#captureDraftStatus")?.title || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || ""
+    };
+    const unsafeSourceSession = {
+      ...workspace.sessions[0],
+      id: "unsafe_source_question_flow",
+      title: "Unsafe source question flow",
+      sourceTitle: "",
+      sourceUrl: "",
+      materialType: "doc",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...workspace,
+      activeSessionId: unsafeSourceSession.id,
+      sessions: [unsafeSourceSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="today"]').click();
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
+    setValue("#sourceTitle", "Unsafe source doc");
+    setValue("#sourceUrl", "javascript:alert(1)");
+    document.querySelector("#sourceUrl")?.dispatchEvent(new Event("change", { bubbles: true }));
+    const unsafeSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
+      .captureDrafts?.[unsafeSourceSession.id] || {};
+    result.unsafeSourceQuestion = {
+      draftSourceTitle: unsafeSourceDraft.sourceTitle || "",
+      draftSourceUrl: unsafeSourceDraft.sourceUrl || "",
+      status: document.querySelector("#captureDraftStatus")?.textContent || "",
+      statusTitle: document.querySelector("#captureDraftStatus")?.title || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || ""
+    };
     window.learningCompanionNative.importWorkspaceJson(before);
     document.querySelector('[data-tab="today"]').click();
     return result;
@@ -411,6 +515,26 @@ try {
   assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);
   assert.equal(noSourceFlowStep.afterSetSource.isWide, false);
   assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.draftSourceTitle, "Late source doc");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.draftSourceUrl, "https://example.com/late-source");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.status, "Draft saved");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.statusTitle, "");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.activityTitle, "Draft source linked");
+  assert.match(noSourceFlowStep.lateSourceQuestion.activityDetail, /Late source doc/);
+  assert.equal(noSourceFlowStep.lateSourceQuestion.activityAction, "Capture");
+  assert.equal(noSourceFlowStep.lateSourceQuestion.activityAria, "Open capture");
+  assert.equal(noSourceFlowStep.existingSnapshotQuestion.draftSourceTitle, "Original source doc");
+  assert.equal(noSourceFlowStep.existingSnapshotQuestion.draftSourceUrl, "https://example.com/original-source");
+  assert.equal(noSourceFlowStep.existingSnapshotQuestion.status, "Source changed");
+  assert.match(noSourceFlowStep.existingSnapshotQuestion.statusTitle, /Draft began on Original source doc/);
+  assert.equal(noSourceFlowStep.existingSnapshotQuestion.activityTitle, "Question draft started");
+  assert.doesNotMatch(noSourceFlowStep.existingSnapshotQuestion.activityDetail, /Changed source doc|Draft source linked/);
+  assert.equal(noSourceFlowStep.unsafeSourceQuestion.draftSourceTitle, "");
+  assert.equal(noSourceFlowStep.unsafeSourceQuestion.draftSourceUrl, "");
+  assert.equal(noSourceFlowStep.unsafeSourceQuestion.status, "Draft saved");
+  assert.equal(noSourceFlowStep.unsafeSourceQuestion.statusTitle, "");
+  assert.equal(noSourceFlowStep.unsafeSourceQuestion.activityTitle, "Question draft started");
+  assert.doesNotMatch(noSourceFlowStep.unsafeSourceQuestion.activityDetail, /Unsafe source doc|Draft source linked/);
 
   const sidecarLayout = await cdp.evaluate(`(() => {
     const shell = document.querySelector(".app-shell");

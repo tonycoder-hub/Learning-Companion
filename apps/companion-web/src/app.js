@@ -1353,6 +1353,7 @@ function updateSessionFromFields(event) {
     materialType: dom.materialType.value,
     tags: dom.sessionTags.value
   });
+  const linkedDraftToSource = maybeAnchorUnsourcedCaptureDraft(getActiveSession(workspace), event);
   scheduleSave();
   renderOpenSourceButton(getActiveSession(workspace));
   renderCaptureContext(getActiveSession(workspace));
@@ -1369,7 +1370,30 @@ function updateSessionFromFields(event) {
     });
     renderActivity(getActiveSession(workspace));
     pulseNode(dom.timestampInput);
+  } else if (linkedDraftToSource) {
+    renderActivity(getActiveSession(workspace));
   }
+}
+
+function maybeAnchorUnsourcedCaptureDraft(session, event) {
+  // Anchor only after a completed safe URL edit: title-only input can be partial, and sourced drafts must keep drift warnings.
+  if (event?.target !== dom.sourceUrl || event?.type !== "change") return false;
+  const draft = getCaptureDraft(session.id);
+  if (!hasCaptureDraft(draft) || hasSourceSnapshot(draft) || !cleanUrl(session.sourceUrl)) return false;
+  setCaptureDraft(session.id, {
+    ...draft,
+    sourceTitle: session.sourceTitle,
+    sourceUrl: session.sourceUrl
+  });
+  setActivity(session, {
+    title: "Draft source linked",
+    detail: `This local draft now uses ${sourceSnapshotLabel(session)}.`,
+    tab: "captures",
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture"
+  });
+  return true;
 }
 
 function capture(promoteToReview) {
