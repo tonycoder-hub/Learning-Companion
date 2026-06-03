@@ -1311,6 +1311,41 @@ try {
     const todayExport = document.querySelector("#todayExport").value;
     const mirror = JSON.parse(document.querySelector("#mirrorExport").value);
     const mirrorText = JSON.stringify(mirror);
+    const baselineWorkspaceForAnswerMirror = window.learningCompanionNative.exportWorkspaceJson();
+    const workspaceStateSignature = (workspaceJson) => {
+      const workspace = JSON.parse(workspaceJson);
+      return JSON.stringify({
+        activeSessionId: workspace.activeSessionId,
+        sessions: workspace.sessions.map((session) => ({
+          id: session.id,
+          title: session.title,
+          captureIds: session.captures.map((capture) => capture.id),
+          questionStates: session.captures
+            .filter((capture) => /^(?:q|question)\s*[:：]/i.test(capture.thought || "") || /[?？]/.test(capture.thought || ""))
+            .map((capture) => ({
+              id: capture.id,
+              thought: capture.thought,
+              questionParkedAt: capture.questionParkedAt || "",
+              questionResolvedAt: capture.questionResolvedAt || ""
+            })),
+          reviewCardIds: session.reviewCards.map((card) => card.id),
+          notesMarkdown: session.notesMarkdown
+        }))
+      });
+    };
+    const baselineWorkspaceSignatureForAnswerMirror = workspaceStateSignature(baselineWorkspaceForAnswerMirror);
+    document.querySelector('[data-focus-mode="capture"]').click();
+    setValue("#quoteInput", "Mirror homepage should route this question to the phone inbox.");
+    setValue("#thoughtInput", "Question: How should the phone answer this mirror question?");
+    setValue("#timestampInput", "10:24");
+    document.querySelector("#captureBtn").click();
+    document.querySelector('[data-tab="export"]').click();
+    const answerMirror = JSON.parse(document.querySelector("#mirrorExport").value);
+    const answerMirrorIndexHtml = answerMirror.files.find((file) => file.path === "index.html")?.content || "";
+    const answerMirrorInboxHtml = answerMirror.files.find((file) => file.path === "inbox.html")?.content || "";
+    window.learningCompanionNative.importWorkspaceJson(baselineWorkspaceForAnswerMirror);
+    const answerMirrorWorkspaceRestored = workspaceStateSignature(window.learningCompanionNative.exportWorkspaceJson()) === baselineWorkspaceSignatureForAnswerMirror;
+    document.querySelector('[data-tab="export"]').click();
     const hasMirrorZipButton = document.querySelector("#downloadMirrorZipBtn").textContent === "Save ZIP Copy";
     const exportSections = [...document.querySelectorAll(".export-section-title")].map((item) => item.textContent);
     const hasWorkspaceExportButtons = document.querySelector("#copyWorkspaceBtn").textContent === "Copy Workspace"
@@ -1789,12 +1824,15 @@ try {
           mirrorBundleFingerprint: restoredMirror.manifest.bundleFingerprint,
           mirrorHasIndex: restoredMirror.files.some((file) => file.path === "index.html" && file.role === "mirror-home" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && file.content.includes("Learning Companion Mirror") && file.content.includes("Next from this export") && file.content.includes("Return-ready mirror") && file.content.includes("Mac return-base check") && file.content.includes("source.returnBaseFingerprint") && file.content.includes('href="TODAY.md"') && file.content.includes('href="review.html"') && file.content.includes('href="inbox.html"')),
           mirrorIndexHtml: restoredMirror.files.find((file) => file.path === "index.html")?.content || "",
+          answerMirrorIndexHtml,
+          answerMirrorWorkspaceRestored,
           mirrorHasWorkspace: restoredMirror.files.some((file) => file.path === "workspace.json"),
           mirrorHasToday: restoredMirror.files.some((file) => file.path === "TODAY.md" && file.content.includes("Today Study Pack") && file.content.includes("](sessions/")),
           mirrorHasReviewHtml: restoredMirror.files.some((file) => file.path === "review.html" && file.role === "portable-review" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceFingerprint) && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceReturnBaseFingerprint) && file.content.includes("Learning Companion Review Pack") && file.content.includes("Return-ready mirror") && file.content.includes("data-reveal") && file.content.includes("returnBaseFingerprint") && file.content.includes("Content-Security-Policy")),
           mirrorReviewHtml: restoredMirror.files.find((file) => file.path === "review.html")?.content || "",
           mirrorHasInboxHtml: restoredMirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && /^fnv1a-[a-f0-9]{8}$/.test(file.sourceReturnBaseFingerprint) && file.content.includes("Learning Companion Inbox") && file.content.includes("Return-ready mirror") && file.content.includes("learning-companion.mobile-inbox-patch.v1") && file.content.includes("returnBaseFingerprint") && !file.content.includes("<link") && !/<script[^>]+src=/i.test(file.content) && !/<iframe/i.test(file.content) && !/srcdoc=/i.test(file.content) && !/href=["']javascript:/i.test(file.content) && !/\\bfetch\\s*\\(/.test(file.content) && !/XMLHttpRequest/.test(file.content)),
           mirrorInboxHtml: restoredMirror.files.find((file) => file.path === "inbox.html")?.content || "",
+          answerMirrorInboxHtml,
           mirrorTodayEscapesScript: (() => {
             const today = restoredMirror.files.find((file) => file.path === "TODAY.md")?.content || "";
             return today.includes("&lt;script&gt;alert") && !today.includes("<script");
@@ -2373,6 +2411,65 @@ try {
   assert.equal(mirrorSaveReceipt.mirrorHandoffKind, "Mirror JSON");
   assert.equal(mirrorSaveReceipt.mirrorHandoffHasFingerprint, true);
   assert.equal(mirrorSaveReceipt.mirrorExportLeaksHandoff, false);
+
+  const exceptionsBeforeMirrorIndexClick = exceptions.length;
+  assert.match(result.answerMirrorIndexHtml, /1 open question/);
+  virtualRoutes.set("/mirror-index.html", result.answerMirrorIndexHtml);
+  virtualRoutes.set("/inbox.html", result.answerMirrorInboxHtml);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-index.html` });
+  await sleep(300);
+  const mirrorIndexAnswerClick = await cdp.evaluate(`(() => {
+    const link = document.querySelector('a.device-next-link[href^="inbox.html?"]') || document.querySelector('a.device-next-secondary[href^="inbox.html?"]');
+    const state = {
+      heading: document.querySelector("h1")?.textContent || "",
+      label: link?.textContent || "",
+      href: link?.getAttribute("href") || ""
+    };
+    link?.click();
+    return state;
+  })()`);
+  await sleep(300);
+  const mirrorIndexAnswerLanding = await cdp.evaluate(`(() => ({
+    path: window.location.pathname,
+    search: window.location.search,
+    answerToCaptureId: new URLSearchParams(window.location.search).get("answerToCaptureId") || "",
+    answerContextHidden: document.querySelector("#answerContext")?.hidden,
+    quoteLabel: document.querySelector("#quoteLabel")?.textContent || "",
+    thoughtLabel: document.querySelector("#thoughtLabel")?.textContent || "",
+    quotePlaceholder: document.querySelector("#quoteInput")?.placeholder || "",
+    thoughtPlaceholder: document.querySelector("#thoughtInput")?.placeholder || "",
+    quoteReadOnly: document.querySelector("#quoteInput")?.readOnly === true,
+    thoughtReadOnly: document.querySelector("#thoughtInput")?.readOnly === true,
+    thoughtDisabled: document.querySelector("#thoughtInput")?.disabled === true,
+    answerValueAfterInput: (() => {
+      const field = document.querySelector("#thoughtInput");
+      if (!field) return "";
+      field.value = "Answer: route verified from mirror home.";
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      return field.value;
+    })(),
+    quoteAriaReadonly: document.querySelector("#quoteInput")?.getAttribute("aria-readonly") || "",
+    preview: document.querySelector("#answerQuestionPreview")?.textContent || ""
+  }))()`);
+  assert.equal(exceptions.length, exceptionsBeforeMirrorIndexClick);
+  assert.equal(result.answerMirrorWorkspaceRestored, true);
+  assert.equal(mirrorIndexAnswerClick.heading, "Learning Companion Mirror");
+  assert.match(mirrorIndexAnswerClick.label, /Answer|question/i);
+  assert.match(mirrorIndexAnswerClick.href, /^inbox\.html\?/);
+  assert.equal(mirrorIndexAnswerLanding.path, "/inbox.html");
+  assert.match(mirrorIndexAnswerLanding.search, /answerToCaptureId=/);
+  assert.notEqual(mirrorIndexAnswerLanding.answerToCaptureId, "");
+  assert.equal(mirrorIndexAnswerLanding.answerContextHidden, false);
+  assert.equal(mirrorIndexAnswerLanding.quoteLabel, "Question from Mac");
+  assert.equal(mirrorIndexAnswerLanding.thoughtLabel, "Answer to return");
+  assert.equal(mirrorIndexAnswerLanding.quotePlaceholder, "Question carried from the Mac mirror");
+  assert.equal(mirrorIndexAnswerLanding.thoughtPlaceholder, "Write the answer to bring back to Mac");
+  assert.equal(mirrorIndexAnswerLanding.quoteReadOnly, true);
+  assert.equal(mirrorIndexAnswerLanding.thoughtReadOnly, false);
+  assert.equal(mirrorIndexAnswerLanding.thoughtDisabled, false);
+  assert.equal(mirrorIndexAnswerLanding.answerValueAfterInput, "Answer: route verified from mirror home.");
+  assert.equal(mirrorIndexAnswerLanding.quoteAriaReadonly, "true");
+  assert.notEqual(mirrorIndexAnswerLanding.preview, "");
 
   const exceptionsBeforeReviewRuntime = exceptions.length;
   virtualRoutes.set("/mirror-review.html", result.mirrorReviewHtml);
