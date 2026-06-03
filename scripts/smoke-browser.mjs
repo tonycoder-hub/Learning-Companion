@@ -372,6 +372,60 @@ try {
       cancelable: true
     }));
     const afterRepeatFocusCaptureShortcut = readState();
+    const captureCountBeforeStarterShortcuts = document.querySelector("#captureMetric").textContent;
+    const workspaceCaptureCountBeforeStarterShortcuts = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return session?.captures.length || 0;
+    })();
+    const undoHiddenBeforeStarterShortcuts = document.querySelector("#activityUndoBtn").hidden === true;
+    document.querySelector("#thoughtInput").value = "";
+    document.querySelector("#thoughtInput").dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector("#notesEditor").focus();
+    const editableStarterShortcutEvent = new KeyboardEvent("keydown", {
+      key: "1",
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true
+    });
+    const editableStarterShortcutDispatchResult = document.querySelector("#notesEditor").dispatchEvent(editableStarterShortcutEvent);
+    const afterEditableStarterShortcut = {
+      thought: document.querySelector("#thoughtInput").value,
+      defaultPrevented: editableStarterShortcutEvent.defaultPrevented,
+      dispatchResult: editableStarterShortcutDispatchResult,
+      activeId: document.activeElement?.id || ""
+    };
+    const starterShortcut = (key) => {
+      document.querySelector("#sidecarLayoutBtn").focus();
+      const event = new KeyboardEvent("keydown", {
+        key,
+        metaKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true
+      });
+      const dispatchResult = document.querySelector("#sidecarLayoutBtn").dispatchEvent(event);
+      return {
+        thought: document.querySelector("#thoughtInput").value,
+        activeStarter: document.querySelector("[data-capture-starter].is-active")?.dataset.captureStarter || "",
+        activeId: document.activeElement?.id || "",
+        activityTitle: document.querySelector("#activityTitle").textContent,
+        activityAction: document.querySelector("#activityDetailsBtn").textContent,
+        captureCount: document.querySelector("#captureMetric").textContent,
+        workspaceCaptureCount: (() => {
+          const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+          const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+          return session?.captures.length || 0;
+        })(),
+        undoHidden: document.querySelector("#activityUndoBtn").hidden === true,
+        defaultPrevented: event.defaultPrevented,
+        dispatchResult
+      };
+    };
+    const afterQuestionStarterShortcut = starterShortcut("1");
+    const afterAnswerStarterShortcut = starterShortcut("2");
+    const afterTakeawayStarterShortcut = starterShortcut("3");
     document.querySelector("#captureContextTarget").click();
     const activeSessionRow = document.querySelector("#sessionList .session-row.active");
     const afterCaptureDestination = {
@@ -383,7 +437,7 @@ try {
     };
     document.querySelector("#activityDetailsBtn").click();
     const afterActivityDetails = readState();
-    return { before, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, afterCaptureDestination, afterActivityDetails };
+    return { before, afterEditableShortcut, afterPanelShortcut, afterFocusCaptureShortcut, afterDraftFocusCaptureShortcut, afterRepeatFocusCaptureShortcut, captureCountBeforeStarterShortcuts, workspaceCaptureCountBeforeStarterShortcuts, undoHiddenBeforeStarterShortcuts, afterEditableStarterShortcut, afterQuestionStarterShortcut, afterAnswerStarterShortcut, afterTakeawayStarterShortcut, afterCaptureDestination, afterActivityDetails };
   })()`);
 
   assert.equal(sidecarLayout.before.shellCompact, false);
@@ -438,6 +492,36 @@ try {
   assert.equal(sidecarLayout.afterDraftFocusCaptureShortcut.dispatchResult, false);
   assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.activeId, "thoughtInput");
   assert.equal(sidecarLayout.afterRepeatFocusCaptureShortcut.capturePanePulsed, true);
+  assert.deepEqual(sidecarLayout.afterEditableStarterShortcut, {
+    thought: "",
+    defaultPrevented: false,
+    dispatchResult: true,
+    activeId: "notesEditor"
+  });
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.thought, "Question:");
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.activeStarter, "question");
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.activeId, "thoughtInput");
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.activityTitle, "Question draft started");
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.activityAction, "Capture");
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.defaultPrevented, true);
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.dispatchResult, false);
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.captureCount, sidecarLayout.captureCountBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.workspaceCaptureCount, sidecarLayout.workspaceCaptureCountBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterQuestionStarterShortcut.undoHidden, sidecarLayout.undoHiddenBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.thought, "Answer:");
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.activeStarter, "answer");
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.activityTitle, "Answer draft started");
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.activityAction, "Capture");
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.captureCount, sidecarLayout.captureCountBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.workspaceCaptureCount, sidecarLayout.workspaceCaptureCountBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterAnswerStarterShortcut.undoHidden, sidecarLayout.undoHiddenBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.thought, "Takeaway:");
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.activeStarter, "takeaway");
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.activityTitle, "Takeaway draft started");
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.activityAction, "Capture");
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.captureCount, sidecarLayout.captureCountBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.workspaceCaptureCount, sidecarLayout.workspaceCaptureCountBeforeStarterShortcuts);
+  assert.equal(sidecarLayout.afterTakeawayStarterShortcut.undoHidden, sidecarLayout.undoHiddenBeforeStarterShortcuts);
   assert.equal(sidecarLayout.afterCaptureDestination.shellCompact, false);
   assert.notEqual(sidecarLayout.afterCaptureDestination.sidebarDisplay, "none");
   assert.equal(sidecarLayout.afterCaptureDestination.activeTab, "captures");
@@ -637,21 +721,21 @@ try {
     const multiSentenceTakeaway = readState();
     return { question, questionExisting, questionRepeat, answer, takeaway, fullWidthColon, leadingWhitespace, multiSentenceTakeaway };
   })()`);
-  assert.equal(starterFlow.question.thought, "Question: ");
+  assert.equal(starterFlow.question.thought, "Question:");
   assert.equal(starterFlow.question.intent, "Question draft");
   assert.equal(starterFlow.question.intentTitle, "Finish the question before saving it to Open Questions.");
   assert.equal(starterFlow.question.activeElement, "thoughtInput");
   assert.equal(starterFlow.question.activityTitle, "Question draft started");
   assert.match(starterFlow.question.activityDetail, /Local draft started/);
   assert.deepEqual(starterFlow.question.buttonTitles, [
-    "Start a local question draft",
-    "Start a local answer draft",
-    "Start a local takeaway draft"
+    "Start a local question draft (Cmd/Ctrl+Shift+1)",
+    "Start a local answer draft (Cmd/Ctrl+Shift+2)",
+    "Start a local takeaway draft (Cmd/Ctrl+Shift+3)"
   ]);
   assert.deepEqual(starterFlow.question.buttonAria, [
-    "Start a local question draft",
-    "Start a local answer draft",
-    "Start a local takeaway draft"
+    "Start a local question draft with Cmd or Control Shift 1",
+    "Start a local answer draft with Cmd or Control Shift 2",
+    "Start a local takeaway draft with Cmd or Control Shift 3"
   ]);
   assert.deepEqual(starterFlow.question.buttonPressed, [
     { kind: "question", pressed: "true", active: true },

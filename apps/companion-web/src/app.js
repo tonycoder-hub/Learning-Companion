@@ -632,6 +632,7 @@ dom.deskReviewGoodBtn.addEventListener("click", () => gradeActiveReview("good"))
 document.addEventListener("keydown", (event) => {
   const isMod = event.metaKey || event.ctrlKey;
   if (handleReviewShortcut(event)) return;
+  if (handleCaptureStarterShortcut(event, isMod)) return;
   if (isMod && event.shiftKey && event.key.toLowerCase() === "c") {
     event.preventDefault();
     event.stopPropagation();
@@ -666,6 +667,20 @@ document.addEventListener("keydown", (event) => {
     toggleSidecarLayout();
   }
 });
+
+function handleCaptureStarterShortcut(event, isMod = event.metaKey || event.ctrlKey) {
+  if (!isMod || !event.shiftKey || event.altKey || isEditableTarget(event.target)) return false;
+  const starterKind = {
+    1: "question",
+    2: "answer",
+    3: "takeaway"
+  }[String(event.key || "").toLowerCase()];
+  if (!starterKind) return false;
+  event.preventDefault();
+  event.stopPropagation();
+  applyCaptureStarter(starterKind);
+  return true;
+}
 
 document.querySelectorAll("[data-focus-mode]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -1980,18 +1995,25 @@ function applyCaptureStarter(kind) {
   const starter = captureStarterDefinition(kind);
   if (!starter) return;
   const session = getActiveSession(workspace);
-  dom.thoughtInput.value = starterTextFor(dom.thoughtInput.value, starter.prefix);
-  saveCurrentCaptureDraft();
+  const nextThought = starterTextFor(dom.thoughtInput.value, starter.prefix);
+  // Starter actions are focus helpers: switch to Quick Capture and seed a local draft, but never commit a capture/card.
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setCaptureDraft(session.id, {
+    quote: dom.quoteInput.value,
+    thought: nextThought,
+    timestamp: dom.timestampInput.value,
+    ...draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value)
+  });
   setActivity(session, {
     title: `${starter.label} draft started`,
     detail: captureStarterActivityDetail(starter, session),
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture"
   });
-  renderCaptureContext(session);
-  renderActivity(session);
-  renderFocusBrief();
-  if (activeTab === "today") renderToday();
+  persistAndRender("", { keepCaptureUndo: true });
   dom.thoughtInput.focus();
   dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
 }
