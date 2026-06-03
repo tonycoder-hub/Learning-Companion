@@ -166,6 +166,8 @@ After the latest Today priority, Return Files guard, and draft source snapshot f
 
 After the static mirror source-first route, `npm run check:static-return` returned `static_return_loop_ok` and kept `.codex-tmp/static-return-loop-check/static-return-loop-1780522725669/receipt.json`, whose summary includes `sourceFirstDeviceRoute=true` with no-source fallback, source-only read-first, source links opening in a new tab/window, timestamp resume, unsafe-source fallback, and open-question-priority checks.
 
+After the source-only mirror mobile browser coverage was added, `node --check scripts/smoke-browser.mjs`, `git diff --check`, and `npm run smoke:browser` passed. The controlled Chrome gate now opens a source-only static mirror at 320px and verifies `Read source on this device`, `_blank` plus `noreferrer noopener`, the `Then capture in Inbox.` secondary action, and no horizontal overflow. This is browser-smoke evidence only, not real HarmonyOS/Windows/iPhone QA.
+
 The current in-app browser tab remained on stale service-worker/app-shell state tonight, and cleanup was intentionally deferred. The update notice path is covered by static and controlled browser smoke, but its real-world appearance on that stale tab should be rechecked after tomorrow's browser/service-worker reset.
 
 Workflow/Seed fanout used `ark/seed-code-0602` with three read-only tasks at concurrency 3. Two workers reached the max-turn cap without useful output; the PWA stale-update worker succeeded. I accepted its concrete stale-shell runtime coverage gap and added a virtual stale-shell browser smoke case for the JS compat shim only, while treating the broader service-worker lifecycle/cache regression smoke as a follow-up.

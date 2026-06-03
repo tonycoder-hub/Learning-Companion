@@ -9,8 +9,10 @@ import {
   addCapture,
   addSession,
   createDefaultWorkspace,
+  generateMirrorIndexHtml,
   generateReviewHtml,
-  getActiveSession
+  getActiveSession,
+  updateSession
 } from "../apps/companion-web/src/model.js";
 
 const root = resolve("apps/companion-web");
@@ -52,6 +54,14 @@ twoDueReviewWorkspace = addCapture(twoDueReviewWorkspace, secondDueSession.id, {
   thought: "Recall why reveal-before-grade matters."
 }, { promoteToReview: true, now: "2026-05-29T00:12:00.000Z" });
 const twoDueReviewHtml = generateReviewHtml(twoDueReviewWorkspace, new Date("2026-06-03T09:00:00.000Z"));
+const sourceOnlyMirrorBase = createDefaultWorkspace();
+const sourceOnlyMirrorSession = getActiveSession(sourceOnlyMirrorBase);
+const sourceOnlyMirrorHtml = generateMirrorIndexHtml(updateSession(sourceOnlyMirrorBase, sourceOnlyMirrorSession.id, {
+  sourceTitle: "Phone source reading target",
+  sourceUrl: "https://example.com/phone-source-reading",
+  materialType: "article"
+}), new Date("2026-06-03T09:00:00.000Z"));
+virtualRoutes.set("/mirror-source-mobile.html", sourceOnlyMirrorHtml);
 
 const server = createServer(async (request, response) => {
   try {
@@ -3967,6 +3977,36 @@ try {
       nextLabel: nextPanel?.querySelector(".device-next-link strong")?.textContent || ""
     };
   })()`);
+  await cdp.send("Page.navigate", { url: `${appUrl}mirror-source-mobile.html` });
+  await sleep(300);
+  const staticSourceIndexMobile = await cdp.evaluate(`(() => {
+    const nextPanel = document.querySelector(".device-next-panel");
+    const primary = nextPanel?.querySelector(".device-next-link");
+    const primaryStrong = primary?.querySelector("strong");
+    const primarySpan = primary?.querySelector("span");
+    const secondary = nextPanel?.querySelector(".device-next-secondary");
+    return {
+      innerWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      nextPanelWidth: Math.ceil(nextPanel?.getBoundingClientRect().width || 0),
+      primaryText: primaryStrong?.textContent || "",
+      primaryHref: primary?.getAttribute("href") || "",
+      primaryTarget: primary?.getAttribute("target") || "",
+      primaryRel: primary?.getAttribute("rel") || "",
+      primaryScrollWidth: primary?.scrollWidth || 0,
+      primaryClientWidth: primary?.clientWidth || 0,
+      primaryLabelScrollWidth: primaryStrong?.scrollWidth || 0,
+      primaryLabelClientWidth: primaryStrong?.clientWidth || 0,
+      primaryDetailScrollWidth: primarySpan?.scrollWidth || 0,
+      primaryDetailClientWidth: primarySpan?.clientWidth || 0,
+      primaryHeight: Math.ceil(primary?.getBoundingClientRect().height || 0),
+      secondaryText: secondary?.textContent || "",
+      secondaryHref: secondary?.getAttribute("href") || "",
+      secondaryScrollWidth: secondary?.scrollWidth || 0,
+      secondaryClientWidth: secondary?.clientWidth || 0,
+      secondaryHeight: Math.ceil(secondary?.getBoundingClientRect().height || 0)
+    };
+  })()`);
   await resetStaticReturnState(cdp, "learning-companion.review-progress.");
   virtualRoutes.set("/mirror-review-mobile.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-mobile.html` });
@@ -4033,6 +4073,21 @@ try {
   staticIndexMobile.entryLinkWidths.forEach((width) => {
     assert.ok(width >= staticIndexMobile.entryNavWidth - 2);
   });
+  assert.ok(staticSourceIndexMobile.documentWidth <= staticSourceIndexMobile.innerWidth + 1);
+  assert.ok(staticSourceIndexMobile.nextPanelWidth <= staticSourceIndexMobile.innerWidth - 24);
+  assert.equal(staticSourceIndexMobile.primaryText, "Read source on this device");
+  assert.equal(staticSourceIndexMobile.primaryHref, "https://example.com/phone-source-reading");
+  assert.equal(staticSourceIndexMobile.primaryTarget, "_blank");
+  assert.match(staticSourceIndexMobile.primaryRel, /noreferrer/);
+  assert.match(staticSourceIndexMobile.primaryRel, /noopener/);
+  assert.ok(staticSourceIndexMobile.primaryScrollWidth <= staticSourceIndexMobile.primaryClientWidth + 2);
+  assert.ok(staticSourceIndexMobile.primaryLabelScrollWidth <= staticSourceIndexMobile.primaryLabelClientWidth + 2);
+  assert.ok(staticSourceIndexMobile.primaryDetailScrollWidth <= staticSourceIndexMobile.primaryDetailClientWidth + 2);
+  assert.ok(staticSourceIndexMobile.primaryHeight >= 36);
+  assert.equal(staticSourceIndexMobile.secondaryText, "Then capture in Inbox.");
+  assert.equal(staticSourceIndexMobile.secondaryHref, "inbox.html");
+  assert.ok(staticSourceIndexMobile.secondaryScrollWidth <= staticSourceIndexMobile.secondaryClientWidth + 2);
+  assert.ok(staticSourceIndexMobile.secondaryHeight >= 32);
   assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
   assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
   assert.equal(staticReviewMobile.returnPreviewTitle, "Return file preview");
