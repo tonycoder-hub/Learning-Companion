@@ -3381,9 +3381,9 @@ try {
   assert.match(result.reviewQueueClearActivity.detail, /No due cards left/);
   assert.equal(result.reviewQueueClearActivity.action, "Capture");
   assert.equal(result.reviewQueueClearActivity.hintHidden, false);
-  assert.equal(result.reviewQueueClearActivity.hintKind, "afterReviewQueueClearedSourceLinked");
-  assert.equal(result.reviewQueueClearActivity.hintAction, "Resume source");
-  assert.equal(result.reviewQueueClearActivity.hintAria, "Resume the source after clearing the review queue");
+  assert.equal(result.reviewQueueClearActivity.hintKind, "afterReviewQueueClearedTextSourceLinked");
+  assert.equal(result.reviewQueueClearActivity.hintAction, "Open at quote");
+  assert.equal(result.reviewQueueClearActivity.hintAria, "Open the source; jump to the last reviewed quote if supported");
   assert.equal(result.reviewQueueClearActivity.activeTitle, "Review clear smoke");
   assert.equal(result.reviewQueueClearActivity.dueMetric, "0");
   assert.deepEqual(result.reviewQueueClearResume, {
@@ -8144,11 +8144,11 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.highlightAnnotated.detail, /source page is unchanged/);
   assert.equal(postSaveFlow.highlightAnnotated.action, "View highlight");
   assert.equal(postSaveFlow.highlightAnnotated.hintHidden, false);
-  assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAddedSourceLinked");
-  assert.match(postSaveFlow.highlightAnnotated.hintText, /resume the source/);
+  assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAddedTextSourceLinked");
+  assert.match(postSaveFlow.highlightAnnotated.hintText, /open the source at this highlight/);
   assert.match(postSaveFlow.highlightAnnotated.hintText, /Add to Notes for synthesis, or save for recall practice/);
-  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Resume source");
-  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Resume the source for this annotated highlight");
+  assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Open at quote");
+  assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Open the source; jump to this annotated highlight if supported");
   assert.equal(postSaveFlow.highlightAnnotated.activeElement, "quoteInput");
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFormVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.annotationFocusOnOpen, true);
@@ -8219,10 +8219,10 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
   assert.equal(postSaveFlow.highlightHintCard.hintHidden, false);
   assert.equal(postSaveFlow.highlightHintCard.action, "Review");
-  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMadeSourceLinked");
-  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Jump back to the source; the card is here when you want to review.");
-  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Resume source");
-  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Resume the source after saving this review card");
+  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMadeTextSourceLinked");
+  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Open the source at this quote - the card stays here.");
+  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Open at quote");
+  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Open the source; jump to this review-card quote if supported");
   assert.deepEqual(postSaveFlow.highlightHintCardState, {
     promoted: true,
     cardExists: true,
@@ -8253,10 +8253,10 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.ordinarySaved.action, "View capture");
   assert.equal(postSaveFlow.ordinarySaved.aria, "View capture");
   assert.equal(postSaveFlow.ordinarySaved.hintHidden, false);
-  assert.equal(postSaveFlow.ordinarySaved.hintKind, "afterCaptureSavedSourceLinked");
+  assert.equal(postSaveFlow.ordinarySaved.hintKind, "afterCaptureSavedTextSourceLinked");
   assert.match(postSaveFlow.ordinarySaved.hintText, /open the source/);
-  assert.equal(postSaveFlow.ordinarySaved.hintAction, "Open source");
-  assert.equal(postSaveFlow.ordinarySaved.hintAria, "Open the source after saving this capture");
+  assert.equal(postSaveFlow.ordinarySaved.hintAction, "Open at quote");
+  assert.equal(postSaveFlow.ordinarySaved.hintAria, "Open the source; jump to this saved quote if supported");
   assert.deepEqual(postSaveFlow.ordinaryDetailState, {
     activeTab: "captures",
     nextKind: "keep-reading",

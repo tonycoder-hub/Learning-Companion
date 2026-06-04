@@ -1737,7 +1737,7 @@ function captureSaveActivity(session, capture, options = {}) {
     tab: "captures",
     targetId: capture?.id || "",
     actionLabel: "View capture",
-    nextHint: resume.href ? activityNextHint(resume.timestamp ? "afterCaptureSavedTimedSourceLinked" : "afterCaptureSavedSourceLinked") : null
+    nextHint: activityNextHint(captureSourceResumeHintKind(resume))
   };
 }
 
@@ -2512,6 +2512,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     actionLabel: "Resume source",
     ariaLabel: "Resume the source for this annotated highlight"
   }),
+  afterThoughtAddedTextSourceLinked: Object.freeze({
+    kind: "afterThoughtAddedTextSourceLinked",
+    text: "Next: open the source at this highlight. Add to Notes for synthesis, or save for recall practice.",
+    actionLabel: "Open at quote",
+    ariaLabel: "Open the source; jump to this annotated highlight if supported"
+  }),
   afterThoughtAddedCarded: Object.freeze({
     kind: "afterThoughtAddedCarded",
     text: "Next: review the card this highlight already feeds.",
@@ -2523,6 +2529,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Next: open the source for the next point.",
     actionLabel: "Open source",
     ariaLabel: "Open the source after saving this capture"
+  }),
+  afterCaptureSavedTextSourceLinked: Object.freeze({
+    kind: "afterCaptureSavedTextSourceLinked",
+    text: "Next: open the source at this quote for the next point.",
+    actionLabel: "Open at quote",
+    ariaLabel: "Open the source; jump to this saved quote if supported"
   }),
   afterCaptureSavedTimedSourceLinked: Object.freeze({
     kind: "afterCaptureSavedTimedSourceLinked",
@@ -2541,6 +2553,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Saved for recall. Jump back to the source; the card is here when you want to review.",
     actionLabel: "Resume source",
     ariaLabel: "Resume the source after saving this review card"
+  }),
+  afterCardMadeTextSourceLinked: Object.freeze({
+    kind: "afterCardMadeTextSourceLinked",
+    text: "Saved for recall. Open the source at this quote - the card stays here.",
+    actionLabel: "Open at quote",
+    ariaLabel: "Open the source; jump to this review-card quote if supported"
   }),
   afterQuestionSavedSourceLinked: Object.freeze({
     kind: "afterQuestionSavedSourceLinked",
@@ -2577,6 +2595,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     text: "Reviews clear. Resume the source for the next point.",
     actionLabel: "Resume source",
     ariaLabel: "Resume the source after clearing the review queue"
+  }),
+  afterReviewQueueClearedTextSourceLinked: Object.freeze({
+    kind: "afterReviewQueueClearedTextSourceLinked",
+    text: "Reviews clear. Open the source at the last quote for the next point.",
+    actionLabel: "Open at quote",
+    ariaLabel: "Open the source; jump to the last reviewed quote if supported"
   })
 });
 
@@ -2585,9 +2609,17 @@ function activityNextHint(kind) {
   return hint ? { ...hint } : null;
 }
 
+function captureSourceResumeHintKind(resume) {
+  if (!resume?.href) return "";
+  if (resume.timestamp) return "afterCaptureSavedTimedSourceLinked";
+  if (resume.hasTextFragment) return "afterCaptureSavedTextSourceLinked";
+  return "afterCaptureSavedSourceLinked";
+}
+
 function cardMadeNextHint(session, capture) {
-  return buildCaptureResumeSource(session, capture).href
-    ? activityNextHint("afterCardMadeSourceLinked")
+  const resume = buildCaptureResumeSource(session, capture);
+  return resume.href
+    ? activityNextHint(resume.hasTextFragment ? "afterCardMadeTextSourceLinked" : "afterCardMadeSourceLinked")
     : activityNextHint("afterCardMade");
 }
 
@@ -2712,7 +2744,7 @@ function renderActivityHint(activity) {
 
 function activityHintAvailable(activity, hint) {
   if (!hint) return false;
-  if (["afterCaptureSavedSourceLinked", "afterCaptureSavedTimedSourceLinked", "afterThoughtAddedSourceLinked", "afterQuestionSavedSourceLinked", "afterLinkedAnswerSavedSourceLinked"].includes(hint.kind)) {
+  if (["afterCaptureSavedSourceLinked", "afterCaptureSavedTextSourceLinked", "afterCaptureSavedTimedSourceLinked", "afterThoughtAddedSourceLinked", "afterThoughtAddedTextSourceLinked", "afterQuestionSavedSourceLinked", "afterLinkedAnswerSavedSourceLinked"].includes(hint.kind)) {
     return Boolean(activityResumeSource(activity).href);
   }
   if (hint.kind === "afterLinkedAnswerCardRefreshNeeded") {
@@ -2720,7 +2752,7 @@ function activityHintAvailable(activity, hint) {
     const answerCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
     return linkedAnswerCanRefreshReviewCard(targetSession, answerCapture);
   }
-  if (hint.kind === "afterCardMadeSourceLinked" || hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
+  if (hint.kind === "afterCardMadeSourceLinked" || hint.kind === "afterCardMadeTextSourceLinked" || hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked" || hint.kind === "afterReviewQueueClearedTextSourceLinked") {
     return Boolean(activityReviewCardResumeSource(activity).href);
   }
   if (hint.kind === "afterCardMade") {
@@ -3226,7 +3258,7 @@ function runActivityHintAction() {
     promoteCaptureToReview(targetCapture.id, targetSession.id);
     return;
   }
-  if (hint.kind === "afterCaptureSavedSourceLinked" || hint.kind === "afterCaptureSavedTimedSourceLinked" || hint.kind === "afterThoughtAddedSourceLinked" || hint.kind === "afterQuestionSavedSourceLinked" || hint.kind === "afterLinkedAnswerSavedSourceLinked") {
+  if (hint.kind === "afterCaptureSavedSourceLinked" || hint.kind === "afterCaptureSavedTextSourceLinked" || hint.kind === "afterCaptureSavedTimedSourceLinked" || hint.kind === "afterThoughtAddedSourceLinked" || hint.kind === "afterThoughtAddedTextSourceLinked" || hint.kind === "afterQuestionSavedSourceLinked" || hint.kind === "afterLinkedAnswerSavedSourceLinked") {
     resumeActivityHintSource(activity);
     return;
   }
@@ -3238,7 +3270,7 @@ function runActivityHintAction() {
     refreshQuestionCardFromAnswerActivity(activity);
     return;
   }
-  if (hint.kind === "afterCardMadeSourceLinked" || hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
+  if (hint.kind === "afterCardMadeSourceLinked" || hint.kind === "afterCardMadeTextSourceLinked" || hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked" || hint.kind === "afterReviewQueueClearedTextSourceLinked") {
     resumeReviewCardSourceFromActivity(activity);
     return;
   }
@@ -3277,7 +3309,7 @@ function resumeActivityHintSource(activity) {
       : `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
     tab: "captures",
     targetId: targetCapture.id,
-    actionLabel: activity.nextHint?.kind === "afterThoughtAddedSourceLinked" ? "View highlight" : "View capture",
+    actionLabel: activity.nextHint?.kind === "afterThoughtAddedSourceLinked" || activity.nextHint?.kind === "afterThoughtAddedTextSourceLinked" ? "View highlight" : "View capture",
     nextHint: resumedQuestion ? activityNextHint("afterQuestionSourceResumed") : null
   });
   renderActivity(getActiveSession(workspace));
@@ -3346,7 +3378,7 @@ function resumeReviewCardSourceFromActivity(activity) {
   dom.thoughtInput.focus();
   pulseNode(dom.capturePane);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
-  const detail = activity?.nextHint?.kind === "afterCardMadeSourceLinked"
+  const detail = activity?.nextHint?.kind === "afterCardMadeSourceLinked" || activity?.nextHint?.kind === "afterCardMadeTextSourceLinked"
     ? `${sourceLabel} reopened beside Quick Capture. Continue reading; the saved card is here when you want to review.`
     : `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`;
   setActivity(targetSession, {
@@ -3917,8 +3949,9 @@ function gradeActiveReview(grade) {
   }
   const gradeLabel = grade === "good" ? "Good" : "Again";
   const nextDueLabel = new Date(reviewedCard?.dueAt || item.card.dueAt).toLocaleDateString();
-  const sourceResumeHint = !next && buildCaptureResumeSource(reviewedSession, reviewedCapture).href
-    ? activityNextHint("afterReviewQueueClearedSourceLinked")
+  const reviewResume = buildCaptureResumeSource(reviewedSession, reviewedCapture);
+  const sourceResumeHint = !next && reviewResume.href
+    ? activityNextHint(reviewResume.hasTextFragment ? "afterReviewQueueClearedTextSourceLinked" : "afterReviewQueueClearedSourceLinked")
     : null;
   setActivity(getActiveSession(workspace), next ? {
     title: "Review updated",
@@ -6391,9 +6424,10 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
     });
   }
   const hintKey = `${updatedSession.id}:${updatedCapture.id}`;
+  const annotationResume = buildCaptureResumeSource(updatedSession, updatedCapture);
   const annotationHintKind = updatedCapture.promotedToReview
     ? "afterThoughtAddedCarded"
-    : buildCaptureResumeSource(updatedSession, updatedCapture).href ? "afterThoughtAddedSourceLinked" : "afterThoughtAdded";
+    : annotationResume.href ? annotationResume.hasTextFragment ? "afterThoughtAddedTextSourceLinked" : "afterThoughtAddedSourceLinked" : "afterThoughtAdded";
   const nextHint = highlightThoughtHintKeys.has(hintKey)
     ? null
     : activityNextHint(annotationHintKind);

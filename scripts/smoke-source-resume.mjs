@@ -83,14 +83,14 @@ try {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activeElement: document.activeElement?.id || ""
     });
-    const capturePlain = (title, sourceTitle, sourceUrl, timestamp) => {
+    const capturePlain = (title, sourceTitle, sourceUrl, timestamp, quote = "Ordinary capture quote.", thought = "Ordinary capture thought.") => {
       document.querySelector("#newSessionBtn").click();
       setValue("#sessionTitle", title);
       setValue("#sourceTitle", sourceTitle);
       setValue("#sourceUrl", sourceUrl);
       setValue("#timestampInput", timestamp);
-      setValue("#quoteInput", "Ordinary capture quote.");
-      setValue("#thoughtInput", "Ordinary capture thought.");
+      setValue("#quoteInput", quote);
+      setValue("#thoughtInput", thought);
       document.querySelector("#captureBtn").click();
       return readActivity();
     };
@@ -127,6 +127,15 @@ try {
     const viewed = readActivity();
     const viewedCapturePulsed = document.querySelector(\`[data-capture-id="\${saved.targetId}"]\`)?.classList.contains("pulse") === true;
     const bareClick = clickHint();
+    const thoughtOnly = capturePlain(
+      "Thought-only source resume hint",
+      "Thought-only resume source",
+      "https://example.com/thought-only-resume",
+      "",
+      "",
+      "A source-backed thought without quote should reopen the source without a text fragment."
+    );
+    const thoughtOnlyClick = clickHint();
     const noSource = capturePlain("Ordinary capture without source", "", "", "");
     const timed = capturePlain("Timed ordinary capture resume hint", "Timed ordinary source", "https://www.youtube.com/watch?v=ordinaryTimed", "00:42");
     const timedClick = clickHint();
@@ -135,6 +144,8 @@ try {
       viewed,
       viewedCapturePulsed,
       bareClick,
+      thoughtOnly,
+      thoughtOnlyClick,
       noSource,
       timed,
       timedClick
@@ -149,10 +160,10 @@ try {
   assert.equal(result.viewed.activeTab, "captures");
   assert.equal(result.viewedCapturePulsed, true);
   assert.equal(result.saved.hintHidden, false);
-  assert.equal(result.saved.hintKind, "afterCaptureSavedSourceLinked");
+  assert.equal(result.saved.hintKind, "afterCaptureSavedTextSourceLinked");
   assert.match(result.saved.hintText, /open the source/);
-  assert.equal(result.saved.hintAction, "Open source");
-  assert.equal(result.saved.hintAria, "Open the source after saving this capture");
+  assert.equal(result.saved.hintAction, "Open at quote");
+  assert.equal(result.saved.hintAria, "Open the source; jump to this saved quote if supported");
   assert.equal(result.bareClick.opened, "https://example.com/ordinary-resume#:~:text=Ordinary%20capture%20quote.");
   assert.equal(result.bareClick.target, "_blank");
   assert.equal(result.bareClick.features, "noopener,noreferrer");
@@ -162,6 +173,12 @@ try {
   assert.equal(result.bareClick.activity.activeTab, "captures");
   assert.equal(result.bareClick.activity.activeElement, "thoughtInput");
   assert.equal(result.bareClick.capturePanePulsed, true);
+  assert.equal(result.thoughtOnly.title, "Capture saved");
+  assert.equal(result.thoughtOnly.hintHidden, false);
+  assert.equal(result.thoughtOnly.hintKind, "afterCaptureSavedSourceLinked");
+  assert.equal(result.thoughtOnly.hintAction, "Open source");
+  assert.equal(result.thoughtOnly.hintAria, "Open the source after saving this capture");
+  assert.equal(result.thoughtOnlyClick.opened, "https://example.com/thought-only-resume");
   assert.equal(result.noSource.title, "Capture saved");
   assert.equal(result.noSource.hintHidden, true);
   assert.equal(result.noSource.hintKind, "");
