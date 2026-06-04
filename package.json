@@ -20,6 +20,8 @@
     "morning:receipts": "node scripts/validate-morning-receipts.mjs",
     "demo:morning:serve": "node scripts/serve-morning-demo.mjs",
     "demo:morning:serve:smoke": "node scripts/serve-morning-demo.mjs --smoke",
+    "demo:return-import-dry-run": "node scripts/return-file-import-dry-run.mjs",
+    "demo:return-import-dry-run:smoke": "node scripts/return-file-import-dry-run.mjs --workspace dist/morning-demo/sample-workspace.json --return-file dist/morning-demo/patches/sample-mobile-inbox-patch.json --return-file dist/morning-demo/patches/sample-review-progress-patch.json --out .codex-tmp/return-import-dry-run/receipt.json",
     "mac:build": "bash scripts/mac-build.sh",
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",
     "check:static-return": "node scripts/static-return-loop-check.mjs",

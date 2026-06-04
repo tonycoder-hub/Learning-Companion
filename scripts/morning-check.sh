@@ -30,6 +30,10 @@ echo "== Static return contract =="
 npm run check:static-return
 echo
 
+echo "== Return file import dry-run =="
+npm run demo:return-import-dry-run:smoke
+echo
+
 echo "== Morning receipt contracts =="
 npm run morning:receipts
 echo
