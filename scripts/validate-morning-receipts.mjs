@@ -29,6 +29,7 @@ const files = {
   mirrorHome: "mirror-folder/index.html",
   manualQa: "MAC_MANUAL_QA.md",
   windowsStaticQa: "WINDOWS_STATIC_QA.md",
+  harmonyDeviceQa: "HARMONY_DEVICE_QA.md",
   feishuPlan: "feishu-upload/feishu-upload-plan.json",
   feishuReport: "feishu-upload/feishu-upload-report.json"
 };
@@ -57,6 +58,8 @@ const sourceTimeLinksRaw = readText(files.sourceTimeLinks);
 const manualQa = readText(files.manualQa);
 const windowsStaticQa = readText(files.windowsStaticQa);
 const windowsStaticQaResults = parseManualQaResults(windowsStaticQa);
+const harmonyDeviceQa = readText(files.harmonyDeviceQa);
+const harmonyDeviceQaResults = parseManualQaResults(harmonyDeviceQa);
 const feishuPlan = readJson(files.feishuPlan);
 const feishuReport = readJson(files.feishuReport);
 const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
@@ -79,6 +82,7 @@ assert.equal(summary.assertions.harmonyReaderOpenQuestions, 1);
 assert.equal(summary.assertions.harmonyReaderOpenQuestionPreviewCount, 1);
 assert.equal(summary.assertions.harmonyReaderAnsweredQuestionFlags >= 1, true);
 assert.equal(summary.windowsStaticQa, files.windowsStaticQa);
+assert.equal(summary.harmonyDeviceQa, files.harmonyDeviceQa);
 assert.equal(summary.dogfoodRunbook, files.dogfoodRunbook);
 validateLegacyArtifacts(summary.legacy_artifacts, evidence.legacy_artifacts, reviewStartHere);
 assert.equal(summary.windowsStaticQaReceipt.evidenceTier, "PENDING_USER_GATE");
@@ -87,6 +91,12 @@ assert.equal(summary.windowsStaticQaReceipt.receiptOnly, true);
 assert.equal(summary.windowsStaticQaReceipt.filled, 0);
 assert.equal(summary.windowsStaticQaReceipt.total, 10);
 assert.equal(summary.windowsStaticQaReceipt.nt, 10);
+assert.equal(summary.harmonyDeviceQaReceipt.evidenceTier, "PENDING_USER_GATE");
+assert.equal(summary.harmonyDeviceQaReceipt.evidenceStatus, "NOT_RUN");
+assert.equal(summary.harmonyDeviceQaReceipt.receiptOnly, true);
+assert.equal(summary.harmonyDeviceQaReceipt.filled, 0);
+assert.equal(summary.harmonyDeviceQaReceipt.total, 10);
+assert.equal(summary.harmonyDeviceQaReceipt.nt, 10);
 
 assert.equal(evidence.schema, "learning-companion.evidence-tiers.v1");
 assert.equal(evidence.summary.artifactCount > 0, true);
@@ -115,6 +125,13 @@ assert.equal(evidence.artifacts.some((artifact) => {
     return false;
   }
   assertEvidence(artifact.evidence, "PENDING_USER_GATE", files.windowsStaticQa);
+  return true;
+}), true);
+assert.equal(evidence.artifacts.some((artifact) => {
+  if (artifact.path !== files.harmonyDeviceQa) {
+    return false;
+  }
+  assertEvidence(artifact.evidence, "PENDING_USER_GATE", files.harmonyDeviceQa);
   return true;
 }), true);
 
@@ -244,6 +261,10 @@ assert.match(stage, /1 parked question/);
 assert.match(stage, /windows_static_qa/);
 assert.match(stage, /RECEIPT_ONLY NOT_RUN\(0\/10\)/);
 assert.match(stage, /WINDOWS_STATIC_QA\.md/);
+assert.match(stage, /HarmonyOS \| schema-prototype \+ scaffold \+ pending receipt/);
+assert.match(stage, /harmony_device_qa/);
+assert.match(stage, /HARMONY_DEVICE_QA\.md/);
+assert.equal((stage.match(/RECEIPT_ONLY NOT_RUN\(0\/10\)/g) || []).length >= 2, true);
 assert.match(reviewStartHere, /1 open question/);
 assert.match(reviewStartHere, /1 parked question/);
 const firstReviewSection = reviewStartHere.match(/<section>[\s\S]*?<\/section>/)?.[0] || "";
@@ -258,7 +279,7 @@ assert.match(reviewStartHere, /Run the real Mac loop first/);
 assert.match(reviewStartHere, /spend 15 minutes on rows 1-6/);
 assert.match(reviewStartHere, /Record friction and first actions/);
 assert.match(reviewStartHere, /Notes\/Recall source-return counts/);
-assert.match(reviewStartHere, /pending dogfood\/Mac-manual\/Windows-static validators/);
+assert.match(reviewStartHere, /pending dogfood\/Mac-manual\/Windows-static\/Harmony-device validators/);
 assert.match(reviewStartHere, /Leave untouched rows as NT/);
 assert.match(reviewStartHere, /Validate before claiming usable/);
 assert.match(reviewStartHere, /real-run-receipt\.json/);
@@ -266,11 +287,15 @@ assert.equal(packageJson.scripts["dogfood:validate"], "node scripts/validate-dog
 assert.equal(packageJson.scripts["mac:manual:validate:smoke"], "node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/receipt.json");
 assert.equal(packageJson.scripts["windows:static:validate"], "node scripts/validate-windows-static-qa.mjs");
 assert.equal(packageJson.scripts["windows:static:validate:smoke"], "node scripts/validate-windows-static-qa.mjs --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/receipt.json");
+assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/validate-harmony-device-qa.mjs");
+assert.equal(packageJson.scripts["harmony:device:validate:smoke"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/receipt.json");
 assert.match(morningCheck, /npm run dogfood:validate:smoke/);
 assert.match(morningCheck, /npm run mac:manual:validate:smoke/);
 assert.match(morningCheck, /npm run windows:static:validate:smoke/);
+assert.match(morningCheck, /npm run harmony:device:validate:smoke/);
 assert.equal(morningCheck.indexOf("npm run dogfood:validate:smoke") < morningCheck.indexOf("npm run mac:manual:validate:smoke"), true);
 assert.equal(morningCheck.indexOf("npm run mac:manual:validate:smoke") < morningCheck.indexOf("npm run windows:static:validate:smoke"), true);
+assert.equal(morningCheck.indexOf("npm run windows:static:validate:smoke") < morningCheck.indexOf("npm run harmony:device:validate:smoke"), true);
 assert.match(reviewStartHere, /npm run dogfood:validate -- --runbook dist\/morning-demo\/DOGFOOD_RUNBOOK\.md --out \.codex-tmp\/dogfood-runbook\/real-run-receipt\.json/);
 assert.match(reviewStartHere, /What To Inspect First/);
 assert.match(reviewStartHere, /Start with the Mac learning loop/);
@@ -448,6 +473,38 @@ assert.equal(windowsStaticQaResults.length, 10);
 assert.deepEqual([...new Set(windowsStaticQaResults)], ["NT"]);
 for (const line of windowsStaticQa.split("\n").filter((item) => item.includes("QA evidence"))) {
   assert.match(line, /not QA evidence/);
+}
+assert.match(harmonyDeviceQa, /^# Learning Companion HarmonyOS Device QA Receipt$/m);
+assert.match(harmonyDeviceQa, /EVIDENCE: PENDING_USER_GATE/);
+assert.match(harmonyDeviceQa, /PENDING RECEIPT, not device evidence/);
+assert.match(harmonyDeviceQa, /Date\/time/);
+assert.match(harmonyDeviceQa, /HarmonyOS device\/build/);
+assert.match(harmonyDeviceQa, /App build\/source/);
+assert.match(harmonyDeviceQa, /DevEco\/toolchain gate result/);
+assert.match(harmonyDeviceQa, /Import method/);
+assert.match(harmonyDeviceQa, /Return transfer method/);
+assert.match(harmonyDeviceQa, /Mac import method/);
+assert.match(harmonyDeviceQa, /Mac Return Files import result/);
+assert.match(harmonyDeviceQa, /File-picker\/storage friction observed/);
+assert.match(harmonyDeviceQa, /Patch export\/import friction observed/);
+assert.match(harmonyDeviceQa, /File candidate guard/);
+assert.match(harmonyDeviceQa, /Import workspace JSON/);
+assert.match(harmonyDeviceQa, /Import mirror bundle/);
+assert.match(harmonyDeviceQa, /PATCH_IMPORT_NOT_SUPPORTED_ON_READER/);
+assert.match(harmonyDeviceQa, /Phone next action/);
+assert.match(harmonyDeviceQa, /Review reveal/);
+assert.match(harmonyDeviceQa, /Offline relaunch/);
+assert.match(harmonyDeviceQa, /Capture patch export/);
+assert.match(harmonyDeviceQa, /Review patch export/);
+assert.match(harmonyDeviceQa, /source\.returnBaseFingerprint/);
+assert.match(harmonyDeviceQa, /PASS`, `FAIL`, `BLOCKED`, or `NT`/);
+assert.match(harmonyDeviceQa, /Cannot be filled from `npm run smoke:harmony`, `HARMONY_SCAFFOLD_REPORT\.json`, `HARMONY_DEVECO_HANDOFF\.md`, or generated patch fixtures/);
+assert.match(harmonyDeviceQa, /npm run harmony:device:validate/);
+assert.match(harmonyDeviceQa, /both must be `PASS` before this receipt can support a HarmonyOS device-roundtrip usability claim/);
+assert.equal(harmonyDeviceQaResults.length, 10);
+assert.deepEqual([...new Set(harmonyDeviceQaResults)], ["NT"]);
+for (const line of harmonyDeviceQa.split("\n").filter((item) => item.includes("device evidence"))) {
+  assert.match(line, /not device evidence/);
 }
 
 console.log("morning_receipts_ok");

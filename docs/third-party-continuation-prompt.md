@@ -91,9 +91,13 @@ Latest implemented slices include:
   - `WINDOWS_STATIC_QA.md` has real-run session fields and says only an actual Windows Edge/Chrome local-folder run can change `NT` rows.
   - `npm run windows:static:validate:smoke` accepts the all-`NT` pending receipt but keeps `canClaimWindowsStaticLoopUsable=false`; filled claims also require static-return contract and Mac Return Files import result fields to be `PASS`.
   - Negative checks should reject all-PASS rows with header fields still `TBD` and reject FAIL/BLOCKED rows without notes.
+- HarmonyOS device QA materials now have an explicit pending receipt boundary.
+  - `HARMONY_DEVICE_QA.md` has real-run session fields for DevEco/toolchain, phone/emulator import, reader behavior, patch export, manual transfer, and Mac Return Files import.
+  - `npm run harmony:device:validate:smoke` accepts the all-`NT` pending receipt but keeps `canClaimHarmonyDeviceRoundtripUsable=false`; filled claims also require DevEco/toolchain and Mac Return Files import result fields to be `PASS`.
+  - Negative checks should reject all-PASS rows with header fields still `TBD` and reject FAIL/BLOCKED rows without notes.
 - The offline morning gate now includes all pending manual-evidence validators.
-  - `npm run check:morning` runs `dogfood:validate:smoke`, `mac:manual:validate:smoke`, and `windows:static:validate:smoke`.
-  - This keeps pending runbooks non-claiming inside the headline gate; it still does not prove real Mac GUI dogfood or real Windows browser compatibility.
+  - `npm run check:morning` runs `dogfood:validate:smoke`, `mac:manual:validate:smoke`, `windows:static:validate:smoke`, and `harmony:device:validate:smoke`.
+  - This keeps pending runbooks non-claiming inside the headline gate; it still does not prove real Mac GUI dogfood, real Windows browser compatibility, or real HarmonyOS device behavior.
 - Controlled browser smoke exists for fast regression, but it is not real dogfood.
 
 ## Cross-Device Boundary
@@ -186,6 +190,19 @@ For the latest Windows static-QA validator slice after `d3e89c4`:
 - Negative Windows validator checks under `.codex-tmp/windows-static-qa/` exited nonzero as expected for all-PASS rows with header fields still `TBD`, and for a `FAIL` row without a QA note.
 - `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`, including `Windows static QA validator`
 - This is evidence-surface work only; no real Windows browser run was executed.
+
+For the latest HarmonyOS device-QA validator slice:
+
+- `bash -n scripts/morning-check.sh` -> PASS
+- `node --check scripts/validate-harmony-device-qa.mjs` -> PASS
+- `node --check scripts/build-morning-demo.mjs` -> PASS
+- `node --check scripts/validate-morning-receipts.mjs` -> PASS
+- `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning` -> `morning_demo_ok`
+- `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
+- `npm run harmony:device:validate:smoke` -> pending receipt with `rows=10`, `nt=10`, `allRowsExecuted=false`, `canClaimHarmonyDeviceRoundtripUsable=false`
+- Negative HarmonyOS validator checks under `.codex-tmp/harmony-device-qa/` exited nonzero as expected for all-PASS rows with header fields still `TBD`, and for a `FAIL` row without a QA note.
+- `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`, including `HarmonyOS device QA validator`
+- This is evidence-surface work only; no real DevEco compile, phone/emulator import, patch export, or Mac Return Files manual pass was executed.
 
 For the source-first Notes work:
 

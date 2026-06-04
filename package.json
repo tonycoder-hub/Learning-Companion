@@ -28,6 +28,8 @@
     "mac:manual:validate:smoke": "node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/receipt.json",
     "windows:static:validate": "node scripts/validate-windows-static-qa.mjs",
     "windows:static:validate:smoke": "node scripts/validate-windows-static-qa.mjs --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/receipt.json",
+    "harmony:device:validate": "node scripts/validate-harmony-device-qa.mjs",
+    "harmony:device:validate:smoke": "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/receipt.json",
     "agent:study-loop": "node scripts/agent-study-loop-check.mjs --out .codex-tmp/agent-study-loop-smoke/receipt.json",
     "smoke:agent-study-loop": "node scripts/agent-study-loop-check.mjs --out .codex-tmp/agent-study-loop-smoke/receipt.json",
     "mac:build": "bash scripts/mac-build.sh",
