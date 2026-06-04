@@ -4577,7 +4577,9 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
     renderLearningFlowStep(sourceStep),
     renderLearningFlowStep(resolveCaptureFlowState(pack, draftItems, showStartHere, sourceStep))
   ];
-  if (!showStartHere) flowSteps.push(renderLearningFlowStep(resolveCloseLoopState(pack, draftItems)));
+  flowSteps.push(renderLearningFlowStep(showStartHere
+    ? resolveStartHereLoopPreviewState()
+    : resolveCloseLoopState(pack, draftItems)));
   track.append(...flowSteps);
   panel.append(track);
 
@@ -4603,6 +4605,19 @@ function resolveCaptureFlowState(pack, draftItems = [], showStartHere = false, s
       : undefined,
     action: focusQuickCaptureFromStart,
     tone: "capture"
+  };
+}
+
+function resolveStartHereLoopPreviewState() {
+  return {
+    kind: "loop",
+    label: "Close the loop",
+    status: "Pending - After first capture",
+    detail: "Use Notes for synthesis, Review for recall, or phone/Windows return files after saving the first point.",
+    actionLabel: "Capture first",
+    actionAriaLabel: "Capture the first point before closing the learning loop",
+    action: focusQuickCaptureFromStart,
+    tone: "pending"
   };
 }
 
@@ -5719,10 +5734,50 @@ function renderReturnFilesPanel() {
   intakeGroup.setAttribute("aria-label", "Bring return files back");
   intakeGroup.append(importPatch, pasteReturn);
   footer.append(exportGroup, intakeGroup);
-  panel.append(summary, detail, handoffState);
+  panel.append(summary, detail, handoffState, renderDeviceTransferGuide());
   if (pendingReturnFilePreview) panel.append(renderPendingReturnFilePreview());
   panel.append(steps, boundary, renderReturnFilesModeNote(Boolean(pendingReturnFilePreview)), actionHint, footer);
   return panel;
+}
+
+function renderDeviceTransferGuide() {
+  const guide = document.createElement("details");
+  guide.className = "device-transfer-guide";
+  guide.open = true;
+  guide.dataset.deviceTransferGuide = "true";
+  const summary = document.createElement("summary");
+  summary.append(
+    textEl("strong", "", "Manual round trip"),
+    textEl("span", "item-meta", "Know where the files go before export")
+  );
+  const grid = document.createElement("div");
+  grid.className = "device-transfer-grid";
+  [
+    {
+      title: "Mac -> Windows",
+      body: "Move the mirror ZIP or folder yourself. If it is a ZIP, extract it first, then open index.html in Edge or Chrome."
+    },
+    {
+      title: "Mac -> Harmony",
+      body: "Use the extracted mirror or import workspace.json. Return patches move Mac-ward only; the phone reader does not import inbox/review return patches back into itself."
+    },
+    {
+      title: "Device -> Mac",
+      body: "Review or Inbox creates return JSON named like learning-companion-inbox-patch-*.json or learning-companion-review-progress-patch-*.json. If the browser used a download fallback, check that device browser's download list, then bring the selected file back to this Mac."
+    },
+    {
+      title: "Back on Mac",
+      body: "Use Import Return Files or Paste Return File. This app will not auto-scan Downloads; after Apply, export a fresh mirror for the next device pass."
+    }
+  ].forEach((item) => {
+    const card = document.createElement("div");
+    card.className = "device-transfer-card";
+    card.append(textEl("strong", "", item.title), textEl("p", "", item.body));
+    grid.append(card);
+  });
+  const note = textEl("p", "handoff-boundary", "Feishu Drive can be a manual file carrier here; it is not verified live sync.");
+  guide.append(summary, grid, note);
+  return guide;
 }
 
 function renderPendingReturnFilePreview() {

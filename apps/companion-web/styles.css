@@ -1543,6 +1543,12 @@ textarea:focus {
   background: #fff9ed;
 }
 
+.learning-flow-step.is-pending {
+  border-style: dashed;
+  border-color: rgba(74, 62, 46, 0.22);
+  background: #fffdfa;
+}
+
 .learning-flow-step-label {
   color: var(--muted);
   font-size: 11px;
@@ -1584,6 +1590,41 @@ textarea:focus {
   display: grid;
   gap: 4px;
   min-width: 0;
+}
+
+.device-transfer-guide {
+  padding: 10px;
+  border: 1px dashed rgba(74, 62, 46, 0.2);
+  border-radius: 8px;
+  background: #fffdfa;
+}
+
+.device-transfer-guide summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.device-transfer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.device-transfer-card {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.device-transfer-card p {
+  margin: 0;
+  color: #4b5358;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .start-here-device-heading {
@@ -1894,6 +1935,15 @@ textarea:focus {
 
   .start-here-device-route .device-flow-badges {
     justify-content: flex-start;
+  }
+
+  .device-transfer-guide summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .device-transfer-grid {
+    grid-template-columns: 1fr;
   }
 }
 

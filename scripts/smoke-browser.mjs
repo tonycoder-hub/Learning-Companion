@@ -412,8 +412,13 @@ try {
     `Expected Today first content block to be learning-flow-panel, got: ${firstRun.firstTodayBlock}`
   );
   assert.equal(firstRun.firstFlowKind, "source");
-  assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture"]);
+  assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(firstRun.text, /Capture on Mac/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Pending/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /After first capture/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Notes/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Review/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /phone\/Windows return files/);
   assert.doesNotMatch(firstRun.text, /Close the loopClear/);
   assert.deepEqual(firstRun.nonEmptyFlowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.equal(firstRun.nonEmptyDeviceFlowVisible, true);
@@ -505,22 +510,45 @@ try {
           right: Math.ceil(box.right)
         } : { width: 0, height: 0, left: 0, right: 0 };
       };
+      const routeText = route?.textContent || "";
+      const routeRect = rect(route);
+      const copyClientWidth = copy?.clientWidth || 0;
+      const copyScrollWidth = copy?.scrollWidth || 0;
+      const headingClientWidth = heading?.clientWidth || 0;
+      const headingScrollWidth = heading?.scrollWidth || 0;
+      const stepsClientWidth = steps?.clientWidth || 0;
+      const stepsScrollWidth = steps?.scrollWidth || 0;
+      const actionRect = rect(action);
+      const actionText = action?.textContent || "";
+      const actionAria = action?.getAttribute("aria-label") || "";
+      const badgeRowRect = rect(badgeRow);
+      action?.click();
+      const guide = document.querySelector("[data-device-transfer-guide]");
+      const guideGrid = document.querySelector(".device-transfer-grid");
+      const guideSummary = document.querySelector(".device-transfer-guide summary");
       return {
         viewport: window.innerWidth,
         documentWidth: document.documentElement.scrollWidth,
         bodyWidth: document.body.scrollWidth,
-        routeText: route?.textContent || "",
-        routeRect: rect(route),
-        copyClientWidth: copy?.clientWidth || 0,
-        copyScrollWidth: copy?.scrollWidth || 0,
-        headingClientWidth: heading?.clientWidth || 0,
-        headingScrollWidth: heading?.scrollWidth || 0,
-        stepsClientWidth: steps?.clientWidth || 0,
-        stepsScrollWidth: steps?.scrollWidth || 0,
-        actionRect: rect(action),
-        actionText: action?.textContent || "",
-        actionAria: action?.getAttribute("aria-label") || "",
-        badgeRowRect: rect(badgeRow)
+        routeText,
+        routeRect,
+        copyClientWidth,
+        copyScrollWidth,
+        headingClientWidth,
+        headingScrollWidth,
+        stepsClientWidth,
+        stepsScrollWidth,
+        actionRect,
+        actionText,
+        actionAria,
+        badgeRowRect,
+        guideText: guide?.textContent || "",
+        guideOpen: guide?.open === true,
+        guideRect: rect(guide),
+        guideGridClientWidth: guideGrid?.clientWidth || 0,
+        guideGridScrollWidth: guideGrid?.scrollWidth || 0,
+        guideSummaryClientWidth: guideSummary?.clientWidth || 0,
+        guideSummaryScrollWidth: guideSummary?.scrollWidth || 0
       };
     })()`));
   }
@@ -538,6 +566,14 @@ try {
     assert.ok(layout.copyScrollWidth <= layout.copyClientWidth + 1, JSON.stringify(layout));
     assert.ok(layout.headingScrollWidth <= layout.headingClientWidth + 1, JSON.stringify(layout));
     assert.ok(layout.stepsScrollWidth <= layout.stepsClientWidth + 1, JSON.stringify(layout));
+    assert.equal(layout.guideOpen, true, JSON.stringify(layout));
+    assert.match(layout.guideText, /Manual round trip/);
+    assert.match(layout.guideText, /Mac -> Windows/);
+    assert.match(layout.guideText, /Mac -> Harmony/);
+    assert.match(layout.guideText, /will not auto-scan Downloads/);
+    assert.ok(layout.guideRect.width <= layout.viewport - 24, JSON.stringify(layout));
+    assert.ok(layout.guideGridScrollWidth <= layout.guideGridClientWidth + 1, JSON.stringify(layout));
+    assert.ok(layout.guideSummaryScrollWidth <= layout.guideSummaryClientWidth + 1, JSON.stringify(layout));
   }
 
   const firstNoteWithHandoffFixture = await cdp.evaluate(`(() => {
@@ -2598,6 +2634,10 @@ try {
           const returnedWorkDismissed = !document.querySelector(".returned-work-card");
           const handoffPanel = document.querySelector(".handoff-card");
           const handoffText = handoffPanel.textContent;
+          const handoffGuide = handoffPanel.querySelector("[data-device-transfer-guide]");
+          const handoffExportButton = handoffPanel.querySelector('[data-return-files-step="export"]');
+          const handoffGuideBeforeExport = Boolean(handoffGuide && handoffExportButton
+            && (handoffGuide.compareDocumentPosition(handoffExportButton) & Node.DOCUMENT_POSITION_FOLLOWING));
           const handoffButtons = [...handoffPanel.querySelectorAll("button")].map((button) => button.textContent);
           const handoffActionGroups = [...handoffPanel.querySelectorAll(".return-files-action-group")].map((group) => ({
             label: group.getAttribute("aria-label") || "",
@@ -2660,6 +2700,11 @@ try {
           batchImportedPatch: afterInboxImport.importedPatches.includes("browser_patch_002"),
           batchImportedReviewPatch: afterInboxImport.importedReviewPatches.includes("browser_review_progress_missing"),
           handoffText,
+          handoffGuide: {
+            open: handoffGuide?.open === true,
+            text: handoffGuide?.textContent || "",
+            beforeExport: handoffGuideBeforeExport
+          },
           handoffButtons,
           handoffActionGroups,
           handoffExportOpened,
@@ -2939,6 +2984,19 @@ try {
   assert.match(result.handoffText, /On phone or Windows, open index\.html first; it will point you to Review, Inbox, or the source/);
   assert.match(result.handoffText, /Back on this Mac, import return files or paste a copied return file/);
   assert.match(result.handoffText, /No live Feishu sync/);
+  assert.equal(result.handoffGuide.open, true);
+  assert.equal(result.handoffGuide.beforeExport, true);
+  assert.match(result.handoffGuide.text, /Manual round trip/);
+  assert.match(result.handoffGuide.text, /Mac -> Windows/);
+  assert.match(result.handoffGuide.text, /extract it first/);
+  assert.match(result.handoffGuide.text, /Mac -> Harmony/);
+  assert.match(result.handoffGuide.text, /Return patches move Mac-ward only/);
+  assert.match(result.handoffGuide.text, /does not import inbox\/review return patches back into itself/);
+  assert.match(result.handoffGuide.text, /learning-companion-inbox-patch-\*\.json/);
+  assert.match(result.handoffGuide.text, /learning-companion-review-progress-patch-\*\.json/);
+  assert.match(result.handoffGuide.text, /check that device browser's download list/);
+  assert.match(result.handoffGuide.text, /will not auto-scan Downloads/);
+  assert.match(result.handoffGuide.text, /Feishu Drive can be a manual file carrier/);
   assert.match(result.handoffText, /No mirror exported yet/);
   assert.match(result.handoffText, /Last return imported/);
   assert.match(result.handoffText, /2 files/);
