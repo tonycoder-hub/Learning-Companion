@@ -4616,7 +4616,7 @@ function resolveStartHereLoopPreviewState() {
     detail: "Use Notes for synthesis, Review for recall, or phone/Windows return files after saving the first point.",
     actionLabel: "Capture first",
     actionAriaLabel: "Capture the first point before closing the learning loop",
-    action: focusQuickCaptureFromStart,
+    action: focusFirstCaptureFromLoopPreview,
     tone: "pending"
   };
 }
@@ -4650,6 +4650,11 @@ function renderLearningFlowStep(step) {
   action.title = step.actionTitle || step.detail;
   action.setAttribute("aria-label", step.actionAriaLabel || `${step.actionLabel}: ${step.detail}`);
   action.addEventListener("click", step.action);
+  action.addEventListener("keydown", (event) => {
+    if (!["Enter", " ", "Spacebar"].includes(event.key)) return;
+    event.preventDefault();
+    step.action(event);
+  });
   node.append(action);
   return node;
 }
@@ -5320,6 +5325,24 @@ function focusQuickCaptureFromStart() {
     detail: "Thought waiting in Quick Capture.",
     tab: "captures",
     targetId: ""
+  });
+  persistAndRender();
+  dom.thoughtInput.focus();
+  dom.thoughtInput.setSelectionRange(dom.thoughtInput.value.length, dom.thoughtInput.value.length);
+  pulseNode(dom.capturePane);
+}
+
+function focusFirstCaptureFromLoopPreview() {
+  const session = getActiveSession(workspace);
+  workspace = updateSession(workspace, session.id, { focusMode: "capture" });
+  activeTab = "captures";
+  setActivity(getActiveSession(workspace), {
+    title: "First capture ready",
+    detail: "Type a quote or thought, then Save to unlock Notes, Review, and return files.",
+    tab: "captures",
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture"
   });
   persistAndRender();
   dom.thoughtInput.focus();

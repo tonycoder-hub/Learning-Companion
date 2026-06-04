@@ -399,6 +399,40 @@ try {
       activity: document.querySelector("#activityTitle")?.textContent || ""
     };
   })()`);
+
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(300);
+  const firstRunLoopKeyboardBefore = await cdp.evaluate(`(() => {
+    document.querySelector('[data-tab="today"]').click();
+    const loopButton = document.querySelector('[data-learning-flow-step="loop"] button');
+    loopButton?.focus();
+    return {
+      loopText: document.querySelector('[data-learning-flow-step="loop"]')?.textContent || "",
+      buttonText: loopButton?.textContent || "",
+      buttonAria: loopButton?.getAttribute("aria-label") || "",
+      activeElementText: document.activeElement?.textContent || "",
+      activeElementAria: document.activeElement?.getAttribute("aria-label") || ""
+    };
+  })()`);
+  const firstRunLoopKeyboard = await cdp.evaluate(`(() => {
+    const event = new KeyboardEvent("keydown", {
+      key: "Enter",
+      bubbles: true,
+      cancelable: true
+    });
+    const dispatchResult = document.activeElement?.dispatchEvent(event);
+    return {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true,
+      defaultPrevented: event.defaultPrevented,
+      dispatchResult
+    };
+  })()`);
   assert.match(firstRun.text, /Learning Flow/);
   assert.match(firstRun.sourceStep, /Read source/);
   assert.match(firstRun.sourceStep, /Source linked/);
@@ -419,6 +453,20 @@ try {
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Notes/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Review/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /phone\/Windows return files/);
+  assert.match(firstRunLoopKeyboardBefore.loopText, /Pending - After first capture/);
+  assert.equal(firstRunLoopKeyboardBefore.buttonText, "Capture first");
+  assert.equal(firstRunLoopKeyboardBefore.buttonAria, "Capture the first point before closing the learning loop");
+  assert.equal(firstRunLoopKeyboardBefore.activeElementText, "Capture first");
+  assert.equal(firstRunLoopKeyboardBefore.activeElementAria, "Capture the first point before closing the learning loop");
+  assert.equal(firstRunLoopKeyboard.activeTab, "captures");
+  assert.equal(firstRunLoopKeyboard.activeElement, "thoughtInput");
+  assert.equal(firstRunLoopKeyboard.activityTitle, "First capture ready");
+  assert.match(firstRunLoopKeyboard.activityDetail, /Save to unlock Notes, Review, and return files/);
+  assert.equal(firstRunLoopKeyboard.activityAction, "Capture");
+  assert.equal(firstRunLoopKeyboard.activityAria, "Open capture");
+  assert.equal(firstRunLoopKeyboard.capturePanePulsed, true);
+  assert.equal(firstRunLoopKeyboard.defaultPrevented, true);
+  assert.equal(firstRunLoopKeyboard.dispatchResult, false);
   assert.doesNotMatch(firstRun.text, /Close the loopClear/);
   assert.deepEqual(firstRun.nonEmptyFlowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.equal(firstRun.nonEmptyDeviceFlowVisible, true);
