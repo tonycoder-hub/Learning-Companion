@@ -2,7 +2,7 @@
 
 A Mac-first, local-first learning companion for browser-based study.
 
-Current verified status: the runnable product is the web MVP plus a minimal Mac shell scaffold. Phone/Windows support is currently a static mirror and manual return-file loop. Feishu Drive may be used as a manual file carrier, but live Feishu sync is not verified. The HarmonyOS app is a scaffold/prototype, not a device-verified app.
+Current verified status: the runnable product is the web MVP plus a minimal Mac shell scaffold. Phone/Windows support is currently a static mirror and manual return-file loop. Static Review/Inbox pages may create browser-saved return JSON files, but those files must be moved back to Mac manually. Feishu Drive may be used as a manual file carrier, but live Feishu sync is not verified. The HarmonyOS app is a scaffold/prototype, not a device-verified app.
 
 ## Product Direction
 

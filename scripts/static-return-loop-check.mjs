@@ -414,6 +414,12 @@ function assertStaticReturnContract(html, {
   assertStaticNoScript(html);
   assert.match(html, /On a phone: use Copy or Manual Copy/);
   assert.match(html, /paste the return JSON into a note, email, or message/);
+  assert.match(html, /If your browser saved a file/);
+  assert.match(html, /Downloads on Windows/);
+  assert.match(html, /Files &gt; Downloads on a Harmony phone|Files > Downloads on a Harmony phone/);
+  assert.match(html, /browser's default download folder on other devices/);
+  assert.match(html, /If no file was created, use Copy or Manual Copy/);
+  assert.match(html, /Feishu as a manual carrier only/);
   assert.match(html, /AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved/);
   assert.match(html, /Today &gt; Return Files/);
   assert.match(html, new RegExp(`returnFileName\\('${escapeRegExp(returnNamePrefix)}'`));

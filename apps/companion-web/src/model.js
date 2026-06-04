@@ -2351,11 +2351,14 @@ function returnAfterSaveCss() {
   ];
 }
 
+const RETURN_FILE_DEVICE_LOCATION_HINT = "If your browser saved a file, check Downloads on Windows, Files > Downloads on a Harmony phone, or your browser's default download folder on other devices. If no file was created, use Copy or Manual Copy and paste into any note app you trust, such as a local note, email, WeChat, or Feishu as a manual carrier only.";
+const RETURN_FILE_TRANSPORT_HINT = `On a phone: use Copy or Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today > Return Files. ${RETURN_FILE_DEVICE_LOCATION_HINT} AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved.`;
+
 function returnAfterSaveHtml() {
   return [
     "      <div id=\"returnAfterSave\" class=\"return-after-save\" role=\"status\" aria-live=\"polite\" hidden>",
     "        <strong>Next: send this return file back to your Mac</strong>",
-    "        <span id=\"returnAfterSaveText\">On a phone: use Copy or Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today &gt; Return Files. AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved.</span>",
+    `        <span id="returnAfterSaveText">${htmlText(RETURN_FILE_TRANSPORT_HINT)}</span>`,
     "        <a id=\"returnAfterSaveFollowup\" hidden></a>",
     "      </div>"
   ];
@@ -2600,7 +2603,7 @@ export function generateReviewHtml(workspace, now = new Date()) {
     "      const text = document.querySelector('#returnAfterSaveText');",
     "      if (!panel || !text) return;",
     "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
-    "      text.textContent = `Return file ${action}. On a phone: if the file is hard to find, use Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today > Return Files. AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved. You can keep reviewing here; new grades will stage into the next return file.`;",
+    `      text.textContent = \`Return file \${action}. ${RETURN_FILE_TRANSPORT_HINT} You can keep reviewing here; new grades will stage into the next return file.\`;`,
     "      renderReturnFollowup();",
     "      panel.hidden = false;",
     "    }",
@@ -3041,7 +3044,7 @@ export function generateInboxHtml(workspace, now = new Date()) {
     "      const text = document.querySelector('#returnAfterSaveText');",
     "      if (!panel || !text) return;",
     "      const action = mode === 'picker' ? 'saved' : mode === 'download' ? 'downloaded' : 'copied';",
-    "      text.textContent = `Return file ${action}. On a phone: if the file is hard to find, use Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today > Return Files. AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved. You can keep capturing here; new drafts will stage into the next return file.`;",
+    `      text.textContent = \`Return file \${action}. ${RETURN_FILE_TRANSPORT_HINT} You can keep capturing here; new drafts will stage into the next return file.\`;`,
     "      renderReturnFollowup();",
     "      panel.hidden = false;",
     "    }",
