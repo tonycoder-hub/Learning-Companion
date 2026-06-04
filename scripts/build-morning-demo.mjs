@@ -1730,6 +1730,14 @@ function buildReviewStartHereHtml({
       <p>Start with the Mac learning loop: open the app beside a browser source, check First Note and Quick Capture, then inspect the static mirror and bounded return-file evidence.</p>
     </header>
     <section>
+      <h2>Morning Dogfood Gate</h2>
+      <div class="grid">
+        <div class="card priority"><strong>1. Run the real Mac loop first</strong><p>Open <code>http://127.0.0.1:5173/</code> beside a real lesson, not this dashboard, and spend 15 minutes on rows 1-6 of <a href="${escapeHtml(DOGFOOD_RUNBOOK_FILE)}">${escapeHtml(DOGFOOD_RUNBOOK_FILE)}</a>.</p></div>
+        <div class="card priority"><strong>2. Record friction in the row</strong><p>Every PASS, FAIL, or BLOCKED row needs the actual outcome, time, and friction. Leave untouched rows as NT; do not convert fixture receipts into dogfood evidence.</p></div>
+        <div class="card priority"><strong>3. Validate before claiming usable</strong><p>After filling the runbook, run <code>npm run dogfood:validate -- --runbook dist/morning-demo/DOGFOOD_RUNBOOK.md --out .codex-tmp/dogfood-runbook/real-run-receipt.json</code>.</p></div>
+      </div>
+    </section>
+    <section>
       <h2>What To Inspect First</h2>
       <div class="grid">
         ${inspectRows.map(([title, description, href]) => `<div class="card priority"><strong>${escapeHtml(title)}</strong><p>${escapeHtml(description)}</p><p class="meta"><a href="${escapeHtml(href)}">${escapeHtml(href)}</a></p></div>`).join("\n        ")}
