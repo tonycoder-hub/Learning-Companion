@@ -1024,6 +1024,7 @@ textarea:focus {
 
 .capture-actions .capture-secondary-action {
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .capture-draft-status {

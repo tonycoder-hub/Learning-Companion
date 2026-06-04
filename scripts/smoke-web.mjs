@@ -129,7 +129,7 @@ assert.match(indexHtml, /id="sidecarRail" class="sidecar-rail" aria-label="Sidec
 assert.match(indexHtml, /id="activityHint" class="next-step-hint" data-next-step-hint="" data-hint-installed="true" hidden/);
 assert.match(indexHtml, /id="activityHintBtn" class="mini-button" type="button"/);
 assert.match(indexHtml, /id="sidecarLayoutBtn"[^>]+aria-label="Focus sidecar layout"[^>]*>Focus Sidecar<\/button>/);
-assert.match(indexHtml, /id="focusBriefActionBtn" class="command-button primary" type="button">Capture<\/button>/);
+assert.match(indexHtml, /id="focusBriefActionBtn" class="command-button" type="button">Start typing<\/button>/);
 assert.match(indexHtml, /id="updateNotice" class="storage-notice update-notice" hidden/);
 assert.match(indexHtml, /id="updateReloadBtn" class="mini-button" type="button">Reload/);
 assert.match(appJs, /ArrowDown/);

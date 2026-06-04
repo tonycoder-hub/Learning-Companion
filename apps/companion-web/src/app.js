@@ -2844,7 +2844,10 @@ function renderFocusBrief() {
   dom.focusBriefDetail.textContent = brief.nextAction.detail;
   dom.focusBriefActionBtn.textContent = focusBriefButtonLabel(brief.nextAction.kind);
   dom.focusBriefActionBtn.title = brief.nextAction.detail;
-  dom.focusBriefActionBtn.setAttribute("aria-label", brief.nextAction.label);
+  dom.focusBriefActionBtn.classList.toggle("primary", brief.nextAction.kind !== "capture");
+  dom.focusBriefActionBtn.setAttribute("aria-label", brief.nextAction.kind === "capture"
+    ? "Start typing in Quick Capture"
+    : brief.nextAction.label);
   clearChildren(dom.focusBriefFacts);
   dom.focusBriefFacts.append(
     focusBriefFact("Source", brief.source.title || (brief.source.available ? "Open source" : "No source")),
@@ -2900,6 +2903,7 @@ function renderCaptureDraftFocusBrief(session, draft, brief) {
   dom.focusBriefAction.textContent = "Resume capture draft";
   dom.focusBriefDetail.textContent = summarizeCaptureDraft(draft);
   dom.focusBriefActionBtn.textContent = "Resume";
+  dom.focusBriefActionBtn.classList.add("primary");
   dom.focusBriefActionBtn.title = "Continue the saved quote or thought";
   dom.focusBriefActionBtn.setAttribute("aria-label", "Resume capture draft");
   clearChildren(dom.focusBriefFacts);
@@ -2978,7 +2982,7 @@ function focusBriefButtonLabel(kind) {
   return {
     review: "Review",
     synthesize: "Build",
-    capture: "Capture",
+    capture: "Start typing",
     continue: "Open",
     open_source: "Source"
   }[kind] || "Go";
