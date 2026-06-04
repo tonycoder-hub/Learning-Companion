@@ -1733,7 +1733,7 @@ function captureSaveActivity(session, capture, options = {}) {
     detail: `${summarizeCapture(capture)} · Saved locally; add to notes, save it for recall, or build synthesis later.`,
     tab: "captures",
     targetId: capture?.id || "",
-    actionLabel: "Capture",
+    actionLabel: "View capture",
     nextHint: resume.href ? activityNextHint(resume.timestamp ? "afterCaptureSavedTimedSourceLinked" : "afterCaptureSavedSourceLinked") : null
   };
 }
@@ -2713,6 +2713,11 @@ function activityTargetsHighlightAnnotation(activity) {
 function activityActionLabel(activity, baseAction, staysInSidecar) {
   if (activityTargetsHighlightAnnotation(activity)) return "Add thought to saved highlight";
   if (staysInSidecar && activityTargetsQuickCapture(activity)) return "Focus Quick Capture";
+  if (/^view\s+/i.test(baseAction)) {
+    return uiPrefs.sidecarLayout && !staysInSidecar
+      ? `${baseAction} and exit sidecar layout`
+      : baseAction;
+  }
   return uiPrefs.sidecarLayout && !staysInSidecar
     ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
     : `Open ${baseAction.toLowerCase()}`;

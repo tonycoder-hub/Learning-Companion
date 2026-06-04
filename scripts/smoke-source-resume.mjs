@@ -74,6 +74,7 @@ try {
       detail: document.querySelector("#activityDetail").textContent,
       action: document.querySelector("#activityDetailsBtn").textContent,
       aria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
+      targetId: document.querySelector("#activityDetailsBtn").dataset.activityTargetId || "",
       hintHidden: document.querySelector("#activityHint")?.hidden !== false,
       hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || "",
       hintText: document.querySelector("#activityHintText")?.textContent || "",
@@ -122,12 +123,17 @@ try {
     setValue("#thoughtInput", "Ordinary capture thought.");
     document.querySelector("#captureBtn").click();
     const saved = readActivity();
+    document.querySelector("#activityDetailsBtn").click();
+    const viewed = readActivity();
+    const viewedCapturePulsed = document.querySelector(\`[data-capture-id="\${saved.targetId}"]\`)?.classList.contains("pulse") === true;
     const bareClick = clickHint();
     const noSource = capturePlain("Ordinary capture without source", "", "", "");
     const timed = capturePlain("Timed ordinary capture resume hint", "Timed ordinary source", "https://www.youtube.com/watch?v=ordinaryTimed", "00:42");
     const timedClick = clickHint();
     return {
       saved,
+      viewed,
+      viewedCapturePulsed,
       bareClick,
       noSource,
       timed,
@@ -136,7 +142,12 @@ try {
   })()`, 12000);
 
   assert.equal(result.saved.title, "Capture saved");
-  assert.equal(result.saved.action, "Capture");
+  assert.equal(result.saved.action, "View capture");
+  assert.equal(result.saved.aria, "View capture");
+  assert.notEqual(result.saved.targetId, "");
+  assert.equal(result.viewed.title, "Capture saved");
+  assert.equal(result.viewed.activeTab, "captures");
+  assert.equal(result.viewedCapturePulsed, true);
   assert.equal(result.saved.hintHidden, false);
   assert.equal(result.saved.hintKind, "afterCaptureSavedSourceLinked");
   assert.match(result.saved.hintText, /open the source/);

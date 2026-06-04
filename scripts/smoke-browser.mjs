@@ -7535,7 +7535,8 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.noNoteHighlightState.markerCount, 2);
   assert.equal(postSaveFlow.ordinarySaved.title, "Capture saved");
   assert.match(postSaveFlow.ordinarySaved.detail, /Saved locally/);
-  assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
+  assert.equal(postSaveFlow.ordinarySaved.action, "View capture");
+  assert.equal(postSaveFlow.ordinarySaved.aria, "View capture");
   assert.equal(postSaveFlow.ordinarySaved.hintHidden, false);
   assert.equal(postSaveFlow.ordinarySaved.hintKind, "afterCaptureSavedSourceLinked");
   assert.match(postSaveFlow.ordinarySaved.hintText, /open the source/);
