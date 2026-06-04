@@ -1302,7 +1302,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .today-stat {

@@ -4143,6 +4143,7 @@ function renderToday() {
 
   const showStartHere = shouldShowStartHere(pack, draftItems);
   dom.todayList.append(renderLearningFlowPanel(pack, draftItems, showStartHere));
+  dom.todayList.append(dom.todaySummary);
   dom.todayList.append(renderTodaySectionMap(pack, draftItems));
   renderTodayDrafts(draftItems);
 

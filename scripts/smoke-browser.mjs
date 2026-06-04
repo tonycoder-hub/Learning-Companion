@@ -235,7 +235,9 @@ try {
       deviceRouteText: panel?.querySelector(".start-here-device-route")?.textContent || "",
       deviceRouteAria: panel?.querySelector(".start-here-device-route")?.getAttribute("aria-label") || "",
       deviceRouteActionAria: panel?.querySelector(".start-here-device-route [data-start-action='device-flow']")?.getAttribute("aria-label") || "",
+      firstTodayPanel: document.querySelector("#todayTab")?.firstElementChild?.className || "",
       firstTodayBlock: document.querySelector("#todayList")?.firstElementChild?.className || "",
+      secondTodayBlock: document.querySelector("#todayList")?.children?.[1]?.className || "",
       firstFlowKind: panel?.querySelector(".learning-flow-track")?.firstElementChild?.dataset.learningFlowStep || "",
       flowSteps: [...(panel?.querySelectorAll("[data-learning-flow-step]") || [])].map((step) => ({
         kind: step.dataset.learningFlowStep,
@@ -440,10 +442,16 @@ try {
   assert.match(firstRun.sourceActionAria, /Open Product design desk/);
   assert.equal(firstRun.sourceWide, false);
   assert.equal(firstRun.deviceFlowVisible, false);
+  assert.equal(firstRun.firstTodayPanel, "item-list");
   assert.match(
     firstRun.firstTodayBlock,
     /learning-flow-panel/,
     `Expected Today first content block to be learning-flow-panel, got: ${firstRun.firstTodayBlock}`
+  );
+  assert.match(
+    firstRun.secondTodayBlock,
+    /today-summary/,
+    `Expected Today second content block to be today-summary, got: ${firstRun.secondTodayBlock}`
   );
   assert.equal(firstRun.firstFlowKind, "source");
   assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);

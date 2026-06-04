@@ -324,6 +324,7 @@ assert.match(appJs, /seedFirstQuestionDraft/);
 assert.match(appJs, /Question ready in Quick Capture for/);
 assert.match(appJs, /link a source later to anchor it/);
 assert.match(appJs, /todayMapTarget/);
+assert.match(appJs, /dom\.todayList\.append\(dom\.todaySummary\)/);
 assert.match(appJs, /older return file/);
 assert.match(appJs, /export updated mirror/);
 assert.match(appJs, /signal-button/);
