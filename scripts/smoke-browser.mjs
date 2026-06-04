@@ -8113,6 +8113,36 @@ async function assertPostSaveFlow(cdp) {
     document.querySelector("#captureBtn").click();
     const noSourceQuestionSaved = readActivity();
     document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Unsafe recall source fallback");
+    setValue("#sourceTitle", "Unsafe source should not resume");
+    setValue("#sourceUrl", "javascript:alert(1)");
+    document.querySelector("#sourceUrl")?.dispatchEvent(new Event("change", { bubbles: true }));
+    setValue("#quoteInput", "Unsafe source should not become a source-resume action.");
+    setValue("#thoughtInput", "This card should remain reviewable without opening the unsafe source.");
+    document.querySelector("#captureCardBtn").click();
+    const unsafeSourceCardSaved = readActivity();
+    const unsafeSourceCardState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session?.captures.find((item) => /unsafe source/i.test(item.quote || "")) || {};
+      const card = session?.reviewCards.find((item) => item.sourceCaptureId === capture.id) || {};
+      return {
+        sessionSourceUrl: session?.sourceUrl || "",
+        captureSourceUrl: capture.sourceUrl || "",
+        cardExists: Boolean(card.id),
+        stackNextKind: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${capture.id}"]\`)?.dataset.stackNextStep || ""
+      };
+    })();
+    let unsafeSourceWindowOpen = "";
+    const nativeUnsafeWindowOpen = window.open;
+    window.open = (href) => {
+      unsafeSourceWindowOpen = href;
+      return null;
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeUnsafeWindowOpen;
+    const unsafeSourceReviewOpened = readActivity();
+    document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Moved question guard");
     setValue("#sourceTitle", "Moved question source");
     setValue("#sourceUrl", "https://example.com/moved-question-source");
@@ -8155,7 +8185,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintReview, highlightHintReviewState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintReview, highlightHintReviewState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -8438,6 +8468,22 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.noSourceQuestionSaved.action, "Questions");
   assert.equal(postSaveFlow.noSourceQuestionSaved.hintHidden, true);
   assert.equal(postSaveFlow.noSourceQuestionSaved.hintKind, "");
+  assert.equal(postSaveFlow.unsafeSourceCardSaved.title, "Capture and card saved");
+  assert.doesNotMatch(postSaveFlow.unsafeSourceCardSaved.detail, /Jump back|Resume the source|Open at quote/i);
+  assert.equal(postSaveFlow.unsafeSourceCardSaved.action, "Review");
+  assert.equal(postSaveFlow.unsafeSourceCardSaved.hintHidden, false);
+  assert.equal(postSaveFlow.unsafeSourceCardSaved.hintKind, "afterCardMade");
+  assert.equal(postSaveFlow.unsafeSourceCardSaved.hintAction, "Review card");
+  assert.equal(postSaveFlow.unsafeSourceCardSaved.hintAria, "Open the new review card");
+  assert.deepEqual(postSaveFlow.unsafeSourceCardState, {
+    sessionSourceUrl: "",
+    captureSourceUrl: "",
+    cardExists: true,
+    stackNextKind: "review-ready"
+  });
+  assert.equal(postSaveFlow.unsafeSourceWindowOpen, "");
+  assert.equal(postSaveFlow.unsafeSourceReviewOpened.title, "Review card opened");
+  assert.equal(postSaveFlow.unsafeSourceReviewOpened.activeTab, "review");
   assert.equal(postSaveFlow.movedQuestionGuard.title, "Question already moved");
   assert.match(postSaveFlow.movedQuestionGuard.detail, /parked/);
   assert.equal(postSaveFlow.movedQuestionGuard.action, "Today");
