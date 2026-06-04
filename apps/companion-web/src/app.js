@@ -4618,6 +4618,7 @@ function resolveStartHereLoopPreviewState() {
     actionLabel: "Capture first",
     actionAriaLabel: "Capture the first point before closing the learning loop",
     action: focusFirstCaptureFromLoopPreview,
+    wide: true,
     tone: "pending"
   };
 }

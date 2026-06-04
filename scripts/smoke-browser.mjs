@@ -241,8 +241,12 @@ try {
       firstFlowKind: panel?.querySelector(".learning-flow-track")?.firstElementChild?.dataset.learningFlowStep || "",
       flowSteps: [...(panel?.querySelectorAll("[data-learning-flow-step]") || [])].map((step) => ({
         kind: step.dataset.learningFlowStep,
-        text: step.textContent
+        text: step.textContent,
+        wide: step.classList.contains("is-wide")
       })),
+      flowTrackHeight: Math.round(panel?.querySelector(".learning-flow-track")?.getBoundingClientRect().height || 0),
+      startHereHeight: Math.round(card?.getBoundingClientRect().height || 0),
+      deviceRouteHeight: Math.round(panel?.querySelector(".start-here-device-route")?.getBoundingClientRect().height || 0),
       buttons: [...(card?.querySelectorAll("button") || [])].map((button) => ({
         action: button.dataset.startAction,
         text: button.textContent
@@ -455,6 +459,10 @@ try {
   );
   assert.equal(firstRun.firstFlowKind, "source");
   assert.deepEqual(firstRun.flowSteps.map((step) => step.kind), ["source", "capture", "loop"]);
+  assert.equal(firstRun.flowSteps.find((step) => step.kind === "loop")?.wide, true);
+  assert.ok(firstRun.flowTrackHeight <= 330, `Expected compact learning-flow track, got ${firstRun.flowTrackHeight}px`);
+  assert.ok(firstRun.startHereHeight <= 300, `Expected compact first-note card, got ${firstRun.startHereHeight}px`);
+  assert.ok(firstRun.deviceRouteHeight <= 170, `Expected compact device route, got ${firstRun.deviceRouteHeight}px`);
   assert.match(firstRun.text, /Capture on Mac/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Pending/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /After first capture/);

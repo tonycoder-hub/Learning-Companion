@@ -247,6 +247,7 @@ assert.match(appJs, /function focusFirstCaptureFromLoopPreview/);
 assert.match(appJs, /Pending - After first capture/);
 assert.match(appJs, /First capture ready/);
 assert.match(appJs, /Save to unlock Notes, Review, and return files/);
+assert.match(appJs, /wide: true,\n    tone: "pending"/);
 assert.match(appJs, /After first capture/);
 assert.match(appJs, /phone\/Windows return files/);
 assert.match(appCss, /\.highlight-annotation-form/);
