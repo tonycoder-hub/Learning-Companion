@@ -8101,6 +8101,40 @@ async function assertPostSaveFlow(cdp) {
     };
     window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightCardWorkspace));
     const highlightHintCardRestored = readActivity();
+    const crossSessionCardWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const crossSessionCardSessionId = crossSessionCardWorkspace.activeSessionId;
+    const crossSessionCardState = (() => {
+      const sourceSession = crossSessionCardWorkspace.sessions.find((item) => item.id === crossSessionCardSessionId);
+      const card = sourceSession?.reviewCards.find((item) => item.sourceCaptureId === highlightBefore.id);
+      return {
+        sourceSessionId: crossSessionCardSessionId,
+        cardId: card?.id || "",
+        activeBeforeSwitch: document.querySelector("#activityHint")?.hidden === false,
+        activeHintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || ""
+      };
+    })();
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Cross-session recall hint guard");
+    const crossSessionCardHidden = readActivity();
+    let crossSessionCardOpened = "";
+    window.open = (href) => {
+      crossSessionCardOpened = href;
+      return null;
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativePostSaveWindowOpen;
+    const crossSessionCardClickState = {
+      opened: crossSessionCardOpened,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      currentSessionTitle: document.querySelector("#sessionTitle")?.value || "",
+      toast: document.querySelector("#toast")?.textContent || "",
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || ""
+    };
+    const crossSessionRestoreButton = [...document.querySelectorAll("#sessionList .session-row")]
+      .find((button) => button.textContent.includes("Post-save flow fixture"));
+    crossSessionRestoreButton?.click();
+    const crossSessionCardRestored = readActivity();
     let cardResumeHref = "";
     let cardResumeTarget = "";
     let cardResumeFeatures = "";
@@ -8266,7 +8300,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintCardDeleted, highlightHintCardDeletedClickState, highlightHintCardRestored, highlightHintReview, highlightHintReviewState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintCardDeleted, highlightHintCardDeletedClickState, highlightHintCardRestored, highlightHintReview, highlightHintReviewState, crossSessionCardState, crossSessionCardHidden, crossSessionCardClickState, crossSessionCardRestored, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -8508,6 +8542,24 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightHintCardRestored.title, "Review card created");
   assert.equal(postSaveFlow.highlightHintCardRestored.hintHidden, false);
   assert.equal(postSaveFlow.highlightHintCardRestored.hintKind, "afterCardMadeTextSourceLinked");
+  assert.notEqual(postSaveFlow.crossSessionCardState.sourceSessionId, "");
+  assert.match(postSaveFlow.crossSessionCardState.cardId, /^card_/);
+  assert.equal(postSaveFlow.crossSessionCardState.activeBeforeSwitch, true);
+  assert.equal(postSaveFlow.crossSessionCardState.activeHintKind, "afterCardMadeTextSourceLinked");
+  assert.equal(postSaveFlow.crossSessionCardHidden.title, "Link source or jot loose thought");
+  assert.equal(postSaveFlow.crossSessionCardHidden.hintHidden, true);
+  assert.equal(postSaveFlow.crossSessionCardHidden.hintKind, "");
+  assert.deepEqual(postSaveFlow.crossSessionCardClickState, {
+    opened: "",
+    activeTab: "today",
+    currentSessionTitle: "Cross-session recall hint guard",
+    toast: "Session created",
+    hintHidden: true,
+    hintKind: ""
+  });
+  assert.equal(postSaveFlow.crossSessionCardRestored.title, "Review card created");
+  assert.equal(postSaveFlow.crossSessionCardRestored.hintHidden, false);
+  assert.equal(postSaveFlow.crossSessionCardRestored.hintKind, "afterCardMadeTextSourceLinked");
   assert.equal(postSaveFlow.highlightHintReview.title, "Source resumed");
   assert.equal(postSaveFlow.highlightHintReview.action, "View capture");
   assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
