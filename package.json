@@ -32,6 +32,7 @@
     "smoke": "node scripts/smoke-web.mjs",
     "smoke:text-fragment": "node scripts/smoke-text-fragment-browser.mjs",
     "smoke:source-resume": "node scripts/smoke-source-resume.mjs",
+    "smoke:post-save-hints": "node scripts/post-save-hint-visual-check.mjs",
     "smoke:browser": "node scripts/smoke-browser.mjs",
     "smoke:harmony": "node scripts/smoke-harmony-schema.mjs && node scripts/smoke-harmony-scaffold.mjs"
   }
