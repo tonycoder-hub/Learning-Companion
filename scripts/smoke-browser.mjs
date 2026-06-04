@@ -1373,6 +1373,8 @@ try {
   assert.deepEqual(sidecarLayout.afterPanelShortcut.sidecarRailSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[0].text, /Source/);
   assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[1].text, /Capture/);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[1].text, /Capture first point/);
+  assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[1].text, /Focus field/);
   assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[2].text, /Loop/);
   assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[2].text, /Today/);
   assert.match(sidecarLayout.afterPanelShortcut.sidecarRailSteps[2].aria, /exit sidecar layout/);
@@ -6416,7 +6418,8 @@ try {
   assert.equal(nativeClipboardCapture.sidecarRailHidden, false);
   assert.deepEqual(nativeClipboardCapture.sidecarRailSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(nativeClipboardCapture.sidecarRailSteps[1].text, /Capture/);
-  assert.match(nativeClipboardCapture.sidecarRailSteps[1].text, /Focus/);
+  assert.match(nativeClipboardCapture.sidecarRailSteps[1].text, /Capture next point/);
+  assert.match(nativeClipboardCapture.sidecarRailSteps[1].text, /Focus field/);
   assert.equal(nativeClipboardCapture.afterActionCompact, false);
   assert.equal(nativeClipboardCapture.afterActionActiveTab, "captures");
   assert.equal(nativeClipboardCapture.afterActionTargetPulsed, true);

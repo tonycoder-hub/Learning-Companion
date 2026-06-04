@@ -2776,13 +2776,14 @@ function sidecarRailStep(step, label) {
 function resolveSidecarCaptureRailStep(pack, draftItems, session) {
   const draft = getCaptureDraft(session.id);
   const hasDraft = hasCaptureDraft(draft);
+  const captureCount = Number(pack.stats.captures) || 0;
   return {
     kind: "capture",
     label: "Capture",
     status: hasDraft ? "Draft waiting" : captureFlowStatus(pack, draftItems),
     detail: hasDraft ? summarizeCaptureDraft(draft) : "Focus Quick Capture for the next quote or thought.",
-    railDetail: hasDraft ? "Draft waiting" : "Ready beside source",
-    railAction: hasDraft ? "Resume" : "Focus",
+    railDetail: hasDraft ? "Draft waiting" : captureCount ? "Capture next point" : "Capture first point",
+    railAction: hasDraft ? "Resume" : "Focus field",
     actionLabel: hasDraft ? "Resume capture" : "Focus capture",
     actionAriaLabel: hasDraft ? "Resume the waiting Quick Capture draft" : "Focus Quick Capture in sidecar layout",
     action: focusQuickCapture,
