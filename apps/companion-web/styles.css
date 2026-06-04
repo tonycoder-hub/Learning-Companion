@@ -1601,12 +1601,17 @@ textarea:focus {
 
 .start-here-device-route summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 2px 6px;
   align-items: center;
   min-width: 0;
   cursor: pointer;
   list-style: none;
+}
+
+.start-here-device-route summary .learning-flow-step-label,
+.start-here-device-summary-copy {
+  grid-column: 1;
 }
 
 .start-here-device-route summary::-webkit-details-marker {
@@ -1616,6 +1621,9 @@ textarea:focus {
 .start-here-device-route summary::after {
   content: "+";
   display: grid;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
   width: 24px;
   height: 24px;
   place-items: center;
@@ -1637,12 +1645,11 @@ textarea:focus {
 
 .start-here-device-summary-copy {
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .start-here-device-route .mini-button {

@@ -4614,7 +4614,7 @@ function resolveStartHereLoopPreviewState() {
     kind: "loop",
     label: "Close the loop",
     status: "Pending - After first capture",
-    detail: "Use Notes for synthesis, Review for recall, or phone/Windows return files after saving the first point.",
+    detail: "Save the first point, then decide whether it belongs in Notes, Review, or a later device pass.",
     actionLabel: "Capture first",
     actionAriaLabel: "Capture the first point before closing the learning loop",
     action: focusFirstCaptureFromLoopPreview,

@@ -486,7 +486,7 @@ try {
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /After first capture/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Notes/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Review/);
-  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /phone\/Windows return files/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /later device pass/);
   assert.match(firstRunLoopKeyboardBefore.loopText, /Pending - After first capture/);
   assert.equal(firstRunLoopKeyboardBefore.buttonText, "Capture first");
   assert.equal(firstRunLoopKeyboardBefore.buttonTag, "BUTTON");
