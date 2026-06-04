@@ -7201,8 +7201,73 @@ async function assertFirstCaptureLoopDecision(cdp) {
       loopAction: takeawayLoopStep?.querySelector("button")?.textContent || "",
       loopTone: takeawayLoopStep?.className || ""
     };
+    const mixedWorkspace = JSON.parse(before);
+    const mixedSession = {
+      ...mixedWorkspace.sessions[0],
+      id: "parked_before_capture_decision",
+      title: "Parked before capture decision",
+      sourceTitle: "Priority source",
+      sourceUrl: "https://example.com/priority-source",
+      materialType: "article",
+      notesMarkdown: "",
+      reviewCards: [],
+      focusMode: "capture",
+      captures: [
+        {
+          id: "parked_priority_question",
+          quote: "",
+          thought: "Question: Which proof step should wait until later?",
+          timestamp: "",
+          sourceTitle: "Priority source",
+          sourceUrl: "https://example.com/priority-source",
+          materialType: "article",
+          createdAt: "2026-06-04T10:00:00.000Z",
+          capturedAt: "2026-06-04T10:00:00.000Z",
+          updatedAt: "2026-06-04T10:01:00.000Z",
+          questionResolvedAt: null,
+          questionParkedAt: "2026-06-04T10:02:00.000Z"
+        },
+        {
+          id: "latest_ordinary_capture_decision",
+          quote: "A newer ordinary capture still needs durable routing.",
+          thought: "This newer capture should wait behind the parked question.",
+          timestamp: "",
+          sourceTitle: "Priority source",
+          sourceUrl: "https://example.com/priority-source",
+          materialType: "article",
+          createdAt: "2026-06-04T10:05:00.000Z",
+          capturedAt: "2026-06-04T10:05:00.000Z",
+          updatedAt: "2026-06-04T10:05:00.000Z",
+          questionResolvedAt: null,
+          questionParkedAt: null
+        }
+      ]
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...mixedWorkspace,
+      activeSessionId: mixedSession.id,
+      sessions: [mixedSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="today"]').click();
+    const mixedLoopStep = document.querySelector('[data-learning-flow-step="loop"]');
+    const mixedNextMove = document.querySelector(".today-path-card");
+    const mixedPriority = {
+      loopText: mixedLoopStep?.textContent || "",
+      loopAction: mixedLoopStep?.querySelector("button")?.textContent || "",
+      loopTone: mixedLoopStep?.className || "",
+      nextMoveText: mixedNextMove?.textContent || "",
+      nextMoveAction: mixedNextMove?.querySelector("[data-today-path-action]")?.textContent || "",
+      nextMoveKind: mixedNextMove?.querySelector("[data-today-path-action]")?.dataset.todayPathAction || "",
+      parkedSectionText: document.querySelector("[data-today-section='parked_questions']")?.textContent || "",
+      parkedCardText: document.querySelector(".parked-question-card")?.textContent || "",
+      latestCaptureNeedsDecision: document
+        .querySelector('[data-stack-capture-id="latest_ordinary_capture_decision"]')
+        ?.classList.contains("needs-durable-decision") === true
+    };
     window.learningCompanionNative.importWorkspaceJson(before);
-    return { beforeAction, afterAction, afterNotes, takeawayLoop };
+    return { beforeAction, afterAction, afterNotes, takeawayLoop, mixedPriority };
   })()`);
   assert.match(result.beforeAction.loopText, /Close the loop/);
   assert.match(result.beforeAction.loopText, /Needs next step/);
@@ -7229,6 +7294,18 @@ async function assertFirstCaptureLoopDecision(cdp) {
   assert.doesNotMatch(result.takeawayLoop.loopText, /Needs next step/);
   assert.equal(result.takeawayLoop.loopAction, "Inspect");
   assert.match(result.takeawayLoop.loopTone, /is-clear/);
+  assert.match(result.mixedPriority.loopText, /Close the loop/);
+  assert.match(result.mixedPriority.loopText, /1 parked/);
+  assert.doesNotMatch(result.mixedPriority.loopText, /Needs next step/);
+  assert.equal(result.mixedPriority.loopAction, "Resume");
+  assert.match(result.mixedPriority.loopTone, /is-parked/);
+  assert.match(result.mixedPriority.nextMoveText, /Resume 1 saved question/);
+  assert.match(result.mixedPriority.nextMoveText, /Which proof step should wait until later/);
+  assert.equal(result.mixedPriority.nextMoveAction, "Resume");
+  assert.equal(result.mixedPriority.nextMoveKind, "parked");
+  assert.match(result.mixedPriority.parkedSectionText, /Parked Questions/);
+  assert.match(result.mixedPriority.parkedCardText, /Which proof step should wait until later/);
+  assert.equal(result.mixedPriority.latestCaptureNeedsDecision, true);
 }
 
 async function assertPostSaveFlow(cdp) {
