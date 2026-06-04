@@ -7,9 +7,10 @@ import { dirname, extname, join, resolve } from "node:path";
 
 const root = resolve("apps/companion-web");
 const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
-const defaultOut = resolve(".codex-tmp/agent-study-loop/receipt.json");
+const startedAtMs = Date.now();
+const defaultOut = resolve(".codex-tmp/agent-study-loop-smoke/receipt.json");
 const outPath = resolve(parseArg("--out") || defaultOut);
-const runRoot = resolve(".codex-tmp/agent-study-loop", `run-${Date.now()}`);
+const runRoot = resolve(".codex-tmp/agent-study-loop-smoke", `run-${startedAtMs}`);
 const profile = join(runRoot, "profile");
 
 const mimeTypes = new Map([
@@ -109,6 +110,14 @@ try {
         aria: step.getAttribute("aria-label") || ""
       }))
     };
+    const captureRail = [...document.querySelectorAll("[data-sidecar-rail-step]")]
+      .find((step) => step.dataset.sidecarRailStep === "capture");
+    captureRail?.click();
+    const railFocus = {
+      activeTab: activeTab(),
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+    };
 
     setValue("#quoteInput", "A study companion should preserve the source context while the learner writes.");
     setValue("#thoughtInput", "The first capture should become durable before the loop is considered clear.");
@@ -117,6 +126,12 @@ try {
       title: text("#activityTitle"),
       detail: text("#activityDetail"),
       action: text("#activityDetailsBtn")
+    };
+    const sidecarAfterFirstCapture = {
+      railSteps: [...document.querySelectorAll("[data-sidecar-rail-step]")].map((step) => ({
+        kind: step.dataset.sidecarRailStep,
+        text: step.textContent.replace(/\\s+/g, " ").trim()
+      }))
     };
     document.querySelector('[data-tab="today"]').click();
     const firstCaptureLoop = loopState();
@@ -153,6 +168,16 @@ try {
     document.querySelector("#captureBtn").click();
     document.querySelector('[data-tab="today"]').click();
     const finalLoop = loopState();
+    const longToken = "SidecarLongTextToken".repeat(12);
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", \`Takeaway: \${longToken} should wrap without stealing the loop.\`);
+    document.querySelector("#captureBtn").click();
+    document.querySelector('[data-tab="today"]').click();
+    const longTextSupport = {
+      loop: loopState(),
+      overflowX: document.body.scrollWidth > document.body.clientWidth,
+      captureStackText: text("#captureStack")
+    };
     const session = activeSession();
     const openQuestions = session.captures.filter((capture) => /^(?:q|question)\\s*[:：]/i.test(capture.thought || "") && !capture.questionResolvedAt && !capture.questionParkedAt).length;
     const closedQuestions = session.captures.filter((capture) => /^(?:q|question)\\s*[:：]/i.test(capture.thought || "") && capture.questionResolvedAt).length;
@@ -161,7 +186,9 @@ try {
 
     return {
       sidecarStart,
+      railFocus,
       firstCaptureActivity,
+      sidecarAfterFirstCapture,
       firstCaptureLoop,
       firstCaptureDecision,
       afterNotesLoop,
@@ -169,6 +196,7 @@ try {
       questionSection,
       answerDraft,
       finalLoop,
+      longTextSupport,
       finalCounts: {
         captures: session.captures.length,
         cards: session.reviewCards.length,
@@ -186,8 +214,15 @@ try {
   assert.deepEqual(run.sidecarStart.railSteps.map((step) => step.kind), ["source", "capture", "loop"]);
   assert.match(run.sidecarStart.railSteps[1].text, /Capture first point/);
   assert.match(run.sidecarStart.railSteps[1].text, /Focus field/);
+  assert.deepEqual(run.railFocus, {
+    activeTab: "captures",
+    activeElement: "quoteInput",
+    capturePanePulsed: true
+  });
   assert.equal(run.firstCaptureActivity.title, "Capture saved");
   assert.equal(run.firstCaptureActivity.action, "Exit + View capture");
+  assert.match(run.sidecarAfterFirstCapture.railSteps[1].text, /Capture next point/);
+  assert.match(run.sidecarAfterFirstCapture.railSteps[1].text, /Focus field/);
   assert.match(run.firstCaptureLoop.text, /Needs next step/);
   assert.equal(run.firstCaptureLoop.action, "Choose next");
   assert.deepEqual(run.firstCaptureDecision, {
@@ -207,7 +242,10 @@ try {
   assert.match(run.answerDraft.quote, /Open questions should drive the next focused action/);
   assert.notEqual(run.answerDraft.draftTarget, "");
   assert.match(run.finalLoop.text, /Clear/);
-  assert.equal(run.finalCounts.captures, 3);
+  assert.match(run.longTextSupport.loop.text, /Clear/);
+  assert.doesNotMatch(run.longTextSupport.loop.text, /Needs next step/);
+  assert.equal(run.longTextSupport.overflowX, false);
+  assert.equal(run.finalCounts.captures, 4);
   assert.equal(run.finalCounts.openQuestions, 0);
   assert.equal(run.finalCounts.closedQuestions, 1);
   assert.equal(run.finalCounts.answers, 1);
@@ -215,19 +253,29 @@ try {
   assert.equal(run.overflowX, false);
 
   const receipt = {
-    schema: "learning-companion.agent-study-loop-check.v1",
+    schema: "learning-companion.agent-study-loop-smoke.v1",
     generatedAt: new Date().toISOString(),
-    evidenceType: "CONTROLLED_AGENT_BROWSER_CHECK",
+    evidenceType: "CONTROLLED_AGENT_BROWSER_SMOKE",
     provesRealUserDogfood: false,
     appUrl,
     runRoot,
     result: "PASS",
+    elapsedMs: Date.now() - startedAtMs,
+    caveats: [
+      "Headless Chrome, not Mac WKWebView.",
+      "Controlled agent fixture, not a human dogfood session.",
+      "No HarmonyOS, Windows, Feishu, native picker, or real file movement coverage.",
+      "No background Downloads scan; artifacts stay under project-local .codex-tmp/."
+    ],
     checks: {
       sidecarCaptureRail: true,
+      sidecarRailFocusesField: true,
+      sidecarRailFlipsAfterFirstCapture: true,
       firstCaptureDecision: true,
       notesClearsLoop: true,
       openQuestionOwnsLoop: true,
       linkedAnswerClosesQuestion: true,
+      longTextSupportCaptureDoesNotStealLoop: true,
       finalLoopClear: true,
       noHorizontalOverflow: true
     },
