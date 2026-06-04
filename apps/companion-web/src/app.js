@@ -1937,12 +1937,12 @@ function resumeCurrentSource() {
 }
 
 function buildCaptureResumeSource(session, capture) {
-  // Capture resume uses the saved capture timestamp directly; buildSourceJumpUrl maps known video hosts to their time parameters.
+  // Capture resume uses saved capture material so videos jump by time and documents can reopen near the captured quote.
   return buildResumeSource({
     ...session,
     sourceTitle: capture?.sourceTitle || session.sourceTitle,
     sourceUrl: capture?.sourceUrl || session.sourceUrl
-  }, capture?.timestamp || "");
+  }, capture?.timestamp || "", capture || null);
 }
 
 function handleCaptureContextSourceAction() {

@@ -30,6 +30,7 @@
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",
     "check:static-return": "node scripts/static-return-loop-check.mjs",
     "smoke": "node scripts/smoke-web.mjs",
+    "smoke:text-fragment": "node scripts/smoke-text-fragment-browser.mjs",
     "smoke:source-resume": "node scripts/smoke-source-resume.mjs",
     "smoke:browser": "node scripts/smoke-browser.mjs",
     "smoke:harmony": "node scripts/smoke-harmony-schema.mjs && node scripts/smoke-harmony-scaffold.mjs"

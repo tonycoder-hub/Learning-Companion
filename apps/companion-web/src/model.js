@@ -26,6 +26,8 @@ const MATERIAL_TYPES = new Set(["article", "video", "doc", "course", "book", "ot
 const ANSWER_TARGET_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const FOCUS_MODES = new Set(["capture", "synthesize", "review"]);
 const SAFE_URL_SCHEMES = new Set(["http:", "https:"]);
+const TEXT_FRAGMENT_SNIPPET_LENGTH = 140;
+const TEXT_FRAGMENT_MIN_LENGTH = 12;
 
 export function nowIso() {
   return new Date().toISOString();
@@ -232,6 +234,49 @@ export function buildSourceJumpUrl(sourceUrl, timestamp = "") {
   } catch {
     return href;
   }
+}
+
+export function buildSourceTextFragmentUrl(sourceUrl, text = "") {
+  const href = cleanUrl(sourceUrl);
+  const snippet = normalizeTextFragmentSnippet(text);
+  if (!href || !snippet) return "";
+  try {
+    const url = new URL(href);
+    if (isVideoHost(url.hostname) || isPdfLikeSourceUrl(url)) return "";
+    const hash = String(url.hash || "").replace(/^#/, "");
+    if (hash.includes(":~:")) return href;
+    const directive = `:~:text=${encodeTextFragmentComponent(snippet)}`;
+    url.hash = hash ? `${hash}${directive}` : directive;
+    return url.href;
+  } catch {
+    return "";
+  }
+}
+
+function normalizeTextFragmentSnippet(value) {
+  const text = cleanText(value, MAX_CAPTURE_TEXT_LENGTH)
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, TEXT_FRAGMENT_SNIPPET_LENGTH)
+    .trim();
+  return text.length >= TEXT_FRAGMENT_MIN_LENGTH && /[\p{L}\p{N}]/u.test(text) ? text : "";
+}
+
+function encodeTextFragmentComponent(value) {
+  return encodeURIComponent(value)
+    .replace(/[-!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+}
+
+function isVideoHost(hostname) {
+  return isYouTubeHost(hostname) || isBilibiliHost(hostname) || isVimeoHost(hostname);
+}
+
+function isPdfLikeSourceUrl(url) {
+  return /\.pdf$/i.test(url.pathname);
+}
+
+function captureQuoteCanAnchorSource(capture) {
+  return Boolean(capture?.quote) && !capture?.answersQuestionCaptureId;
 }
 
 function isYouTubeHost(hostname) {
@@ -1577,7 +1622,12 @@ export function buildResumeSource(session, timestampOverride = "", latestCapture
   const resumeSourceTitle = session?.sourceTitle || latestCapture?.sourceTitle || "";
   const overrideTimestamp = cleanText(timestampOverride, 32);
   const resumeTimestamp = timestampToSeconds(overrideTimestamp) !== null ? overrideTimestamp : latestCapture?.timestamp || "";
-  const sourceHref = buildSourceJumpUrl(resumeSourceUrl, resumeTimestamp);
+  const hasResumeTimestamp = timestampToSeconds(resumeTimestamp) !== null;
+  const sourceAnchorText = captureQuoteCanAnchorSource(latestCapture) ? latestCapture.quote : "";
+  const textFragmentHref = hasResumeTimestamp ? "" : buildSourceTextFragmentUrl(resumeSourceUrl, sourceAnchorText);
+  const sourceHref = hasResumeTimestamp
+    ? buildSourceJumpUrl(resumeSourceUrl, resumeTimestamp)
+    : textFragmentHref || buildSourceJumpUrl(resumeSourceUrl, resumeTimestamp);
   const sourceProvenance = hasSessionSourceUrl
     ? "session"
     : sourceHref ? "latest_capture_fallback" : "none";
@@ -1591,6 +1641,7 @@ export function buildResumeSource(session, timestampOverride = "", latestCapture
     provenance: sourceProvenance,
     timestamp: cleanText(resumeTimestamp, 32),
     materialType,
+    hasTextFragment: Boolean(textFragmentHref),
     available: Boolean(sourceHref)
   };
 }

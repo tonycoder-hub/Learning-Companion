@@ -3389,7 +3389,7 @@ try {
   assert.deepEqual(result.reviewQueueClearResume, {
     title: "Source resumed",
     action: "View capture",
-    opened: "https://example.com/review-clear-source",
+    opened: "https://example.com/review-clear-source#:~:text=Review%20clear%20source%20quote.",
     target: "_blank",
     features: "noopener,noreferrer",
     activeTab: "captures",
@@ -8208,7 +8208,7 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightHintResume.action, "View highlight");
   assert.equal(postSaveFlow.highlightHintResume.hintHidden, true);
   assert.deepEqual(postSaveFlow.highlightHintResumeState, {
-    opened: "https://example.com/post-save-flow",
+    opened: "https://example.com/post-save-flow#:~:text=This%20sentence%20is%20worth%20keeping%20as%20a%20highlight.",
     promoted: false,
     cardExists: false,
     activeTab: "captures",
@@ -8235,7 +8235,7 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
   assert.match(postSaveFlow.highlightHintReview.detail, /Continue reading; the saved card is here when you want to review/);
   assert.deepEqual(postSaveFlow.highlightHintReviewState, {
-    opened: "https://example.com/post-save-flow",
+    opened: "https://example.com/post-save-flow#:~:text=This%20sentence%20is%20worth%20keeping%20as%20a%20highlight.",
     target: "_blank",
     features: "noopener,noreferrer",
     activeTab: "captures",

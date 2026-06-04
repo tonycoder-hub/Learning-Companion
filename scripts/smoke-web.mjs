@@ -24,6 +24,7 @@ import {
   buildReturnBaseFingerprint,
   buildResumeSource,
   buildSourceJumpUrl,
+  buildSourceTextFragmentUrl,
   buildTodayPack,
   captureDraftStatusText,
   captureHasReviewReadyAnswer,
@@ -499,6 +500,28 @@ assert.equal(buildSourceJumpUrl("https://m.bilibili.com/video/BV123/?p=2", "01:3
 assert.equal(buildSourceJumpUrl("https://vimeo.com/123456789?h=abc", "01:30"), "https://vimeo.com/123456789?h=abc#t=1m30s");
 assert.equal(buildSourceJumpUrl("https://vimeo.com/123456789?h=abc#autoplay=1", "01:30"), "https://vimeo.com/123456789?h=abc#autoplay=1&t=1m30s");
 assert.equal(buildSourceJumpUrl("https://vimeo.com/123456789#chapter-one", "01:30"), "https://vimeo.com/123456789#chapter-one");
+assert.equal(
+  buildSourceTextFragmentUrl("https://example.com/article?unit=1", "A captured sentence worth reopening beside the sidecar."),
+  "https://example.com/article?unit=1#:~:text=A%20captured%20sentence%20worth%20reopening%20beside%20the%20sidecar."
+);
+assert.equal(
+  buildSourceTextFragmentUrl("https://example.com/article#chapter-two", "A captured sentence worth reopening beside the sidecar."),
+  "https://example.com/article#chapter-two:~:text=A%20captured%20sentence%20worth%20reopening%20beside%20the%20sidecar."
+);
+assert.equal(
+  buildSourceTextFragmentUrl("https://example.com/article", "Line one,\nline-two & three"),
+  "https://example.com/article#:~:text=Line%20one%2C%20line%2Dtwo%20%26%20three"
+);
+assert.equal(
+  buildSourceTextFragmentUrl("https://example.com/article#:~:text=Existing", "A captured sentence worth reopening beside the sidecar."),
+  "https://example.com/article#:~:text=Existing"
+);
+assert.equal(buildSourceTextFragmentUrl("https://www.youtube.com/watch?v=doc", "A captured sentence worth reopening."), "");
+assert.equal(buildSourceTextFragmentUrl("javascript:alert(1)", "A captured sentence worth reopening."), "");
+assert.equal(buildSourceTextFragmentUrl("https://example.com/lesson.pdf", "A captured sentence worth reopening."), "");
+assert.equal(buildSourceTextFragmentUrl("https://example.com/article", "short"), "");
+assert.equal(buildSourceTextFragmentUrl("https://example.com/article", "------------"), "");
+assert.equal(buildSourceTextFragmentUrl("https://example.com/article", "x".repeat(160)), `https://example.com/article#:~:text=${"x".repeat(140)}`);
 assert.equal(timestampToSeconds("abc"), null);
 assert.equal(timestampToSeconds("1:2:3:4"), null);
 assert.equal(timestampToSeconds("1hxm"), null);
@@ -1585,6 +1608,75 @@ const noTimestampSourceBrief = buildFocusBrief(createSession({
   captures: [{ id: "notimed_capture", quote: "No timestamp yet", thought: "", timestamp: "", capturedAt: "2026-05-29T00:19:00.000Z" }]
 }, workspace.clientId), null, focusNow);
 assert.equal(noTimestampSourceBrief.source.href, "https://www.youtube.com/watch?v=notimed");
+const articleResumeSession = createSession({
+  title: "Article resume",
+  sourceTitle: "Article guide",
+  sourceUrl: "https://example.com/article-guide#section-two",
+  materialType: "article",
+  captures: [{
+    id: "article_capture",
+    quote: "This exact passage should reopen near the sidecar capture.",
+    thought: "This thought is not used as a source anchor.",
+    timestamp: "",
+    capturedAt: "2026-05-29T00:19:00.000Z"
+  }]
+}, workspace.clientId);
+assert.equal(
+  buildResumeSource(articleResumeSession).href,
+  "https://example.com/article-guide#section-two:~:text=This%20exact%20passage%20should%20reopen%20near%20the%20sidecar%20capture."
+);
+assert.equal(buildResumeSource(articleResumeSession).hasTextFragment, true);
+assert.equal(
+  buildResumeSource(articleResumeSession, "01:00").href,
+  "https://example.com/article-guide#section-two"
+);
+assert.equal(buildResumeSource(articleResumeSession, "01:00").hasTextFragment, false);
+const linkedAnswerResumeSession = createSession({
+  title: "Linked answer resume",
+  sourceTitle: "Article guide",
+  sourceUrl: "https://example.com/answer-source",
+  materialType: "article",
+  captures: [{
+    id: "linked_answer_capture",
+    quote: "Question: Which compiler rule matters?",
+    thought: "Answer: The ownership rule matters.",
+    answersQuestionCaptureId: "question_capture",
+    timestamp: "",
+    capturedAt: "2026-05-29T00:19:00.000Z"
+  }]
+}, workspace.clientId);
+assert.equal(buildResumeSource(linkedAnswerResumeSession).href, "https://example.com/answer-source");
+assert.equal(buildResumeSource(linkedAnswerResumeSession).hasTextFragment, false);
+const competingCaptureSession = createSession({
+  title: "Capture override resume",
+  sourceTitle: "Article guide",
+  sourceUrl: "https://example.com/competing-source",
+  materialType: "article",
+  captures: [
+    {
+      id: "older_capture",
+      quote: "Older quote should own this explicit resume target.",
+      thought: "",
+      timestamp: "",
+      capturedAt: "2026-05-29T00:18:00.000Z"
+    },
+    {
+      id: "newer_capture",
+      quote: "Newer quote should not steal an explicit capture resume target.",
+      thought: "",
+      timestamp: "",
+      capturedAt: "2026-05-29T00:19:00.000Z"
+    }
+  ]
+}, workspace.clientId);
+assert.equal(
+  buildResumeSource(competingCaptureSession, "", competingCaptureSession.captures[0]).href,
+  "https://example.com/competing-source#:~:text=Older%20quote%20should%20own%20this%20explicit%20resume%20target."
+);
+assert.equal(
+  buildResumeSource(competingCaptureSession).href,
+  "https://example.com/competing-source#:~:text=Newer%20quote%20should%20not%20steal%20an%20explicit%20capture%20resume%20target."
+);
 const captureFallbackSession = createSession({
   title: "Source fallback",
   captures: [{

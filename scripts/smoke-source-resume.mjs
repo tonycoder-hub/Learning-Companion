@@ -153,7 +153,7 @@ try {
   assert.match(result.saved.hintText, /open the source/);
   assert.equal(result.saved.hintAction, "Open source");
   assert.equal(result.saved.hintAria, "Open the source after saving this capture");
-  assert.equal(result.bareClick.opened, "https://example.com/ordinary-resume");
+  assert.equal(result.bareClick.opened, "https://example.com/ordinary-resume#:~:text=Ordinary%20capture%20quote.");
   assert.equal(result.bareClick.target, "_blank");
   assert.equal(result.bareClick.features, "noopener,noreferrer");
   assert.equal(result.bareClick.activity.title, "Source resumed");
