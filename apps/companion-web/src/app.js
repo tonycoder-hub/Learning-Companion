@@ -792,6 +792,7 @@ dom.notesEditor.addEventListener("input", () => {
   const session = getActiveSession(workspace);
   workspace = updateSession(workspace, session.id, { notesMarkdown: dom.notesEditor.value });
   scheduleSave();
+  renderCaptureStack(getActiveSession(workspace));
   renderFocusBrief();
   renderInspector();
   renderNotesMode();
@@ -5419,7 +5420,8 @@ function renderCaptureStack(session) {
     const isQuestion = captureHasQuestion(capture);
     const isOpenQuestion = captureHasOpenQuestion(capture);
     const isParkedQuestion = captureHasParkedQuestion(capture);
-    const isInNotes = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
+    const noteState = captureNoteState(session.notesMarkdown, capture);
+    const isInNotes = noteState !== "missing";
     row.append(
       textEl("div", "capture-stack-meta", [
         capture.timestamp || "No time",
@@ -5460,7 +5462,7 @@ function renderCaptureStack(session) {
       thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "stack"));
       actions.append(thoughtButton);
     }
-    const noteButton = textEl("button", "mini-button", captureNoteActionLabel(isInNotes));
+    const noteButton = textEl("button", "mini-button", captureNoteActionLabel(noteState));
     noteButton.type = "button";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
@@ -5481,8 +5483,10 @@ function renderCaptureStack(session) {
   dom.captureStack.append(list);
 }
 
-function captureNoteActionLabel(isInNotes) {
-  return isInNotes ? "Update note" : "Add to notes";
+function captureNoteActionLabel(noteState) {
+  if (noteState === "current") return "View in Notes";
+  if (noteState === "stale") return "Update note";
+  return "Add to notes";
 }
 
 function captureStackNextStep(capture, options = {}) {
@@ -6058,19 +6062,22 @@ function addCaptureToNotes(captureId) {
     return;
   }
   const { session, capture } = target;
-  const hadNoteBlock = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
+  const noteState = captureNoteState(session.notesMarkdown, capture);
+  const hadNoteBlock = noteState !== "missing";
+  const noteWasCurrent = noteState === "current";
   const updatedNotes = upsertCaptureNoteBlock(session.notesMarkdown, capture);
   workspace = updateSession(workspace, session.id, { notesMarkdown: updatedNotes });
   notesMode = "preview";
+  const title = noteWasCurrent ? "Capture note opened" : hadNoteBlock ? "Capture note updated" : "Capture added to notes";
   setActivity(getActiveSession(workspace), {
-    title: hadNoteBlock ? "Capture note updated" : "Capture added to notes",
+    title,
     detail: summarizeCapture(capture),
     tab: "captures",
     targetId: capture.id,
     targetPane: "notes",
     actionLabel: "View note"
   });
-  persistAndRender(hadNoteBlock ? "Capture note updated" : "Capture added to notes");
+  persistAndRender(title);
   scrollActivityTarget({ targetPane: "notes", targetId: capture.id });
 }
 
@@ -6409,7 +6416,8 @@ function renderCaptures() {
     const item = document.createElement("article");
     item.className = "item-card";
     markCaptureNode(item, capture.id);
-    const isInNotes = hasCaptureNoteBlock(session.notesMarkdown, capture.id);
+    const noteState = captureNoteState(session.notesMarkdown, capture);
+    const isInNotes = noteState !== "missing";
     item.append(textEl("div", "item-meta", [
       capture.timestamp || "No time",
       capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
@@ -6458,7 +6466,7 @@ function renderCaptures() {
     const noteButton = document.createElement("button");
     noteButton.className = "mini-button";
     noteButton.type = "button";
-    noteButton.textContent = captureNoteActionLabel(isInNotes);
+    noteButton.textContent = captureNoteActionLabel(noteState);
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const promoteButton = document.createElement("button");
@@ -7034,24 +7042,40 @@ function summarizeCapture(capture) {
 }
 
 function upsertCaptureNoteBlock(notesMarkdown, capture) {
-  const start = `<!-- learning-companion:capture:${capture.id}:start -->`;
-  const end = `<!-- learning-companion:capture:${capture.id}:end -->`;
-  const lines = [start];
-  if (capture.quote) lines.push(`> ${String(capture.quote).replace(/\n/g, "\n> ")}`);
-  if (capture.thought) lines.push("", String(capture.thought).trim());
-  const source = formatCaptureNoteSource(capture);
-  if (source) lines.push("", source);
-  lines.push(end);
-  const block = lines.join("\n").replace(/\n{3,}/g, "\n\n");
-  const existing = new RegExp(`\\n*<!-- learning-companion:capture:${escapeRegExp(capture.id)}:start -->[\\s\\S]*?<!-- learning-companion:capture:${escapeRegExp(capture.id)}:end -->`);
+  const block = captureNoteBlockMarkdown(capture);
+  const existing = captureNoteBlockPattern(capture.id, { includeLeadingWhitespace: true });
   const notes = String(notesMarkdown || "").trim();
   if (existing.test(notes)) return notes.replace(existing, `\n\n${block}`).trim();
   return [notes, block].filter(Boolean).join("\n\n");
 }
 
+function captureNoteBlockMarkdown(capture) {
+  const lines = [`<!-- learning-companion:capture:${capture.id}:start -->`];
+  if (capture.quote) lines.push(`> ${String(capture.quote).replace(/\n/g, "\n> ")}`);
+  if (capture.thought) lines.push("", String(capture.thought).trim());
+  const source = formatCaptureNoteSource(capture);
+  if (source) lines.push("", source);
+  lines.push(`<!-- learning-companion:capture:${capture.id}:end -->`);
+  return lines.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
+function captureNoteBlockPattern(captureId, options = {}) {
+  const leading = options.includeLeadingWhitespace ? "\\n*" : "";
+  return new RegExp(`${leading}<!-- learning-companion:capture:${escapeRegExp(captureId)}:start -->[\\s\\S]*?<!-- learning-companion:capture:${escapeRegExp(captureId)}:end -->`);
+}
+
+function getCaptureNoteBlock(notesMarkdown, captureId) {
+  return String(notesMarkdown || "").match(captureNoteBlockPattern(captureId))?.[0]?.trim() || "";
+}
+
+function captureNoteState(notesMarkdown, capture) {
+  const existing = getCaptureNoteBlock(notesMarkdown, capture.id);
+  if (!existing) return "missing";
+  return existing === captureNoteBlockMarkdown(capture) ? "current" : "stale";
+}
+
 function hasCaptureNoteBlock(notesMarkdown, captureId) {
-  return new RegExp(`<!-- learning-companion:capture:${escapeRegExp(captureId)}:start -->[\\s\\S]*?<!-- learning-companion:capture:${escapeRegExp(captureId)}:end -->`)
-    .test(String(notesMarkdown || ""));
+  return captureNoteBlockPattern(captureId).test(String(notesMarkdown || ""));
 }
 
 function formatCaptureNoteSource(capture) {

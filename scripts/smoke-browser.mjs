@@ -1965,9 +1965,10 @@ try {
     const noteButton = [...document.querySelectorAll("#captureList .mini-button")]
       .find((button) => button.textContent === "Add to notes");
     noteButton.click();
-    [...document.querySelectorAll("#captureList .mini-button")]
-      .find((button) => button.textContent === "Update note")
-      .click();
+    const noteReopenButton = [...document.querySelectorAll("#captureList .mini-button")]
+      .find((button) => button.textContent === "View in Notes");
+    noteReopenButton.click();
+    const noteReopenActivityTitle = document.querySelector("#activityTitle").textContent;
     const noteInsertions = (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length;
     const noteHasSource = document.querySelector("#notesEditor").value.includes("t=492s");
     const noteAnchorVisible = Boolean(document.querySelector("#notesPreview [data-note-capture-id]"));
@@ -2699,6 +2700,8 @@ try {
           noteHasSource,
           noteAnchorVisible,
           noteActionLabel,
+          noteReopenButtonLabel: noteReopenButton?.textContent || "",
+          noteReopenActivityTitle,
           noteTargetPulsed,
           noteFocused,
           noteTargetAria,
@@ -3243,6 +3246,8 @@ try {
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.equal(result.noteAnchorVisible, true);
+  assert.equal(result.noteReopenButtonLabel, "View in Notes");
+  assert.equal(result.noteReopenActivityTitle, "Capture note opened");
   assert.equal(result.noteActionLabel, "View note");
   assert.equal(result.noteTargetPulsed, true);
   assert.equal(result.noteFocused, true);
@@ -7183,8 +7188,28 @@ async function assertPostSaveFlow(cdp) {
       text: document.querySelector("#notesEditor").value,
       blockCount: (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length,
       stackText: notedHighlightRow?.textContent || "",
-      updateButtonVisible: [...(notedHighlightRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "Update note")
+      viewButtonVisible: [...(notedHighlightRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "View in Notes")
     };
+    document.querySelector("#notesEditBtn").click();
+    setValue(
+      "#notesEditor",
+      document.querySelector("#notesEditor").value.replace(
+        "This sentence is worth keeping as a highlight.",
+        "This sentence was manually changed inside the generated note."
+      )
+    );
+    document.querySelector('[data-tab="captures"]').click();
+    const staleHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
+      .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    noteBeforeAnnotation.staleButtonVisible = [...(staleHighlightRow?.querySelectorAll("button") || [])]
+      .some((button) => button.textContent === "Update note");
+    [...(staleHighlightRow?.querySelectorAll("button") || [])]
+      .find((button) => button.textContent === "Update note")
+      ?.click();
+    const refreshedHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
+      .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    noteBeforeAnnotation.restoredViewButtonVisible = [...(refreshedHighlightRow?.querySelectorAll("button") || [])]
+      .some((button) => button.textContent === "View in Notes");
     addThoughtButtonFor(highlightBefore.id)?.click();
     const annotationFormVisible = document.querySelector(".highlight-annotation-form")?.textContent.includes("Add why this highlight matters") === true;
     const annotationFocusOnOpen = document.activeElement?.classList.contains("highlight-annotation-input") === true;
@@ -7536,7 +7561,9 @@ async function assertPostSaveFlow(cdp) {
   assert.doesNotMatch(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /annotation must stay attached/);
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.blockCount, 2);
   assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.stackText, /In Notes/);
-  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updateButtonVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.viewButtonVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleButtonVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.restoredViewButtonVisible, true);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This annotation must stay attached to the existing highlight\./);
   assert.equal(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.blockCount, 2);
