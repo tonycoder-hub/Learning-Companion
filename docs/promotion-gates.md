@@ -12,6 +12,15 @@ This project now has several useful local capabilities. This document keeps the 
 
 Current wording: "Mac shell internal build", not "production Mac app".
 
+## Windows Static Mirror
+
+| Stage | Meaning | Current Evidence | Promotion Gate |
+| --- | --- | --- | --- |
+| Portable static mirror | Generated local folder/ZIP can be inspected as a manual Windows route candidate. | `npm run check:static-return`, `WINDOWS_STATIC_QA.md` pending receipt, and `npm run windows:static:validate:smoke` only prove the receipt stays non-claiming. | Keep using for contract checks. |
+| Windows static loop | A real Windows Edge/Chrome local-folder run can review, capture in Inbox, return JSON files to Mac, and import them without workspace overwrite. | Not verified. | Fill `dist/morning-demo/WINDOWS_STATIC_QA.md` from a real Windows run, then `npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json`. |
+
+Current wording: "Windows static mirror pending receipt", not "Windows compatibility".
+
 ## Feishu
 
 | Stage | Meaning | Current Evidence | Promotion Gate |

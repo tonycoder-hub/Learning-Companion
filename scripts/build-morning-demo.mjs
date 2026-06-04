@@ -1098,10 +1098,7 @@ function buildDeferredGatesManifest(options = {}) {
 }
 
 function summarizeManualQa(markdown) {
-  const results = markdown
-    .split("\n")
-    .filter((line) => line.startsWith("| ") && !line.includes("| ---") && !line.includes("| Area |"))
-    .map((line) => line.split("|").map((part) => part.trim())[4] || "");
+  const results = extractManualQaResults(markdown);
   const count = (value) => results.filter((result) => result === value).length;
   const nt = count("NT");
   return {
@@ -1112,6 +1109,16 @@ function summarizeManualQa(markdown) {
     blocked: count("BLOCKED"),
     nt
   };
+}
+
+function extractManualQaResults(markdown) {
+  const validResults = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
+  return markdown
+    .split("\n")
+    .filter((line) => line.startsWith("| ") && !line.includes("| ---"))
+    .map((line) => line.split("|").slice(1, -1).map((part) => part.trim()))
+    .filter((cells) => cells.length >= 5 && cells[0] !== "Area" && validResults.has(cells[3]))
+    .map((cells) => cells[3]);
 }
 
 function buildManualQaReceiptSummary({
@@ -1369,9 +1376,26 @@ function buildWindowsStaticQaMarkdown({
     "",
     buildEvidenceBadgeMarkdown(WINDOWS_STATIC_QA_FILE).trim(),
     "",
-    "Stage: portable-fixture manual QA. PENDING RECEIPT, not QA evidence: this file is not evidence until a real Windows browser run fills the Result column.",
+    "Stage: portable-fixture manual QA. PENDING RECEIPT, not QA evidence: this file is not evidence until the Result column is filled from a real Windows browser run.",
     "",
     "Use this during a Windows Edge/Chrome static mirror pass. Use `PASS`, `FAIL`, `BLOCKED`, or `NT` in the Result column.",
+    "",
+    "## Session Header",
+    "",
+    "| Field | Value |",
+    "| --- | --- |",
+    "| Date/time | TBD |",
+    "| Reviewer | TBD |",
+    "| Windows browser/device | TBD |",
+    "| Mirror build/source | TBD |",
+    "| Transfer method | TBD |",
+    "| Mac import method | TBD |",
+    "| Static return contract gate result | TBD |",
+    "| Mac Return Files import result | TBD |",
+    "| Total elapsed time | TBD |",
+    "| Windows local-file friction observed | TBD |",
+    "| Return-file transfer friction observed | TBD |",
+    "| Biggest friction | TBD |",
     "",
     "## Preconditions",
     "",
@@ -1380,6 +1404,7 @@ function buildWindowsStaticQaMarkdown({
     "- Open `mirror-folder/index.html` from local disk in Edge or Chrome.",
     "- Do not sign in to Feishu or claim live sync; this is local file transport only.",
     "- Do not mark this receipt complete while every Result row is still `NT`.",
+    "- Cannot be filled from `npm run check:static-return`, link checks, Mac browser smoke, or fixture import receipts.",
     "- Keep the returned JSON files in a temporary folder until they are imported on Mac, then archive or delete them deliberately.",
     "",
     "## Test Matrix",
@@ -1401,6 +1426,8 @@ function buildWindowsStaticQaMarkdown({
     "",
     "- `BLOCKED` is the right result when Windows browser policy prevents local file access, clipboard, downloads, or return-file transfer.",
     "- A passing Windows static pass proves only the local mirror/manual return loop. It does not prove Feishu live write, HarmonyOS behavior, or Mac signing.",
+    "- Validate a filled receipt with `npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json` before making a Windows static-loop usability claim.",
+    "- `Static return contract gate result` and `Mac Return Files import result` both must be `PASS` before this receipt can support a Windows static-loop usability claim.",
     "- If a return file lacks `source.returnBaseFingerprint`, record it as legacy compatibility and re-export the mirror before the next Windows pass.",
     ""
   ].join("\n");
@@ -1446,7 +1473,7 @@ function buildDemoScriptMarkdown({
     "## 40-55s: Check Local Data Honesty",
     "",
     "- In the app, add a real capture, confirm the local storage notice appears, then export workspace and verify the exported JSON file yourself.",
-    `- Use \`MAC_MANUAL_QA.md\` and \`${WINDOWS_STATIC_QA_FILE}\` for manual rows; leave anything approval/device-bound as \`NT\` or \`BLOCKED\` rather than treating it as passed. The offline gate runs \`npm run mac:manual:validate:smoke\` to keep the pending Mac receipt non-claiming.`,
+    `- Use \`MAC_MANUAL_QA.md\` and \`${WINDOWS_STATIC_QA_FILE}\` for manual rows; leave anything approval/device-bound as \`NT\` or \`BLOCKED\` rather than treating it as passed. The offline gate runs \`npm run mac:manual:validate:smoke\` and \`npm run windows:static:validate:smoke\` to keep pending manual receipts non-claiming.`,
     "",
     "## 55-60s: Decide The Next Gate",
     "",
@@ -1556,7 +1583,7 @@ function buildMorningReviewMarkdown({
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
-    "1c. `npm run check:morning` includes `npm run check:static-return`, `npm run dogfood:validate:smoke`, and `npm run mac:manual:validate:smoke`; rerun them separately only when you want focused receipts. They write receipts under `.codex-tmp/`, not Downloads.",
+    "1c. `npm run check:morning` includes `npm run check:static-return`, `npm run dogfood:validate:smoke`, `npm run mac:manual:validate:smoke`, and `npm run windows:static:validate:smoke`; rerun them separately only when you want focused receipts. They write receipts under `.codex-tmp/`, not Downloads.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
     "4. Open the Export tab and compare it with `dist/morning-demo/mirror-folder/index.html`.",
@@ -1662,7 +1689,7 @@ function buildMorningReviewMarkdown({
     "- `npm run smoke` covers model contracts and generated static artifacts.",
     "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract plus pure import/patch boundary fixtures.",
     "- When the separate browser gate is allowed, `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, patch import receipts, duplicate review patch receipts, and visible issue receipts for bad mirror, malformed JSON, and oversized patch imports.",
-    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, static return, pending dogfood/Mac-manual validators, receipt contracts, determinism, and mirror integrity.",
+    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, static return, pending dogfood/Mac-manual/Windows-static validators, receipt contracts, determinism, and mirror integrity.",
     "- `npm run check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.",
     "- `npm run check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.",
     "- `npm run check:static-return` runs the static mirror return contract and writes project-local ignored receipts under `.codex-tmp/`.",
@@ -1910,7 +1937,7 @@ function buildReviewStartHereHtml({
       <div class="grid">
         <div class="card"><strong>1. Mac Loop</strong><p>Open the app beside a browser source. Check First Note, then use Capture this thought and confirm the Thought lane is the focused writing target.</p></div>
         <div class="card"><strong>2. Import</strong><p>Import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>, type a half-finished Quick Capture thought, switch sessions, and confirm Today/Focus Brief can resume it without calling it synced data.</p></div>
-        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate, including the static Review/Inbox return contract and pending dogfood/Mac-manual validators. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
+        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate, including the static Review/Inbox return contract and pending dogfood/Mac-manual/Windows-static validators. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
         <div class="card"><strong>4. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
     </section>

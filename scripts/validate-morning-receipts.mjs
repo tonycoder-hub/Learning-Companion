@@ -258,15 +258,19 @@ assert.match(reviewStartHere, /Run the real Mac loop first/);
 assert.match(reviewStartHere, /spend 15 minutes on rows 1-6/);
 assert.match(reviewStartHere, /Record friction and first actions/);
 assert.match(reviewStartHere, /Notes\/Recall source-return counts/);
-assert.match(reviewStartHere, /pending dogfood\/Mac-manual validators/);
+assert.match(reviewStartHere, /pending dogfood\/Mac-manual\/Windows-static validators/);
 assert.match(reviewStartHere, /Leave untouched rows as NT/);
 assert.match(reviewStartHere, /Validate before claiming usable/);
 assert.match(reviewStartHere, /real-run-receipt\.json/);
 assert.equal(packageJson.scripts["dogfood:validate"], "node scripts/validate-dogfood-runbook.mjs");
 assert.equal(packageJson.scripts["mac:manual:validate:smoke"], "node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/receipt.json");
+assert.equal(packageJson.scripts["windows:static:validate"], "node scripts/validate-windows-static-qa.mjs");
+assert.equal(packageJson.scripts["windows:static:validate:smoke"], "node scripts/validate-windows-static-qa.mjs --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/receipt.json");
 assert.match(morningCheck, /npm run dogfood:validate:smoke/);
 assert.match(morningCheck, /npm run mac:manual:validate:smoke/);
+assert.match(morningCheck, /npm run windows:static:validate:smoke/);
 assert.equal(morningCheck.indexOf("npm run dogfood:validate:smoke") < morningCheck.indexOf("npm run mac:manual:validate:smoke"), true);
+assert.equal(morningCheck.indexOf("npm run mac:manual:validate:smoke") < morningCheck.indexOf("npm run windows:static:validate:smoke"), true);
 assert.match(reviewStartHere, /npm run dogfood:validate -- --runbook dist\/morning-demo\/DOGFOOD_RUNBOOK\.md --out \.codex-tmp\/dogfood-runbook\/real-run-receipt\.json/);
 assert.match(reviewStartHere, /What To Inspect First/);
 assert.match(reviewStartHere, /Start with the Mac learning loop/);
@@ -420,6 +424,15 @@ assert.match(windowsStaticQa, /^# Learning Companion Windows Static QA Receipt$/
 assert.match(windowsStaticQa, /EVIDENCE: PENDING_USER_GATE/);
 assert.match(windowsStaticQa, /PENDING RECEIPT, not QA evidence/);
 assert.match(windowsStaticQa, /Return-ready mirror/);
+assert.match(windowsStaticQa, /Date\/time/);
+assert.match(windowsStaticQa, /Windows browser\/device/);
+assert.match(windowsStaticQa, /Mirror build\/source/);
+assert.match(windowsStaticQa, /Transfer method/);
+assert.match(windowsStaticQa, /Mac import method/);
+assert.match(windowsStaticQa, /Static return contract gate result/);
+assert.match(windowsStaticQa, /Mac Return Files import result/);
+assert.match(windowsStaticQa, /Windows local-file friction observed/);
+assert.match(windowsStaticQa, /Return-file transfer friction observed/);
 assert.match(windowsStaticQa, /review\.html/);
 assert.match(windowsStaticQa, /inbox\.html/);
 assert.match(windowsStaticQa, /source\.returnBaseFingerprint/);
@@ -428,6 +441,9 @@ assert.match(windowsStaticQa, /Batch partial-import guard/);
 assert.match(windowsStaticQa, /Return files imported/);
 assert.match(windowsStaticQa, /Wrong file guard/);
 assert.match(windowsStaticQa, /PASS`, `FAIL`, `BLOCKED`, or `NT`/);
+assert.match(windowsStaticQa, /Cannot be filled from `npm run check:static-return`, link checks, Mac browser smoke, or fixture import receipts/);
+assert.match(windowsStaticQa, /npm run windows:static:validate/);
+assert.match(windowsStaticQa, /both must be `PASS` before this receipt can support a Windows static-loop usability claim/);
 assert.equal(windowsStaticQaResults.length, 10);
 assert.deepEqual([...new Set(windowsStaticQaResults)], ["NT"]);
 for (const line of windowsStaticQa.split("\n").filter((item) => item.includes("QA evidence"))) {
@@ -454,10 +470,13 @@ function readText(path) {
 }
 
 function parseManualQaResults(markdown) {
+  const validResults = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
   return markdown
     .split("\n")
-    .filter((line) => line.startsWith("| ") && !line.includes("| ---") && !line.includes("| Area |"))
-    .map((line) => line.split("|").map((part) => part.trim())[4] || "");
+    .filter((line) => line.startsWith("| ") && !line.includes("| ---"))
+    .map((line) => line.split("|").slice(1, -1).map((part) => part.trim()))
+    .filter((cells) => cells.length >= 5 && cells[0] !== "Area" && validResults.has(cells[3]))
+    .map((cells) => cells[3]);
 }
 
 function parseDogfoodRunbookRows(markdown) {

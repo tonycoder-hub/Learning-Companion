@@ -87,9 +87,13 @@ Latest implemented slices include:
   - `MAC_MANUAL_QA.md` has real-run session fields and says only an actual Mac GUI run can change `NT` rows.
   - `npm run mac:manual:validate:smoke` accepts the all-`NT` pending receipt but keeps `canClaimMacManualQaUsable=false`; filled claims also require native/browser gate result fields to be `PASS`.
   - Negative checks reject all-PASS rows with header fields still `TBD` and reject FAIL/BLOCKED rows without notes.
-- The offline morning gate now includes both pending manual-evidence validators.
-  - `npm run check:morning` runs `dogfood:validate:smoke` and `mac:manual:validate:smoke`.
-  - This keeps pending runbooks non-claiming inside the headline gate; it still does not prove real Mac GUI dogfood.
+- Windows static QA materials now have the same claim guard shape.
+  - `WINDOWS_STATIC_QA.md` has real-run session fields and says only an actual Windows Edge/Chrome local-folder run can change `NT` rows.
+  - `npm run windows:static:validate:smoke` accepts the all-`NT` pending receipt but keeps `canClaimWindowsStaticLoopUsable=false`; filled claims also require static-return contract and Mac Return Files import result fields to be `PASS`.
+  - Negative checks should reject all-PASS rows with header fields still `TBD` and reject FAIL/BLOCKED rows without notes.
+- The offline morning gate now includes all pending manual-evidence validators.
+  - `npm run check:morning` runs `dogfood:validate:smoke`, `mac:manual:validate:smoke`, and `windows:static:validate:smoke`.
+  - This keeps pending runbooks non-claiming inside the headline gate; it still does not prove real Mac GUI dogfood or real Windows browser compatibility.
 - Controlled browser smoke exists for fast regression, but it is not real dogfood.
 
 ## Cross-Device Boundary
@@ -166,9 +170,22 @@ For the latest morning-gate integration slice after `ebd7462`:
 - `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
 - `npm run mac:manual:validate:smoke` -> pending receipt with `rows=27`, `nt=27`, `canClaimMacManualQaUsable=false`
 - `npm run dogfood:validate:smoke` -> pending receipt with `rows=11`, `nt=11`, `canClaimMacDogfoodUsable=false`
-- `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`, and the output includes both `Dogfood runbook validator` and `Mac manual QA validator`
+- `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`, and the output includes `Dogfood runbook validator`, `Mac manual QA validator`, and `Windows static QA validator`
 - `npm run check:morning:browser` -> first sandbox `listen EPERM 127.0.0.1`; approved rerun -> `smoke_browser_ok` and `morning_browser_check_ok`
 - `git diff --check` -> PASS
+
+For the latest Windows static-QA validator slice after `d3e89c4`:
+
+- `bash -n scripts/morning-check.sh` -> PASS
+- `node --check scripts/validate-windows-static-qa.mjs` -> PASS
+- `node --check scripts/build-morning-demo.mjs` -> PASS
+- `node --check scripts/validate-morning-receipts.mjs` -> PASS
+- `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning` -> `morning_demo_ok`
+- `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
+- `npm run windows:static:validate:smoke` -> pending receipt with `rows=10`, `nt=10`, `allRowsExecuted=false`, `canClaimWindowsStaticLoopUsable=false`
+- Negative Windows validator checks under `.codex-tmp/windows-static-qa/` exited nonzero as expected for all-PASS rows with header fields still `TBD`, and for a `FAIL` row without a QA note.
+- `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`, including `Windows static QA validator`
+- This is evidence-surface work only; no real Windows browser run was executed.
 
 For the source-first Notes work:
 
@@ -289,6 +306,7 @@ Recommended next slices:
    - Keep Not Run rows explicit; do not convert fixture receipts into dogfood.
    - Fill the Notes and Recall source-return counters from real use, not guesses.
    - Fill `MAC_MANUAL_QA.md` rows and session header from real Mac GUI use; run `npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json` before claiming Mac manual-QA usability.
+   - Fill `WINDOWS_STATIC_QA.md` rows and session header from a real Windows Edge/Chrome local-folder run; run `npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json` before claiming Windows static-loop usability.
    - Definition of Done: a real runbook/manual-QA row is executed and validated, or the blocker and exact Not Run scope are recorded.
 
 2. Improve rendered post-save return evidence only where a new behavior changes.

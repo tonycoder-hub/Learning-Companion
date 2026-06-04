@@ -42,6 +42,10 @@ echo "== Mac manual QA validator =="
 npm run mac:manual:validate:smoke
 echo
 
+echo "== Windows static QA validator =="
+npm run windows:static:validate:smoke
+echo
+
 echo "== Morning receipt contracts =="
 npm run morning:receipts
 echo
