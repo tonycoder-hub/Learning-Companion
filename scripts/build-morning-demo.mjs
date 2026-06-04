@@ -1238,6 +1238,8 @@ function buildDogfoodRunbookMarkdown({
     "| Mac loop friction observed | TBD |",
     "| Add-to-Notes source-return count | TBD |",
     "| Add-to-Notes View-note count | TBD |",
+    "| Save-for-recall source-return count | TBD |",
+    "| Save-for-recall Review-card count | TBD |",
     "| Manual device loop friction observed | TBD |",
     "| Biggest friction | TBD |",
     "",
@@ -1248,7 +1250,7 @@ function buildDogfoodRunbookMarkdown({
     "| 1 | Open the app beside a real browser lesson. | Today/Learning Flow points to the source or first capture without opening a dashboard-first detour. | NT |  |",
     "| 2 | Capture one quote or timestamped moment, then add a thought. | Activity stays in the desk or sidecar; the source context remains visible. | NT |  |",
     "| 3 | Capture one question, resume the source, and save a linked answer. | Today can close the question and expose any card-refresh path. | NT |  |",
-    "| 4 | Promote or refresh one review card, then grade due cards. | Review advances to the next card or clears the queue back to capture/source. | NT |  |",
+    "| 4 | Promote or save one source-linked review card, record whether you use source-return or `Review card` first, then grade due cards. | Source-linked recall keeps reading momentum by default, while Review remains one click away; grading advances to the next card or clears the queue back to capture/source. | NT |  |",
     "| 5 | Insert one capture into Notes, then record whether you use the source-return main action or `View note` first. | Notes confirms the generated block is available; source-return stays primary unless confirmation feels weak. | NT |  |",
     "| 6 | Export a mirror from the Device Flow path. | Export copy says manual transfer only and points to `index.html` first. | NT |  |",
     "",
@@ -1284,6 +1286,7 @@ function buildDogfoodRunbookMarkdown({
     "- Use `BLOCKED` when approval, device access, permissions, or browser policy prevents execution; the Time / friction notes cell must name the blocker.",
     "- Leave rows as `NT` when they were not tried.",
     "- For Add-to-Notes, count whether you use source-return or `View note` first. If `View note` is used 3 or more times because saved-note confirmation feels weak, record it as Mac loop friction and strengthen confirmation or reconsider the main action.",
+    "- For Save-for-recall, count whether you use source-return or `Review card` first after a source-linked card save. If `Review card` is used 3 or more times because source-return feels easy to miss or unsafe, record it as Mac loop friction and reconsider the confirmation or main action.",
     "- A complete dogfood pass requires at least the Mac Study Loop rows. Cross-device usability requires the Manual Device Loop rows on a real phone browser or Windows browser.",
     "",
     "## Claim Boundary",
@@ -1873,7 +1876,7 @@ function buildReviewStartHereHtml({
       <div class="grid">
         <div class="card priority"><strong>Generated status: NOT RUN</strong><p>The generated runbook starts at <code>0 PASS / 11 NT / usable=false</code>. This dashboard stays fixture-only until Tony fills the runbook from a real session and validates the receipt.</p></div>
         <div class="card priority"><strong>1. Run the real Mac loop first</strong><p>Open <code>http://127.0.0.1:5173/</code> beside a real lesson, not this dashboard, and spend 15 minutes on rows 1-6 of <a href="${escapeHtml(DOGFOOD_RUNBOOK_FILE)}">${escapeHtml(DOGFOOD_RUNBOOK_FILE)}</a>.</p></div>
-        <div class="card priority"><strong>2. Record friction in the row</strong><p>Every PASS, FAIL, or BLOCKED row needs the actual outcome, time, and friction. Leave untouched rows as NT; do not convert fixture receipts into dogfood evidence.</p></div>
+        <div class="card priority"><strong>2. Record friction and first actions</strong><p>Every PASS, FAIL, or BLOCKED row needs the actual outcome, time, friction, and Notes/Recall source-return counts. Leave untouched rows as NT; do not convert fixture receipts into dogfood evidence.</p></div>
         <div class="card priority"><strong>3. Validate before claiming usable</strong><p>After filling the runbook, run <code>npm run dogfood:validate -- --runbook dist/morning-demo/DOGFOOD_RUNBOOK.md --out .codex-tmp/dogfood-runbook/real-run-receipt.json</code>.</p></div>
       </div>
     </section>

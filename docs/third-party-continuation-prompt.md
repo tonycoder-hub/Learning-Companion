@@ -81,6 +81,8 @@ Latest implemented slices include:
   - HarmonyOS wording is softened to `Files app's Downloads folder`.
   - Feishu Drive is only a manual carrier with no live sync.
 - Morning dogfood materials distinguish generated fixture status from real human dogfood.
+  - Dogfood runbook now tracks both Notes and Recall source-return first actions.
+  - A completed Mac-loop claim requires non-negative Add-to-Notes and Save-for-recall counters.
 - Controlled browser smoke exists for fast regression, but it is not real dogfood.
 
 ## Cross-Device Boundary
@@ -115,6 +117,19 @@ For the latest completed Recall source-first slice after `b615148`:
 - `npm run smoke:browser` -> `smoke_browser_ok`
 - `npm run smoke:post-save-hints` -> initial sandbox `listen EPERM 127.0.0.1`, approved local-server rerun -> `post_save_hint_visual_ok /Users/bytedance/Documents/Codex/learning-companion/.codex-tmp/post-save-hint-visual/receipt.json`
 - Mira broker for `.mira-review/recall-after-save-source-first-20260604.md` -> `VERDICT: PASS_WITH_NOTES`, request id `695d015b-df57-42ea-a5ee-4c260aad9428`
+
+For the latest dogfood evidence-surface slice after `fabe368`:
+
+- Mira broker for `.mira-review/dogfood-recall-source-return-counters-20260604.md` -> unavailable, `AUTH_EXPIRED`, request id `31d16482-9c0e-46e3-a962-16bba5882737`
+- Seed `ark/seed-code-0602` review -> `VERDICT: PASS_WITH_NOTES`
+- `node --check scripts/build-morning-demo.mjs` -> PASS
+- `node --check scripts/validate-dogfood-runbook.mjs` -> PASS
+- `node --check scripts/validate-morning-receipts.mjs` -> PASS
+- `git diff --check` -> PASS
+- `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning` -> `morning_demo_ok`
+- `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
+- `npm run dogfood:validate:smoke` -> pending receipt with `macLoopExecuted=false`, `canClaimMacDogfoodUsable=false`
+- Negative validator check on `.codex-tmp/dogfood-runbook/recall-counter-required.md` exited nonzero as expected, requiring both Save-for-recall counters before a six-row Mac loop can claim usability.
 
 For the source-first Notes work:
 
@@ -230,29 +245,24 @@ Prioritize work that improves the natural user journey, not feature count.
 
 Recommended next slices:
 
-1. Prepare a morning dogfood pack that a human can execute without guessing.
-   - Make `dist/morning-demo/review-start-here.html`, `DOGFOOD_RUNBOOK.md`, and app UI clearly say what is Not Run.
-   - Keep generated fixture evidence separate from real dogfood.
-   - Do not delete stale demo artifacts tonight; record caveats.
-   - Definition of Done: generated review entry and runbook visibly label Not Run rows; validators still pass; no cleanup/deletion occurs; `docs/next-session-handoff.md` records any stale-artifact caveat.
-
-2. Run or sharpen real Mac dogfood instead of adding more fixture-only claims.
+1. Run or sharpen real Mac dogfood instead of adding more fixture-only claims.
    - The controlled smokes now cover source-first Notes and Recall paths, but no human has proven the flow beside a real lesson.
    - Keep Not Run rows explicit; do not convert fixture receipts into dogfood.
+   - Fill the Notes and Recall source-return counters from real use, not guesses.
    - Definition of Done: a real runbook row is executed and validated, or the blocker and exact Not Run scope are recorded.
 
-3. Improve rendered post-save return evidence only where a new behavior changes.
+2. Improve rendered post-save return evidence only where a new behavior changes.
    - `npm run smoke:post-save-hints` now covers source-first Notes and Recall Activity strips at 390x760 and 1280x720.
    - Future copy/layout changes should refresh the receipt and screenshots rather than relying on old images.
    - Definition of Done: refreshed project-local receipt/screenshots under `.codex-tmp/post-save-hint-visual/`, or explicit Not Run blocker; relevant browser assertions pass.
 
-4. Tighten first-run and sidecar flow only where it directly reduces friction.
+3. Tighten first-run and sidecar flow only where it directly reduces friction.
    - Avoid adding explanatory marketing text.
    - The first screen should be usable learning flow, not a landing page.
    - Keep UI dense, calm, and action-oriented.
    - Definition of Done: changed copy/control flow has a focused smoke or browser evidence; no added landing-page or tutorial-only surface; no horizontal overflow claim unless actually checked.
 
-5. Improve evidence surfaces, not claims.
+4. Improve evidence surfaces, not claims.
    - Add focused smoke checks when behavior changes.
    - Add runbook fields for dogfood friction rather than fake telemetry.
    - Real device/Windows/Harmony/Feishu gates remain Not Run unless actually executed.

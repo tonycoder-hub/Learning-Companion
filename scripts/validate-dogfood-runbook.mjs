@@ -115,6 +115,8 @@ function validateRunbook(markdown, runbookPath) {
     macLoopFrictionObserved: fields["Mac loop friction observed"] || "",
     addToNotesSourceReturnCount: fields["Add-to-Notes source-return count"] || "",
     addToNotesViewNoteCount: fields["Add-to-Notes View-note count"] || "",
+    saveForRecallSourceReturnCount: fields["Save-for-recall source-return count"] || "",
+    saveForRecallReviewCardCount: fields["Save-for-recall Review-card count"] || "",
     manualDeviceLoopFrictionObserved: fields["Manual device loop friction observed"] || "",
     biggestFriction: fields["Biggest friction"] || ""
   };
@@ -129,6 +131,12 @@ function validateRunbook(markdown, runbookPath) {
   }
   if (macLoopExecuted && !isNonNegativeInteger(sessionFields.addToNotesViewNoteCount)) {
     errors.push("Mac loop executed but Add-to-Notes View-note count is not a non-negative integer");
+  }
+  if (macLoopExecuted && !isNonNegativeInteger(sessionFields.saveForRecallSourceReturnCount)) {
+    errors.push("Mac loop executed but Save-for-recall source-return count is not a non-negative integer");
+  }
+  if (macLoopExecuted && !isNonNegativeInteger(sessionFields.saveForRecallReviewCardCount)) {
+    errors.push("Mac loop executed but Save-for-recall Review-card count is not a non-negative integer");
   }
   if (manualDeviceLoopExecuted && !isFilled(sessionFields.manualDeviceLoopFrictionObserved)) {
     errors.push("Manual device loop executed but Manual device loop friction observed is empty or TBD");
