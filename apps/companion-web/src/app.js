@@ -4776,6 +4776,19 @@ function resolveCloseLoopState(pack, draftItems = []) {
     };
   }
 
+  if (priority.kind === "capture_decision") {
+    const decisionItem = priority.item;
+    return {
+      label: "Close the loop",
+      status: "Needs next step",
+      detail: `${decisionItem.sessionTitle} · add the latest capture to Notes or save it for recall before calling the loop clear.`,
+      actionLabel: "Choose next",
+      action: () => openCaptureFromToday(decisionItem.sessionId, decisionItem.capture),
+      kind: "loop",
+      tone: "capture"
+    };
+  }
+
   return {
     label: "Close the loop",
     status: "Clear",
@@ -4797,7 +4810,18 @@ function todayLoopPriority(pack, draftItems = []) {
   if (draftItem) return { kind: "draft", item: draftItem };
   const [parkedItem] = pack.parkedQuestionItems;
   if (parkedItem) return { kind: "parked", item: parkedItem };
+  const captureDecisionItem = nextCaptureDecisionItem(pack);
+  if (captureDecisionItem) return { kind: "capture_decision", item: captureDecisionItem };
   return { kind: "clear", item: null };
+}
+
+function nextCaptureDecisionItem(pack) {
+  return pack.recentCaptures.find(({ sessionId, capture }) => {
+    const session = workspace.sessions.find((item) => item.id === sessionId);
+    if (!session || !capture) return false;
+    if (capture.promotedToReview) return false;
+    return captureNoteState(session.notesMarkdown, capture) === "missing";
+  }) || null;
 }
 
 function renderReturnedWorkNudge(pack) {
@@ -5189,6 +5213,19 @@ function todayPrimaryMove(pack, draftItems = []) {
       inspectLabel: "Saved",
       targetSection: "parked_questions",
       run: () => setQuestionParked(parkedItem.capture.id, parkedItem.sessionId, false)
+    };
+  }
+
+  if (priority.kind === "capture_decision") {
+    const decisionItem = priority.item;
+    return {
+      kind: "recent",
+      title: "Choose latest capture's next step",
+      detail: `${decisionItem.sessionTitle} · add to Notes or save for recall`,
+      actionLabel: "Choose next",
+      inspectLabel: "Recent",
+      targetSection: "recent_captures",
+      run: () => openCaptureFromToday(decisionItem.sessionId, decisionItem.capture)
     };
   }
 

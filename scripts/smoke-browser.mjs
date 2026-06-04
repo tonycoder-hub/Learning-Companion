@@ -6624,6 +6624,7 @@ try {
   await assertDraftSourceSnapshotCommit(cdp);
   await assertReturnFilesImportModeGuard(cdp);
   await assertPasteReturnFileFromClipboard(cdp);
+  await assertFirstCaptureLoopDecision(cdp);
   await assertPostSaveFlow(cdp);
   await assertCaptureStackNextStepMix(cdp);
   await assertSidecarHighlightActivity(cdp);
@@ -7107,6 +7108,72 @@ async function assertPasteReturnFileFromClipboard(cdp) {
   assert.ok(pasteReturn.fileWorkspaceImport.sessions >= 1);
   assert.equal(pasteReturn.fileWorkspaceImport.activeTitle.length > 0, true);
   assert.equal(pasteReturn.fileWorkspaceImport.importedPatchRemoved, true);
+}
+
+async function assertFirstCaptureLoopDecision(cdp) {
+  const result = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+    };
+    const before = window.learningCompanionNative.exportWorkspaceJson();
+    const workspace = JSON.parse(before);
+    const session = {
+      ...workspace.sessions[0],
+      id: "first_capture_loop_decision",
+      title: "First capture loop decision",
+      sourceTitle: "Decision source",
+      sourceUrl: "https://example.com/decision-source",
+      materialType: "article",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...workspace,
+      activeSessionId: session.id,
+      sessions: [session],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    setValue("#quoteInput", "First capture needs a durable next step.");
+    setValue("#thoughtInput", "This should not count as a closed loop yet.");
+    document.querySelector("#captureBtn").click();
+    document.querySelector('[data-tab="today"]').click();
+    const loopStep = document.querySelector('[data-learning-flow-step="loop"]');
+    const nextMove = document.querySelector(".today-path-card");
+    const beforeAction = {
+      loopText: loopStep?.textContent || "",
+      loopAction: loopStep?.querySelector("button")?.textContent || "",
+      loopTone: loopStep?.className || "",
+      nextMoveText: nextMove?.textContent || "",
+      nextMoveAction: nextMove?.querySelector("[data-today-path-action]")?.textContent || "",
+      nextMoveKind: nextMove?.querySelector("[data-today-path-action]")?.dataset.todayPathAction || ""
+    };
+    loopStep?.querySelector("button")?.click();
+    const afterAction = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      captureVisible: Boolean([...document.querySelectorAll("#captureList .item-card")]
+        .find((item) => item.textContent.includes("This should not count as a closed loop yet.")))
+    };
+    window.learningCompanionNative.importWorkspaceJson(before);
+    return { beforeAction, afterAction };
+  })()`);
+  assert.match(result.beforeAction.loopText, /Close the loop/);
+  assert.match(result.beforeAction.loopText, /Needs next step/);
+  assert.match(result.beforeAction.loopText, /add the latest capture to Notes or save it for recall/);
+  assert.equal(result.beforeAction.loopAction, "Choose next");
+  assert.match(result.beforeAction.loopTone, /is-capture/);
+  assert.match(result.beforeAction.nextMoveText, /Choose latest capture's next step/);
+  assert.match(result.beforeAction.nextMoveText, /add to Notes or save for recall/);
+  assert.equal(result.beforeAction.nextMoveAction, "Choose next");
+  assert.equal(result.beforeAction.nextMoveKind, "recent");
+  assert.deepEqual(result.afterAction, {
+    activeTab: "captures",
+    captureVisible: true
+  });
 }
 
 async function assertPostSaveFlow(cdp) {

@@ -285,6 +285,8 @@ const captureSaveActivityBody = appJs.match(/function captureSaveActivity[\s\S]*
 assert.equal((captureSaveActivityBody.match(/actionLabel:/g) || []).length, 8);
 assert.match(appJs, /renderTodaySectionMap/);
 assert.match(appJs, /renderLearningFlowPanel/);
+assert.match(appJs, /nextCaptureDecisionItem/);
+assert.match(appJs, /Choose latest capture's next step/);
 assert.match(appJs, /resolveSourceSessionState/);
 assert.match(appJs, /resumeSourceFromLearningFlow/);
 assert.match(appJs, /renderSidecarRail/);
