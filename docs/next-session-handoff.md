@@ -810,6 +810,11 @@ Latest absorbed Mira notes for static Return next-step cue:
 
 ## Next Local Work
 
+User-requested next iteration TODO:
+
+- Make the product bilingual at minimum. Start by adding an explicit English/Chinese copy/i18n plan before broad UI edits, then move user-facing Learning Flow, Quick Capture, Activity, Today, Device Flow, and manual QA copy toward a switchable bilingual surface. Verification should include Chinese and English long-copy fit at sidecar/mobile widths; do not claim full i18n until generated packs, receipts, static mirror pages, and app UI are covered.
+- When validating the study loop, proactively include visual evidence from an actual external reading/video source. Use public or user-approved non-private material only, keep screenshots under project-local `.codex-tmp/`, record source URL/title/timestamp plus viewport, and show the app beside the document/video while capturing, resuming source, and saving. Do not use authenticated/private pages, cookies, or sensitive content; do not treat a screenshot as live platform playback support unless the test actually proves that behavior.
+
 1. Continue the study loop:
    - Prefer one more Mac-first dogfood polish around source/timestamp capture or sidecar focus before broadening claims.
    - A good next local increment is to tighten the capture context around actual browser study use: what changed, where the note will land, and how to resume the source without touching approval-gated native APIs.
