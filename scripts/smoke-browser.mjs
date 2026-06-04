@@ -659,6 +659,8 @@ try {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
       clipboardReads: manualClipboardReads
     };
@@ -703,6 +705,8 @@ try {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
       sourceTitle: pastedSession?.sourceTitle || "",
       sourceUrl: pastedSession?.sourceUrl || "",
@@ -854,6 +858,8 @@ try {
   assert.equal(noSourceFlowStep.activeTab, "captures");
   assert.equal(noSourceFlowStep.activityTitle, "Source pasted");
   assert.match(noSourceFlowStep.activityDetail, /First Note Lecture @ 01:17/);
+  assert.equal(noSourceFlowStep.activityAction, "Capture");
+  assert.equal(noSourceFlowStep.activityAria, "Open capture");
   assert.equal(noSourceFlowStep.sourceStripPulsed, true);
   assert.equal(noSourceFlowStep.sourceTitle, "First Note Lecture");
   assert.equal(noSourceFlowStep.sourceUrl, "https://www.youtube.com/watch?v=firstnote");
@@ -1322,6 +1328,8 @@ try {
       timestamp: document.querySelector("#timestampInput").value,
       activityTitle: document.querySelector("#activityTitle").textContent,
       activityDetail: document.querySelector("#activityDetail").textContent,
+      activityAction: document.querySelector("#activityDetailsBtn").textContent,
+      activityAria: document.querySelector("#activityDetailsBtn").getAttribute("aria-label") || "",
       activeElement: document.activeElement?.id || "",
       openSourceTitle: document.querySelector("#openSourceBtn").title,
       contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
@@ -1338,6 +1346,8 @@ try {
   assert.equal(pastedSource.timestamp, "01:35");
   assert.equal(pastedSource.activityTitle, "Source pasted");
   assert.match(pastedSource.activityDetail, /Lecture Notes @ 01:35/);
+  assert.equal(pastedSource.activityAction, "Capture");
+  assert.equal(pastedSource.activityAria, "Open capture");
   assert.equal(pastedSource.activeElement, "quoteInput");
   assert.equal(pastedSource.openSourceTitle, "Open source at 01:35");
   assert.equal(pastedSource.contextOpenText, "Resume @ 01:35");

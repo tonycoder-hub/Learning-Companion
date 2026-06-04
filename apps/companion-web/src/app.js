@@ -2024,7 +2024,9 @@ function applyClipboardSource(source) {
     title: "Source pasted",
     detail: `${sourceTitle || readableSourceHost(sourceUrl) || "Source URL"}${timestamp ? ` @ ${timestamp}` : ""} is ready for captures.${typeGuarded ? ` Type kept as ${materialTypeLabel(session.materialType)} because this topic already has captures.` : ""}`,
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "quickCapture",
+    actionLabel: "Capture"
   });
   renderActivity(updated);
   renderCaptureDraftStatus(updated);
