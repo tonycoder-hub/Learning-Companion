@@ -6531,6 +6531,49 @@ async function assertPasteReturnFileFromClipboard(cdp) {
       document.querySelector('[data-tab="today"]').click();
       setClipboard(JSON.stringify(inboxPatch));
       await clickPaste();
+      const replacementPatch = {
+        ...inboxPatch,
+        patchId: "browser_clipboard_patch_replacement",
+        captures: [{
+          ...inboxPatch.captures[0],
+          id: "browser_clipboard_capture_replacement",
+          thought: "Replacement paste should replace the pending preview, not stack it."
+        }]
+      };
+      setClipboard(JSON.stringify(replacementPatch));
+      await clickPaste();
+      const replacedPreview = {
+        cardCount: document.querySelectorAll(".return-file-preview-card").length,
+        importedOriginal: JSON.parse(window.learningCompanionNative.exportWorkspaceJson()).importedPatches.includes("browser_clipboard_patch_001"),
+        importedReplacement: JSON.parse(window.learningCompanionNative.exportWorkspaceJson()).importedPatches.includes("browser_clipboard_patch_replacement")
+      };
+      document.querySelector('[data-return-preview-action="discard"]')?.click();
+      await new Promise((resolve) => setTimeout(resolve, 160));
+      const discardedPreview = {
+        cardCount: document.querySelectorAll(".return-file-preview-card").length,
+        importedOriginal: JSON.parse(window.learningCompanionNative.exportWorkspaceJson()).importedPatches.includes("browser_clipboard_patch_001"),
+        importedReplacement: JSON.parse(window.learningCompanionNative.exportWorkspaceJson()).importedPatches.includes("browser_clipboard_patch_replacement"),
+        activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+        activityDetail: document.querySelector("#activityDetail")?.textContent || ""
+      };
+      setClipboard(JSON.stringify(inboxPatch));
+      await clickPaste();
+      const previewWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+      const previewWorkspace = JSON.parse(previewWorkspaceJson);
+      const previewSession = previewWorkspace.sessions.find((item) => item.id === previewWorkspace.activeSessionId);
+      const previewPanel = document.querySelector(".return-file-preview-card");
+      const stagedPreview = {
+        text: previewPanel?.textContent || "",
+        applyVisible: Boolean(previewPanel?.querySelector('[data-return-preview-action="apply"]')),
+        discardVisible: Boolean(previewPanel?.querySelector('[data-return-preview-action="discard"]')),
+        importReceiptHidden: document.querySelector("#importReceipt")?.hidden === true,
+        captureAlreadyImported: Boolean(previewSession?.captures.find((capture) => capture.inboxPatchId === "browser_clipboard_patch_001")),
+        importedPatchAlreadyRecorded: previewWorkspace.importedPatches.includes("browser_clipboard_patch_001"),
+        activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+        activityDetail: document.querySelector("#activityDetail")?.textContent || ""
+      };
+      previewPanel?.querySelector('[data-return-preview-action="apply"]')?.click();
+      await new Promise((resolve) => setTimeout(resolve, 180));
       const afterSuccessJson = window.learningCompanionNative.exportWorkspaceJson();
       const afterSuccess = JSON.parse(afterSuccessJson);
       const sessionAfterSuccess = afterSuccess.sessions.find((item) => item.id === afterSuccess.activeSessionId);
@@ -6586,6 +6629,9 @@ async function assertPasteReturnFileFromClipboard(cdp) {
           pastedQuote: pastedCapture?.quote || "",
           pastedThought: pastedCapture?.thought || "",
           importedPatch: afterSuccess.importedPatches.includes("browser_clipboard_patch_001"),
+          replacedPreview,
+          discardedPreview,
+          preview: stagedPreview,
           receipt: successReceipt,
           activity: successActivity,
           receiptAction: successReceiptAction,
@@ -6622,6 +6668,30 @@ async function assertPasteReturnFileFromClipboard(cdp) {
   assert.equal(pasteReturn.success.pastedQuote, "Clipboard return file capture.");
   assert.equal(pasteReturn.success.pastedThought, "Paste Return File should import copied JSON without creating a download.");
   assert.equal(pasteReturn.success.importedPatch, true);
+  assert.deepEqual(pasteReturn.success.replacedPreview, {
+    cardCount: 1,
+    importedOriginal: false,
+    importedReplacement: false
+  });
+  assert.deepEqual(pasteReturn.success.discardedPreview, {
+    cardCount: 0,
+    importedOriginal: false,
+    importedReplacement: false,
+    activityTitle: "Return file discarded",
+    activityDetail: "No workspace changes were applied."
+  });
+  assert.match(pasteReturn.success.preview.text, /Ready to apply/);
+  assert.match(pasteReturn.success.preview.text, /1 returned capture ready/);
+  assert.match(pasteReturn.success.preview.text, /1\/1 files parsed/);
+  assert.match(pasteReturn.success.preview.text, /inbox \+1 capture, 0 duplicates/);
+  assert.match(pasteReturn.success.preview.text, /would change workspace/);
+  assert.equal(pasteReturn.success.preview.applyVisible, true);
+  assert.equal(pasteReturn.success.preview.discardVisible, true);
+  assert.equal(pasteReturn.success.preview.importReceiptHidden, true);
+  assert.equal(pasteReturn.success.preview.captureAlreadyImported, false);
+  assert.equal(pasteReturn.success.preview.importedPatchAlreadyRecorded, false);
+  assert.equal(pasteReturn.success.preview.activityTitle, "Return file ready");
+  assert.match(pasteReturn.success.preview.activityDetail, /would change workspace/);
   assert.match(pasteReturn.success.receipt, /Mobile inbox imported/);
   assert.match(pasteReturn.success.receipt, /1 added/);
   assert.equal(pasteReturn.success.activity.title, "Mobile inbox imported");

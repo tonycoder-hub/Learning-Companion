@@ -277,6 +277,7 @@ let searchResultsCollapsed = false;
 let lastActivity = null;
 let lastImportReceipt = null;
 let dismissedReturnNudgeKey = "";
+let pendingReturnFilePreview = null;
 let pendingCaptureUndo = null;
 let pendingCaptureUndoTimer = null;
 let activeHighlightAnnotation = null;
@@ -422,7 +423,7 @@ async function pasteReturnFileFromClipboard() {
     if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
       throw new Error("Clipboard does not contain an inbox or review return file. Use Import Return Files for full workspace files.");
     }
-    importPortableData(imported);
+    stagePastedReturnFile(imported);
   } catch (error) {
     const message = error.message || "Paste return file failed";
     recordImportFailure(message, "clipboard");
@@ -434,6 +435,122 @@ async function pasteReturnFileFromClipboard() {
       button.textContent = previousLabel;
     }
   }
+}
+
+function stagePastedReturnFile(imported) {
+  const file = {
+    fileName: "clipboard",
+    kind: isMobileInboxPatch(imported) ? "mobile-inbox-patch" : "review-progress-patch",
+    imported
+  };
+  pendingReturnFilePreview = {
+    source: "clipboard",
+    files: [file],
+    summary: previewReturnFiles([file]),
+    workspaceFingerprint: workspaceBackupFingerprint(workspace)
+  };
+  lastImportReceipt = null;
+  dismissedReturnNudgeKey = "";
+  activeTab = "today";
+  setActivity(getActiveSession(workspace), {
+    title: "Return file ready",
+    detail: formatPendingReturnFilePreview(pendingReturnFilePreview),
+    tab: "today",
+    targetId: ""
+  });
+  render();
+  renderImportReceipt();
+  focusReturnFilesPanel();
+  showToast("Return file ready");
+}
+
+function previewReturnFiles(files = []) {
+  const parsedFiles = [...files].sort(compareReturnFiles);
+  const summary = emptyReturnFilesReceipt(parsedFiles.length);
+  let previewWorkspace = workspace;
+  parsedFiles.forEach((item) => {
+    try {
+      if (item.kind === "mobile-inbox-patch") {
+        const result = applyMobileInboxPatch(previewWorkspace, item.imported);
+        previewWorkspace = result.workspace;
+        addReturnFilePreviewResult(summary, item.fileName, "mobile-inbox-patch", result.receipt);
+        return;
+      }
+      if (item.kind === "review-progress-patch") {
+        const result = applyReviewProgressPatch(previewWorkspace, item.imported);
+        previewWorkspace = result.workspace;
+        addReturnFilePreviewResult(summary, item.fileName, "review-progress-patch", result.receipt);
+        return;
+      }
+      addReturnFileImportError(summary, item.fileName, "Unsupported return file.");
+    } catch (error) {
+      addReturnFileImportError(summary, item.fileName, error.message || "Import preview failed");
+    }
+  });
+  summary.previewedAt = new Date().toISOString();
+  summary.workspaceChanged = workspaceBackupFingerprint(previewWorkspace) !== workspaceBackupFingerprint(workspace);
+  return summary;
+}
+
+function addReturnFilePreviewResult(summary, fileName, kind, receipt = {}) {
+  summary.processedFiles += 1;
+  addReturnFileBaseStatus(summary, fileName, receipt);
+  if (kind === "mobile-inbox-patch") {
+    summary.inbox.files += 1;
+    summary.inbox.added += Number(receipt.added) || 0;
+    summary.inbox.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
+    summary.inbox.answeredQuestions += Number(receipt.answeredQuestions) || 0;
+    summary.inbox.refreshableReviewCards += Number(receipt.refreshableReviewCards) || 0;
+    summary.inbox.skippedAnswerTargets += Number(receipt.skippedAnswerTargets) || 0;
+    return;
+  }
+  if (kind === "review-progress-patch") {
+    summary.review.files += 1;
+    summary.review.applied += Number(receipt.applied) || 0;
+    summary.review.skippedDuplicate += Number(receipt.skippedDuplicate) || 0;
+    summary.review.skippedMissing += Number(receipt.skippedMissing) || 0;
+    summary.review.skippedConflict += Number(receipt.skippedConflict) || 0;
+    summary.review.skippedInvalid += Number(receipt.skippedInvalid) || 0;
+    summary.review.totalEvents += Number(receipt.totalEvents) || 0;
+  }
+}
+
+function applyPendingReturnFilePreview() {
+  const preview = pendingReturnFilePreview;
+  if (!preview?.files?.length) return;
+  const currentFingerprint = workspaceBackupFingerprint(workspace);
+  if (preview.workspaceFingerprint && preview.workspaceFingerprint !== currentFingerprint) {
+    pendingReturnFilePreview = {
+      ...preview,
+      summary: previewReturnFiles(preview.files),
+      workspaceFingerprint: currentFingerprint
+    };
+    setActivity(getActiveSession(workspace), {
+      title: "Return file preview refreshed",
+      detail: "The workspace changed after preview; review the updated counts before applying.",
+      tab: "today",
+      targetId: ""
+    });
+    render();
+    focusReturnFilesPanel();
+    return;
+  }
+  pendingReturnFilePreview = null;
+  const [file] = preview.files;
+  importPortableData(file.imported);
+}
+
+function discardPendingReturnFilePreview() {
+  if (!pendingReturnFilePreview) return;
+  pendingReturnFilePreview = null;
+  setActivity(getActiveSession(workspace), {
+    title: "Return file discarded",
+    detail: "No workspace changes were applied.",
+    tab: "today",
+    targetId: ""
+  });
+  render();
+  focusReturnFilesPanel();
 }
 
 async function importReturnFiles(files) {
@@ -5434,7 +5551,7 @@ function renderReturnFilesPanel() {
   panel.className = "handoff-card";
   const inboxCount = workspace.importedPatches.length;
   const reviewCount = workspace.importedReviewPatches.length;
-  panel.open = Boolean(lastImportReceipt || inboxCount || reviewCount);
+  panel.open = Boolean(pendingReturnFilePreview || lastImportReceipt || inboxCount || reviewCount);
   const summary = document.createElement("summary");
   summary.className = "device-flow-summary";
   const header = document.createElement("div");
@@ -5453,7 +5570,9 @@ function renderReturnFilesPanel() {
   const detail = textEl(
     "p",
     "handoff-detail",
-    lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return files back."
+    pendingReturnFilePreview
+      ? "Return file parsed; confirm before applying changes to this Mac workspace."
+      : lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return files back."
   );
   const handoffState = renderMirrorHandoffStatus();
   const steps = document.createElement("ol");
@@ -5468,7 +5587,11 @@ function renderReturnFilesPanel() {
   });
   const boundary = textEl("p", "handoff-boundary", "Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.");
   const actionState = deviceFlowActionState();
-  const actionHint = textEl("p", "return-files-action-hint", actionState.hint);
+  const actionHint = textEl(
+    "p",
+    "return-files-action-hint",
+    pendingReturnFilePreview ? "Next: review the parsed return file, then apply or discard it." : actionState.hint
+  );
   actionHint.dataset.returnFilesActionHint = actionState.primary;
   const footer = document.createElement("div");
   footer.className = "item-footer return-files-actions";
@@ -5493,8 +5616,69 @@ function renderReturnFilesPanel() {
   intakeGroup.setAttribute("aria-label", "Bring return files back");
   intakeGroup.append(importPatch, pasteReturn);
   footer.append(exportGroup, intakeGroup);
-  panel.append(summary, detail, handoffState, steps, boundary, actionHint, footer);
+  panel.append(summary, detail, handoffState);
+  if (pendingReturnFilePreview) panel.append(renderPendingReturnFilePreview());
+  panel.append(steps, boundary, renderReturnFilesModeNote(Boolean(pendingReturnFilePreview)), actionHint, footer);
   return panel;
+}
+
+function renderPendingReturnFilePreview() {
+  const preview = pendingReturnFilePreview;
+  const card = document.createElement("article");
+  card.className = "item-card return-file-preview-card";
+  card.append(
+    textEl("div", "item-meta", "Ready to apply"),
+    textEl("p", "card-prompt", returnFilePreviewTitle(preview)),
+    textEl("p", "item-meta", formatPendingReturnFilePreview(preview))
+  );
+  const footer = document.createElement("div");
+  footer.className = "item-footer";
+  const apply = textEl("button", "mini-button primary", "Apply Return File");
+  apply.type = "button";
+  apply.dataset.returnPreviewAction = "apply";
+  apply.addEventListener("click", applyPendingReturnFilePreview);
+  const discard = textEl("button", "mini-button", "Discard");
+  discard.type = "button";
+  discard.dataset.returnPreviewAction = "discard";
+  discard.addEventListener("click", discardPendingReturnFilePreview);
+  footer.append(apply, discard);
+  card.append(footer);
+  return card;
+}
+
+function returnFilePreviewTitle(preview) {
+  const summary = preview?.summary || {};
+  if (summary.failedFiles && !summary.processedFiles) return "This return file cannot be applied";
+  if (summary.inbox?.added) return `${summary.inbox.added} returned ${summary.inbox.added === 1 ? "capture" : "captures"} ready`;
+  if (summary.review?.applied) return `${summary.review.applied} review ${summary.review.applied === 1 ? "update" : "updates"} ready`;
+  return "Return file parsed";
+}
+
+function formatPendingReturnFilePreview(preview) {
+  const summary = preview?.summary || {};
+  const parts = [`${summary.processedFiles || 0}/${summary.fileCount || 0} files parsed`];
+  if (summary.inbox?.files) {
+    const answered = summary.inbox.answeredQuestions ? `, ${summary.inbox.answeredQuestions} questions resolved` : "";
+    const refreshable = summary.inbox.refreshableReviewCards ? `, ${summary.inbox.refreshableReviewCards} cards ready` : "";
+    parts.push(`inbox +${summary.inbox.added} ${summary.inbox.added === 1 ? "capture" : "captures"}, ${summary.inbox.skippedDuplicate} duplicates${answered}${refreshable}`);
+  }
+  if (summary.review?.files) {
+    const skipped = summary.review.skippedDuplicate + summary.review.skippedMissing + summary.review.skippedConflict + summary.review.skippedInvalid;
+    parts.push(`review +${summary.review.applied} applied, ${skipped} skipped`);
+  }
+  if (summary.failedFiles) parts.push(`${summary.failedFiles} failed`);
+  parts.push(summary.workspaceChanged ? "would change workspace" : "no new workspace changes");
+  return parts.join(" · ");
+}
+
+function renderReturnFilesModeNote(hasPreview = false) {
+  return textEl(
+    "p",
+    "return-files-mode-note",
+    hasPreview
+      ? "Preview is in memory only. Apply changes this Mac workspace; Discard leaves it unchanged."
+      : "Paste previews a copied return file first. Import Return Files applies selected files immediately."
+  );
 }
 
 function deviceFlowActionState() {

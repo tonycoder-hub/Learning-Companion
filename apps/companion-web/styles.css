@@ -1633,6 +1633,11 @@ textarea:focus {
   background: #fff6ef;
 }
 
+.return-file-preview-card {
+  border-color: rgba(49, 95, 130, 0.28);
+  background: #f5f9fc;
+}
+
 .returned-work-card {
   display: grid;
   gap: 6px;
@@ -1735,6 +1740,13 @@ textarea:focus {
   color: var(--muted);
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.35;
+}
+
+.return-files-mode-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
   line-height: 1.35;
 }
 

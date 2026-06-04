@@ -19,6 +19,7 @@ Current branch: `main`.
 
 Latest product slices:
 
+- `Paste Return File` now stages a copied inbox/review return JSON as an in-memory preview before applying it. Device Flow shows parsed deltas, `Apply Return File`, and `Discard`; workspace and imported patch ids stay unchanged until Apply. Mira returned `PASS_WITH_NOTES`; accepted fixes tightened preview deltas, added a workspace-fingerprint refresh guard before Apply, documented that file-picker import still applies immediately, and added smoke for re-paste replacement plus discard clearing. File-picker batch preview remains a follow-up.
 - Return-file import receipt now has a direct next-action button. Successful returned captures expose `View latest capture`, returned review progress exposes `Review status`, and import issues expose `Open Return Files`; the action reuses the same local rejoin logic as the Today returned-work nudge. Verified by `npm run smoke` and `npm run smoke:browser`.
 - no-source first-open Today now makes `Set source` the primary First Note action, changes the capture step to `After source`, keeps a secondary `Jot loose thought` escape hatch, and replaces the prior checklist-style route with inline guidance: anchor source first, then capture, then close the loop. Mira returned `PASS_WITH_NOTES`; accepted fixes softened the escape-hatch label and removed the numbered route visual weight. Current evidence is controlled browser smoke plus source-linked in-app spot check, not a real fresh-profile dogfood run.
 - `8d6b412 feat: route source-only mirrors to reading`
