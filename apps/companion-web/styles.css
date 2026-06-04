@@ -1083,7 +1083,8 @@ textarea:focus {
   font-size: 13px;
 }
 
-.capture-stack-next {
+.capture-stack-next,
+.capture-detail-next {
   min-width: 0;
   margin: -1px 0 1px;
   color: var(--muted);

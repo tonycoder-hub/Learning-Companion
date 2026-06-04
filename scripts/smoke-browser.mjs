@@ -1865,6 +1865,8 @@ try {
     const cardedCaptureDetailButtons = [...(cardedCaptureDetail?.querySelectorAll("button") || [])];
     const cardedCaptureDetailDelete = cardedCaptureDetailButtons.find((button) => button.textContent.startsWith("Delete"));
     const captureDetailAfterCard = {
+      nextKind: cardedCaptureDetail?.dataset.captureNextStep || "",
+      nextText: cardedCaptureDetail?.querySelector(".capture-detail-next")?.textContent || "",
       buttons: cardedCaptureDetailButtons.map((button) => button.textContent),
       reviewDisabled: cardedCaptureDetailButtons.find((button) => button.textContent === "Review")?.disabled === true,
       deleteClass: cardedCaptureDetailDelete?.className || "",
@@ -3163,6 +3165,8 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.equal(result.captureDetailAfterCard.nextKind, "review-ready");
+  assert.equal(result.captureDetailAfterCard.nextText, "Card scheduled · keep reading.");
   assert.deepEqual(result.captureDetailAfterCard.buttons, ["Open @ 08:12", "Add to notes", "Review", "Delete + 1 card"]);
   assert.equal(result.captureDetailAfterCard.reviewDisabled, false);
   assert.match(result.captureDetailAfterCard.deleteClass, /tertiary/);
@@ -7321,6 +7325,15 @@ async function assertPostSaveFlow(cdp) {
     setValue("#thoughtInput", "Plain capture thought.");
     document.querySelector("#captureBtn").click();
     const ordinarySaved = readActivity();
+    document.querySelector("#activityDetailsBtn").click();
+    const ordinaryDetailCard = [...document.querySelectorAll("#captureList .item-card")]
+      .find((item) => item.textContent.includes("Plain capture thought."));
+    const ordinaryDetailState = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      nextKind: ordinaryDetailCard?.dataset.captureNextStep || "",
+      nextText: ordinaryDetailCard?.querySelector(".capture-detail-next")?.textContent || "",
+      pulsed: ordinaryDetailCard?.classList.contains("pulse") === true
+    };
     setValue("#quoteInput", "Quote should not steal question semantics.");
     setValue("#thoughtInput", "Question: How does the highlight branch avoid stealing questions?");
     document.querySelector("#captureBtn").click();
@@ -7403,7 +7416,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -7610,6 +7623,12 @@ async function assertPostSaveFlow(cdp) {
   assert.match(postSaveFlow.ordinarySaved.hintText, /open the source/);
   assert.equal(postSaveFlow.ordinarySaved.hintAction, "Open source");
   assert.equal(postSaveFlow.ordinarySaved.hintAria, "Open the source after saving this capture");
+  assert.deepEqual(postSaveFlow.ordinaryDetailState, {
+    activeTab: "captures",
+    nextKind: "keep-reading",
+    nextText: "Choose next: add to Notes for synthesis, or save for recall.",
+    pulsed: true
+  });
   assert.equal(postSaveFlow.quoteQuestionSaved.title, "Question saved");
   assert.equal(postSaveFlow.quoteQuestionSaved.action, "Questions");
   assert.equal(postSaveFlow.noSourceHighlightAnnotated.title, "Highlight annotated");

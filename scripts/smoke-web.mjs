@@ -205,6 +205,7 @@ assert.match(appJs, /captureStackNextStep/);
 assert.match(appJs, /Needs your why — or leave it as a quote/);
 assert.match(appJs, /Choose next: add to Notes for synthesis, or save for recall/);
 assert.match(appJs, /In Notes · keep reading, or save for recall practice/);
+assert.match(appJs, /capture-detail-next/);
 assert.match(appJs, /Highlight already has a thought/);
 assert.match(appJs, /updateCaptureThought/);
 assert.match(appJs, /Add why this highlight matters/);

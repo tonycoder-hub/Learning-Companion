@@ -6433,6 +6433,9 @@ function renderCaptures() {
     if (isInNotes) {
       item.append(textEl("span", "capture-note-chip", "In Notes"));
     }
+    const nextStep = captureStackNextStep(capture, { isInNotes });
+    item.dataset.captureNextStep = nextStep.kind;
+    item.append(textEl("p", "capture-detail-next", nextStep.text));
     if (isActiveHighlightAnnotation(session.id, capture.id, "details")) {
       item.append(renderHighlightAnnotationForm(session, capture, "details"));
     }
