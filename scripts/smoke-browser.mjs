@@ -431,6 +431,8 @@ try {
     return {
       loopText: document.querySelector('[data-learning-flow-step="loop"]')?.textContent || "",
       buttonText: loopButton?.textContent || "",
+      buttonTag: loopButton?.tagName || "",
+      buttonType: loopButton?.getAttribute("type") || "",
       buttonAria: loopButton?.getAttribute("aria-label") || "",
       activeElementText: document.activeElement?.textContent || "",
       activeElementAria: document.activeElement?.getAttribute("aria-label") || ""
@@ -487,6 +489,8 @@ try {
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /phone\/Windows return files/);
   assert.match(firstRunLoopKeyboardBefore.loopText, /Pending - After first capture/);
   assert.equal(firstRunLoopKeyboardBefore.buttonText, "Capture first");
+  assert.equal(firstRunLoopKeyboardBefore.buttonTag, "BUTTON");
+  assert.equal(firstRunLoopKeyboardBefore.buttonType, "button");
   assert.equal(firstRunLoopKeyboardBefore.buttonAria, "Capture the first point before closing the learning loop");
   assert.equal(firstRunLoopKeyboardBefore.activeElementText, "Capture first");
   assert.equal(firstRunLoopKeyboardBefore.activeElementAria, "Capture the first point before closing the learning loop");
