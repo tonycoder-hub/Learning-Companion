@@ -1961,7 +1961,9 @@ function promptForSource(session = getActiveSession(workspace)) {
     title: "Add a source",
     detail: "Paste the browser page or video URL so captures can resume from it.",
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "source",
+    actionLabel: "Set source"
   });
   renderInspector();
   renderActivity(session);
@@ -2046,7 +2048,9 @@ function handlePasteSourceFailure(session, title, detail) {
     title,
     detail,
     tab: "captures",
-    targetId: ""
+    targetId: "",
+    targetPane: "source",
+    actionLabel: "Set source"
   });
   renderActivity(session);
   dom.sourceUrl.focus();
@@ -2388,10 +2392,26 @@ function captureGuidanceFor(session, resume) {
 
 function defaultCaptureGuidance() {
   return {
-    intent: "Ready",
-    intentTitle: "Add a quote or thought to capture.",
+    intent: "No source",
+    intentTitle: "Captures are allowed, but linking the browser source first makes them resumable.",
     quotePlaceholder: "Paste a quote, transcript line, or key idea",
     thoughtPlaceholder: "Your note, question, or synthesis"
+  };
+}
+
+function quickCaptureReadyActivity(session) {
+  const hasSource = hasSourceSnapshot(session);
+  // No-source empty state has two valid intents: Activity should offer source anchoring,
+  // while explicit Quick Capture entry still lets the learner jot an unanchored thought.
+  return {
+    title: hasSource ? "Ready to capture" : "Link source or jot loose thought",
+    detail: hasSource
+      ? "Paste a quote or use the browser clipper."
+      : "Paste the browser URL first to resume later, or capture an unanchored thought.",
+    tab: "captures",
+    targetId: "",
+    targetPane: hasSource ? "quickCapture" : "source",
+    actionLabel: hasSource ? "Capture" : "Set source"
   };
 }
 
@@ -2719,7 +2739,7 @@ function activityReviewCardResumeSource(activity) {
 
 function activityStaysInSidecar(activity) {
   return uiPrefs.sidecarLayout && (
-    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity)
+    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity) || activityTargetsSource(activity)
   );
 }
 
@@ -2727,11 +2747,16 @@ function activityTargetsQuickCapture(activity) {
   return activity.targetPane === "quickCapture";
 }
 
+function activityTargetsSource(activity) {
+  return activity.targetPane === "source";
+}
+
 function activityTargetsHighlightAnnotation(activity) {
   return activity.targetPane === "highlightAnnotation";
 }
 
 function activityActionLabel(activity, baseAction, staysInSidecar) {
+  if (activityTargetsSource(activity)) return "Focus Source URL";
   if (activityTargetsHighlightAnnotation(activity)) return "Add thought to saved highlight";
   if (staysInSidecar && activityTargetsQuickCapture(activity)) return "Focus Quick Capture";
   if (/^view\s+/i.test(baseAction)) {
@@ -3052,15 +3077,18 @@ function focusQuickCapture() {
   const draft = getCaptureDraft(session.id);
   const hasDraft = hasCaptureDraft(draft);
   const title = hasDraft ? "Capture draft ready" : "Quick Capture ready";
+  const readyActivity = quickCaptureReadyActivity(session);
+  // Do not redirect this entry to Source URL: rail/shortcut callers asked to focus
+  // capture fields. The Activity action remains the source-anchoring escape hatch.
   workspace = updateSession(workspace, session.id, { focusMode: "capture" });
   activeTab = "captures";
   setActivity(session, {
     title,
-    detail: hasDraft ? summarizeCaptureDraft(draft) : "Capture a quote, thought, or timestamp without leaving the study surface.",
+    detail: hasDraft ? summarizeCaptureDraft(draft) : readyActivity.detail,
     tab: "captures",
     targetId: "",
-    targetPane: "quickCapture",
-    actionLabel: hasDraft ? "Resume" : "Capture"
+    targetPane: hasDraft ? "quickCapture" : readyActivity.targetPane,
+    actionLabel: hasDraft ? "Resume" : readyActivity.actionLabel
   });
   persistAndRender(title);
   const target = dom.quoteInput.value.trim() && !dom.thoughtInput.value.trim()
@@ -3121,14 +3149,7 @@ function getActivity(session) {
       targetId: latest.id
     };
   }
-  return {
-    title: "Ready to capture",
-    detail: "Paste a quote or use the browser clipper.",
-    tab: "captures",
-    targetId: "",
-    targetPane: "quickCapture",
-    actionLabel: "Capture"
-  };
+  return quickCaptureReadyActivity(session);
 }
 
 function clearCaptureDraftActivity(sessionId) {
@@ -3142,6 +3163,10 @@ function showActivityDetails() {
   const activity = getActivity(getActiveSession(workspace));
   if (activityTargetsQuickCapture(activity)) {
     focusQuickCapture();
+    return;
+  }
+  if (activityTargetsSource(activity)) {
+    promptForSource();
     return;
   }
   if (activityTargetsHighlightAnnotation(activity)) {

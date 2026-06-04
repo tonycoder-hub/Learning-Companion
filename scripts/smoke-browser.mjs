@@ -764,6 +764,23 @@ try {
     const startHereDeviceRouteOpen = document.querySelector(".start-here-device-route")?.open === true;
     const startHereDeviceRouteSummaryText = document.querySelector(".start-here-device-route summary")?.textContent || "";
     const captureStepBeforeQuestion = document.querySelector('[data-learning-flow-step="capture"]');
+    const initialNoSourceActivity = {
+      title: document.querySelector("#activityTitle")?.textContent || "",
+      detail: document.querySelector("#activityDetail")?.textContent || "",
+      action: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      aria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || ""
+    };
+    document.querySelector("#activityDetailsBtn")?.click();
+    const initialNoSourceAction = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
+      sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true
+    };
+    document.querySelector('[data-tab="today"]').click();
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
     const noSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
       .captureDrafts?.[noSourceSession.id] || {};
@@ -864,6 +881,8 @@ try {
         text: captureStepBeforeQuestion?.textContent || "",
         actionAria: captureStepBeforeQuestion?.querySelector("button")?.getAttribute("aria-label") || ""
       },
+      initialNoSourceActivity,
+      initialNoSourceAction,
       timestampOnlyDraft: {
         timestamp: timestampOnlyDraft.timestamp || "",
         sourceTitle: timestampOnlyDraft.sourceTitle || "",
@@ -1000,6 +1019,21 @@ try {
   assert.equal(noSourceFlowStep.button, "Paste source");
   assert.equal(noSourceFlowStep.actionAria, "Paste source URL from clipboard for this learning flow");
   assert.equal(noSourceFlowStep.isWide, true);
+  assert.deepEqual(noSourceFlowStep.initialNoSourceActivity, {
+    title: "Link source or jot loose thought",
+    detail: "Paste the browser URL first to resume later, or capture an unanchored thought.",
+    action: "Set source",
+    aria: "Focus Source URL"
+  });
+  assert.deepEqual(noSourceFlowStep.initialNoSourceAction, {
+    activeTab: "captures",
+    activeElement: "sourceUrl",
+    activityTitle: "Add a source",
+    activityDetail: "Paste the browser page or video URL so captures can resume from it.",
+    activityAction: "Set source",
+    activityAria: "Focus Source URL",
+    sourceStripPulsed: true
+  });
   assert.equal(noSourceFlowStep.activeElement, "quoteInput");
   assert.equal(noSourceFlowStep.activeTab, "captures");
   assert.equal(noSourceFlowStep.activityTitle, "Source pasted");
@@ -1584,8 +1618,8 @@ try {
   assert.equal(sourceGuidanceStates.article.thoughtPlaceholder, "Your takeaway, question, or how you would apply it");
   assert.equal(sourceGuidanceStates.book.intent, "Book excerpt");
   assert.equal(sourceGuidanceStates.book.quotePlaceholder, "Sentence, section excerpt, or key claim you are reading");
-  assert.equal(sourceGuidanceStates.noSource.intent, "Ready");
-  assert.equal(sourceGuidanceStates.noSource.intentTitle, "Add a quote or thought to capture.");
+  assert.equal(sourceGuidanceStates.noSource.intent, "No source");
+  assert.equal(sourceGuidanceStates.noSource.intentTitle, "Captures are allowed, but linking the browser source first makes them resumable.");
   assert.equal(sourceGuidanceStates.noSource.quotePlaceholder, "Paste a quote, transcript line, or key idea");
   assert.equal(sourceGuidanceStates.noSource.thoughtPlaceholder, "Your note, question, or synthesis");
 
@@ -3284,13 +3318,13 @@ try {
   assert.deepEqual(result.captureContextInNewSession, {
     target: "To New learning session",
     targetTitle: "Captures save to New learning session",
-    intent: "Ready",
+    intent: "No source",
     source: "No source",
     sourceState: "missing",
     sourceBorderStyle: "dashed",
     timeHidden: true,
     timeState: "unset",
-    contextAria: "Capture context: to New learning session; Ready; source no source set; no timestamp.",
+    contextAria: "Capture context: to New learning session; No source; source no source set; no timestamp.",
     openDisabled: false,
     openText: "Set source",
     openLabel: "Set source URL",

@@ -241,7 +241,10 @@ assert.match(appJs, /App update ready - reload to use the newest Learning Flow\.
 assert.match(appJs, /staysInSidecar/);
 assert.match(appJs, /activityStaysInSidecar/);
 assert.match(appJs, /activityTargetsQuickCapture/);
+assert.match(appJs, /activityTargetsSource/);
 assert.match(appJs, /Focus Quick Capture/);
+assert.match(appJs, /Focus Source URL/);
+assert.match(appJs, /Link source or jot loose thought/);
 assert.match(appJs, /function resolveStartHereLoopPreviewState/);
 assert.match(appJs, /function focusFirstCaptureFromLoopPreview/);
 assert.match(appJs, /Pending - After first capture/);

@@ -62,10 +62,12 @@ const chrome = spawn(chromePath, [
 try {
   const target = await waitForTarget(debuggingPort);
   const cdp = await connectCdp(target.webSocketDebuggerUrl);
+  const exceptions = [];
+  cdp.on("Runtime.exceptionThrown", (event) => exceptions.push(event));
   await cdp.send("Runtime.enable");
   await cdp.send("Page.enable");
   await cdp.send("Page.navigate", { url: appUrl });
-  await sleep(500);
+  await waitForNativeBridge(cdp, exceptions);
 
   const run = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
@@ -86,7 +88,14 @@ try {
     const clickCardButton = (card, label) => {
       const button = [...(card?.querySelectorAll("button") || [])]
         .find((item) => item.textContent.replace(/\\s+/g, " ").trim() === label);
-      if (!button) throw new Error(\`Missing button \${label}\`);
+      if (!button) {
+        const buttons = [...(card?.querySelectorAll("button") || [])]
+          .map((item) => item.textContent.replace(/\\s+/g, " ").trim())
+          .join(", ");
+        const captureListText = document.querySelector("#captureList")?.textContent.replace(/\\s+/g, " ").trim() || "";
+        const session = activeSession();
+        throw new Error(\`Missing button \${label}; activeTab=\${activeTab()}; activity=\${text("#activityTitle")}; captures=\${session?.captures?.length || 0}; quote=\${document.querySelector("#quoteInput")?.value || ""}; thought=\${document.querySelector("#thoughtInput")?.value || ""}; card=\${card?.textContent.replace(/\\s+/g, " ").trim() || "none"}; buttons=\${buttons || "none"}; captureList=\${captureListText || "none"}\`);
+      }
       button.click();
     };
     const workspace = () => JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
@@ -325,6 +334,7 @@ function waitForProcessExit(process, timeoutMs) {
 async function connectCdp(url) {
   const socket = new WebSocket(url);
   const pending = new Map();
+  const handlers = new Map();
   let id = 0;
 
   await new Promise((resolveOpen, rejectOpen) => {
@@ -334,7 +344,12 @@ async function connectCdp(url) {
 
   socket.addEventListener("message", (message) => {
     const payload = JSON.parse(message.data);
-    if (!payload.id || !pending.has(payload.id)) return;
+    if (!payload.id || !pending.has(payload.id)) {
+      if (payload.method && handlers.has(payload.method)) {
+        handlers.get(payload.method).forEach((handler) => handler(payload.params || {}));
+      }
+      return;
+    }
     const { resolveMessage, rejectMessage } = pending.get(payload.id);
     pending.delete(payload.id);
     if (payload.error) rejectMessage(new Error(payload.error.message));
@@ -363,10 +378,31 @@ async function connectCdp(url) {
         return result.result.value;
       }), timeoutMs, "Runtime.evaluate timed out.");
     },
+    on(method, handler) {
+      const list = handlers.get(method) || [];
+      list.push(handler);
+      handlers.set(method, list);
+    },
     close() {
       socket.close();
     }
   };
+}
+
+async function waitForNativeBridge(cdp, exceptions) {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const ready = await cdp.evaluate(
+      `typeof window.learningCompanionNative?.exportWorkspaceJson === "function"`,
+      2000
+    );
+    if (ready) return;
+    await sleep(100);
+  }
+  const latestException = exceptions.at(-1)?.exceptionDetails?.exception?.description
+    || exceptions.at(-1)?.exceptionDetails?.text
+    || "none";
+  throw new Error(`Learning Companion native bridge was not ready; runtimeException=${latestException}`);
 }
 
 function withTimeout(promise, timeoutMs, message) {
