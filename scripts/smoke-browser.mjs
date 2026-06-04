@@ -6589,7 +6589,7 @@ try {
   assert.ok(mobileLayout.handoffSummaryScrollWidth <= mobileLayout.handoffSummaryWidth + 2);
   assert.equal(mobileLayout.captureContextVisible, true);
   assert.equal(mobileLayout.captureStartersVisible, true);
-  assert.equal(mobileLayout.captureStarterLabel, "Start draft");
+  assert.equal(mobileLayout.captureStarterLabel, "Write as");
   assert.ok(mobileLayout.deskReviewWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextWidth <= mobileLayout.innerWidth - 24);
   assert.ok(mobileLayout.captureContextScrollWidth <= mobileLayout.captureContextWidth + 2);

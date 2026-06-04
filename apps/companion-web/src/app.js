@@ -1271,6 +1271,7 @@ function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) 
   const hasDraft = hasCaptureDraft(draft);
   const sourceChanged = hasDraft && captureDraftSourceChanged(session, draft);
   dom.captureDraftStatus.textContent = sourceChanged ? "Source changed" : captureDraftStatusText(draft);
+  dom.captureDraftStatus.hidden = !hasDraft;
   dom.captureDraftStatus.classList.toggle("warn", sourceChanged);
   dom.captureDraftStatus.title = sourceChanged
     ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`

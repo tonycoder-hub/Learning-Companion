@@ -1022,6 +1022,10 @@ textarea:focus {
   flex-wrap: wrap;
 }
 
+.capture-actions .capture-secondary-action {
+  color: var(--muted);
+}
+
 .capture-draft-status {
   min-width: 66px;
   text-align: right;
