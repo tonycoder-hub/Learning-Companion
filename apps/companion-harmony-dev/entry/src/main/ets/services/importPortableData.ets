@@ -89,6 +89,15 @@ export function importPortableJsonText(text: string, nowIso: string): HarmonyImp
 
 export function importPortableObject(portable: Record<string, Object>, nowIso: string): HarmonyImportResult {
   const schema = String(portable?.schema || '');
+  if (schema.includes('mobile-inbox-patch') || schema.includes('review-progress-patch')) {
+    return failedImportReceipt(
+      classifySource(schema),
+      schema,
+      'PATCH_IMPORT_NOT_SUPPORTED_ON_READER',
+      'Return patch files must be brought back to Mac via Today > Return Files; the phone reader does not import them.',
+      nowIso
+    );
+  }
   if (schema !== WORKSPACE_SCHEMA && schema !== MIRROR_BUNDLE_SCHEMA) {
     return failedImportReceipt(classifySource(schema), schema, 'UNSUPPORTED_PORTABLE_DATA', 'Only workspace or mirror bundle JSON can be opened by the reader.', nowIso);
   }
