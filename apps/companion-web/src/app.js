@@ -2202,9 +2202,15 @@ function renderCaptureContext(session) {
   const hasSource = Boolean(resume.href);
   const hasTime = Boolean(resume.timestamp);
   const intent = captureDraftIntent(session);
+  const draft = getCaptureDraft(session.id);
+  const sourceChanged = captureDraftSourceChanged(session, draft);
+  const sourceChangedDetail = sourceChanged
+    ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
+    : "";
   dom.captureContext.dataset.sourceState = hasSource ? "linked" : "missing";
   dom.captureContext.dataset.timeState = hasTime ? "set" : "unset";
   dom.captureContext.dataset.materialType = session.materialType || "article";
+  dom.captureContext.dataset.draftSourceState = sourceChanged ? "changed" : hasCaptureDraft(draft) ? "same" : "none";
   dom.captureContext.setAttribute("aria-label", captureContextSummary(session, resume, intent, sourceLabel));
   dom.captureContextTarget.textContent = targetLabel;
   dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
@@ -2212,10 +2218,15 @@ function renderCaptureContext(session) {
   dom.captureContextIntent.textContent = intent.label;
   dom.captureContextIntent.title = intent.title;
   dom.captureContextSource.textContent = sourceLabel;
-  dom.captureContextSource.title = resume.href
+  dom.captureContextSource.classList.toggle("warn", sourceChanged);
+  dom.captureContextSource.title = sourceChanged
+    ? `${sourceChangedDetail} Use current to re-anchor before saving.`
+    : resume.href
     ? `Captures attach to ${sourceLabel}. ${title}.`
     : "No source URL yet. Set one to resume the browser source later.";
-  dom.captureContextSource.setAttribute("aria-label", resume.href
+  dom.captureContextSource.setAttribute("aria-label", sourceChanged
+    ? `Source changed. ${sourceChangedDetail}`
+    : resume.href
     ? `Show capture source: ${sourceLabel}`
     : "Show capture source: no source URL yet");
   dom.captureContextTime.hidden = !resume.timestamp;

@@ -1765,7 +1765,11 @@ try {
       statusTitle: document.querySelector("#captureDraftStatus").title,
       reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden,
       role: document.querySelector("#captureDraftStatus").getAttribute("role"),
-      ariaLive: document.querySelector("#captureDraftStatus").getAttribute("aria-live")
+      ariaLive: document.querySelector("#captureDraftStatus").getAttribute("aria-live"),
+      contextDraftSourceState: document.querySelector("#captureContext").dataset.draftSourceState,
+      contextSourceClass: document.querySelector("#captureContextSource").className,
+      contextSourceTitle: document.querySelector("#captureContextSource").title,
+      contextSourceAria: document.querySelector("#captureContextSource").getAttribute("aria-label")
     };
     document.querySelector('[data-tab="today"]').click();
     const sourceChangedTodayDraftCard = [...document.querySelectorAll("#todayList .draft-card")]
@@ -1791,7 +1795,9 @@ try {
       status: document.querySelector("#captureDraftStatus").textContent,
       statusClass: document.querySelector("#captureDraftStatus").className,
       reanchorHidden: document.querySelector("#reanchorCaptureDraftBtn").hidden,
-      sourceUrlStored: restoredActiveSession.sourceUrl
+      sourceUrlStored: restoredActiveSession.sourceUrl,
+      contextDraftSourceState: document.querySelector("#captureContext").dataset.draftSourceState,
+      contextSourceClass: document.querySelector("#captureContextSource").className
     };
     setValue("#sourceTitle", "Different lecture");
     setValue("#sourceUrl", "https://www.youtube.com/watch?v=other456");
@@ -3055,6 +3061,14 @@ try {
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.reanchorHidden, false);
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.role, "status");
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.ariaLive, "polite");
+  assert.equal(result.sourceTimestampNudge.sourceChangedDraft.contextDraftSourceState, "changed");
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceClass, /warn/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceTitle, /Draft began on RustConf ownership talk/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceTitle, /current source is Different lecture/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceTitle, /Use current to re-anchor/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceAria, /Source changed/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceAria, /Draft began on RustConf ownership talk/);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceAria, /current source is Different lecture/);
   assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /Source changed/);
   assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /Draft began on RustConf ownership talk/);
   assert.match(result.sourceTimestampNudge.sourceChangedTodayDraft.text, /current source is Different lecture/);
@@ -3070,6 +3084,8 @@ try {
   assert.doesNotMatch(result.sourceTimestampNudge.sourceRestoredDraft.statusClass, /warn/);
   assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.reanchorHidden, true);
   assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.sourceUrlStored, "https://www.youtube.com/watch?v=rust123");
+  assert.equal(result.sourceTimestampNudge.sourceRestoredDraft.contextDraftSourceState, "same");
+  assert.doesNotMatch(result.sourceTimestampNudge.sourceRestoredDraft.contextSourceClass, /warn/);
   assert.equal(result.sourceTimestampNudge.sourceReanchoredDraft.status, "Draft saved");
   assert.doesNotMatch(result.sourceTimestampNudge.sourceReanchoredDraft.statusClass, /warn/);
   assert.equal(result.sourceTimestampNudge.sourceReanchoredDraft.reanchorHidden, true);
@@ -6301,6 +6317,9 @@ try {
     const handoffSummaryMeta = document.querySelector(".device-flow-summary .item-meta");
     const handoffSummary = document.querySelector(".device-flow-summary");
     document.querySelector('[data-focus-mode="capture"]').click();
+    if (!document.querySelector("#clearCaptureDraftBtn").hidden) {
+      document.querySelector("#clearCaptureDraftBtn").click();
+    }
     const longDestinationTitle = "Learning Companion Browser Notes";
     const titleInput = document.querySelector("#sessionTitle");
     const sourceTitleInput = document.querySelector("#sourceTitle");

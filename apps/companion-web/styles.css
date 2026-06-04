@@ -903,6 +903,11 @@ textarea:focus {
   color: var(--blue);
 }
 
+.capture-context-source.warn {
+  color: var(--amber);
+  border-color: rgba(166, 111, 42, 0.36);
+}
+
 .capture-context-source:focus-visible {
   outline: 2px solid rgba(49, 95, 130, 0.35);
   outline-offset: 3px;
