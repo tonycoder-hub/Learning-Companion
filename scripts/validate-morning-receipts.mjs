@@ -25,6 +25,7 @@ const files = {
   dogfoodRunbook: "DOGFOOD_RUNBOOK.md",
   reviewStartHere: "review-start-here.html",
   staticReturnContract: "STATIC_RETURN_CONTRACT.md",
+  agentStudyLoopSmoke: "AGENT_STUDY_LOOP_SMOKE.md",
   mirrorHome: "mirror-folder/index.html",
   manualQa: "MAC_MANUAL_QA.md",
   windowsStaticQa: "WINDOWS_STATIC_QA.md",
@@ -50,6 +51,7 @@ const dogfoodRunbook = readText(files.dogfoodRunbook);
 const dogfoodRows = parseDogfoodRunbookRows(dogfoodRunbook);
 const reviewStartHere = readText(files.reviewStartHere);
 const staticReturnContract = readText(files.staticReturnContract);
+const agentStudyLoopSmoke = readText(files.agentStudyLoopSmoke);
 const mirrorHome = readText(files.mirrorHome);
 const sourceTimeLinksRaw = readText(files.sourceTimeLinks);
 const manualQa = readText(files.manualQa);
@@ -99,6 +101,13 @@ assert.equal(evidence.artifacts.some((artifact) => {
   return true;
 }), true);
 assert.equal(evidence.artifacts.some((artifact) => artifact.path === files.staticReturnContract), true);
+assert.equal(evidence.artifacts.some((artifact) => {
+  if (artifact.path !== files.agentStudyLoopSmoke) {
+    return false;
+  }
+  assertEvidence(artifact.evidence, "EXECUTED", files.agentStudyLoopSmoke);
+  return true;
+}), true);
 assert.equal(evidence.artifacts.some((artifact) => {
   if (artifact.path !== files.windowsStaticQa) {
     return false;
@@ -257,6 +266,11 @@ assert.match(reviewStartHere, /DOGFOOD_RUNBOOK\.md/);
 assert.match(reviewStartHere, /Dogfood Route/);
 assert.match(reviewStartHere, /record step count, time, and every failure/);
 assert.match(reviewStartHere, /Mac Capture Sidecar/);
+assert.match(reviewStartHere, /controlled-agent-browser-smoke/);
+assert.match(reviewStartHere, /CONTROLLED_AGENT_BROWSER_SMOKE/);
+assert.match(reviewStartHere, /provesRealUserDogfood=false/);
+assert.match(reviewStartHere, /not real dogfood/);
+assert.match(reviewStartHere, /no Mac\/Windows\/HarmonyOS\/Feishu\/native picker\/file movement coverage/);
 assert.match(reviewStartHere, /source\/time context strip/);
 assert.match(reviewStartHere, /First-Run First Note/);
 assert.match(reviewStartHere, /without repeating Open source/);
@@ -283,6 +297,16 @@ assert.match(staticReturnContract, /generated static Review\/Inbox HTML matches 
 assert.match(staticReturnContract, /does not write to Downloads/);
 assert.match(staticReturnContract, /STATIC_CONTRACT_PLUS_FIXTURE_MODEL_IMPORT/);
 assert.match(staticReturnContract, /does not prove a real user-created return file/);
+assert.match(agentStudyLoopSmoke, /^# controlled-agent-browser-smoke$/m);
+assert.match(agentStudyLoopSmoke, /Canonical label: `controlled-agent-browser-smoke`/);
+assert.match(agentStudyLoopSmoke, /npm run agent:study-loop/);
+assert.match(agentStudyLoopSmoke, /\.codex-tmp\/agent-study-loop-smoke\/receipt\.json/);
+assert.match(agentStudyLoopSmoke, /learning-companion\.agent-study-loop-smoke\.v1/);
+assert.match(agentStudyLoopSmoke, /CONTROLLED_AGENT_BROWSER_SMOKE/);
+assert.match(agentStudyLoopSmoke, /provesRealUserDogfood=false/);
+assert.match(agentStudyLoopSmoke, /Not a human dogfood session/);
+assert.match(agentStudyLoopSmoke, /Not Mac WKWebView coverage/);
+assert.match(agentStudyLoopSmoke, /Cannot fill any row in `DOGFOOD_RUNBOOK\.md` or `MAC_MANUAL_QA\.md`/);
 assert.match(mirrorHome, /Open Question Preview/);
 assert.match(mirrorHome, /1 open question/);
 assert.match(mirrorHome, /How should I compare Rust traits with TypeScript interfaces\?/);

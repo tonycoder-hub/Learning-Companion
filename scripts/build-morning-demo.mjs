@@ -48,6 +48,7 @@ const DOGFOOD_RUNBOOK_FILE = "DOGFOOD_RUNBOOK.md";
 const MAC_MANUAL_QA_FILE = "MAC_MANUAL_QA.md";
 const WINDOWS_STATIC_QA_FILE = "WINDOWS_STATIC_QA.md";
 const STATIC_RETURN_CONTRACT_FILE = "STATIC_RETURN_CONTRACT.md";
+const AGENT_STUDY_LOOP_SMOKE_FILE = "AGENT_STUDY_LOOP_SMOKE.md";
 const HARMONY_DEVECO_HANDOFF_FILE = "HARMONY_DEVECO_HANDOFF.md";
 const HARMONY_SCAFFOLD_REPORT_FILE = "HARMONY_SCAFFOLD_REPORT.json";
 const EVIDENCE_TIERS_FILE = "EVIDENCE_TIERS.json";
@@ -528,6 +529,7 @@ await writeText(join(OUT_DIR, DOGFOOD_RUNBOOK_FILE), buildDogfoodRunbookMarkdown
 await writeText(join(OUT_DIR, MAC_MANUAL_QA_FILE), macManualQaMarkdown);
 await writeText(join(OUT_DIR, WINDOWS_STATIC_QA_FILE), windowsStaticQaMarkdown);
 await writeText(join(OUT_DIR, STATIC_RETURN_CONTRACT_FILE), buildStaticReturnContractMarkdown());
+await writeText(join(OUT_DIR, AGENT_STUDY_LOOP_SMOKE_FILE), buildAgentStudyLoopSmokeMarkdown());
 await writeText(
   join(OUT_DIR, HARMONY_DEVECO_HANDOFF_FILE),
   `${buildEvidenceBadgeMarkdown(HARMONY_DEVECO_HANDOFF_FILE)}${await readFile("apps/companion-harmony/DEVECO_HANDOFF.md", "utf8")}`
@@ -569,6 +571,7 @@ assert.match(reviewReportHtml, /href="DOGFOOD_RUNBOOK\.md"/);
 assert.match(reviewReportHtml, /href="MAC_MANUAL_QA\.md"/);
 assert.match(reviewReportHtml, /href="WINDOWS_STATIC_QA\.md"/);
 assert.match(reviewReportHtml, /href="STATIC_RETURN_CONTRACT\.md"/);
+assert.match(reviewReportHtml, /href="AGENT_STUDY_LOOP_SMOKE\.md"/);
 assert.match(reviewReportHtml, /href="HARMONY_DEVECO_HANDOFF\.md"/);
 assert.match(reviewReportHtml, /href="EVIDENCE_TIERS\.json"/);
 assert.match(reviewReportHtml, /href="DEFERRED_GATES\.json"/);
@@ -581,6 +584,11 @@ assert.match(reviewReportHtml, /What To Inspect First/);
 assert.match(reviewReportHtml, /Dogfood Route/);
 assert.match(reviewReportHtml, /record step count, time, and every failure/);
 assert.match(reviewReportHtml, /Mac Capture Sidecar/);
+assert.match(reviewReportHtml, /controlled-agent-browser-smoke/);
+assert.match(reviewReportHtml, /CONTROLLED_AGENT_BROWSER_SMOKE/);
+assert.match(reviewReportHtml, /provesRealUserDogfood=false/);
+assert.match(reviewReportHtml, /not real dogfood/);
+assert.match(reviewReportHtml, /no Mac\/Windows\/HarmonyOS\/Feishu\/native picker\/file movement coverage/);
 assert.match(reviewReportHtml, /source\/time context strip/);
 assert.match(reviewReportHtml, /First-Run First Note/);
 assert.match(reviewReportHtml, /without repeating Open source/);
@@ -1353,6 +1361,53 @@ function buildDemoScriptMarkdown({
   ].join("\n");
 }
 
+function buildAgentStudyLoopSmokeMarkdown() {
+  return [
+    "# controlled-agent-browser-smoke",
+    "",
+    buildEvidenceBadgeMarkdown(AGENT_STUDY_LOOP_SMOKE_FILE).trim(),
+    "",
+    "This note gives the morning reviewer a focused sidecar-loop regression command. It is not a dogfood receipt.",
+    "",
+    "Canonical label: `controlled-agent-browser-smoke`.",
+    "",
+    "## Run It",
+    "",
+    "```bash",
+    "npm run agent:study-loop",
+    "```",
+    "",
+    "Expected receipt path:",
+    "",
+    "```text",
+    ".codex-tmp/agent-study-loop-smoke/receipt.json",
+    "```",
+    "",
+    "## What A Passing Receipt Proves",
+    "",
+    "- `schema` is `learning-companion.agent-study-loop-smoke.v1`.",
+    "- `result` is `PASS`.",
+    "- `evidenceType` is `CONTROLLED_AGENT_BROWSER_SMOKE`.",
+    "- `provesRealUserDogfood=false`.",
+    "- The controlled path covers sidecar capture rail focus, first capture durable Notes decision, open-question ownership, linked-answer closure, a long-text support capture that does not steal the loop, and final `Clear` state.",
+    "",
+    "## What It Does Not Prove",
+    "",
+    "- Not a human dogfood session.",
+    "- Not Mac WKWebView coverage.",
+    "- Not HarmonyOS, Windows, Feishu, native picker, or real file movement coverage.",
+    "- Not a background Downloads scan.",
+    "- Cannot fill any row in `DOGFOOD_RUNBOOK.md` or `MAC_MANUAL_QA.md`.",
+    "",
+    "## Claim Boundary",
+    "",
+    "- Use this as a fast regression receipt before a real morning review.",
+    "- Use `DOGFOOD_RUNBOOK.md` for actual usability claims.",
+    "- If this smoke fails, treat the sidecar learning loop as suspect before asking Tony to dogfood it.",
+    ""
+  ].join("\n");
+}
+
 function buildMorningReviewMarkdown({
   mirrorBundle,
   mirrorZip,
@@ -1402,6 +1457,7 @@ function buildMorningReviewMarkdown({
     `0h. Read \`dist/morning-demo/${STATIC_RETURN_CONTRACT_FILE}\`; \`npm run check:morning\` now runs the static return verifier, and \`npm run check:static-return\` can rerun it alone.`,
     "0i. Check the first-run `First Note` row in `dist/morning-demo/MAC_MANUAL_QA.md`; it is a manual UI gate, not a generator proof.",
     "0j. Check the Today section map row in `dist/morning-demo/MAC_MANUAL_QA.md`; it should make the denser Today cockpit navigable on sidecar/mobile widths.",
+    `0k. Read \`dist/morning-demo/${AGENT_STUDY_LOOP_SMOKE_FILE}\` if you want the controlled sidecar-loop smoke command; its receipt must say \`CONTROLLED_AGENT_BROWSER_SMOKE\` and \`provesRealUserDogfood=false\`.`,
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
@@ -1425,6 +1481,7 @@ function buildMorningReviewMarkdown({
     `- Mac manual QA receipt: \`${MAC_MANUAL_QA_FILE}\` (fill during dogfood review)`,
     `- Windows static QA receipt: \`${WINDOWS_STATIC_QA_FILE}\` (fill during real Windows folder/review/inbox/Return Files pass; ${windowsStaticQaStatus.filled}/${windowsStaticQaStatus.total} rows filled now)`,
     `- Static return contract: \`${STATIC_RETURN_CONTRACT_FILE}\` (explains the \`npm run check:static-return\` verifier and its evidence boundary)`,
+    `- controlled-agent-browser-smoke: \`${AGENT_STUDY_LOOP_SMOKE_FILE}\` (explains \`npm run agent:study-loop\`, the project-local receipt path, and why it cannot fill dogfood rows)`,
     `- HarmonyOS DevEco handoff: \`${HARMONY_DEVECO_HANDOFF_FILE}\` (ArkTS scaffold contract, import file guard, reader session handoff, and device gates)`,
     `- HarmonyOS scaffold report: \`${HARMONY_SCAFFOLD_REPORT_FILE}\` (${harmonyScaffoldReport.fileCount} scaffold files checked, including reader session/page wiring; no SDK compile claimed)`,
     `- Feishu upload plan: \`feishu-upload/feishu-upload-plan.json\` (${feishuUploadPlan.files.length} planned local upserts, no live API)`,
@@ -1553,6 +1610,7 @@ function buildReviewStartHereHtml({
     ["Mac Manual QA Receipt", MAC_MANUAL_QA_FILE, "Fill this during real Mac dogfood: sidecar, capture, import/export, relaunch."],
     ["Windows Static QA Receipt", WINDOWS_STATIC_QA_FILE, "PENDING RECEIPT, not QA evidence; fill this during real Windows Edge/Chrome mirror launch, Review/Inbox return files, and Mac Return Files import."],
     ["Static Return Contract", STATIC_RETURN_CONTRACT_FILE, "`npm run check:static-return` boundary: static contract plus fixture model import, not real device/user return-file proof."],
+    ["controlled-agent-browser-smoke", AGENT_STUDY_LOOP_SMOKE_FILE, "`npm run agent:study-loop` writes a project-local CONTROLLED_AGENT_BROWSER_SMOKE receipt; provesRealUserDogfood=false; not real dogfood; no Mac/Windows/HarmonyOS/Feishu/native picker/file movement coverage."],
     ["HarmonyOS DevEco Handoff", HARMONY_DEVECO_HANDOFF_FILE, "ArkTS scaffold, import boundary, reader session handoff, patch boundary, and device test gates."],
     ["HarmonyOS Scaffold Report", HARMONY_SCAFFOLD_REPORT_FILE, `${harmonyScaffoldReport.fileCount} scaffold files checked; reader session/page wiring covered; no SDK compile claimed.`],
     ["Sample workspace", SAMPLE_WORKSPACE_FILE, "Import this into the app for the demo state."],
@@ -1601,6 +1659,7 @@ function buildReviewStartHereHtml({
     ["Patch intake negatives", "executed-negative-fixture", `${patchIntakeNegativeReceipt.summary.expectedFailuresObserved}/${patchIntakeNegativeReceipt.summary.cases} expected failures observed`, "real off-Mac patch origination"],
     ["Mirror integrity", "executed-static-check", `${mirrorIntegrityReport.summary.internalLinks} internal links checked`, `Windows manual rows live in ${WINDOWS_STATIC_QA_FILE}`],
     ["Static return loop", "static-contract-fixture", "`npm run check:static-return` verifies local mirror return contracts and fixture model import", "real user-created return file, file:// runtime, Windows, HarmonyOS, native picker, Feishu"],
+    ["controlled-agent-browser-smoke", "controlled-agent-browser-smoke", "`npm run agent:study-loop` drives sidecar first capture, Notes decision, open question, linked answer, support capture, and Clear loop in headless Chrome", "human dogfood, Mac WKWebView, phone/Windows/Feishu/native picker/file movement"],
     ["Adversarial gates", "executed-negative-fixture", `${adversarialGateReport.summary.passed}/${adversarialGateReport.summary.checks} expected failures observed`, "broader corruption matrix"],
     ["Deferred gates", "pending-user-gate", `${deferredGates.summary.pending} explicitly deferred gates`, "completion evidence"],
     ...(determinismReport ? [["Morning determinism", "executed-byte-compare", `${determinismReport.summary.comparedFiles} files compared`, "runtime environment outside repo"]] : []),
@@ -1619,6 +1678,11 @@ function buildReviewStartHereHtml({
       "1. Mac Capture Sidecar",
       "In Quick Capture, check the app-focused shortcut, source/time context strip, timestamped URL staging, and -15/+15 Time nudges before inspecting broader review loops.",
       MAC_MANUAL_QA_FILE
+    ],
+    [
+      "1b. controlled-agent-browser-smoke",
+      "Run npm run agent:study-loop for the focused headless sidecar-loop regression; the receipt must stay CONTROLLED_AGENT_BROWSER_SMOKE with provesRealUserDogfood=false; not real dogfood; no Mac/Windows/HarmonyOS/Feishu/native picker/file movement coverage.",
+      AGENT_STUDY_LOOP_SMOKE_FILE
     ],
     [
       "2. First-Run First Note",
@@ -1848,6 +1912,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === STATIC_RETURN_CONTRACT_FILE) {
     return evidenceTier("EXECUTED", "Generated contract note for the separate static return verifier; the verifier receipt itself is project-local and ignored.");
+  }
+  if (normalized === AGENT_STUDY_LOOP_SMOKE_FILE) {
+    return evidenceTier("EXECUTED", "Generated command note for the separate controlled sidecar-loop smoke; the receipt itself is project-local and ignored, and it cannot prove dogfood.");
   }
   if (normalized === HARMONY_DEVECO_HANDOFF_FILE) {
     return evidenceTier("HANDOFF_ONLY", "DevEco/ArkTS scaffold guidance and interface contract only; no HarmonyOS device run is claimed.");
