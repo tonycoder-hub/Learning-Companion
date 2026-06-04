@@ -1870,7 +1870,7 @@ function buildCloze() {
 }
 
 function scheduleSave() {
-  clearPendingCaptureUndo({ renderActivityStrip: true });
+  clearPendingCaptureUndo({ renderActivityStrip: true, reason: "save" });
   dom.saveState.textContent = "Saving";
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
@@ -2618,7 +2618,9 @@ function setActivity(session, activity) {
 
 function renderActivity(session) {
   const activity = getActivity(session);
-  const canUndoCaptureDelete = pendingCaptureUndo?.sessionId === session.id;
+  const pendingUndoMatchesSession = pendingCaptureUndo?.sessionId === session.id;
+  const captureUndoSeconds = pendingUndoMatchesSession ? pendingCaptureUndoRemainingSeconds() : 0;
+  const canUndoCaptureDelete = pendingUndoMatchesSession && captureUndoSeconds > 0;
   const baseAction = activity.actionLabel || (activity.tab === "review"
     ? "Review"
     : activity.tab === "export" ? "Export" : activity.tab === "today" ? "Today" : "Details");
@@ -2628,9 +2630,14 @@ function renderActivity(session) {
   dom.activityTitle.textContent = activity.title;
   dom.activityDetail.textContent = activity.detail;
   dom.activityUndoBtn.hidden = !canUndoCaptureDelete;
-  dom.activityUndoBtn.textContent = canUndoCaptureDelete ? "Undo 10s" : "Undo";
-  dom.activityUndoBtn.title = canUndoCaptureDelete ? `Undo delete: ${pendingCaptureUndo.summary}` : "";
-  dom.activityUndoBtn.setAttribute("aria-label", canUndoCaptureDelete ? `Undo capture delete: ${pendingCaptureUndo.summary}` : "Undo capture delete");
+  dom.activityUndoBtn.textContent = canUndoCaptureDelete ? `Undo delete (${captureUndoSeconds}s)` : "Undo";
+  dom.activityUndoBtn.title = canUndoCaptureDelete
+    ? `Undo delete before this recovery window closes: ${pendingCaptureUndo.summary}`
+    : "";
+  dom.activityUndoBtn.setAttribute("aria-label", canUndoCaptureDelete
+    ? `Undo capture delete. ${captureUndoSeconds} seconds remaining. ${pendingCaptureUndo.summary}`
+    : "Undo capture delete");
+  dom.activityUndoBtn.dataset.undoRemainingSeconds = canUndoCaptureDelete ? String(captureUndoSeconds) : "";
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
   dom.activityDetailsBtn.setAttribute("aria-label", actionLabel);
@@ -6592,25 +6599,55 @@ function stageCaptureDeleteUndo(sessionId, captureId, summary) {
     revealedReviewKeys: [...revealedReviewCards],
     sessionId,
     captureId,
-    summary
+    summary,
+    expiresAt: Date.now() + CAPTURE_DELETE_UNDO_MS
   };
-  pendingCaptureUndoTimer = setTimeout(() => {
-    pendingCaptureUndo = null;
-    pendingCaptureUndoTimer = null;
-    renderActivity(getActiveSession(workspace));
-  }, CAPTURE_DELETE_UNDO_MS);
+  schedulePendingCaptureUndoTick();
 }
 
 function clearPendingCaptureUndo(options = {}) {
+  const clearedUndo = pendingCaptureUndo;
   if (pendingCaptureUndoTimer) clearTimeout(pendingCaptureUndoTimer);
   pendingCaptureUndoTimer = null;
   pendingCaptureUndo = null;
+  if (clearedUndo && options.reason === "save") {
+    const session = workspace.sessions.find((item) => item.id === clearedUndo.sessionId) || getActiveSession(workspace);
+    setActivity(session, {
+      title: "Undo expired",
+      detail: "A new save replaced the capture-delete recovery point.",
+      tab: "captures",
+      targetId: ""
+    });
+  }
   if (options.renderActivityStrip) renderActivity(getActiveSession(workspace));
 }
 
+function pendingCaptureUndoRemainingSeconds() {
+  if (!pendingCaptureUndo?.expiresAt) return 0;
+  return Math.max(0, Math.ceil((pendingCaptureUndo.expiresAt - Date.now()) / 1000));
+}
+
+function schedulePendingCaptureUndoTick() {
+  if (pendingCaptureUndoTimer) clearTimeout(pendingCaptureUndoTimer);
+  pendingCaptureUndoTimer = setTimeout(handlePendingCaptureUndoTick, 1000);
+}
+
+function handlePendingCaptureUndoTick() {
+  pendingCaptureUndoTimer = null;
+  if (!pendingCaptureUndo) return;
+  if (pendingCaptureUndoRemainingSeconds() <= 0) {
+    pendingCaptureUndo = null;
+    renderActivity(getActiveSession(workspace));
+    return;
+  }
+  renderActivity(getActiveSession(workspace));
+  schedulePendingCaptureUndoTick();
+}
+
 function restorePendingCaptureDelete() {
-  if (!pendingCaptureUndo) {
-    showToast("Nothing to undo");
+  if (!pendingCaptureUndo || pendingCaptureUndoRemainingSeconds() <= 0) {
+    clearPendingCaptureUndo({ renderActivityStrip: true });
+    showToast("Undo expired");
     renderActivity(getActiveSession(workspace));
     return;
   }

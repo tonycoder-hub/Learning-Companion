@@ -5344,7 +5344,10 @@ try {
       stackOnlyDeleteLabel,
       confirmPrompt: stackOnlyDeletePrompt,
       undoVisible: !document.querySelector("#activityUndoBtn").hidden,
-      undoLabel: document.querySelector("#activityUndoBtn").textContent
+      undoLabel: document.querySelector("#activityUndoBtn").textContent,
+      undoTitle: document.querySelector("#activityUndoBtn").title,
+      undoAria: document.querySelector("#activityUndoBtn").getAttribute("aria-label") || "",
+      undoRemaining: document.querySelector("#activityUndoBtn").dataset.undoRemainingSeconds || ""
     };
     document.querySelector("#activityUndoBtn").click();
     const afterStackUndo = {
@@ -5363,7 +5366,17 @@ try {
       captures: document.querySelector("#captureMetric").textContent,
       cards: document.querySelector("#cardMetric").textContent,
       stackText: document.querySelector("#captureStack").textContent,
-      activity: document.querySelector("#activityTitle").textContent
+      activity: document.querySelector("#activityTitle").textContent,
+      undoLabel: document.querySelector("#activityUndoBtn").textContent,
+      undoAria: document.querySelector("#activityUndoBtn").getAttribute("aria-label") || "",
+      undoRemaining: document.querySelector("#activityUndoBtn").dataset.undoRemainingSeconds || ""
+    };
+    setValue("#sourceTitle", "New saved source should replace the old delete recovery point.");
+    const afterUndoSaveInvalidation = {
+      undoHidden: document.querySelector("#activityUndoBtn").hidden,
+      activity: document.querySelector("#activityTitle").textContent,
+      activityDetail: document.querySelector("#activityDetail").textContent,
+      undoRemaining: document.querySelector("#activityUndoBtn").dataset.undoRemainingSeconds || ""
     };
     document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Review reveal preserve");
@@ -5405,6 +5418,7 @@ try {
       afterStackDelete,
       afterStackUndo,
       afterStackRedoDelete,
+      afterUndoSaveInvalidation,
       unrelatedReviewState,
       afterStackCancelDelete,
       afterCancelDelete,
@@ -5452,7 +5466,12 @@ try {
   assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Delete directly from the sidecar stack/);
   assert.match(deleteFlow.afterStackDelete.confirmPrompt, /Existing note blocks/);
   assert.equal(deleteFlow.afterStackDelete.undoVisible, true);
-  assert.equal(deleteFlow.afterStackDelete.undoLabel, "Undo 10s");
+  assert.equal(deleteFlow.afterStackDelete.undoLabel, "Undo delete (10s)");
+  assert.match(deleteFlow.afterStackDelete.undoTitle, /Undo delete before this recovery window closes/);
+  assert.match(deleteFlow.afterStackDelete.undoTitle, /Delete directly from the sidecar stack/);
+  assert.match(deleteFlow.afterStackDelete.undoAria, /Undo capture delete/);
+  assert.match(deleteFlow.afterStackDelete.undoAria, /10 seconds remaining/);
+  assert.equal(deleteFlow.afterStackDelete.undoRemaining, "10");
   assert.equal(deleteFlow.afterStackUndo.captures, "1");
   assert.equal(deleteFlow.afterStackUndo.cards, "0");
   assert.match(deleteFlow.afterStackUndo.stackText, /Delete directly from the sidecar stack/);
@@ -5463,6 +5482,13 @@ try {
   assert.equal(deleteFlow.afterStackRedoDelete.cards, "0");
   assert.doesNotMatch(deleteFlow.afterStackRedoDelete.stackText, /Stack-only mistaken capture/);
   assert.equal(deleteFlow.afterStackRedoDelete.activity, "Capture deleted");
+  assert.equal(deleteFlow.afterStackRedoDelete.undoLabel, "Undo delete (10s)");
+  assert.match(deleteFlow.afterStackRedoDelete.undoAria, /10 seconds remaining/);
+  assert.equal(deleteFlow.afterStackRedoDelete.undoRemaining, "10");
+  assert.equal(deleteFlow.afterUndoSaveInvalidation.undoHidden, true);
+  assert.equal(deleteFlow.afterUndoSaveInvalidation.activity, "Undo expired");
+  assert.equal(deleteFlow.afterUndoSaveInvalidation.activityDetail, "A new save replaced the capture-delete recovery point.");
+  assert.equal(deleteFlow.afterUndoSaveInvalidation.undoRemaining, "");
   assert.deepEqual(deleteFlow.unrelatedReviewState, {
     beforeUnrelatedDeleteReveal: true,
     afterUnrelatedDeleteReveal: true
