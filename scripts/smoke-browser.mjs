@@ -7170,6 +7170,7 @@ async function assertFirstCaptureLoopDecision(cdp) {
       title: document.querySelector("#activityTitle")?.textContent || "",
       detail: document.querySelector("#activityDetail")?.textContent || "",
       action: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      actionAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       hintHidden: document.querySelector("#activityHint")?.hidden !== false,
       hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || "",
       hintText: document.querySelector("#activityHintText")?.textContent || "",
@@ -7241,7 +7242,7 @@ async function assertFirstCaptureLoopDecision(cdp) {
       noteResumeFeatures = features || "";
       return null;
     };
-    document.querySelector("#activityHintBtn")?.click();
+    document.querySelector("#activityDetailsBtn")?.click();
     window.open = nativeWindowOpen;
     const noteResumeActivity = readActivity();
     const noteResumeState = {
@@ -7304,7 +7305,7 @@ async function assertFirstCaptureLoopDecision(cdp) {
       timedNoteHref = href;
       return null;
     };
-    document.querySelector("#activityHintBtn")?.click();
+    document.querySelector("#activityDetailsBtn")?.click();
     window.open = nativeTimedWindowOpen;
     const timedNoteResume = readActivity();
     const timedNoteState = {
@@ -7487,30 +7488,38 @@ async function assertFirstCaptureLoopDecision(cdp) {
     ]
   });
   assert.equal(result.noteAddedActivity.title, "Capture added to notes");
-  assert.equal(result.noteAddedActivity.action, "View note");
+  assert.equal(result.noteAddedActivity.action, "Open at quote");
+  assert.equal(result.noteAddedActivity.actionAria, "Open at quote in a new tab; Quick Capture stays ready");
   assert.equal(result.noteAddedActivity.hintHidden, false);
-  assert.equal(result.noteAddedActivity.hintKind, "afterNoteAddedTextSourceLinked");
-  assert.equal(result.noteAddedActivity.hintAction, "Open at quote");
-  assert.equal(result.noteAddedActivity.hintAria, "Open the source; jump to this noted quote if supported");
+  assert.equal(result.noteAddedActivity.hintKind, "afterNoteAddedViewNote");
+  assert.equal(result.noteAddedActivity.hintAction, "View note");
+  assert.equal(result.noteAddedActivity.hintAria, "View this capture in Notes");
   assert.equal(result.noteResumeActivity.title, "Source resumed");
-  assert.equal(result.noteResumeActivity.action, "View note");
+  assert.equal(result.noteResumeActivity.action, "Focus field");
+  assert.equal(result.noteResumeActivity.actionAria, "Focus Quick Capture");
+  assert.equal(result.noteResumeActivity.hintHidden, false);
+  assert.equal(result.noteResumeActivity.hintKind, "afterNoteAddedViewNote");
+  assert.equal(result.noteResumeActivity.hintAction, "View note");
   assert.match(result.noteResumeActivity.detail, /The note is saved\. Keep reading; capture the next point when it lands/);
   assert.deepEqual(result.noteResumeState, {
     opened: "https://example.com/decision-source#:~:text=First%20capture%20needs%20a%20durable%20next%20step.",
     target: "_blank",
     features: "noopener,noreferrer",
     activeTab: "captures",
-    action: "View note",
+    action: "Focus field",
     capturePanePulsed: true
   });
   assert.equal(result.timedNoteActivity.title, "Capture added to notes");
-  assert.equal(result.timedNoteActivity.action, "View note");
+  assert.equal(result.timedNoteActivity.action, "Resume source");
+  assert.equal(result.timedNoteActivity.actionAria, "Resume source in a new tab; Quick Capture stays ready");
   assert.equal(result.timedNoteActivity.hintHidden, false);
-  assert.equal(result.timedNoteActivity.hintKind, "afterNoteAddedTimedSourceLinked");
-  assert.equal(result.timedNoteActivity.hintAction, "Resume source");
-  assert.equal(result.timedNoteActivity.hintAria, "Resume the source moment after saving this capture to Notes");
+  assert.equal(result.timedNoteActivity.hintKind, "afterNoteAddedViewNote");
+  assert.equal(result.timedNoteActivity.hintAction, "View note");
+  assert.equal(result.timedNoteActivity.hintAria, "View this capture in Notes");
   assert.equal(result.timedNoteResume.title, "Source resumed");
-  assert.equal(result.timedNoteResume.action, "View note");
+  assert.equal(result.timedNoteResume.action, "Focus field");
+  assert.equal(result.timedNoteResume.hintHidden, false);
+  assert.equal(result.timedNoteResume.hintKind, "afterNoteAddedViewNote");
   assert.deepEqual(result.timedNoteState, {
     opened: "https://www.youtube.com/watch?v=note123&t=201s",
     activeTab: "captures",
@@ -8329,11 +8338,12 @@ async function assertPostSaveFlow(cdp) {
   });
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleFingerprintButtonVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.title, "Capture note updated");
-  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.action, "View note");
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.action, "Open at quote");
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.aria, "Open at quote in a new tab; Quick Capture stays ready");
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintHidden, false);
-  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintKind, "afterNoteAddedTextSourceLinked");
-  assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintText, /^Note updated\. Open the source at this quote/);
-  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintAction, "Open at quote");
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintKind, "afterNoteAddedViewNote");
+  assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintText, /^Note updated\. View the refreshed block/);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintAction, "View note");
   assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.restoredViewButtonMeta, {
     visible: true,
     label: "View in Notes",

@@ -2560,6 +2560,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
     actionLabel: "Resume source",
     ariaLabel: "Resume the source moment after saving this capture to Notes"
   }),
+  afterNoteAddedViewNote: Object.freeze({
+    kind: "afterNoteAddedViewNote",
+    text: "Note saved. Inspect the generated block when needed.",
+    actionLabel: "View note",
+    ariaLabel: "View this capture in Notes"
+  }),
   afterCardMade: Object.freeze({
     kind: "afterCardMade",
     text: "Saved for recall. Review when you want.",
@@ -2644,6 +2650,16 @@ function noteAddedSourceHintKind(resume) {
 function noteAddedSourceHint(resume, didUpdate = false) {
   const hint = activityNextHint(noteAddedSourceHintKind(resume));
   if (hint && Boolean(didUpdate)) hint.text = hint.text.replace("Saved to Notes.", "Note updated.");
+  return hint;
+}
+
+function noteAddedSourceActionLabel(resume) {
+  return noteAddedSourceHint(resume)?.actionLabel || "";
+}
+
+function noteAddedViewNoteHint(didUpdate = false) {
+  const hint = activityNextHint("afterNoteAddedViewNote");
+  if (hint && Boolean(didUpdate)) hint.text = "Note updated. View the refreshed block when needed.";
   return hint;
 }
 
@@ -2831,7 +2847,7 @@ function activityReviewCardResumeSource(activity) {
 
 function activityStaysInSidecar(activity) {
   return uiPrefs.sidecarLayout && (
-    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity) || activityTargetsSource(activity)
+    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity) || activityTargetsSource(activity) || activityTargetsSourceResume(activity)
   );
 }
 
@@ -2843,13 +2859,19 @@ function activityTargetsSource(activity) {
   return activity.targetPane === "source";
 }
 
+function activityTargetsSourceResume(activity) {
+  return activity.targetPane === "sourceResume";
+}
+
 function activityTargetsHighlightAnnotation(activity) {
   return activity.targetPane === "highlightAnnotation";
 }
 
 function activityActionLabel(activity, baseAction, staysInSidecar) {
   if (activityTargetsSource(activity)) return "Focus Source URL";
+  if (activityTargetsSourceResume(activity)) return `${baseAction} in a new tab; Quick Capture stays ready`;
   if (activityTargetsHighlightAnnotation(activity)) return "Add thought to saved highlight";
+  if (activityTargetsQuickCapture(activity) && /^focus\s+field$/i.test(baseAction)) return "Focus Quick Capture";
   if (staysInSidecar && activityTargetsQuickCapture(activity)) return "Focus Quick Capture";
   if (/^view\s+/i.test(baseAction)) {
     return uiPrefs.sidecarLayout && !staysInSidecar
@@ -3257,6 +3279,10 @@ function showActivityDetails() {
     focusQuickCapture();
     return;
   }
+  if (activityTargetsSourceResume(activity)) {
+    resumeActivityHintSource(activity);
+    return;
+  }
   if (activityTargetsSource(activity)) {
     promptForSource();
     return;
@@ -3265,6 +3291,10 @@ function showActivityDetails() {
     openActivityHighlightAnnotation(activity);
     return;
   }
+  openActivityTarget(activity);
+}
+
+function openActivityTarget(activity) {
   activeTab = activity.tab;
   if (activity.targetPane === "notes") {
     notesMode = "preview";
@@ -3300,6 +3330,10 @@ function runActivityHintAction() {
       return;
     }
     promoteCaptureToReview(targetCapture.id, targetSession.id);
+    return;
+  }
+  if (hint.kind === "afterNoteAddedViewNote") {
+    openActivityTarget({ ...activity, tab: "captures", targetPane: "notes" });
     return;
   }
   if (hint.kind === "afterCaptureSavedSourceLinked" || hint.kind === "afterCaptureSavedTextSourceLinked" || hint.kind === "afterCaptureSavedTimedSourceLinked" || hint.kind === "afterNoteAddedSourceLinked" || hint.kind === "afterNoteAddedTextSourceLinked" || hint.kind === "afterNoteAddedTimedSourceLinked" || hint.kind === "afterThoughtAddedSourceLinked" || hint.kind === "afterThoughtAddedTextSourceLinked" || hint.kind === "afterQuestionSavedSourceLinked" || hint.kind === "afterLinkedAnswerSavedSourceLinked") {
@@ -3348,7 +3382,11 @@ function resumeActivityHintSource(activity) {
   const resumedQuestion = activity.nextHint?.kind === "afterQuestionSavedSourceLinked";
   const resumedNote = activity.nextHint?.kind === "afterNoteAddedSourceLinked"
     || activity.nextHint?.kind === "afterNoteAddedTextSourceLinked"
-    || activity.nextHint?.kind === "afterNoteAddedTimedSourceLinked";
+    || activity.nextHint?.kind === "afterNoteAddedTimedSourceLinked"
+    || activityTargetsSourceResume(activity);
+  const noteViewHint = resumedNote && activity.nextHint?.kind === "afterNoteAddedViewNote"
+    ? normalizeActivityNextHint(activity.nextHint)
+    : activityNextHint("afterNoteAddedViewNote");
   setActivity(targetSession, {
     title: "Source resumed",
     detail: resumedQuestion
@@ -3358,9 +3396,9 @@ function resumeActivityHintSource(activity) {
       : `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
     tab: "captures",
     targetId: targetCapture.id,
-    targetPane: resumedNote ? "notes" : "",
-    actionLabel: resumedNote ? "View note" : activity.nextHint?.kind === "afterThoughtAddedSourceLinked" || activity.nextHint?.kind === "afterThoughtAddedTextSourceLinked" ? "View highlight" : "View capture",
-    nextHint: resumedQuestion ? activityNextHint("afterQuestionSourceResumed") : null
+    targetPane: resumedNote ? "quickCapture" : "",
+    actionLabel: resumedNote ? "Focus field" : activity.nextHint?.kind === "afterThoughtAddedSourceLinked" || activity.nextHint?.kind === "afterThoughtAddedTextSourceLinked" ? "View highlight" : "View capture",
+    nextHint: resumedQuestion ? activityNextHint("afterQuestionSourceResumed") : resumedNote ? noteViewHint : null
   });
   renderActivity(getActiveSession(workspace));
   pulseNode(dom.captureContextSource);
@@ -6375,14 +6413,15 @@ function addCaptureToNotes(captureId) {
   notesMode = "preview";
   const title = noteWasCurrent ? "Capture note opened" : hadNoteBlock ? "Capture note updated" : "Capture added to notes";
   const resume = buildCaptureResumeSource(session, capture);
+  const sourceActionLabel = noteWasCurrent ? "" : noteAddedSourceActionLabel(resume);
   setActivity(getActiveSession(workspace), {
     title,
     detail: summarizeCapture(capture),
     tab: "captures",
     targetId: capture.id,
-    targetPane: "notes",
-    actionLabel: "View note",
-    nextHint: noteWasCurrent ? null : noteAddedSourceHint(resume, hadNoteBlock)
+    targetPane: sourceActionLabel ? "sourceResume" : "notes",
+    actionLabel: sourceActionLabel || "View note",
+    nextHint: sourceActionLabel ? noteAddedViewNoteHint(hadNoteBlock) : null
   });
   persistAndRender(title);
   scrollActivityTarget({ targetPane: "notes", targetId: capture.id });
