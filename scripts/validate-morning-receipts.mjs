@@ -47,6 +47,7 @@ const morningReview = readText(files.morningReview);
 const demoScript = readText(files.demoScript);
 const stage = readText(files.stage);
 const dogfoodRunbook = readText(files.dogfoodRunbook);
+const dogfoodRows = parseDogfoodRunbookRows(dogfoodRunbook);
 const reviewStartHere = readText(files.reviewStartHere);
 const staticReturnContract = readText(files.staticReturnContract);
 const mirrorHome = readText(files.mirrorHome);
@@ -281,12 +282,27 @@ assert.match(dogfoodRunbook, /^# Learning Companion Dogfood Runbook$/m);
 assert.match(dogfoodRunbook, /EVIDENCE: PENDING_USER_GATE/);
 assert.match(dogfoodRunbook, /not evidence until the Result column is filled from an actual run/);
 assert.match(dogfoodRunbook, /record step count, time, and every failure/);
+assert.match(dogfoodRunbook, /npm run demo:morning:serve -- --port 5174/);
+assert.match(dogfoodRunbook, /http:\/\/127\.0\.0\.1:5174\//);
+assert.match(dogfoodRunbook, /Mac Study Loop target: 15 minutes/);
+assert.match(dogfoodRunbook, /Manual Device Loop target: 10 minutes/);
+assert.match(dogfoodRunbook, /Manual device transport used/);
 assert.match(dogfoodRunbook, /Total elapsed time/);
 assert.match(dogfoodRunbook, /Mac Study Loop/);
 assert.match(dogfoodRunbook, /Manual Device Loop/);
+assert.match(dogfoodRunbook, /Mac loop friction observed/);
+assert.match(dogfoodRunbook, /Manual device loop friction observed/);
+assert.match(dogfoodRunbook, /must name the blocker/);
 assert.match(dogfoodRunbook, /source\.returnBaseFingerprint/);
 assert.match(dogfoodRunbook, /Fixture receipts such as `npm run check:static-return` can support contract confidence, but cannot fill this table/);
 assert.equal((dogfoodRunbook.match(/\| NT \|/g) || []).length, 11);
+assert.equal(dogfoodRows.length, 11);
+for (const row of dogfoodRows) {
+  assert.equal(["PASS", "FAIL", "BLOCKED", "NT"].includes(row.result), true, `dogfood row ${row.step} has invalid result`);
+  if (row.result === "BLOCKED") {
+    assert.equal(row.notes.length > 0, true, `dogfood row ${row.step} BLOCKED without reason`);
+  }
+}
 assert.match(morningReview, /Harmony reader session/);
 assert.match(morningReview, /accepted reader view after a failed import/);
 assert.match(demoScript, /leave anything approval\/device-bound as `NT` or `BLOCKED`/);
@@ -365,6 +381,22 @@ function parseManualQaResults(markdown) {
     .split("\n")
     .filter((line) => line.startsWith("| ") && !line.includes("| ---") && !line.includes("| Area |"))
     .map((line) => line.split("|").map((part) => part.trim())[4] || "");
+}
+
+function parseDogfoodRunbookRows(markdown) {
+  return markdown
+    .split("\n")
+    .filter((line) => /^\| \d+ \|/.test(line))
+    .map((line) => {
+      const cells = line.split("|").map((part) => part.trim());
+      return {
+        step: cells[1],
+        action: cells[2],
+        expected: cells[3],
+        result: cells[4],
+        notes: cells[5] || ""
+      };
+    });
 }
 
 function sha256(value) {

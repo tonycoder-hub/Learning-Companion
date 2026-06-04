@@ -18,6 +18,8 @@
     "morning:perf": "node scripts/perf-budget-check.mjs --out dist/perf-budget/PERF_BUDGET.json",
     "morning:perf:selftest": "node scripts/perf-budget-self-test.mjs",
     "morning:receipts": "node scripts/validate-morning-receipts.mjs",
+    "demo:morning:serve": "node scripts/serve-morning-demo.mjs",
+    "demo:morning:serve:smoke": "node scripts/serve-morning-demo.mjs --smoke",
     "mac:build": "bash scripts/mac-build.sh",
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",
     "check:static-return": "node scripts/static-return-loop-check.mjs",
