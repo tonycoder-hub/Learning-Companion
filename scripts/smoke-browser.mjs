@@ -7874,11 +7874,14 @@ async function assertPostSaveFlow(cdp) {
       };
     })();
     document.querySelector("#activityHintBtn").click();
-    const highlightHintExport = readActivity();
-    const highlightHintExportState = {
+    const highlightHintReview = readActivity();
+    const highlightHintReviewState = {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
-      activeElement: document.activeElement?.id || "",
-      mirrorSectionPulsed: document.querySelector("#mirrorExportSection")?.classList.contains("pulse") === true
+      focusMode: JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.sessions
+        ?.find((item) => item.id === JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.activeSessionId)
+        ?.focusMode || "",
+      deskReviewPrompt: document.querySelector("#deskReviewPrompt")?.textContent || "",
+      activeReviewCard: Boolean(document.querySelector("#reviewList .active-review-card"))
     };
     document.querySelector('[data-tab="captures"]').click();
     addThoughtButtonFor(highlightBefore.previousId)?.click();
@@ -7992,7 +7995,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintExport, highlightHintExportState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintReview, highlightHintReviewState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -8203,7 +8206,9 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
   assert.equal(postSaveFlow.highlightHintCard.hintHidden, false);
   assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMade");
-  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Export Mirror");
+  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Review when you want, or keep reading.");
+  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Review card");
+  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Open the new review card");
   assert.deepEqual(postSaveFlow.highlightHintCardState, {
     promoted: true,
     cardExists: true,
@@ -8211,11 +8216,15 @@ async function assertPostSaveFlow(cdp) {
     stackNextKind: "review-ready",
     stackNextText: "Card scheduled · keep reading."
   });
-  assert.equal(postSaveFlow.highlightHintExport.title, "Mirror export ready");
-  assert.match(postSaveFlow.highlightHintExport.detail, /manual Feishu Drive upload/);
-  assert.equal(postSaveFlow.highlightHintExportState.activeTab, "export");
-  assert.equal(postSaveFlow.highlightHintExportState.activeElement, "downloadMirrorBtn");
-  assert.equal(postSaveFlow.highlightHintExportState.mirrorSectionPulsed, true);
+  assert.equal(postSaveFlow.highlightHintReview.title, "Review card opened");
+  assert.equal(postSaveFlow.highlightHintReview.action, "Review");
+  assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
+  assert.deepEqual(postSaveFlow.highlightHintReviewState, {
+    activeTab: "review",
+    focusMode: "review",
+    deskReviewPrompt: "Recall the point behind: This annotation must stay attached to the existing highlight.",
+    activeReviewCard: true
+  });
   assert.equal(postSaveFlow.noNoteHighlightAnnotated.title, "Highlight annotated");
   assert.doesNotMatch(postSaveFlow.noNoteHighlightAnnotated.detail, /generated note block/);
   assert.equal(postSaveFlow.noNoteHighlightState.thought, "This annotation should stay out of notes.");

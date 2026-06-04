@@ -2532,9 +2532,9 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
   }),
   afterCardMade: Object.freeze({
     kind: "afterCardMade",
-    text: "Later: export a mirror when you want to continue on phone or Windows.",
-    actionLabel: "Export Mirror",
-    ariaLabel: "Open Return Files mirror export"
+    text: "Saved for recall. Review when you want, or keep reading.",
+    actionLabel: "Review card",
+    ariaLabel: "Open the new review card"
   }),
   afterQuestionSavedSourceLinked: Object.freeze({
     kind: "afterQuestionSavedSourceLinked",
@@ -2710,6 +2710,10 @@ function activityHintAvailable(activity, hint) {
   }
   if (hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
     return Boolean(activityReviewCardResumeSource(activity).href);
+  }
+  if (hint.kind === "afterCardMade") {
+    const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+    return Boolean(targetSession?.reviewCards.some((card) => card.id === activity?.targetId));
   }
   return true;
 }
@@ -3231,7 +3235,7 @@ function runActivityHintAction() {
     return;
   }
   if (hint.kind === "afterCardMade") {
-    openReturnFilesMirrorExport();
+    openReviewCardFromActivity(activity);
   }
 }
 
@@ -6429,6 +6433,20 @@ function openReviewCardFromCapture(captureId, sessionId = getActiveSession(works
     showToast("Review card no longer exists");
     return;
   }
+  openReviewCard(targetSession, card);
+}
+
+function openReviewCardFromActivity(activity) {
+  const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
+  const card = targetSession?.reviewCards.find((item) => item.id === activity?.targetId);
+  if (!targetSession || !card) {
+    showToast("Review card no longer exists");
+    return;
+  }
+  openReviewCard(targetSession, card);
+}
+
+function openReviewCard(targetSession, card) {
   workspace = selectSession(workspace, targetSession.id);
   workspace = updateSession(workspace, targetSession.id, { focusMode: "review" });
   activeTab = "review";

@@ -170,6 +170,8 @@ assert.match(appJs, /ACTIVITY_NEXT_HINTS/);
 assert.match(appJs, /afterQuoteSave/);
 assert.match(appJs, /afterThoughtAdded/);
 assert.match(appJs, /afterCardMade/);
+assert.match(appJs, /Saved for recall\. Review when you want, or keep reading/);
+assert.match(appJs, /Open the new review card/);
 assert.match(appJs, /dataset\.hintInstalled = "true"/);
 assert.match(appJs, /runActivityHintAction/);
 assert.match(appJs, /Clipboard does not contain an inbox or review return file\. Use Import Return Files for full workspace files/);
