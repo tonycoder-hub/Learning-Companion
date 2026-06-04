@@ -7534,8 +7534,13 @@ async function assertPostSaveFlow(cdp) {
   assert.doesNotMatch(postSaveFlow.noNoteHighlightState.notesText, /This annotation should stay out of notes/);
   assert.equal(postSaveFlow.noNoteHighlightState.markerCount, 2);
   assert.equal(postSaveFlow.ordinarySaved.title, "Capture saved");
-  assert.match(postSaveFlow.ordinarySaved.detail, /Keep reading/);
+  assert.match(postSaveFlow.ordinarySaved.detail, /Saved locally/);
   assert.equal(postSaveFlow.ordinarySaved.action, "Capture");
+  assert.equal(postSaveFlow.ordinarySaved.hintHidden, false);
+  assert.equal(postSaveFlow.ordinarySaved.hintKind, "afterCaptureSavedSourceLinked");
+  assert.match(postSaveFlow.ordinarySaved.hintText, /open the source/);
+  assert.equal(postSaveFlow.ordinarySaved.hintAction, "Open source");
+  assert.equal(postSaveFlow.ordinarySaved.hintAria, "Open the source after saving this capture");
   assert.equal(postSaveFlow.quoteQuestionSaved.title, "Question saved");
   assert.equal(postSaveFlow.quoteQuestionSaved.action, "Questions");
   assert.equal(postSaveFlow.noSourceHighlightAnnotated.title, "Highlight annotated");
