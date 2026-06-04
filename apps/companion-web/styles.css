@@ -1936,6 +1936,12 @@ textarea:focus {
   color: var(--green);
 }
 
+.mini-button.tertiary {
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
 .mini-button.danger {
   border-color: rgba(162, 61, 52, 0.35);
   color: var(--red);

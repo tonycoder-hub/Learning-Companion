@@ -583,7 +583,7 @@ try {
   await sleep(500);
   await sleep(50);
 
-  const noSourceFlowStep = await cdp.evaluate(`(() => {
+  const noSourceFlowStep = await cdp.evaluate(`(async () => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
       node.value = value;
@@ -642,8 +642,58 @@ try {
       .captureDrafts?.[noSourceSession.id] || {};
     document.querySelector("#clearCaptureDraftBtn")?.click();
     document.querySelector('[data-tab="today"]').click();
+    let manualClipboardReads = 0;
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => {
+          manualClipboardReads += 1;
+          return "Manual source must not read this URL https://example.com/should-not-attach";
+        },
+        writeText: async () => {}
+      }
+    });
+    document.querySelector(".start-here-inline")?.querySelector('[data-start-action="source-manual"]')?.click();
+    const manualSourceAction = {
+      activeElement: document.activeElement?.id || "",
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
+      clipboardReads: manualClipboardReads
+    };
+    document.querySelector('[data-tab="today"]').click();
     const sourceStep = document.querySelector('[data-learning-flow-step="source"]');
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => "private non-url first note source text",
+        writeText: async () => {}
+      }
+    });
     sourceStep?.querySelector("button")?.click();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const rejectedWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const rejectedSession = rejectedWorkspace.sessions.find((item) => item.id === rejectedWorkspace.activeSessionId);
+    const rejectedPaste = {
+      sourceTitle: rejectedSession?.sourceTitle || "",
+      sourceUrl: rejectedSession?.sourceUrl || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activeElement: document.activeElement?.id || "",
+      captureCount: rejectedSession?.captures?.length || 0
+    };
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => "First Note Lecture\\nhttps://www.youtube.com/watch?v=firstnote&t=77s",
+        writeText: async () => {}
+      }
+    });
+    sourceStep?.querySelector("button")?.click();
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const pastedWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+    const pastedSession = pastedWorkspace.sessions.find((item) => item.id === pastedWorkspace.activeSessionId);
     const result = {
       text: sourceStep?.textContent || "",
       button: sourceStep?.querySelector("button")?.textContent || "",
@@ -654,6 +704,13 @@ try {
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
       sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
+      sourceTitle: pastedSession?.sourceTitle || "",
+      sourceUrl: pastedSession?.sourceUrl || "",
+      materialType: pastedSession?.materialType || "",
+      timestamp: document.querySelector("#timestampInput")?.value || "",
+      captureCount: pastedSession?.captures?.length || 0,
+      manualSourceAction,
+      rejectedPaste,
       noSourceQuestion,
       captureStep: {
         text: captureStepBeforeQuestion?.textContent || "",
@@ -669,6 +726,7 @@ try {
     result.startHereButtons = startHereButtonsBeforeQuestion;
     result.startHereText = startHereTextBeforeQuestion;
     result.startHereDeviceRouteText = startHereDeviceRouteText;
+    setValue("#timestampInput", "");
     setValue("#sourceTitle", "Transition source");
     setValue("#sourceUrl", "https://example.com/transition-source");
     document.querySelector('[data-tab="today"]').click();
@@ -789,14 +847,31 @@ try {
   })()`);
   assert.match(noSourceFlowStep.text, /Read source/);
   assert.match(noSourceFlowStep.text, /Needs source/);
-  assert.equal(noSourceFlowStep.button, "Set source");
-  assert.equal(noSourceFlowStep.actionAria, "Set source URL for this learning flow");
+  assert.equal(noSourceFlowStep.button, "Paste source");
+  assert.equal(noSourceFlowStep.actionAria, "Paste source URL from clipboard for this learning flow");
   assert.equal(noSourceFlowStep.isWide, true);
-  assert.equal(noSourceFlowStep.activeElement, "sourceUrl");
+  assert.equal(noSourceFlowStep.activeElement, "quoteInput");
   assert.equal(noSourceFlowStep.activeTab, "captures");
-  assert.equal(noSourceFlowStep.activityTitle, "Add a source");
-  assert.match(noSourceFlowStep.activityDetail, /Paste the browser page or video URL/);
+  assert.equal(noSourceFlowStep.activityTitle, "Source pasted");
+  assert.match(noSourceFlowStep.activityDetail, /First Note Lecture @ 01:17/);
   assert.equal(noSourceFlowStep.sourceStripPulsed, true);
+  assert.equal(noSourceFlowStep.sourceTitle, "First Note Lecture");
+  assert.equal(noSourceFlowStep.sourceUrl, "https://www.youtube.com/watch?v=firstnote");
+  assert.equal(noSourceFlowStep.materialType, "video");
+  assert.equal(noSourceFlowStep.timestamp, "01:17");
+  assert.equal(noSourceFlowStep.captureCount, 0);
+  assert.equal(noSourceFlowStep.manualSourceAction.activeElement, "sourceUrl");
+  assert.equal(noSourceFlowStep.manualSourceAction.activeTab, "captures");
+  assert.equal(noSourceFlowStep.manualSourceAction.activityTitle, "Add a source");
+  assert.match(noSourceFlowStep.manualSourceAction.activityDetail, /Paste the browser page or video URL/);
+  assert.equal(noSourceFlowStep.manualSourceAction.sourceStripPulsed, true);
+  assert.equal(noSourceFlowStep.manualSourceAction.clipboardReads, 0);
+  assert.equal(noSourceFlowStep.rejectedPaste.sourceTitle, "");
+  assert.equal(noSourceFlowStep.rejectedPaste.sourceUrl, "");
+  assert.equal(noSourceFlowStep.rejectedPaste.activityTitle, "No source URL found");
+  assert.match(noSourceFlowStep.rejectedPaste.activityDetail, /Copy the browser URL/);
+  assert.equal(noSourceFlowStep.rejectedPaste.activeElement, "sourceUrl");
+  assert.equal(noSourceFlowStep.rejectedPaste.captureCount, 0);
   assert.equal(noSourceFlowStep.noSourceQuestion.activeTab, "captures");
   assert.equal(noSourceFlowStep.noSourceQuestion.activeElement, "thoughtInput");
   assert.equal(noSourceFlowStep.noSourceQuestion.thoughtValue, "Question:");
@@ -820,7 +895,8 @@ try {
     materialType: ""
   });
   assert.deepEqual(noSourceFlowStep.startHereButtons, [
-    { action: "source", text: "Set source", primary: true, aria: "Set source URL for this learning flow" },
+    { action: "source", text: "Paste source", primary: true, aria: "Paste source URL from clipboard for this learning flow" },
+    { action: "source-manual", text: "Set source manually", primary: false, aria: "Set source URL manually for this learning flow" },
     { action: "capture", text: "Jot loose thought", primary: false, aria: "Jot a loose thought without a source; source resume will not be available" },
     { action: "question", text: "Ask about this", primary: false, aria: "" },
     { action: "clipper", text: "Set up page clipper", primary: false, aria: "" },

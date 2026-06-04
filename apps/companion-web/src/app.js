@@ -4623,10 +4623,10 @@ function resolveSourceSessionState() {
     kind: "source",
     label: "Read source",
     status: "Needs source",
-    detail: "Bind the browser URL or video before this study thread leaves the desk.",
-    actionLabel: "Set source",
-    actionAriaLabel: "Set source URL for this learning flow",
-    action: () => promptForSource(session),
+    detail: "Paste the source URL you copied from the browser. Manual entry stays available.",
+    actionLabel: "Paste source",
+    actionAriaLabel: "Paste source URL from clipboard for this learning flow",
+    action: pasteSourceFromClipboard,
     wide: true,
     tone: "source"
   };
@@ -5162,9 +5162,15 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
     const source = textEl("button", "mini-button primary", sourceStep.actionLabel);
     source.type = "button";
     source.dataset.startAction = "source";
-    source.setAttribute("aria-label", sourceStep.actionAriaLabel || "Set source URL for this learning flow");
+    source.setAttribute("aria-label", sourceStep.actionAriaLabel || "Paste source URL from clipboard for this learning flow");
     source.addEventListener("click", sourceStep.action);
     actions.push(source);
+    const manualSource = textEl("button", "mini-button tertiary", "Set source manually");
+    manualSource.type = "button";
+    manualSource.dataset.startAction = "source-manual";
+    manualSource.setAttribute("aria-label", "Set source URL manually for this learning flow");
+    manualSource.addEventListener("click", () => promptForSource(getActiveSession(workspace)));
+    actions.push(manualSource);
   }
   const capture = textEl("button", needsSource ? "mini-button" : "mini-button primary", needsSource ? "Jot loose thought" : "Capture this thought");
   capture.type = "button";
