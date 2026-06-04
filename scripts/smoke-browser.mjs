@@ -2380,6 +2380,7 @@ try {
             importInput.files = duplicateReviewTransfer.files;
             importInput.dispatchEvent(new Event("change", { bubbles: true }));
             setTimeout(() => {
+              document.querySelector('[data-return-preview-action="apply"]')?.click();
               const duplicateReviewReceiptBeforeInbox = document.querySelector("#importReceipt").textContent;
               const duplicateReturnNudgeBeforeInbox = Boolean(document.querySelector(".returned-work-card"));
               const captureMetricBeforeInbox = document.querySelector("#captureMetric").textContent;
@@ -2412,6 +2413,7 @@ try {
         importInput.files = inboxTransfer.files;
         importInput.dispatchEvent(new Event("change", { bubbles: true }));
         setTimeout(() => {
+          document.querySelector('[data-return-preview-action="apply"]')?.click();
           const singleInboxReceiptText = document.querySelector("#importReceipt").textContent;
           const singleInboxActiveTab = document.querySelector(".tab.active")?.dataset.tab || "";
           const singleReturnedWorkText = document.querySelector(".returned-work-card")?.textContent || "";
@@ -2434,6 +2436,8 @@ try {
           importInput.files = batchTransfer.files;
           importInput.dispatchEvent(new Event("change", { bubbles: true }));
           setTimeout(() => {
+          const batchPreviewText = document.querySelector(".return-file-preview-card")?.textContent || "";
+          document.querySelector('[data-return-preview-action="apply"]')?.click();
           const afterInboxImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterInboxSession = afterInboxImport.sessions.find((item) => item.id === afterInboxImport.activeSessionId);
           const batchReturnedCaptureId = afterInboxSession.captures.find((capture) => capture.inboxPatchId === "browser_patch_002")?.id || "";
@@ -2508,6 +2512,7 @@ try {
           singleReturnedWorkText,
           singleHandoffText,
           batchReceiptText,
+          batchPreviewText,
           batchActivityTitle,
           batchActivityDetail,
           activeTabAfterBatchImport,
@@ -2742,6 +2747,12 @@ try {
   assert.match(result.singleHandoffText, /1 older return file from previous mirror export - export updated mirror before next device pass/);
   assert.doesNotMatch(result.singleHandoffText, /1 older return files/);
   assert.match(result.batchReceiptText, /Return files imported/);
+  assert.match(result.batchPreviewText, /Ready to apply/);
+  assert.match(result.batchPreviewText, /2\/3 files parsed/);
+  assert.match(result.batchPreviewText, /inbox \+1 capture/);
+  assert.match(result.batchPreviewText, /review \+0 applied, 1 skipped/);
+  assert.match(result.batchPreviewText, /1 failed/);
+  assert.match(result.batchPreviewText, /would change workspace/);
   assert.match(result.batchReceiptText, /2\/3 files processed/);
   assert.match(result.batchReceiptText, /2 mirror bases changed/);
   assert.match(result.batchReceiptText, /2 legacy mirror checks/);

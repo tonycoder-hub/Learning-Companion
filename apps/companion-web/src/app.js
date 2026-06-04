@@ -333,7 +333,7 @@ dom.importWorkspaceInput.addEventListener("change", async (event) => {
   try {
     // Multi-file selection is reserved for return-file batches; full workspace restore stays single-file only.
     if (importMode === "return-files" || files.length > 1) {
-      await importReturnFiles(files);
+      await stageReturnFilesFromFileList(files);
       return;
     }
     const file = files[0];
@@ -423,7 +423,11 @@ async function pasteReturnFileFromClipboard() {
     if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
       throw new Error("Clipboard does not contain an inbox or review return file. Use Import Return Files for full workspace files.");
     }
-    stagePastedReturnFile(imported);
+    stageReturnFilesFromParsed([{
+      fileName: "clipboard",
+      kind: isMobileInboxPatch(imported) ? "mobile-inbox-patch" : "review-progress-patch",
+      imported
+    }], emptyReturnFilesReceipt(1), "clipboard");
   } catch (error) {
     const message = error.message || "Paste return file failed";
     recordImportFailure(message, "clipboard");
@@ -437,16 +441,40 @@ async function pasteReturnFileFromClipboard() {
   }
 }
 
-function stagePastedReturnFile(imported) {
-  const file = {
-    fileName: "clipboard",
-    kind: isMobileInboxPatch(imported) ? "mobile-inbox-patch" : "review-progress-patch",
-    imported
-  };
+async function stageReturnFilesFromFileList(files = []) {
+  const parseSummary = emptyReturnFilesReceipt(files.length);
+  const returnFiles = [];
+  for (const file of files) {
+    try {
+      const imported = await readImportFile(file);
+      if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
+        throw new Error("Return Files import only accepts inbox or review return files.");
+      }
+      returnFiles.push({
+        fileName: file.name,
+        kind: isMobileInboxPatch(imported) ? "mobile-inbox-patch" : "review-progress-patch",
+        imported
+      });
+    } catch (error) {
+      addReturnFileImportError(parseSummary, file.name, error.message || "Import failed");
+    }
+  }
+  stageReturnFilesFromParsed(returnFiles, parseSummary, "files");
+}
+
+function stageReturnFilesFromParsed(files = [], parseSummary = emptyReturnFilesReceipt(files.length), source = "files") {
+  const parsedFiles = [...files].sort(compareReturnFiles);
+  const previewSummary = previewReturnFiles(parsedFiles, parseSummary);
+  if (!parsedFiles.length) {
+    completeReturnFilesReceipt(previewSummary);
+    if (previewSummary.failedFiles) showToast(`${previewSummary.failedFiles} return ${previewSummary.failedFiles === 1 ? "file" : "files"} failed`);
+    return;
+  }
   pendingReturnFilePreview = {
-    source: "clipboard",
-    files: [file],
-    summary: previewReturnFiles([file]),
+    source,
+    files: parsedFiles,
+    parseSummary: cloneReturnFilesReceipt(parseSummary),
+    summary: previewSummary,
     workspaceFingerprint: workspaceBackupFingerprint(workspace)
   };
   lastImportReceipt = null;
@@ -464,9 +492,9 @@ function stagePastedReturnFile(imported) {
   showToast("Return file ready");
 }
 
-function previewReturnFiles(files = []) {
+function previewReturnFiles(files = [], parseSummary = emptyReturnFilesReceipt(files.length)) {
   const parsedFiles = [...files].sort(compareReturnFiles);
-  const summary = emptyReturnFilesReceipt(parsedFiles.length);
+  const summary = cloneReturnFilesReceipt(parseSummary);
   let previewWorkspace = workspace;
   parsedFiles.forEach((item) => {
     try {
@@ -522,7 +550,7 @@ function applyPendingReturnFilePreview() {
   if (preview.workspaceFingerprint && preview.workspaceFingerprint !== currentFingerprint) {
     pendingReturnFilePreview = {
       ...preview,
-      summary: previewReturnFiles(preview.files),
+      summary: previewReturnFiles(preview.files, preview.parseSummary),
       workspaceFingerprint: currentFingerprint
     };
     setActivity(getActiveSession(workspace), {
@@ -536,8 +564,12 @@ function applyPendingReturnFilePreview() {
     return;
   }
   pendingReturnFilePreview = null;
-  const [file] = preview.files;
-  importPortableData(file.imported);
+  if (preview.source === "clipboard" && preview.files.length === 1) {
+    const [file] = preview.files;
+    importPortableData(file.imported);
+    return;
+  }
+  applyParsedReturnFiles(preview.files, preview.parseSummary);
 }
 
 function discardPendingReturnFilePreview() {
@@ -553,24 +585,8 @@ function discardPendingReturnFilePreview() {
   focusReturnFilesPanel();
 }
 
-async function importReturnFiles(files) {
-  const summary = emptyReturnFilesReceipt(files.length);
-  const returnFiles = [];
-  for (const file of files) {
-    try {
-      const imported = await readImportFile(file);
-      if (!isMobileInboxPatch(imported) && !isReviewProgressPatch(imported)) {
-        throw new Error("Return Files import only accepts inbox or review return files.");
-      }
-      returnFiles.push({
-        fileName: file.name,
-        kind: isMobileInboxPatch(imported) ? "mobile-inbox-patch" : "review-progress-patch",
-        imported
-      });
-    } catch (error) {
-      addReturnFileImportError(summary, file.name, error.message || "Import failed");
-    }
-  }
+function applyParsedReturnFiles(returnFiles = [], parseSummary = emptyReturnFilesReceipt(returnFiles.length)) {
+  const summary = cloneReturnFilesReceipt(parseSummary);
   returnFiles.sort(compareReturnFiles);
   for (const item of returnFiles) {
     try {
@@ -580,6 +596,11 @@ async function importReturnFiles(files) {
       addReturnFileImportError(summary, item.fileName, error.message || "Import failed");
     }
   }
+  completeReturnFilesReceipt(summary);
+  if (summary.failedFiles) showToast(`${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`);
+}
+
+function completeReturnFilesReceipt(summary) {
   summary.importedAt = new Date().toISOString();
   lastImportReceipt = summary;
   dismissedReturnNudgeKey = "";
@@ -591,7 +612,10 @@ async function importReturnFiles(files) {
     targetId: ""
   });
   finishReturnFileImport(`Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`);
-  if (summary.failedFiles) showToast(`${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`);
+}
+
+function cloneReturnFilesReceipt(summary) {
+  return JSON.parse(JSON.stringify(summary || emptyReturnFilesReceipt(0)));
 }
 
 function finishReturnFileImport(message) {
@@ -5677,7 +5701,7 @@ function renderReturnFilesModeNote(hasPreview = false) {
     "return-files-mode-note",
     hasPreview
       ? "Preview is in memory only. Apply changes this Mac workspace; Discard leaves it unchanged."
-      : "Paste previews a copied return file first. Import Return Files applies selected files immediately."
+      : "Paste or import return files to preview them first; Apply changes this Mac workspace."
   );
 }
 
