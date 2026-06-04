@@ -7153,27 +7153,43 @@ async function assertFirstCaptureLoopDecision(cdp) {
       nextMoveKind: nextMove?.querySelector("[data-today-path-action]")?.dataset.todayPathAction || ""
     };
     loopStep?.querySelector("button")?.click();
+    const detailCard = [...document.querySelectorAll("#captureList .item-card")]
+      .find((item) => item.textContent.includes("This should not count as a closed loop yet."));
     const afterAction = {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
-      captureVisible: Boolean([...document.querySelectorAll("#captureList .item-card")]
-        .find((item) => item.textContent.includes("This should not count as a closed loop yet.")))
+      captureVisible: Boolean(detailCard)
+    };
+    [...(detailCard?.querySelectorAll("button") || [])]
+      .find((button) => button.textContent === "Add to notes")
+      ?.click();
+    document.querySelector('[data-tab="today"]').click();
+    const afterNotesLoopStep = document.querySelector('[data-learning-flow-step="loop"]');
+    const afterNotes = {
+      loopText: afterNotesLoopStep?.textContent || "",
+      loopAction: afterNotesLoopStep?.querySelector("button")?.textContent || "",
+      loopTone: afterNotesLoopStep?.className || ""
     };
     window.learningCompanionNative.importWorkspaceJson(before);
-    return { beforeAction, afterAction };
+    return { beforeAction, afterAction, afterNotes };
   })()`);
   assert.match(result.beforeAction.loopText, /Close the loop/);
   assert.match(result.beforeAction.loopText, /Needs next step/);
-  assert.match(result.beforeAction.loopText, /add the latest capture to Notes or save it for recall/);
+  assert.match(result.beforeAction.loopText, /choose whether the latest capture belongs in Notes or Review/);
   assert.equal(result.beforeAction.loopAction, "Choose next");
   assert.match(result.beforeAction.loopTone, /is-capture/);
   assert.match(result.beforeAction.nextMoveText, /Choose latest capture's next step/);
-  assert.match(result.beforeAction.nextMoveText, /add to Notes or save for recall/);
+  assert.match(result.beforeAction.nextMoveText, /choose Notes or Review/);
   assert.equal(result.beforeAction.nextMoveAction, "Choose next");
   assert.equal(result.beforeAction.nextMoveKind, "recent");
   assert.deepEqual(result.afterAction, {
     activeTab: "captures",
     captureVisible: true
   });
+  assert.match(result.afterNotes.loopText, /Close the loop/);
+  assert.match(result.afterNotes.loopText, /Clear/);
+  assert.doesNotMatch(result.afterNotes.loopText, /Needs next step/);
+  assert.equal(result.afterNotes.loopAction, "Inspect");
+  assert.match(result.afterNotes.loopTone, /is-clear/);
 }
 
 async function assertPostSaveFlow(cdp) {

@@ -4781,7 +4781,7 @@ function resolveCloseLoopState(pack, draftItems = []) {
     return {
       label: "Close the loop",
       status: "Needs next step",
-      detail: `${decisionItem.sessionTitle} · add the latest capture to Notes or save it for recall before calling the loop clear.`,
+      detail: `${decisionItem.sessionTitle} · choose whether the latest capture belongs in Notes or Review before moving on.`,
       actionLabel: "Choose next",
       action: () => openCaptureFromToday(decisionItem.sessionId, decisionItem.capture),
       kind: "loop",
@@ -5221,7 +5221,7 @@ function todayPrimaryMove(pack, draftItems = []) {
     return {
       kind: "recent",
       title: "Choose latest capture's next step",
-      detail: `${decisionItem.sessionTitle} · add to Notes or save for recall`,
+      detail: `${decisionItem.sessionTitle} · choose Notes or Review if it should become durable`,
       actionLabel: "Choose next",
       inspectLabel: "Recent",
       targetSection: "recent_captures",

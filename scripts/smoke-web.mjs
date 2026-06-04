@@ -287,6 +287,7 @@ assert.match(appJs, /renderTodaySectionMap/);
 assert.match(appJs, /renderLearningFlowPanel/);
 assert.match(appJs, /nextCaptureDecisionItem/);
 assert.match(appJs, /Choose latest capture's next step/);
+assert.match(appJs, /choose whether the latest capture belongs in Notes or Review/);
 assert.match(appJs, /resolveSourceSessionState/);
 assert.match(appJs, /resumeSourceFromLearningFlow/);
 assert.match(appJs, /renderSidecarRail/);
