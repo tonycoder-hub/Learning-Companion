@@ -486,7 +486,7 @@ try {
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /After first capture/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Notes/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Review/);
-  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /later device pass/);
+  assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /later phone\/Windows pass/);
   assert.match(firstRunLoopKeyboardBefore.loopText, /Pending - After first capture/);
   assert.equal(firstRunLoopKeyboardBefore.buttonText, "Capture first");
   assert.equal(firstRunLoopKeyboardBefore.buttonTag, "BUTTON");
@@ -7201,6 +7201,55 @@ async function assertFirstCaptureLoopDecision(cdp) {
       loopAction: takeawayLoopStep?.querySelector("button")?.textContent || "",
       loopTone: takeawayLoopStep?.className || ""
     };
+    const supportLoopState = (id, title, quote, thought) => {
+      const supportWorkspace = JSON.parse(before);
+      const supportSession = {
+        ...supportWorkspace.sessions[0],
+        id,
+        title,
+        sourceTitle: "Decision source",
+        sourceUrl: "https://example.com/decision-source",
+        materialType: "article",
+        notesMarkdown: "",
+        captures: [],
+        reviewCards: [],
+        focusMode: "capture"
+      };
+      window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+        ...supportWorkspace,
+        activeSessionId: supportSession.id,
+        sessions: [supportSession],
+        importedPatches: [],
+        importedReviewPatches: []
+      }));
+      setValue("#quoteInput", quote);
+      setValue("#thoughtInput", thought);
+      document.querySelector("#captureBtn").click();
+      document.querySelector('[data-tab="today"]').click();
+      const step = document.querySelector('[data-learning-flow-step="loop"]');
+      const detailCard = [...document.querySelectorAll("#captureList .item-card")]
+        .find((item) => item.textContent.includes(quote || thought));
+      const stackRow = document.querySelector("#captureStack .capture-stack-row");
+      return {
+        loopText: step?.textContent || "",
+        loopAction: step?.querySelector("button")?.textContent || "",
+        loopTone: step?.className || "",
+        detailNeedsDecision: detailCard?.classList.contains("needs-durable-decision") === true,
+        stackNeedsDecision: stackRow?.classList.contains("needs-durable-decision") === true
+      };
+    };
+    const quoteOnlyLoop = supportLoopState(
+      "quote_only_loop_decision",
+      "Quote-only loop decision",
+      "A highlighted line should wait for a thought before durable routing.",
+      ""
+    );
+    const answerOnlyLoop = supportLoopState(
+      "answer_only_loop_decision",
+      "Answer-only loop decision",
+      "",
+      "Answer: This unlinked answer is useful but should not force Notes or Review."
+    );
     const mixedWorkspace = JSON.parse(before);
     const mixedSession = {
       ...mixedWorkspace.sessions[0],
@@ -7267,7 +7316,7 @@ async function assertFirstCaptureLoopDecision(cdp) {
         ?.classList.contains("needs-durable-decision") === true
     };
     window.learningCompanionNative.importWorkspaceJson(before);
-    return { beforeAction, afterAction, afterNotes, takeawayLoop, mixedPriority };
+    return { beforeAction, afterAction, afterNotes, takeawayLoop, quoteOnlyLoop, answerOnlyLoop, mixedPriority };
   })()`);
   assert.match(result.beforeAction.loopText, /Close the loop/);
   assert.match(result.beforeAction.loopText, /Needs next step/);
@@ -7294,6 +7343,15 @@ async function assertFirstCaptureLoopDecision(cdp) {
   assert.doesNotMatch(result.takeawayLoop.loopText, /Needs next step/);
   assert.equal(result.takeawayLoop.loopAction, "Inspect");
   assert.match(result.takeawayLoop.loopTone, /is-clear/);
+  for (const supportLoop of [result.quoteOnlyLoop, result.answerOnlyLoop]) {
+    assert.match(supportLoop.loopText, /Close the loop/);
+    assert.match(supportLoop.loopText, /Clear/);
+    assert.doesNotMatch(supportLoop.loopText, /Needs next step/);
+    assert.equal(supportLoop.loopAction, "Inspect");
+    assert.match(supportLoop.loopTone, /is-clear/);
+    assert.equal(supportLoop.detailNeedsDecision, false);
+    assert.equal(supportLoop.stackNeedsDecision, false);
+  }
   assert.match(result.mixedPriority.loopText, /Close the loop/);
   assert.match(result.mixedPriority.loopText, /1 parked/);
   assert.doesNotMatch(result.mixedPriority.loopText, /Needs next step/);
