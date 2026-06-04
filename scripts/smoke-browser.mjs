@@ -7166,6 +7166,18 @@ async function assertFirstCaptureLoopDecision(cdp) {
       node.value = value;
       node.dispatchEvent(new Event("input", { bubbles: true }));
     };
+    const readActivity = () => ({
+      title: document.querySelector("#activityTitle")?.textContent || "",
+      detail: document.querySelector("#activityDetail")?.textContent || "",
+      action: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || "",
+      hintText: document.querySelector("#activityHintText")?.textContent || "",
+      hintAction: document.querySelector("#activityHintBtn")?.textContent || "",
+      hintAria: document.querySelector("#activityHintBtn")?.getAttribute("aria-label") || "",
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || ""
+    });
     const before = window.learningCompanionNative.exportWorkspaceJson();
     const workspace = JSON.parse(before);
     const session = {
@@ -7218,12 +7230,87 @@ async function assertFirstCaptureLoopDecision(cdp) {
     [...(detailCard?.querySelectorAll("button") || [])]
       .find((button) => button.textContent === "Add to notes")
       ?.click();
+    const noteAddedActivity = readActivity();
+    let noteResumeHref = "";
+    let noteResumeTarget = "";
+    let noteResumeFeatures = "";
+    const nativeWindowOpen = window.open;
+    window.open = (href, target, features) => {
+      noteResumeHref = href;
+      noteResumeTarget = target || "";
+      noteResumeFeatures = features || "";
+      return null;
+    };
+    document.querySelector("#activityHintBtn")?.click();
+    window.open = nativeWindowOpen;
+    const noteResumeActivity = readActivity();
+    const noteResumeState = {
+      opened: noteResumeHref,
+      target: noteResumeTarget,
+      features: noteResumeFeatures,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      action: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
+    };
     document.querySelector('[data-tab="today"]').click();
     const afterNotesLoopStep = document.querySelector('[data-learning-flow-step="loop"]');
     const afterNotes = {
       loopText: afterNotesLoopStep?.textContent || "",
       loopAction: afterNotesLoopStep?.querySelector("button")?.textContent || "",
       loopTone: afterNotesLoopStep?.className || ""
+    };
+    const timedWorkspace = JSON.parse(before);
+    const timedSession = {
+      ...timedWorkspace.sessions[0],
+      id: "timed_note_resume",
+      title: "Timed note resume",
+      sourceTitle: "Timed lesson",
+      sourceUrl: "https://www.youtube.com/watch?v=note123",
+      materialType: "video",
+      notesMarkdown: "",
+      reviewCards: [],
+      focusMode: "capture",
+      captures: [
+        {
+          id: "timed_note_capture",
+          quote: "A timestamped source should resume from its saved moment.",
+          thought: "Timed notes should not fall back to a generic source hint.",
+          timestamp: "03:21",
+          sourceTitle: "Timed lesson",
+          sourceUrl: "https://www.youtube.com/watch?v=note123",
+          materialType: "video",
+          createdAt: "2026-06-04T10:20:00.000Z",
+          capturedAt: "2026-06-04T10:20:00.000Z",
+          updatedAt: "2026-06-04T10:20:00.000Z"
+        }
+      ]
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...timedWorkspace,
+      activeSessionId: timedSession.id,
+      sessions: [timedSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    document.querySelector('[data-tab="captures"]').click();
+    const timedRow = document.querySelector('[data-stack-capture-id="timed_note_capture"]');
+    [...(timedRow?.querySelectorAll("button") || [])]
+      .find((button) => button.textContent === "Add to notes")
+      ?.click();
+    const timedNoteActivity = readActivity();
+    let timedNoteHref = "";
+    const nativeTimedWindowOpen = window.open;
+    window.open = (href) => {
+      timedNoteHref = href;
+      return null;
+    };
+    document.querySelector("#activityHintBtn")?.click();
+    window.open = nativeTimedWindowOpen;
+    const timedNoteResume = readActivity();
+    const timedNoteState = {
+      opened: timedNoteHref,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      activeElement: document.activeElement?.id || ""
     };
     const takeawayWorkspace = JSON.parse(before);
     const takeawaySession = {
@@ -7370,7 +7457,7 @@ async function assertFirstCaptureLoopDecision(cdp) {
         ?.classList.contains("needs-durable-decision") === true
     };
     window.learningCompanionNative.importWorkspaceJson(before);
-    return { beforeAction, afterAction, afterNotes, takeawayLoop, quoteOnlyLoop, answerOnlyLoop, mixedPriority };
+    return { beforeAction, afterAction, noteAddedActivity, noteResumeActivity, noteResumeState, afterNotes, timedNoteActivity, timedNoteResume, timedNoteState, takeawayLoop, quoteOnlyLoop, answerOnlyLoop, mixedPriority };
   })()`);
   assert.match(result.beforeAction.loopText, /Close the loop/);
   assert.match(result.beforeAction.loopText, /Needs next step/);
@@ -7398,6 +7485,36 @@ async function assertFirstCaptureLoopDecision(cdp) {
         aria: "Save this capture to recall later"
       }
     ]
+  });
+  assert.equal(result.noteAddedActivity.title, "Capture added to notes");
+  assert.equal(result.noteAddedActivity.action, "View note");
+  assert.equal(result.noteAddedActivity.hintHidden, false);
+  assert.equal(result.noteAddedActivity.hintKind, "afterNoteAddedTextSourceLinked");
+  assert.equal(result.noteAddedActivity.hintAction, "Open at quote");
+  assert.equal(result.noteAddedActivity.hintAria, "Open the source; jump to this noted quote if supported");
+  assert.equal(result.noteResumeActivity.title, "Source resumed");
+  assert.equal(result.noteResumeActivity.action, "View note");
+  assert.match(result.noteResumeActivity.detail, /The note is saved\. Keep reading; capture the next point when it lands/);
+  assert.deepEqual(result.noteResumeState, {
+    opened: "https://example.com/decision-source#:~:text=First%20capture%20needs%20a%20durable%20next%20step.",
+    target: "_blank",
+    features: "noopener,noreferrer",
+    activeTab: "captures",
+    action: "View note",
+    capturePanePulsed: true
+  });
+  assert.equal(result.timedNoteActivity.title, "Capture added to notes");
+  assert.equal(result.timedNoteActivity.action, "View note");
+  assert.equal(result.timedNoteActivity.hintHidden, false);
+  assert.equal(result.timedNoteActivity.hintKind, "afterNoteAddedTimedSourceLinked");
+  assert.equal(result.timedNoteActivity.hintAction, "Resume source");
+  assert.equal(result.timedNoteActivity.hintAria, "Resume the source moment after saving this capture to Notes");
+  assert.equal(result.timedNoteResume.title, "Source resumed");
+  assert.equal(result.timedNoteResume.action, "View note");
+  assert.deepEqual(result.timedNoteState, {
+    opened: "https://www.youtube.com/watch?v=note123&t=201s",
+    activeTab: "captures",
+    activeElement: "thoughtInput"
   });
   assert.match(result.afterNotes.loopText, /Close the loop/);
   assert.match(result.afterNotes.loopText, /Clear/);
@@ -7802,6 +7919,7 @@ async function assertPostSaveFlow(cdp) {
     [...(staleHighlightRow?.querySelectorAll("button") || [])]
       .find((button) => button.textContent === "Update note")
       ?.click();
+    noteBeforeAnnotation.updatedActivity = readActivity();
     const refreshedHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
     noteBeforeAnnotation.restoredViewButtonMeta = readNoteButtonMeta(refreshedHighlightRow, "View in Notes");
@@ -8210,6 +8328,12 @@ async function assertPostSaveFlow(cdp) {
     aria: "Update this capture's generated Notes block"
   });
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleFingerprintButtonVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.title, "Capture note updated");
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.action, "View note");
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintHidden, false);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintKind, "afterNoteAddedTextSourceLinked");
+  assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintText, /^Note updated\. Open the source at this quote/);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.updatedActivity.hintAction, "Open at quote");
   assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.restoredViewButtonMeta, {
     visible: true,
     label: "View in Notes",
