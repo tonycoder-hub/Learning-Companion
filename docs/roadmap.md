@@ -38,9 +38,10 @@
 
 ## Phase 3: HarmonyOS
 
-- Keep `apps/companion-harmony/src/schema-reader.mjs` as the shared view-model prototype until a DevEco project exists.
-- Use `apps/companion-harmony/DEVECO_HANDOFF.md` as the first scaffold contract.
-- Port `apps/companion-harmony/src/import-boundary.mjs` into ArkTS import/export services.
+- Keep `apps/companion-harmony/src/schema-reader.mjs` as the executable shared view-model prototype while `apps/companion-harmony-dev/` remains scaffold-only.
+- Use `apps/companion-harmony/DEVECO_HANDOFF.md` and `apps/companion-harmony-dev/` as the scaffold contract.
+- Keep ArkTS import/export services aligned with `apps/companion-harmony/src/import-boundary.mjs`.
+- Compile the scaffold in DevEco or the HarmonyOS command-line toolchain before claiming a HarmonyOS app.
 - Build ArkTS app against the shared schema.
 - Implement capture inbox, session detail, and review.
 - Sync through Feishu mirror or direct JSON payload.

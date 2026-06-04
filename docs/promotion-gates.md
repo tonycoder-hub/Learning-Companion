@@ -38,13 +38,14 @@ Current wording: "Feishu local upload plan/dry-run", not "Feishu sync".
 | Stage | Meaning | Current Evidence | Promotion Gate |
 | --- | --- | --- | --- |
 | Schema reader prototype | Plain JS reader turns workspace or mirror bundle into read-only phone view model with active topic, due review, recent captures, and open questions. | `npm run smoke:harmony`, `learning-companion.harmony-reader-view.v1` | Use this as ArkTS view-model reference. |
-| DevEco shell | Minimal HarmonyOS app imports workspace/mirror JSON and renders active topic/review/captures. | Not started. | SDK/project setup, file picker, local storage, basic navigation. |
+| ArkTS scaffold handoff | DevEco-shaped project files, schema constants, page names, import boundary, reader session, and append-only patch service names exist for review. | `apps/companion-harmony-dev/`, `HARMONY_SCAFFOLD_REPORT.json`, and `npm run smoke:harmony`; HANDOFF_ONLY, no SDK compile. | Keep schema/page contracts aligned with the JS prototype. |
+| DevEco compile | Minimal HarmonyOS app compiles in DevEco or HarmonyOS command-line toolchain. | Not verified. | SDK/project setup, ArkTS type/build errors resolved, file picker/storage wiring checked by toolchain. |
 | Device roundtrip | Real phone can read mirror, create inbox patch, and Mac imports it. | Not verified. | Manual HarmonyOS test with exported patch receipt. |
 | Feishu-backed phone workflow | Phone gets mirror from Feishu and returns append-only patches safely. | Not implemented. | Live Feishu folder access plus patch transport policy. |
 
-Current wording: "HarmonyOS schema reader prototype", not "HarmonyOS app".
+Current wording: "HarmonyOS schema reader prototype + ArkTS scaffold handoff", not "compiled HarmonyOS app" or "device-verified HarmonyOS app".
 
-Reader-view schema note: `learning-companion.harmony-reader-view.v1` may gain additive fields while the HarmonyOS consumer is still scaffold-only. Removing or renaming fields should bump the derived reader-view schema. Open-question handoff is therefore JSON contract evidence until DevEco compile and device import/render gates pass.
+Reader-view schema note: `learning-companion.harmony-reader-view.v1` may gain additive fields while the HarmonyOS consumer is scaffold-only. Removing or renaming fields should bump the derived reader-view schema. Open-question handoff is therefore JSON/scaffold contract evidence until DevEco compile and device import/render gates pass.
 
 ## Morning Review Rule
 

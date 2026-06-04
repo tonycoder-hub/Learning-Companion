@@ -18,6 +18,8 @@ Current verified status: the runnable product is the web MVP plus a minimal Mac 
 apps/
   companion-web/
   companion-mac/
+  companion-harmony/
+  companion-harmony-dev/
 docs/
   architecture.md
   browser-capture.md
@@ -38,6 +40,7 @@ scripts/
 
 The first runnable MVP lives in `apps/companion-web`.
 The first native shell scaffold lives in `apps/companion-mac`.
+The executable HarmonyOS schema prototype lives in `apps/companion-harmony`; the DevEco-shaped scaffold handoff lives in `apps/companion-harmony-dev` and is not device-verified.
 
 ## Run The MVP
 
