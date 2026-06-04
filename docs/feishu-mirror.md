@@ -19,7 +19,7 @@ The first uploader-shaped adapter is local only:
 
 ```bash
 node scripts/feishu-mirror-uploader.mjs \
-  --bundle learning-companion-feishu-mirror.json \
+  --bundle learning-companion-mirror.json \
   --out .codex-tmp/feishu-upload \
   --json
 ```

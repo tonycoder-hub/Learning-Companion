@@ -2621,8 +2621,9 @@ try {
     const captureDraftStaleBeforeImport = Object.values(uiPrefsWithStaleDraft.captureDrafts || {})
       .some((draft) => draft.quote === staleDraftPruneQuote);
     const importInput = document.querySelector("#importWorkspaceInput");
+    const mirrorImportFileName = "learning-companion-mirror.json";
     const transfer = new DataTransfer();
-    transfer.items.add(new File([mirrorText], "learning-companion-feishu-mirror.json", { type: "application/json" }));
+    transfer.items.add(new File([mirrorText], mirrorImportFileName, { type: "application/json" }));
     importInput.files = transfer.files;
     importInput.dispatchEvent(new Event("change", { bubbles: true }));
     return new Promise((resolve) => setTimeout(() => {
@@ -2806,6 +2807,7 @@ try {
           restoredCaptures: restoredSession.captures.length,
           restoredCards: restoredSession.reviewCards.length,
           restoredSourceUrl: restoredSession.sourceUrl,
+          mirrorImportFileName,
           latestCaptureSourceUrl: restoredSession.captures[0].sourceUrl,
           latestCaptureMaterialType: restoredSession.captures[0].materialType,
           latestCaptureSourceProvenance: restoredSession.captures[0].sourceProvenance,
@@ -3349,6 +3351,7 @@ try {
   });
   assert.equal(result.captureDraftStaleBeforeImport, true);
   assert.equal(result.captureDraftPrunedAfterImport, true);
+  assert.equal(result.mirrorImportFileName, "learning-companion-mirror.json");
   assert.equal(result.captures, 3);
   assert.equal(result.cards, 2);
   assert.equal(result.captureMetric, "3");
@@ -4183,16 +4186,16 @@ try {
   assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(reviewRuntime.returnAfterPanelHidden, false);
   assert.match(reviewRuntime.returnAfterText, /Return file downloaded/);
-  assert.match(reviewRuntime.returnAfterText, /On a phone: use Copy or Manual Copy/);
-  assert.match(reviewRuntime.returnAfterText, /paste the return JSON into a note, email, or message/);
+  assert.match(reviewRuntime.returnAfterText, /Move it to Mac, then import or paste it from Today > Return Files/);
+  assert.match(reviewRuntime.returnAfterText, /If a file was saved: Windows - check Downloads/);
+  assert.match(reviewRuntime.returnAfterText, /HarmonyOS phone - check the Files app's Downloads folder/);
+  assert.match(reviewRuntime.returnAfterText, /If no file was created: use Copy or Manual Copy/);
+  assert.match(reviewRuntime.returnAfterText, /paste the return JSON into a trusted note, email, or message/);
   assert.match(reviewRuntime.returnAfterText, /import or paste it from Today > Return Files/);
-  assert.match(reviewRuntime.returnAfterText, /If your browser saved a file/);
-  assert.match(reviewRuntime.returnAfterText, /Downloads on Windows/);
-  assert.match(reviewRuntime.returnAfterText, /Files > Downloads on a Harmony phone/);
-  assert.match(reviewRuntime.returnAfterText, /browser's default download folder on other devices/);
-  assert.match(reviewRuntime.returnAfterText, /If no file was created, use Copy or Manual Copy/);
-  assert.match(reviewRuntime.returnAfterText, /Feishu as a manual carrier only/);
-  assert.match(reviewRuntime.returnAfterText, /AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved/);
+  assert.match(reviewRuntime.returnAfterText, /Files app's Downloads folder/);
+  assert.match(reviewRuntime.returnAfterText, /browser's default download folder/);
+  assert.match(reviewRuntime.returnAfterText, /Manual carriers after you have the JSON: AirDrop, USB, file share, email/);
+  assert.match(reviewRuntime.returnAfterText, /Feishu Drive; no live sync/);
   assert.match(reviewRuntime.returnAfterText, /keep reviewing here/);
   assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
   assert.equal(reviewRuntime.returnPreviewTitle, "Return file preview");
@@ -4733,16 +4736,16 @@ try {
   assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(inboxRuntime.returnAfterPanelHidden, false);
   assert.match(inboxRuntime.returnAfterText, /Return file downloaded/);
-  assert.match(inboxRuntime.returnAfterText, /On a phone: use Copy or Manual Copy/);
-  assert.match(inboxRuntime.returnAfterText, /paste the return JSON into a note, email, or message/);
+  assert.match(inboxRuntime.returnAfterText, /Move it to Mac, then import or paste it from Today > Return Files/);
+  assert.match(inboxRuntime.returnAfterText, /If a file was saved: Windows - check Downloads/);
+  assert.match(inboxRuntime.returnAfterText, /HarmonyOS phone - check the Files app's Downloads folder/);
+  assert.match(inboxRuntime.returnAfterText, /If no file was created: use Copy or Manual Copy/);
+  assert.match(inboxRuntime.returnAfterText, /paste the return JSON into a trusted note, email, or message/);
   assert.match(inboxRuntime.returnAfterText, /import or paste it from Today > Return Files/);
-  assert.match(inboxRuntime.returnAfterText, /If your browser saved a file/);
-  assert.match(inboxRuntime.returnAfterText, /Downloads on Windows/);
-  assert.match(inboxRuntime.returnAfterText, /Files > Downloads on a Harmony phone/);
-  assert.match(inboxRuntime.returnAfterText, /browser's default download folder on other devices/);
-  assert.match(inboxRuntime.returnAfterText, /If no file was created, use Copy or Manual Copy/);
-  assert.match(inboxRuntime.returnAfterText, /Feishu as a manual carrier only/);
-  assert.match(inboxRuntime.returnAfterText, /AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved/);
+  assert.match(inboxRuntime.returnAfterText, /Files app's Downloads folder/);
+  assert.match(inboxRuntime.returnAfterText, /browser's default download folder/);
+  assert.match(inboxRuntime.returnAfterText, /Manual carriers after you have the JSON: AirDrop, USB, file share, email/);
+  assert.match(inboxRuntime.returnAfterText, /Feishu Drive; no live sync/);
   assert.match(inboxRuntime.returnAfterText, /keep capturing here/);
   assert.equal(inboxRuntime.returnAfterFollowupHidden, false);
   assert.match(inboxRuntime.returnAfterFollowupText, /Review \d+ due card/);

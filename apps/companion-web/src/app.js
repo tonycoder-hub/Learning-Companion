@@ -1006,7 +1006,7 @@ dom.downloadTodayBtn.addEventListener("click", async () => {
   }
 });
 dom.downloadMirrorBtn.addEventListener("click", async () => {
-  if (await saveTextFile("learning-companion-feishu-mirror.json", dom.mirrorExport.value, "application/json")) {
+  if (await saveTextFile("learning-companion-mirror.json", dom.mirrorExport.value, "application/json")) {
     showToast(saveCompleteMessage("Mirror"));
     recordReturnFileExportReceipt("Mirror JSON");
   }

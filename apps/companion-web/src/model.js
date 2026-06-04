@@ -2329,8 +2329,8 @@ export function generateReviewPackMarkdown(workspaceData) {
     "## Export Artifacts",
     "",
     `- Workspace restore: \`learning-companion-workspace.json\` (${safeWorkspace.sessions.length} sessions)`,
-    `- Mirror bundle: \`learning-companion-feishu-mirror.json\` (${mirror.manifest.fileCount} files, ${mirror.manifest.bundleFingerprint})`,
-    "- Mirror ZIP: `learning-companion-feishu-mirror.zip` (manual folder package)",
+    `- Mirror bundle: \`learning-companion-mirror.json\` (${mirror.manifest.fileCount} files, ${mirror.manifest.bundleFingerprint})`,
+    "- Mirror ZIP: `learning-companion-mirror.zip` (manual folder package)",
     "- Today pack: `TODAY.md`",
     "- Current session Markdown and `.feishu.json` sidecar",
     "",
@@ -2397,13 +2397,20 @@ function returnAfterSaveCss() {
   return [
     "    .return-after-save { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid #b9d7cb; border-radius: 8px; background: #f0faf5; }",
     "    .return-after-save strong { color: #2f6f5e; }",
-    "    .return-after-save span { color: #4b5358; font-size: 13px; line-height: 1.4; }",
+    "    .return-after-save span { color: #4b5358; font-size: 13px; line-height: 1.4; white-space: pre-line; }",
     "    .return-after-save a { color: #315f82; font-size: 13px; font-weight: 700; }"
   ];
 }
 
-const RETURN_FILE_DEVICE_LOCATION_HINT = "If your browser saved a file, check Downloads on Windows, Files > Downloads on a Harmony phone, or your browser's default download folder on other devices. If no file was created, use Copy or Manual Copy and paste into any note app you trust, such as a local note, email, WeChat, or Feishu as a manual carrier only.";
-const RETURN_FILE_TRANSPORT_HINT = `On a phone: use Copy or Manual Copy, paste the return JSON into a note, email, or message, send it to your Mac, then import or paste it from Today > Return Files. ${RETURN_FILE_DEVICE_LOCATION_HINT} AirDrop, USB, file share, or manual Feishu Drive upload also work after the JSON file is saved.`;
+const RETURN_FILE_TRANSPORT_HINT = [
+  "Move it to Mac, then import or paste it from Today > Return Files.",
+  "",
+  "If a file was saved: Windows - check Downloads; HarmonyOS phone - check the Files app's Downloads folder; other browsers - check the browser's default download folder.",
+  "",
+  "If no file was created: use Copy or Manual Copy, paste the return JSON into a trusted note, email, or message, then move it to Mac.",
+  "",
+  "Manual carriers after you have the JSON: AirDrop, USB, file share, email, or Feishu Drive; no live sync."
+].join("\n");
 
 function returnAfterSaveHtml() {
   return [
@@ -3675,7 +3682,7 @@ export function buildMirrorZip(workspace, options = {}) {
   }));
   const data = buildStoredZip(files, new Date(bundle.exportedAt));
   return {
-    filename: "learning-companion-feishu-mirror.zip",
+    filename: "learning-companion-mirror.zip",
     mediaType: "application/zip",
     bytes: data.length,
     fileCount: files.length,

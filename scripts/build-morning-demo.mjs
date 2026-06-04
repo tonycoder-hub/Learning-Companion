@@ -37,7 +37,7 @@ const PATCH_DIR = join(OUT_DIR, "patches");
 const MORNING_GENERATED_AT = "2026-05-29T07:20:00.000+08:00";
 const CAPTURE_RESUME_GENERATED_AT = "2026-05-29T07:25:00.000+08:00";
 const SAMPLE_WORKSPACE_FILE = "sample-workspace.json";
-const SAMPLE_MIRROR_JSON_FILE = "sample-feishu-mirror.json";
+const SAMPLE_MIRROR_JSON_FILE = "sample-mirror.json";
 const SAMPLE_HARMONY_READER_FILE = "sample-harmony-reader-view.json";
 const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
@@ -1302,7 +1302,7 @@ function buildWindowsStaticQaMarkdown({
     "| Unsaved leave warning | Make an unsaved review or inbox change, then close the tab or navigate away. | Browser warns before leaving local unsaved work. | NT |  |",
     "| Manual transfer back | Move the review and inbox return files back to Mac, then import them with Return Files. | Mac shows `Return files imported`, new captures or review updates rejoin Learning Flow, and the receipt names stale/legacy mirror checks if applicable. | NT |  |",
     "| Batch partial-import guard | Import one valid Windows return file together with one wrong file such as `sample-workspace.json` through Return Files. | Mac imports only the valid append-only return, reports the wrong file as failed or unsupported, and does not overwrite the workspace. | NT |  |",
-    "| Wrong file guard | Try importing `sample-workspace.json` or `sample-feishu-mirror.json` through Return Files after the Windows pass. | Mac reports an unsupported or failed return file without overwriting the workspace. | NT |  |",
+    "| Wrong file guard | Try importing `sample-workspace.json` or `sample-mirror.json` through Return Files after the Windows pass. | Mac reports an unsupported or failed return file without overwriting the workspace. | NT |  |",
     "| Static boundary | If available, repeat the launch while offline or inspect network activity in the browser. | Local mirror pages remain readable; no row treats Feishu Drive as live sync. | NT |  |",
     "",
     "## Notes",
@@ -1348,7 +1348,7 @@ function buildDemoScriptMarkdown({
     `- Open \`mirror-folder/review.html\` and \`mirror-folder/inbox.html\`; they are static patch exporters for phone/Windows/manual transport.`,
     `- Read \`${STATIC_RETURN_CONTRACT_FILE}\`, then run \`npm run check:static-return\` when you want the local static return contract receipt without touching Downloads.`,
     `- Open \`${WINDOWS_STATIC_QA_FILE}\` before claiming Windows usability; it is the pending receipt for local browser launch, Review/Inbox return files, and Mac Return Files import.`,
-    `- Open \`${sampleMirrorZipFile}\` or \`sample-feishu-mirror.json\`; mirror integrity checked ${mirrorIntegrityReport.summary.internalLinks} internal links with ${mirrorIntegrityReport.summary.brokenLinks} broken.`,
+    `- Open \`${sampleMirrorZipFile}\` or \`sample-mirror.json\`; mirror integrity checked ${mirrorIntegrityReport.summary.internalLinks} internal links with ${mirrorIntegrityReport.summary.brokenLinks} broken.`,
     `- Open \`HARMONY_SCAFFOLD_REPORT.json\`; it checks ${harmonyScaffoldReport.fileCount} scaffold files, not an SDK compile.`,
     "",
     "## 40-55s: Check Local Data Honesty",
