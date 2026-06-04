@@ -38,6 +38,10 @@ echo "== Dogfood runbook validator =="
 npm run dogfood:validate:smoke
 echo
 
+echo "== Mac manual QA validator =="
+npm run mac:manual:validate:smoke
+echo
+
 echo "== Morning receipt contracts =="
 npm run morning:receipts
 echo

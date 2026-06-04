@@ -152,8 +152,8 @@ npm run check:morning:browser
 `smoke:browser` uses local Chrome headless and a temporary profile.
 `mac:build` uses local SwiftPM and does not package or sign an `.app` yet.
 `demo:morning` writes a credential-free inspection pack to `dist/morning-demo/`.
-`check:morning` now runs `check:static-return` after generating that pack, so the offline headline gate includes the static Review/Inbox return contract.
-`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, source-time link receipt, patch-intake negative receipt, demo pack generation, static return contract, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, perf self-test, and git status.
+`check:morning` now runs `check:static-return`, `dogfood:validate:smoke`, and `mac:manual:validate:smoke` after generating that pack, so the offline headline gate includes the static Review/Inbox return contract plus pending dogfood/Mac-manual claim guards.
+`check:morning` is the offline headline gate: web smoke, HarmonyOS smoke, capture-resume receipt, source-time link receipt, patch-intake negative receipt, demo pack generation, static return contract, pending dogfood/Mac-manual validators, receipt contracts, adversarial gate fixtures, determinism, mirror integrity, perf budget, perf self-test, and git status.
 `check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.
 `check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.
 

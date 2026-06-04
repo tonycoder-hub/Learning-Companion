@@ -1446,7 +1446,7 @@ function buildDemoScriptMarkdown({
     "## 40-55s: Check Local Data Honesty",
     "",
     "- In the app, add a real capture, confirm the local storage notice appears, then export workspace and verify the exported JSON file yourself.",
-    `- Use \`MAC_MANUAL_QA.md\` and \`${WINDOWS_STATIC_QA_FILE}\` for manual rows; leave anything approval/device-bound as \`NT\` or \`BLOCKED\` rather than treating it as passed.`,
+    `- Use \`MAC_MANUAL_QA.md\` and \`${WINDOWS_STATIC_QA_FILE}\` for manual rows; leave anything approval/device-bound as \`NT\` or \`BLOCKED\` rather than treating it as passed. The offline gate runs \`npm run mac:manual:validate:smoke\` to keep the pending Mac receipt non-claiming.`,
     "",
     "## 55-60s: Decide The Next Gate",
     "",
@@ -1556,7 +1556,7 @@ function buildMorningReviewMarkdown({
     "1. Run `npm run check:morning` from the repo root for the offline headline gate.",
     "1a. Run `npm run check:morning:native` separately if SwiftPM toolchain/cache access is allowed.",
     "1b. Run `npm run check:morning:browser` separately if local browser port binding is allowed.",
-    "1c. `npm run check:morning` includes `npm run check:static-return`; rerun it separately only when you want a fresh static-return receipt. It writes receipts under `.codex-tmp/`, not Downloads.",
+    "1c. `npm run check:morning` includes `npm run check:static-return`, `npm run dogfood:validate:smoke`, and `npm run mac:manual:validate:smoke`; rerun them separately only when you want focused receipts. They write receipts under `.codex-tmp/`, not Downloads.",
     "2. Run `npm run dev` and open `http://127.0.0.1:5173`.",
     "3. Import `dist/morning-demo/sample-workspace.json` in the app.",
     "4. Open the Export tab and compare it with `dist/morning-demo/mirror-folder/index.html`.",
@@ -1662,7 +1662,7 @@ function buildMorningReviewMarkdown({
     "- `npm run smoke` covers model contracts and generated static artifacts.",
     "- `npm run smoke:harmony` covers the read-only HarmonyOS reader view contract plus pure import/patch boundary fixtures.",
     "- When the separate browser gate is allowed, `npm run smoke:browser` covers browser interaction, mirror generation/import, static review/inbox runtime behavior, patch import receipts, duplicate review patch receipts, and visible issue receipts for bad mirror, malformed JSON, and oversized patch imports.",
-    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, receipt contracts, determinism, and mirror integrity.",
+    "- `npm run check:morning` runs the offline headline gate: web smoke, Harmony reader smoke, capture resume, morning generator, static return, pending dogfood/Mac-manual validators, receipt contracts, determinism, and mirror integrity.",
     "- `npm run check:morning:native` runs the Mac SwiftPM build separately because SwiftPM may need toolchain/cache access outside restricted sandboxes.",
     "- `npm run check:morning:browser` runs the local browser UX smoke separately because it binds `127.0.0.1`.",
     "- `npm run check:static-return` runs the static mirror return contract and writes project-local ignored receipts under `.codex-tmp/`.",
@@ -1910,7 +1910,7 @@ function buildReviewStartHereHtml({
       <div class="grid">
         <div class="card"><strong>1. Mac Loop</strong><p>Open the app beside a browser source. Check First Note, then use Capture this thought and confirm the Thought lane is the focused writing target.</p></div>
         <div class="card"><strong>2. Import</strong><p>Import <a href="${escapeHtml(SAMPLE_WORKSPACE_FILE)}">${escapeHtml(SAMPLE_WORKSPACE_FILE)}</a>, type a half-finished Quick Capture thought, switch sessions, and confirm Today/Focus Brief can resume it without calling it synced data.</p></div>
-        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate, including the static Review/Inbox return contract. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
+        <div class="card"><strong>3. Verify</strong><p>Run <code>npm run check:morning</code> for the offline headline gate, including the static Review/Inbox return contract and pending dogfood/Mac-manual validators. Run <code>npm run check:morning:native</code> and <code>npm run check:morning:browser</code> separately when those local permissions are available.</p></div>
         <div class="card"><strong>4. Inspect</strong><p>Open <a href="mirror-folder/index.html">mirror-folder/index.html</a>, then try review and inbox patch pages.</p></div>
       </div>
     </section>

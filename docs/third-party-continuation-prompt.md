@@ -87,6 +87,9 @@ Latest implemented slices include:
   - `MAC_MANUAL_QA.md` has real-run session fields and says only an actual Mac GUI run can change `NT` rows.
   - `npm run mac:manual:validate:smoke` accepts the all-`NT` pending receipt but keeps `canClaimMacManualQaUsable=false`; filled claims also require native/browser gate result fields to be `PASS`.
   - Negative checks reject all-PASS rows with header fields still `TBD` and reject FAIL/BLOCKED rows without notes.
+- The offline morning gate now includes both pending manual-evidence validators.
+  - `npm run check:morning` runs `dogfood:validate:smoke` and `mac:manual:validate:smoke`.
+  - This keeps pending runbooks non-claiming inside the headline gate; it still does not prove real Mac GUI dogfood.
 - Controlled browser smoke exists for fast regression, but it is not real dogfood.
 
 ## Cross-Device Boundary
@@ -152,6 +155,20 @@ For the latest Mac manual-QA validator slice after `a97c0fd`:
 - `npm run dogfood:validate:smoke` -> pending dogfood receipt
 - `git diff --check` -> PASS
 - `npm run smoke` -> `smoke_web_ok`
+
+For the latest morning-gate integration slice after `ebd7462`:
+
+- `bash -n scripts/morning-check.sh` -> PASS
+- `node --check scripts/build-morning-demo.mjs` -> PASS
+- `node --check scripts/validate-morning-receipts.mjs` -> PASS
+- `node --check scripts/validate-mac-manual-qa.mjs` -> PASS
+- `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning` -> `morning_demo_ok`
+- `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
+- `npm run mac:manual:validate:smoke` -> pending receipt with `rows=27`, `nt=27`, `canClaimMacManualQaUsable=false`
+- `npm run dogfood:validate:smoke` -> pending receipt with `rows=11`, `nt=11`, `canClaimMacDogfoodUsable=false`
+- `MORNING_DEMO_SKIP_CLEAN=1 LC_KEEP_CHECK_ARTIFACTS=1 npm run check:morning` -> `morning_offline_check_ok`, and the output includes both `Dogfood runbook validator` and `Mac manual QA validator`
+- `npm run check:morning:browser` -> first sandbox `listen EPERM 127.0.0.1`; approved rerun -> `smoke_browser_ok` and `morning_browser_check_ok`
+- `git diff --check` -> PASS
 
 For the source-first Notes work:
 
