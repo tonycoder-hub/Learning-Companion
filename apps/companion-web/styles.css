@@ -844,6 +844,16 @@ textarea:focus {
   white-space: nowrap;
 }
 
+.capture-context-draft {
+  grid-column: 1 / -1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .capture-context-source {
   display: -webkit-box;
   position: relative;
@@ -2333,6 +2343,10 @@ textarea:focus {
   .capture-context-time {
     grid-column: 2 / 3;
     justify-self: end;
+  }
+
+  .capture-context-draft {
+    grid-column: 1 / -1;
   }
 
   .capture-context .mini-button {

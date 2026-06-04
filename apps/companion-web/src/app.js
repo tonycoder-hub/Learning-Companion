@@ -143,6 +143,7 @@ const dom = {
   captureContext: document.querySelector("#captureContext"),
   captureContextTarget: document.querySelector("#captureContextTarget"),
   captureContextIntent: document.querySelector("#captureContextIntent"),
+  captureContextDraft: document.querySelector("#captureContextDraft"),
   captureContextSource: document.querySelector("#captureContextSource"),
   captureContextTime: document.querySelector("#captureContextTime"),
   captureContextOpenBtn: document.querySelector("#captureContextOpenBtn"),
@@ -2209,16 +2210,19 @@ function renderCaptureContext(session) {
   const sourceChangedDetail = sourceChanged
     ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
     : "";
+  const contextSummary = captureContextDraftSummary(session, resume, intent, draft, sourceChanged);
   dom.captureContext.dataset.sourceState = hasSource ? "linked" : "missing";
   dom.captureContext.dataset.timeState = hasTime ? "set" : "unset";
   dom.captureContext.dataset.materialType = session.materialType || "article";
   dom.captureContext.dataset.draftSourceState = sourceChanged ? "changed" : hasCaptureDraft(draft) ? "same" : "none";
-  dom.captureContext.setAttribute("aria-label", captureContextSummary(session, resume, intent, sourceLabel));
+  dom.captureContext.setAttribute("aria-label", captureContextSummary(session, resume, intent, sourceLabel, contextSummary));
   dom.captureContextTarget.textContent = targetLabel;
   dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
   dom.captureContextTarget.setAttribute("aria-label", `Show capture destination: ${session.title || "current topic"}`);
   dom.captureContextIntent.textContent = intent.label;
   dom.captureContextIntent.title = intent.title;
+  dom.captureContextDraft.textContent = contextSummary;
+  dom.captureContextDraft.title = contextSummary;
   dom.captureContextSource.textContent = sourceLabel;
   dom.captureContextSource.classList.toggle("warn", sourceChanged);
   dom.captureContextSource.title = sourceChanged
@@ -2241,11 +2245,12 @@ function renderCaptureContext(session) {
   renderCaptureStarters();
 }
 
-function captureContextSummary(session, resume, intent, sourceLabel) {
+function captureContextSummary(session, resume, intent, sourceLabel, contextSummary = "") {
   const destination = session.title || "current topic";
   const source = resume.href ? sourceLabel : "no source set";
   const time = resume.timestamp ? `time ${resume.timestamp}` : "no timestamp";
-  return `Capture context: to ${destination}; ${intent.label}; source ${source}; ${time}.`;
+  const draft = contextSummary ? ` ${contextSummary}` : "";
+  return `Capture context: to ${destination}; ${intent.label}; source ${source}; ${time}.${draft}`;
 }
 
 function captureContextOpenLabel(resume) {
@@ -2325,6 +2330,34 @@ function captureDraftIntent(session) {
     label: "Capture",
     title: "This will save as a capture with quote and thought."
   };
+}
+
+function captureContextDraftSummary(session, resume, intent, draft, sourceChanged) {
+  const destination = session.title || "current topic";
+  const sourceState = captureContextSourceStateSummary(resume, sourceChanged);
+  const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, dom.thoughtInput.value);
+  const outcome = {
+    "Question draft": "Finish the question body before it enters Open Questions.",
+    "Answer draft": answersQuestionCaptureId
+      ? "Add detail before it can close the linked question."
+      : "Add detail before it can count as answer evidence.",
+    Question: `Will enter Open Questions in ${destination}.`,
+    Answer: answersQuestionCaptureId
+      ? `Will close the linked question in ${destination}.`
+      : `Will appear in Answers Today in ${destination}.`,
+    Takeaway: `Will save as a takeaway in ${destination}.`,
+    Quote: `Will save as a highlight in ${destination}.`,
+    Thought: `Will save as a thought in ${destination}.`,
+    Capture: `Will save as a capture in ${destination}.`
+  }[intent.label] || `Ready for ${intent.label.toLowerCase()} in ${destination}.`;
+  return `${outcome} ${sourceState}`;
+}
+
+function captureContextSourceStateSummary(resume, sourceChanged) {
+  if (sourceChanged) return "Source changed; use current to re-anchor.";
+  if (resume?.href && resume.timestamp) return `Source resumes at ${resume.timestamp}.`;
+  if (resume?.href) return "Source resume ready.";
+  return "No source resume yet.";
 }
 
 function renderCaptureGuidance(session, resume) {

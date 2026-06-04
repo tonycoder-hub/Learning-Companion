@@ -1165,6 +1165,7 @@ try {
       const targetContext = document.querySelector("#captureContextTarget");
       const sourceContext = document.querySelector("#captureContextSource");
       const intentContext = document.querySelector("#captureContextIntent");
+      const draftContext = document.querySelector("#captureContextDraft");
       const timeContext = document.querySelector("#captureContextTime");
       const targetRect = targetContext.getBoundingClientRect();
       const sourceRect = sourceContext.getBoundingClientRect();
@@ -1194,6 +1195,12 @@ try {
         intentText: intentContext.textContent,
         intentClientHeight: intentContext.clientHeight,
         intentScrollHeight: intentContext.scrollHeight,
+        draftText: draftContext.textContent,
+        draftTitle: draftContext.title,
+        draftClientHeight: draftContext.clientHeight,
+        draftScrollHeight: draftContext.scrollHeight,
+        draftClientWidth: draftContext.clientWidth,
+        draftScrollWidth: draftContext.scrollWidth,
         timeHidden: timeContext.hidden,
         timeText: timeContext.textContent,
         timeClientHeight: timeContext.clientHeight,
@@ -1379,6 +1386,11 @@ try {
     assert.equal(state.sourceHit, true);
     assert.ok(state.intentClientHeight <= 28);
     assert.ok(state.intentScrollHeight <= state.intentClientHeight + 1);
+    assert.match(state.draftText, /Ready for .* in Learning Companion Browser Notes With A Long Course Name\./);
+    assert.match(state.draftText, /Source resumes at 12:34\./);
+    assert.equal(state.draftTitle, state.draftText);
+    assert.ok(state.draftScrollHeight <= state.draftClientHeight + 1);
+    assert.ok(state.draftScrollWidth <= state.draftClientWidth + 2);
     assert.equal(state.timeHidden, false);
     assert.equal(state.timeText, "@ 12:34");
     assert.ok(state.timeClientHeight <= 28);
@@ -1826,6 +1838,7 @@ try {
       contextTargetTitle: document.querySelector("#captureContextTarget").title,
       contextIntent: document.querySelector("#captureContextIntent").textContent,
       contextIntentTitle: document.querySelector("#captureContextIntent").title,
+      contextDraft: document.querySelector("#captureContextDraft").textContent,
       quotePlaceholder: document.querySelector("#quoteInput").placeholder,
       thoughtPlaceholder: document.querySelector("#thoughtInput").placeholder,
       contextSource: document.querySelector("#captureContextSource").textContent,
@@ -1929,17 +1942,20 @@ try {
     setValue("#thoughtInput", "Why does this ownership example avoid data races?");
     const questionIntent = {
       text: document.querySelector("#captureContextIntent").textContent,
-      title: document.querySelector("#captureContextIntent").title
+      title: document.querySelector("#captureContextIntent").title,
+      summary: document.querySelector("#captureContextDraft").textContent
     };
     setValue("#thoughtInput", "Answer:");
     const answerDraftIntent = {
       text: document.querySelector("#captureContextIntent").textContent,
-      title: document.querySelector("#captureContextIntent").title
+      title: document.querySelector("#captureContextIntent").title,
+      summary: document.querySelector("#captureContextDraft").textContent
     };
     setValue("#thoughtInput", "Answer: because ownership gives each mutable reference a single active writer.");
     const answerIntent = {
       text: document.querySelector("#captureContextIntent").textContent,
-      title: document.querySelector("#captureContextIntent").title
+      title: document.querySelector("#captureContextIntent").title,
+      summary: document.querySelector("#captureContextDraft").textContent
     };
     setValue("#thoughtInput", "This should warn if the source changes before capture.");
     setValue("#sourceTitle", "Different lecture");
@@ -1952,6 +1968,7 @@ try {
       role: document.querySelector("#captureDraftStatus").getAttribute("role"),
       ariaLive: document.querySelector("#captureDraftStatus").getAttribute("aria-live"),
       contextDraftSourceState: document.querySelector("#captureContext").dataset.draftSourceState,
+      contextDraft: document.querySelector("#captureContextDraft").textContent,
       contextSourceClass: document.querySelector("#captureContextSource").className,
       contextSourceTitle: document.querySelector("#captureContextSource").title,
       contextSourceAria: document.querySelector("#captureContextSource").getAttribute("aria-label")
@@ -3162,6 +3179,8 @@ try {
   assert.equal(result.sourceTimestampStage.contextTargetTitle, "Captures save to Learning Companion MVP");
   assert.equal(result.sourceTimestampStage.contextIntent, "Video moment");
   assert.equal(result.sourceTimestampStage.contextIntentTitle, "Capture the current video moment with the transcript line, question, or answer it triggered.");
+  assert.match(result.sourceTimestampStage.contextDraft, /Ready for video moment in Learning Companion MVP\./);
+  assert.match(result.sourceTimestampStage.contextDraft, /Source resumes at 08:12\./);
   assert.equal(result.sourceTimestampStage.quotePlaceholder, "Transcript line or key phrase at this moment");
   assert.equal(result.sourceTimestampStage.thoughtPlaceholder, "Your question, takeaway, or answer for this moment");
   assert.equal(result.sourceTimestampStage.contextSource, "RustConf ownership talk");
@@ -3171,7 +3190,7 @@ try {
   assert.equal(result.sourceTimestampStage.contextTimeState, "set");
   assert.equal(
     result.sourceTimestampStage.contextAria,
-    "Capture context: to Learning Companion MVP; Video moment; source RustConf ownership talk; time 08:12."
+    "Capture context: to Learning Companion MVP; Video moment; source RustConf ownership talk; time 08:12. Ready for video moment in Learning Companion MVP. Source resumes at 08:12."
   );
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
   assert.equal(result.sourceTimestampStage.contextOpenText, "Resume @ 08:12");
@@ -3230,15 +3249,18 @@ try {
   assert.doesNotMatch(result.sourceTimestampNudge.titleOnlySourceRefresh.statusClass, /warn/);
   assert.deepEqual(result.sourceTimestampNudge.questionIntent, {
     text: "Question",
-    title: "This capture will enter Open Questions."
+    title: "This capture will enter Open Questions.",
+    summary: "Will enter Open Questions in Learning Companion MVP. Source resumes at 00:00."
   });
   assert.deepEqual(result.sourceTimestampNudge.answerDraftIntent, {
     text: "Answer draft",
-    title: "This looks like an answer draft; add enough detail before saving as answer evidence."
+    title: "This looks like an answer draft; add enough detail before saving as answer evidence.",
+    summary: "Add detail before it can count as answer evidence. Source resumes at 00:00."
   });
   assert.deepEqual(result.sourceTimestampNudge.answerIntent, {
     text: "Answer",
-    title: "This capture can appear in Answers Today."
+    title: "This capture can appear in Answers Today.",
+    summary: "Will appear in Answers Today in Learning Companion MVP. Source resumes at 00:00."
   });
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.status, "Source changed");
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.statusClass, /warn/);
@@ -3248,6 +3270,8 @@ try {
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.role, "status");
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.ariaLive, "polite");
   assert.equal(result.sourceTimestampNudge.sourceChangedDraft.contextDraftSourceState, "changed");
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextDraft, /Will save as a capture in Learning Companion MVP\./);
+  assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextDraft, /Source changed; use current to re-anchor\./);
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceClass, /warn/);
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceTitle, /Draft began on RustConf ownership talk/);
   assert.match(result.sourceTimestampNudge.sourceChangedDraft.contextSourceTitle, /current source is Different lecture/);
@@ -3303,7 +3327,7 @@ try {
     sourceBorderStyle: "dashed",
     timeHidden: true,
     timeState: "unset",
-    contextAria: "Capture context: to New learning session; No source; source no source set; no timestamp.",
+    contextAria: "Capture context: to New learning session; No source; source no source set; no timestamp. Ready for no source in New learning session. No source resume yet.",
     openDisabled: false,
     openText: "Set source",
     openLabel: "Set source URL",
