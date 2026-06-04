@@ -234,7 +234,13 @@ try {
       deviceFlowVisible: Boolean(panel?.querySelector(".handoff-card")),
       deviceRouteText: panel?.querySelector(".start-here-device-route")?.textContent || "",
       deviceRouteAria: panel?.querySelector(".start-here-device-route")?.getAttribute("aria-label") || "",
+      deviceRouteOpen: panel?.querySelector(".start-here-device-route")?.open === true,
+      deviceRouteSummaryText: panel?.querySelector(".start-here-device-route summary")?.textContent || "",
       deviceRouteActionAria: panel?.querySelector(".start-here-device-route [data-start-action='device-flow']")?.getAttribute("aria-label") || "",
+      deviceRouteActionVisible: (() => {
+        const rect = panel?.querySelector(".start-here-device-route [data-start-action='device-flow']")?.getBoundingClientRect();
+        return Boolean(rect && rect.width > 0 && rect.height > 0);
+      })(),
       firstTodayPanel: document.querySelector("#todayTab")?.firstElementChild?.className || "",
       firstTodayBlock: document.querySelector("#todayList")?.firstElementChild?.className || "",
       secondTodayBlock: document.querySelector("#todayList")?.children?.[1]?.className || "",
@@ -250,10 +256,20 @@ try {
       buttons: [...(card?.querySelectorAll("button") || [])].map((button) => ({
         action: button.dataset.startAction,
         text: button.textContent
+      })),
+      visibleButtons: [...(card?.querySelectorAll("button") || [])].filter((button) => {
+        const rect = button.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      }).map((button) => ({
+        action: button.dataset.startAction,
+        text: button.textContent
       }))
     };
+    card?.querySelector(".start-here-device-route summary")?.click();
+    const deviceRouteOpenBeforeClick = document.querySelector(".start-here-device-route")?.open === true;
     card?.querySelector('[data-start-action="device-flow"]')?.click();
     const firstNoteDeviceFlowReveal = {
+      deviceRouteOpenBeforeClick,
       deviceFlowVisible: Boolean(document.querySelector(".learning-flow-panel .handoff-card")),
       deviceFlowOpen: document.querySelector(".learning-flow-panel .handoff-card")?.open === true,
       deviceRouteStillVisible: Boolean(document.querySelector(".learning-flow-panel .start-here-device-route")),
@@ -462,7 +478,7 @@ try {
   assert.equal(firstRun.flowSteps.find((step) => step.kind === "loop")?.wide, true);
   assert.ok(firstRun.flowTrackHeight <= 330, `Expected compact learning-flow track, got ${firstRun.flowTrackHeight}px`);
   assert.ok(firstRun.startHereHeight <= 300, `Expected compact first-note card, got ${firstRun.startHereHeight}px`);
-  assert.ok(firstRun.deviceRouteHeight <= 170, `Expected compact device route, got ${firstRun.deviceRouteHeight}px`);
+  assert.ok(firstRun.deviceRouteHeight <= 110, `Expected compact collapsed device route, got ${firstRun.deviceRouteHeight}px`);
   assert.match(firstRun.text, /Capture on Mac/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /Pending/);
   assert.match(firstRun.flowSteps.find((step) => step.kind === "loop")?.text || "", /After first capture/);
@@ -512,6 +528,11 @@ try {
   assert.match(firstRun.deviceRouteText, /Export mirror after first capture/);
   assert.match(firstRun.deviceRouteText, /Bring return files back to this Mac/);
   assert.match(firstRun.deviceRouteText, /No live sync/);
+  assert.equal(firstRun.deviceRouteOpen, false);
+  assert.match(firstRun.deviceRouteSummaryText, /Other devices later/);
+  assert.match(firstRun.deviceRouteSummaryText, /Use phone or Windows later/);
+  assert.match(firstRun.deviceRouteSummaryText, /no live sync/i);
+  assert.equal(firstRun.deviceRouteActionVisible, false);
   assert.match(firstRun.deviceRouteAria, /manual phone and Windows route/);
   assert.match(firstRun.deviceRouteActionAria, /Open manual phone and Windows transfer route/);
   assert.deepEqual(firstRun.buttons, [
@@ -520,6 +541,12 @@ try {
     { action: "clipper", text: "Set up page clipper" },
     { action: "device-flow", text: "Phone/Windows" }
   ]);
+  assert.deepEqual(firstRun.visibleButtons, [
+    { action: "capture", text: "Capture this thought" },
+    { action: "question", text: "Ask about this" },
+    { action: "clipper", text: "Set up page clipper" }
+  ]);
+  assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceRouteOpenBeforeClick, true);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowVisible, true);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceFlowOpen, true);
   assert.equal(firstRun.firstNoteDeviceFlowReveal.deviceRouteStillVisible, false);
@@ -576,6 +603,12 @@ try {
       };
       const routeText = route?.textContent || "";
       const routeRect = rect(route);
+      const closedActionRect = rect(action);
+      const actionText = action?.textContent || "";
+      const actionAria = action?.getAttribute("aria-label") || "";
+      const routeInitiallyOpen = route?.open === true;
+      route?.querySelector("summary")?.click();
+      const routeOpenAfterSummary = route?.open === true;
       const copyClientWidth = copy?.clientWidth || 0;
       const copyScrollWidth = copy?.scrollWidth || 0;
       const headingClientWidth = heading?.clientWidth || 0;
@@ -583,8 +616,6 @@ try {
       const stepsClientWidth = steps?.clientWidth || 0;
       const stepsScrollWidth = steps?.scrollWidth || 0;
       const actionRect = rect(action);
-      const actionText = action?.textContent || "";
-      const actionAria = action?.getAttribute("aria-label") || "";
       const badgeRowRect = rect(badgeRow);
       action?.click();
       const guide = document.querySelector("[data-device-transfer-guide]");
@@ -602,10 +633,13 @@ try {
         headingScrollWidth,
         stepsClientWidth,
         stepsScrollWidth,
+        closedActionRect,
         actionRect,
         actionText,
         actionAria,
         badgeRowRect,
+        routeInitiallyOpen,
+        routeOpenAfterSummary,
         guideText: guide?.textContent || "",
         guideOpen: guide?.open === true,
         guideRect: rect(guide),
@@ -624,7 +658,11 @@ try {
     assert.match(layout.routeText, /No live sync/);
     assert.equal(layout.actionText, "Phone/Windows");
     assert.match(layout.actionAria, /Open manual phone and Windows transfer route/);
+    assert.equal(layout.routeInitiallyOpen, false);
+    assert.equal(layout.routeOpenAfterSummary, true);
     assert.ok(layout.routeRect.width <= layout.viewport - 24, JSON.stringify(layout));
+    assert.equal(layout.closedActionRect.width, 0, JSON.stringify(layout));
+    assert.equal(layout.closedActionRect.height, 0, JSON.stringify(layout));
     assert.ok(layout.actionRect.width >= 96, JSON.stringify(layout));
     assert.ok(layout.actionRect.right <= layout.routeRect.right + 1, JSON.stringify(layout));
     assert.ok(layout.copyScrollWidth <= layout.copyClientWidth + 1, JSON.stringify(layout));
@@ -719,6 +757,8 @@ try {
     }));
     const startHereTextBeforeQuestion = document.querySelector(".start-here-inline")?.textContent || "";
     const startHereDeviceRouteText = document.querySelector(".start-here-device-route")?.textContent || "";
+    const startHereDeviceRouteOpen = document.querySelector(".start-here-device-route")?.open === true;
+    const startHereDeviceRouteSummaryText = document.querySelector(".start-here-device-route summary")?.textContent || "";
     const captureStepBeforeQuestion = document.querySelector('[data-learning-flow-step="capture"]');
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
     const noSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
@@ -830,6 +870,8 @@ try {
     result.startHereButtons = startHereButtonsBeforeQuestion;
     result.startHereText = startHereTextBeforeQuestion;
     result.startHereDeviceRouteText = startHereDeviceRouteText;
+    result.startHereDeviceRouteOpen = startHereDeviceRouteOpen;
+    result.startHereDeviceRouteSummaryText = startHereDeviceRouteSummaryText;
     setValue("#timestampInput", "");
     setValue("#sourceTitle", "Transition source");
     setValue("#sourceUrl", "https://example.com/transition-source");
@@ -1013,6 +1055,9 @@ try {
   assert.match(noSourceFlowStep.startHereText, /Anchor the source first, then capture, then close the loop/);
   assert.match(noSourceFlowStep.startHereDeviceRouteText, /Use phone or Windows later/);
   assert.match(noSourceFlowStep.startHereDeviceRouteText, /Bring return files back to this Mac/);
+  assert.equal(noSourceFlowStep.startHereDeviceRouteOpen, false);
+  assert.match(noSourceFlowStep.startHereDeviceRouteSummaryText, /Other devices later/);
+  assert.match(noSourceFlowStep.startHereDeviceRouteSummaryText, /no live sync/i);
   assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);
   assert.equal(noSourceFlowStep.afterSetSource.isWide, false);
   assert.equal(noSourceFlowStep.afterSetSource.button, "Open source");
@@ -4155,7 +4200,7 @@ try {
   assert.doesNotMatch(reviewFollowupRuntime.followupHref, /workspaceFingerprint|returnBaseFingerprint|\/Users|file:/);
   assert.match(reviewFollowupRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
 
-  const reviewGuardDownloadCountBefore = (await settledDownloadNames(downloadPath)).length;
+  const reviewGuardDownloadNamesBefore = new Set(await settledDownloadNames(downloadPath));
   virtualRoutes.set("/mirror-review-guard.html", result.mirrorReviewHtml);
   await cdp.send("Page.navigate", { url: `${appUrl}mirror-review-guard.html` });
   await sleep(300);
@@ -4187,14 +4232,17 @@ try {
       dirtyAfterBlockedSave: beforeUnloadPrevented()
     };
   })()`);
-  const reviewGuardDownloadCountAfter = (await settledDownloadNames(downloadPath)).length;
+  const reviewGuardUnexpectedDownloads = (await settledDownloadNames(downloadPath))
+    .filter((name) => name !== reviewFollowupRuntime.downloadName)
+    .filter((name) => !reviewGuardDownloadNamesBefore.has(name))
+    .filter((name) => /^learning-companion-review-progress-patch-/.test(name));
   assert.equal(reviewGuardRuntime.downloadName, "");
   assert.match(reviewGuardRuntime.status, /Save picker unavailable here/);
   assert.equal(reviewGuardRuntime.saveCta, "Select Return File");
   assert.match(reviewGuardRuntime.returnSaveMode, /No file picker detected/);
   assert.match(reviewGuardRuntime.status, /Nothing was saved to disk/);
   assert.equal(reviewGuardRuntime.dirtyAfterBlockedSave, true);
-  assert.equal(reviewGuardDownloadCountAfter, reviewGuardDownloadCountBefore);
+  assert.deepEqual(reviewGuardUnexpectedDownloads, []);
 
   const exceptionsBeforeReviewStorageGuard = exceptions.length;
   const reviewStorageFailureScript = await cdp.send("Page.addScriptToEvaluateOnNewDocument", {

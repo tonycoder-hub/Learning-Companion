@@ -5253,15 +5253,15 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
 }
 
 function renderStartHereDeviceRoute() {
-  const route = document.createElement("div");
+  const route = document.createElement("details");
   route.className = "start-here-device-route";
-  route.setAttribute("role", "group");
   route.setAttribute("aria-label", "Other devices: manual phone and Windows route, no live sync");
-  route.append(
-    textEl("span", "learning-flow-step-label", "Other devices")
+  const summary = document.createElement("summary");
+  summary.className = "start-here-device-summary";
+  summary.append(
+    textEl("span", "learning-flow-step-label", "Other devices later"),
+    textEl("span", "start-here-device-summary-copy", "Use phone or Windows later - Manual, no live sync")
   );
-  const copy = document.createElement("div");
-  copy.className = "start-here-device-copy";
   const heading = document.createElement("div");
   heading.className = "start-here-device-heading";
   heading.append(textEl("strong", "", "Use phone or Windows later"));
@@ -5272,6 +5272,9 @@ function renderStartHereDeviceRoute() {
     textEl("span", "manual-transfer-badge is-muted", "No live sync")
   );
   heading.append(badges);
+
+  const copy = document.createElement("div");
+  copy.className = "start-here-device-copy";
   const steps = document.createElement("div");
   steps.className = "start-here-device-steps";
   steps.append(
@@ -5285,7 +5288,7 @@ function renderStartHereDeviceRoute() {
   deviceFlow.title = "Open manual phone and Windows transfer route";
   deviceFlow.setAttribute("aria-label", "Open manual phone and Windows transfer route");
   deviceFlow.addEventListener("click", revealDeviceFlowFromFirstNote);
-  route.append(copy, deviceFlow);
+  route.append(summary, copy, deviceFlow);
   return route;
 }
 

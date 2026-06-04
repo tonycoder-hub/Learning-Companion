@@ -1586,6 +1586,52 @@ textarea:focus {
   border-top: 1px solid rgba(74, 62, 46, 0.12);
 }
 
+.start-here-device-route summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.start-here-device-route summary::-webkit-details-marker {
+  display: none;
+}
+
+.start-here-device-route summary::after {
+  content: "+";
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid rgba(74, 62, 46, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.start-here-device-route[open] summary::after {
+  content: "-";
+}
+
+.start-here-device-route:not([open]) > :not(summary) {
+  display: none;
+}
+
+.start-here-device-summary-copy {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .start-here-device-route .mini-button {
   justify-self: start;
 }
