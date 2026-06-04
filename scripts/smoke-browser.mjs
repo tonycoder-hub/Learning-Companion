@@ -1860,6 +1860,22 @@ try {
         .map((button) => button.textContent)
         .find((text) => text.startsWith("Open @")) || ""
     };
+    const cardedCaptureDetail = [...document.querySelectorAll("#captureList .item-card")]
+      .find((item) => item.textContent.includes("compiler-enforced lifetimes"));
+    const cardedCaptureDetailButtons = [...(cardedCaptureDetail?.querySelectorAll("button") || [])];
+    const captureDetailAfterCard = {
+      buttons: cardedCaptureDetailButtons.map((button) => button.textContent),
+      reviewDisabled: cardedCaptureDetailButtons.find((button) => button.textContent === "Review")?.disabled === true
+    };
+    cardedCaptureDetailButtons.find((button) => button.textContent === "Review")?.click();
+    const captureDetailReviewOpen = {
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      focusMode: [...document.querySelectorAll("[data-focus-mode]")]
+        .find((button) => button.classList.contains("active"))?.dataset.focusMode || "",
+      deskReviewPrompt: document.querySelector("#deskReviewPrompt").textContent,
+      activityTitle: document.querySelector("#activityTitle").textContent,
+      activityAction: document.querySelector("#activityDetailsBtn").textContent
+    };
     const firstStackRow = document.querySelector("#captureStack .capture-stack-row");
     const stackButtons = [...(firstStackRow?.querySelectorAll("button") || [])];
     const captureStackAfterCard = {
@@ -1939,7 +1955,7 @@ try {
     };
     setValue("#timestampInput", "08:12");
     const noteButton = [...document.querySelectorAll("#captureList .mini-button")]
-      .find((button) => button.textContent === "Note");
+      .find((button) => button.textContent === "Add to notes");
     noteButton.click();
     [...document.querySelectorAll("#captureList .mini-button")]
       .find((button) => button.textContent === "Update note")
@@ -2642,6 +2658,8 @@ try {
           captureDraftStaleBeforeImport,
           captureDraftPrunedAfterImport,
           activityAfterCard,
+          captureDetailAfterCard,
+          captureDetailReviewOpen,
           captureStackAfterCard,
           captureStackReviewOpen,
           captureDraftStatusAfterCard,
@@ -3134,6 +3152,13 @@ try {
   assert.match(result.activityAfterCard.detail, /08:12/);
   assert.equal(result.activityAfterCard.action, "Review");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
+  assert.deepEqual(result.captureDetailAfterCard.buttons, ["Open @ 08:12", "Add to notes", "Review", "Delete + 1 card"]);
+  assert.equal(result.captureDetailAfterCard.reviewDisabled, false);
+  assert.equal(result.captureDetailReviewOpen.activeTab, "review");
+  assert.equal(result.captureDetailReviewOpen.focusMode, "review");
+  assert.match(result.captureDetailReviewOpen.deskReviewPrompt, /compiler-enforced lifetimes/);
+  assert.equal(result.captureDetailReviewOpen.activityTitle, "Review card opened");
+  assert.equal(result.captureDetailReviewOpen.activityAction, "Review");
   assert.equal(result.clozeActivity.title, "Cloze card saved");
   assert.match(result.clozeActivity.detail, /durable/);
   assert.equal(result.clozeActivity.action, "Review");
@@ -3142,7 +3167,7 @@ try {
   assert.equal(result.captureStackAfterCard.rows, 1);
   assert.match(result.captureStackAfterCard.text, /08:12/);
   assert.match(result.captureStackAfterCard.text, /compiler-enforced lifetimes/);
-  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Note", "Review", "Delete + 1 card"]);
+  assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Add to notes", "Review", "Delete + 1 card"]);
   assert.equal(result.captureStackAfterCard.reviewDisabled, false);
   assert.equal(result.captureStackReviewOpen.activeTab, "review");
   assert.equal(result.captureStackReviewOpen.focusMode, "review");
@@ -5210,7 +5235,7 @@ try {
     document.querySelector('[data-tab="captures"]').click();
     const initialCaptureCard = [...document.querySelectorAll("#captureList .item-card")]
       .find((item) => item.textContent.includes("Temporary capture for deletion."));
-    [...initialCaptureCard.querySelectorAll("button")].find((button) => button.textContent === "Note").click();
+    [...initialCaptureCard.querySelectorAll("button")].find((button) => button.textContent === "Add to notes").click();
     const notedCaptureCard = [...document.querySelectorAll("#captureList .item-card")]
       .find((item) => item.textContent.includes("Temporary capture for deletion."));
     const cascadeDeleteLabel = [...notedCaptureCard.querySelectorAll("button")]
@@ -7134,7 +7159,7 @@ async function assertPostSaveFlow(cdp) {
     const highlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
     [...(highlightRow?.querySelectorAll("button") || [])]
-      .find((button) => button.textContent === "Note")
+      .find((button) => button.textContent === "Add to notes")
       ?.click();
     const notedHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
@@ -7475,7 +7500,7 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightAnnotated.hintHidden, false);
   assert.equal(postSaveFlow.highlightAnnotated.hintKind, "afterThoughtAddedSourceLinked");
   assert.match(postSaveFlow.highlightAnnotated.hintText, /resume the source/);
-  assert.match(postSaveFlow.highlightAnnotated.hintText, /save for recall only if it must come back/);
+  assert.match(postSaveFlow.highlightAnnotated.hintText, /Add to Notes for synthesis, or save for recall practice/);
   assert.equal(postSaveFlow.highlightAnnotated.hintAction, "Resume source");
   assert.equal(postSaveFlow.highlightAnnotated.hintAria, "Resume the source for this annotated highlight");
   assert.equal(postSaveFlow.highlightAnnotated.activeElement, "quoteInput");
@@ -7489,7 +7514,7 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightAnnotationState.thought, "This annotation must stay attached to the existing highlight.");
   assert.match(postSaveFlow.highlightAnnotationState.stackText, /annotation must stay attached/);
   assert.equal(postSaveFlow.highlightAnnotationState.stackNextKind, "keep-reading");
-  assert.equal(postSaveFlow.highlightAnnotationState.stackNextText, "Thought captured · card only if recall matters.");
+  assert.equal(postSaveFlow.highlightAnnotationState.stackNextText, "In Notes · keep reading, or save for recall practice.");
   assert.equal(postSaveFlow.highlightAnnotationState.addThoughtGone, true);
   assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.doesNotMatch(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /annotation must stay attached/);
@@ -7509,7 +7534,7 @@ async function assertPostSaveFlow(cdp) {
     cardExists: false,
     activeTab: "captures",
     stackNextKind: "keep-reading",
-    stackNextText: "Thought captured · card only if recall matters."
+    stackNextText: "In Notes · keep reading, or save for recall practice."
   });
   assert.equal(postSaveFlow.highlightHintCard.title, "Review card created");
   assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
@@ -7555,7 +7580,7 @@ async function assertPostSaveFlow(cdp) {
     sourceTitle: "",
     promoted: false,
     stackNextKind: "keep-reading",
-    stackNextText: "Thought captured · card only if recall matters."
+    stackNextText: "Choose next: add to Notes for synthesis, or save for recall."
   });
   assert.equal(postSaveFlow.noSourceQuestionSaved.title, "Question saved");
   assert.match(postSaveFlow.noSourceQuestionSaved.detail, /answer it, park it, save it for recall/);
@@ -7603,14 +7628,14 @@ async function assertCaptureStackNextStepMix(cdp) {
   })()`);
   assert.deepEqual(stackMix.map((row) => row.kind), ["keep-reading", "review-ready", "add-thought"]);
   assert.deepEqual(stackMix.map((row) => row.next), [
-    "Thought captured · card only if recall matters.",
+    "Choose next: add to Notes for synthesis, or save for recall.",
     "Card scheduled · keep reading.",
     "Needs your why — or leave it as a quote."
   ]);
   assert.deepEqual(stackMix.map((row) => row.buttons), [
-    ["Open source", "Note", "Save for recall", "Delete"],
-    ["Open source", "Note", "Review", "Delete + 1 card"],
-    ["Open source", "Add thought", "Note", "Save for recall", "Delete"]
+    ["Open source", "Add to notes", "Save for recall", "Delete"],
+    ["Open source", "Add to notes", "Review", "Delete + 1 card"],
+    ["Open source", "Add thought", "Add to notes", "Save for recall", "Delete"]
   ]);
 }
 

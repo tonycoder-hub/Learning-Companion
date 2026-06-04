@@ -2474,7 +2474,7 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
   }),
   afterThoughtAddedSourceLinked: Object.freeze({
     kind: "afterThoughtAddedSourceLinked",
-    text: "Next: resume the source; save for recall only if it must come back.",
+    text: "Next: resume the source. Add to Notes for synthesis, or save for recall practice.",
     actionLabel: "Resume source",
     ariaLabel: "Resume the source for this annotated highlight"
   }),
@@ -5438,7 +5438,7 @@ function renderCaptureStack(session) {
     if (isInNotes) {
       row.append(textEl("span", "capture-stack-chip note", "In Notes"));
     }
-    const nextStep = captureStackNextStep(capture);
+    const nextStep = captureStackNextStep(capture, { isInNotes });
     row.dataset.stackNextStep = nextStep.kind;
     row.append(textEl("p", "capture-stack-next", nextStep.text));
     const actions = document.createElement("div");
@@ -5460,7 +5460,7 @@ function renderCaptureStack(session) {
       thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "stack"));
       actions.append(thoughtButton);
     }
-    const noteButton = textEl("button", "mini-button", isInNotes ? "Update note" : "Note");
+    const noteButton = textEl("button", "mini-button", captureNoteActionLabel(isInNotes));
     noteButton.type = "button";
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
@@ -5481,7 +5481,11 @@ function renderCaptureStack(session) {
   dom.captureStack.append(list);
 }
 
-function captureStackNextStep(capture) {
+function captureNoteActionLabel(isInNotes) {
+  return isInNotes ? "Update note" : "Add to notes";
+}
+
+function captureStackNextStep(capture, options = {}) {
   if (captureIsQuoteOnly(capture)) {
     return {
       kind: "add-thought",
@@ -5524,9 +5528,15 @@ function captureStackNextStep(capture) {
       text: "Takeaway · synthesize after related points."
     };
   }
+  if (options.isInNotes) {
+    return {
+      kind: "keep-reading",
+      text: "In Notes · keep reading, or save for recall practice."
+    };
+  }
   return {
     kind: "keep-reading",
-    text: "Thought captured · card only if recall matters."
+    text: "Choose next: add to Notes for synthesis, or save for recall."
   };
 }
 
@@ -6448,15 +6458,17 @@ function renderCaptures() {
     const noteButton = document.createElement("button");
     noteButton.className = "mini-button";
     noteButton.type = "button";
-    noteButton.textContent = isInNotes ? "Update note" : "Note";
+    noteButton.textContent = captureNoteActionLabel(isInNotes);
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const promoteButton = document.createElement("button");
     promoteButton.className = "mini-button";
     promoteButton.type = "button";
-    promoteButton.disabled = capture.promotedToReview;
-    promoteButton.textContent = capture.promotedToReview ? "Card" : "Save for recall";
-    promoteButton.addEventListener("click", () => promoteCaptureToReview(capture.id));
+    promoteButton.textContent = capture.promotedToReview ? "Review" : "Save for recall";
+    promoteButton.addEventListener("click", () => {
+      if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
+      else promoteCaptureToReview(capture.id);
+    });
     actions.append(promoteButton);
     if (captureHasQuestion(capture)) {
       const resolveButton = document.createElement("button");
