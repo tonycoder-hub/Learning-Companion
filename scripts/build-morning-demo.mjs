@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { access, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
   MOBILE_INBOX_PATCH_SCHEMA,
@@ -38,6 +38,8 @@ const MORNING_GENERATED_AT = "2026-05-29T07:20:00.000+08:00";
 const CAPTURE_RESUME_GENERATED_AT = "2026-05-29T07:25:00.000+08:00";
 const SAMPLE_WORKSPACE_FILE = "sample-workspace.json";
 const SAMPLE_MIRROR_JSON_FILE = "sample-mirror.json";
+const LEGACY_SAMPLE_FEISHU_MIRROR_JSON_FILE = "sample-feishu-mirror.json";
+const LEGACY_SAMPLE_FEISHU_MIRROR_ZIP_FILE = "sample-learning-companion-feishu-mirror.zip";
 const SAMPLE_HARMONY_READER_FILE = "sample-harmony-reader-view.json";
 const SAMPLE_MOBILE_INBOX_PATCH_FILE = "sample-mobile-inbox-patch.json";
 const SAMPLE_REVIEW_PROGRESS_PATCH_FILE = "sample-review-progress-patch.json";
@@ -387,6 +389,16 @@ await writeJson(join(OUT_DIR, SAMPLE_MIRROR_JSON_FILE), mirrorBundle);
 await writeJson(join(OUT_DIR, SAMPLE_HARMONY_READER_FILE), harmonyReaderView);
 await writeJson(join(OUT_DIR, HARMONY_SCAFFOLD_REPORT_FILE), harmonyScaffoldReport);
 await writeFile(join(OUT_DIR, sampleMirrorZipFile), Buffer.from(mirrorZip.data));
+const legacyArtifacts = await buildLegacyArtifactsManifest({
+  root: OUT_DIR,
+  generatedAt: mirrorBundle.exportedAt,
+  noCleanMode: SKIP_CLEAN,
+  currentOutputs: [SAMPLE_MIRROR_JSON_FILE, sampleMirrorZipFile],
+  supersedes: {
+    [LEGACY_SAMPLE_FEISHU_MIRROR_JSON_FILE]: SAMPLE_MIRROR_JSON_FILE,
+    [LEGACY_SAMPLE_FEISHU_MIRROR_ZIP_FILE]: sampleMirrorZipFile
+  }
+});
 await writeJson(join(PATCH_DIR, SAMPLE_MOBILE_INBOX_PATCH_FILE), mobileInboxPatch);
 await writeJson(join(PATCH_DIR, SAMPLE_REVIEW_PROGRESS_PATCH_FILE), reviewProgressPatch);
 const feishuUploadResult = materializeMirrorBundle(mirrorBundle, FEISHU_UPLOAD_DIR, {
@@ -562,7 +574,8 @@ const reviewReportHtml = buildReviewStartHereHtml({
   duplicateInboxReceipt: duplicateInboxResult.receipt,
   reviewReceipt: reviewResult.receipt,
   reviewConflictReceipt: reviewConflictResult.receipt,
-  unsupportedInboxPatchRejected
+  unsupportedInboxPatchRejected,
+  legacyArtifacts
 });
 assert.match(reviewReportHtml, /href="MORNING_REVIEW\.md"/);
 assert.match(reviewReportHtml, /href="DEMO_SCRIPT\.md"/);
@@ -602,11 +615,20 @@ assert.match(reviewReportHtml, /Question Closure/);
 assert.match(reviewReportHtml, /Question Queue Health/);
 assert.match(reviewReportHtml, /Windows Static Return/);
 assert.match(reviewReportHtml, /Evidence Boundary/);
+if (legacyArtifacts.status === "absent") {
+  assert.doesNotMatch(reviewReportHtml, /legacy-artifact-notice/);
+} else {
+  assert.match(reviewReportHtml, /legacy-artifact-notice/);
+  assert.match(reviewReportHtml, /must not be interpreted as current mirror evidence/);
+  assert.match(reviewReportHtml, new RegExp(escapeRegex(SAMPLE_MIRROR_JSON_FILE)));
+  assert.match(reviewReportHtml, new RegExp(escapeRegex(sampleMirrorZipFile)));
+}
 await writeText(join(OUT_DIR, REVIEW_REPORT_FILE), reviewReportHtml);
 
 const preSummaryManifest = await collectOutputManifest(OUT_DIR);
 const evidenceTiers = buildEvidenceTierManifest(preSummaryManifest, {
-  generatedAt: mirrorBundle.exportedAt
+  generatedAt: mirrorBundle.exportedAt,
+  legacyArtifacts
 });
 await writeJson(join(OUT_DIR, EVIDENCE_TIERS_FILE), evidenceTiers);
 const outputManifest = await collectOutputManifest(OUT_DIR);
@@ -652,6 +674,7 @@ await writeJson(join(OUT_DIR, "SUMMARY.json"), {
   evidenceTiers: EVIDENCE_TIERS_FILE,
   deferredGates: DEFERRED_GATES_FILE,
   evidenceTierCounts: evidenceTiers.summary.counts,
+  legacy_artifacts: legacyArtifacts,
   mirrorBundle: SAMPLE_MIRROR_JSON_FILE,
   mirrorZip: sampleMirrorZipFile,
   mirrorFileCount: mirrorBundle.files.length,
@@ -739,6 +762,53 @@ async function writeJson(path, value) {
 async function writeText(path, value) {
   await mkdir(dirname(path), { recursive: true });
   await writeFile(path, value);
+}
+
+async function buildLegacyArtifactsManifest({
+  root,
+  generatedAt,
+  noCleanMode,
+  currentOutputs,
+  supersedes
+}) {
+  const legacyNames = new Set(Object.keys(supersedes));
+  const detected = [];
+  for (const name of await readdir(root)) {
+    if (!legacyNames.has(name)) continue;
+    const fullPath = join(root, name);
+    const [fileStat, data] = await Promise.all([
+      stat(fullPath),
+      readFile(fullPath)
+    ]);
+    if (!fileStat.isFile()) continue;
+    detected.push({
+      name,
+      supersedes_with: supersedes[name],
+      do_not_interpret_as: "current_mirror_output",
+      mtime: fileStat.mtime.toISOString(),
+      sha256: createHash("sha256").update(data).digest("hex")
+    });
+  }
+  detected.sort((a, b) => a.name.localeCompare(b.name));
+  const status = detected.length === 0
+    ? "absent"
+    : noCleanMode
+      ? "stale_no_clean"
+      : "unexpected_residue";
+  return {
+    schema: "learning-companion.legacy-artifacts.v1",
+    status,
+    generated_at: generatedAt || new Date().toISOString(),
+    no_clean_mode: Boolean(noCleanMode),
+    current_outputs: currentOutputs,
+    legacy_files_detected: detected,
+    severity: status === "unexpected_residue" ? "error" : status === "stale_no_clean" ? "warn" : "none",
+    retention_reason: status === "stale_no_clean"
+      ? "MORNING_DEMO_SKIP_CLEAN=1 retained files already present in dist/morning-demo; do not delete tonight per handoff."
+      : status === "unexpected_residue"
+        ? "Legacy Feishu-named mirror files were present even though MORNING_DEMO_SKIP_CLEAN was not set."
+        : "No legacy Feishu-named mirror files detected."
+  };
 }
 
 function buildSourceTimeLinksReceipt(options = {}) {
@@ -1598,7 +1668,8 @@ function buildReviewStartHereHtml({
   duplicateInboxReceipt,
   reviewReceipt,
   reviewConflictReceipt,
-  unsupportedInboxPatchRejected
+  unsupportedInboxPatchRejected,
+  legacyArtifacts
 }) {
   const openQuestionLabel = formatCount(harmonyReaderView.workspace.openQuestionCount, "open question");
   const parkedQuestionLabel = formatCount(harmonyReaderView.workspace.parkedQuestionCount || 0, "parked question");
@@ -1796,6 +1867,7 @@ function buildReviewStartHereHtml({
       <p><span class="badge">${escapeHtml(getEvidenceTierForPath(REVIEW_REPORT_FILE).label)}</span></p>
       <p>Start with the Mac learning loop: open the app beside a browser source, check First Note and Quick Capture, then inspect the static mirror and bounded return-file evidence.</p>
     </header>
+    ${buildLegacyArtifactNoticeHtml(legacyArtifacts)}
     <section>
       <h2>Morning Dogfood Gate</h2>
       <div class="grid">
@@ -1873,6 +1945,28 @@ function buildReviewStartHereHtml({
 </html>`;
 }
 
+function buildLegacyArtifactNoticeHtml(legacyArtifacts) {
+  if (!legacyArtifacts || legacyArtifacts.status === "absent") {
+    return "";
+  }
+  const legacyNames = legacyArtifacts.legacy_files_detected.map((file) => file.name);
+  const statusLabel = legacyArtifacts.status === "stale_no_clean"
+    ? "no-clean mode"
+    : "unexpected residue";
+  const retainedReason = legacyArtifacts.status === "stale_no_clean"
+    ? "The legacy files were retained because MORNING_DEMO_SKIP_CLEAN=1 was set; do not delete, rename, or infer cleanup from this pack."
+    : "The legacy files were present even though MORNING_DEMO_SKIP_CLEAN was not set; treat this as a validation error until the directory is regenerated cleanly.";
+  return `
+    <section id="legacy-artifact-notice" data-status="${escapeHtml(legacyArtifacts.status)}">
+      <h2>Legacy Artifact Notice</h2>
+      <div class="card priority">
+        <strong>Legacy artifact notice (${escapeHtml(statusLabel)})</strong>
+        <p>Files named ${formatInlineCodeList(legacyNames)} may be present in this directory. They are not outputs of the current mirror contract and must not be interpreted as current mirror evidence.</p>
+        <p>Current mirror outputs are ${formatInlineCodeList(legacyArtifacts.current_outputs)}. ${escapeHtml(retainedReason)} Do not infer Feishu live sync, real dogfood, or any cross-platform claim from the legacy filenames.</p>
+      </div>
+    </section>`;
+}
+
 function buildEvidenceTierManifest(outputManifest, options = {}) {
   const artifacts = outputManifest.map((entry) => ({
     path: entry.path,
@@ -1887,6 +1981,7 @@ function buildEvidenceTierManifest(outputManifest, options = {}) {
   return {
     schema: "learning-companion.evidence-tiers.v1",
     generatedAt: options.generatedAt || new Date().toISOString(),
+    legacy_artifacts: options.legacyArtifacts,
     evidenceTiers: EVIDENCE_TIER_DEFINITIONS,
     summary: {
       artifactCount: artifacts.length,
@@ -1927,6 +2022,9 @@ function getEvidenceTierForPath(path) {
   }
   if (normalized === DEFERRED_GATES_FILE) {
     return evidenceTier("PENDING_USER_GATE", "Explicitly lists live-write, device, Windows, signing, and GUI gates that require approval or target hardware.");
+  }
+  if (normalized === LEGACY_SAMPLE_FEISHU_MIRROR_JSON_FILE || normalized === LEGACY_SAMPLE_FEISHU_MIRROR_ZIP_FILE) {
+    return evidenceTier("PENDING_USER_GATE", "Legacy no-clean residue retained for handoff continuity; not a current mirror output or current evidence artifact.");
   }
   if (normalized.startsWith("feishu-upload/")) {
     return evidenceTier("DRY_RUN", "Feishu folder files, plan, and report are credential-free local dry-run artifacts; no network or remote write is claimed.");
@@ -1975,6 +2073,14 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function formatInlineCodeList(values) {
+  return values.map((value) => `<code>${escapeHtml(value)}</code>`).join(" and ");
+}
+
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function assertLocalDashboardLinksExist(html, root) {

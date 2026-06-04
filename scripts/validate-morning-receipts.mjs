@@ -79,6 +79,7 @@ assert.equal(summary.assertions.harmonyReaderOpenQuestionPreviewCount, 1);
 assert.equal(summary.assertions.harmonyReaderAnsweredQuestionFlags >= 1, true);
 assert.equal(summary.windowsStaticQa, files.windowsStaticQa);
 assert.equal(summary.dogfoodRunbook, files.dogfoodRunbook);
+validateLegacyArtifacts(summary.legacy_artifacts, evidence.legacy_artifacts, reviewStartHere);
 assert.equal(summary.windowsStaticQaReceipt.evidenceTier, "PENDING_USER_GATE");
 assert.equal(summary.windowsStaticQaReceipt.evidenceStatus, "NOT_RUN");
 assert.equal(summary.windowsStaticQaReceipt.receiptOnly, true);
@@ -450,6 +451,48 @@ function parseDogfoodRunbookRows(markdown) {
         notes: cells[5] || ""
       };
     });
+}
+
+function validateLegacyArtifacts(summaryLegacy, evidenceLegacy, reviewHtml) {
+  assert.equal(Boolean(summaryLegacy), true, "SUMMARY.json missing legacy_artifacts");
+  assert.deepEqual(evidenceLegacy, summaryLegacy, "EVIDENCE_TIERS.json legacy_artifacts must match SUMMARY.json");
+  assert.equal(summaryLegacy.schema, "learning-companion.legacy-artifacts.v1");
+  assert.equal(["absent", "stale_no_clean", "unexpected_residue"].includes(summaryLegacy.status), true);
+  assert.equal(["none", "warn", "error"].includes(summaryLegacy.severity), true);
+  assert.equal(Array.isArray(summaryLegacy.current_outputs), true);
+  assert.equal(Array.isArray(summaryLegacy.legacy_files_detected), true);
+  assert.equal(new Set(summaryLegacy.current_outputs).size, summaryLegacy.current_outputs.length);
+  for (const currentOutput of summaryLegacy.current_outputs) {
+    assert.equal(readFileSync(join(ROOT, currentOutput)).length > 0, true, `missing current mirror output ${currentOutput}`);
+  }
+  for (const legacyFile of summaryLegacy.legacy_files_detected) {
+    assert.equal(summaryLegacy.current_outputs.includes(legacyFile.name), false, `${legacyFile.name} overlaps current outputs`);
+    assert.equal(summaryLegacy.current_outputs.includes(legacyFile.supersedes_with), true, `${legacyFile.name} supersedes unknown current output`);
+    assert.equal(legacyFile.do_not_interpret_as, "current_mirror_output");
+    assert.match(legacyFile.mtime, /^\d{4}-\d{2}-\d{2}T/);
+    const data = readFileSync(join(ROOT, legacyFile.name));
+    assert.equal(sha256(data), legacyFile.sha256, `${legacyFile.name} sha256 mismatch`);
+  }
+  if (summaryLegacy.status === "absent") {
+    assert.equal(summaryLegacy.legacy_files_detected.length, 0);
+    assert.equal(summaryLegacy.severity, "none");
+    assert.doesNotMatch(reviewHtml, /legacy-artifact-notice/);
+    return;
+  }
+  assert.equal(summaryLegacy.legacy_files_detected.length > 0, true);
+  assert.match(reviewHtml, /id="legacy-artifact-notice"/);
+  assert.match(reviewHtml, new RegExp(`data-status="${summaryLegacy.status}"`));
+  assert.match(reviewHtml, /must not be interpreted as current mirror evidence/);
+  assert.match(reviewHtml, /Do not infer Feishu live sync, real dogfood, or any cross-platform claim/);
+  if (summaryLegacy.status === "stale_no_clean") {
+    assert.equal(summaryLegacy.no_clean_mode, true);
+    assert.equal(summaryLegacy.severity, "warn");
+    console.warn(`morning_receipts_warning legacy_artifacts=stale_no_clean files=${summaryLegacy.legacy_files_detected.map((item) => item.name).join(",")}`);
+    return;
+  }
+  assert.equal(summaryLegacy.no_clean_mode, false);
+  assert.equal(summaryLegacy.severity, "error");
+  assert.fail(`unexpected legacy artifacts detected: ${summaryLegacy.legacy_files_detected.map((item) => item.name).join(",")}`);
 }
 
 function sha256(value) {
