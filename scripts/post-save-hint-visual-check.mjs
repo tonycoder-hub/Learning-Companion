@@ -89,8 +89,10 @@ try {
     assert.equal(run.recall.layout.hintVisible, true);
     assert.equal(run.recall.layout.hintTextButtonOverlap, false);
     assert.equal(run.recall.layout.activityButtonOverflow, false);
-    assert.match(run.recall.activity.hintKind, /^afterCardMade(?:Text)?SourceLinked$/);
-    assert.match(run.recall.activity.hintAction, /Open at quote|Resume source/);
+    assert.match(run.recall.activity.action, /Open at quote|Resume source/);
+    assert.match(run.recall.activity.actionAria, /new tab; Quick Capture stays ready/);
+    assert.equal(run.recall.activity.hintKind, "afterCardMade");
+    assert.equal(run.recall.activity.hintAction, "Review card");
   }
 
   const receipt = {

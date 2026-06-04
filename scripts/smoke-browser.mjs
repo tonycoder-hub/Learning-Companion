@@ -2047,6 +2047,8 @@ try {
       title: document.querySelector("#activityTitle").textContent,
       detail: document.querySelector("#activityDetail").textContent,
       action: document.querySelector("#activityDetailsBtn").textContent,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || "",
+      hintAction: document.querySelector("#activityHintBtn")?.textContent || "",
       openLinkText: [...document.querySelectorAll("#captureList .mini-button")]
         .map((button) => button.textContent)
         .find((text) => text.startsWith("Open @")) || ""
@@ -3376,7 +3378,9 @@ try {
   });
   assert.equal(result.activityAfterCard.title, "Capture and card saved");
   assert.match(result.activityAfterCard.detail, /08:12/);
-  assert.equal(result.activityAfterCard.action, "Review");
+  assert.equal(result.activityAfterCard.action, "Resume source");
+  assert.equal(result.activityAfterCard.hintKind, "afterCardMade");
+  assert.equal(result.activityAfterCard.hintAction, "Review card");
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
   assert.equal(result.captureDetailAfterCard.nextKind, "review-ready");
   assert.equal(result.captureDetailAfterCard.nextText, "Card scheduled · keep reading.");
@@ -8085,6 +8089,21 @@ async function assertPostSaveFlow(cdp) {
     };
     window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightCardDeletedWorkspace));
     const highlightHintCardDeleted = readActivity();
+    let deletedCardPrimaryOpen = "";
+    window.open = (href) => {
+      deletedCardPrimaryOpen = href;
+      return null;
+    };
+    document.querySelector("#activityDetailsBtn").click();
+    window.open = nativePostSaveWindowOpen;
+    const highlightHintCardDeletedPrimaryState = {
+      opened: deletedCardPrimaryOpen,
+      toast: document.querySelector("#toast")?.textContent || "",
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      title: document.querySelector("#activityTitle")?.textContent || "",
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || ""
+    };
     let deletedCardSourceOpen = "";
     window.open = (href) => {
       deletedCardSourceOpen = href;
@@ -8135,22 +8154,72 @@ async function assertPostSaveFlow(cdp) {
       .find((button) => button.textContent.includes("Post-save flow fixture"));
     crossSessionRestoreButton?.click();
     const crossSessionCardRestored = readActivity();
-    let cardResumeHref = "";
-    let cardResumeTarget = "";
-    let cardResumeFeatures = "";
-    window.open = (href, target, features) => {
-      cardResumeHref = href;
-      cardResumeTarget = target;
-      cardResumeFeatures = features;
+    const highlightSourceMissingWorkspace = {
+      ...highlightCardWorkspace,
+      sessions: highlightCardWorkspace.sessions.map((session) => session.id === highlightCardWorkspace.activeSessionId
+        ? {
+          ...session,
+          captures: session.captures.filter((capture) => capture.id !== highlightBefore.id)
+        }
+        : session)
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightSourceMissingWorkspace));
+    let missingSourcePrimaryOpen = "";
+    window.open = (href) => {
+      missingSourcePrimaryOpen = href;
+      return null;
+    };
+    document.querySelector("#activityDetailsBtn").click();
+    window.open = nativePostSaveWindowOpen;
+    const highlightMissingSourcePrimaryState = {
+      opened: missingSourcePrimaryOpen,
+      toast: document.querySelector("#toast")?.textContent || "",
+      title: document.querySelector("#activityTitle")?.textContent || "",
+      action: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || ""
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightCardWorkspace));
+    const highlightReviewHintRestored = readActivity();
+    let reviewHintWindowOpen = "";
+    window.open = (href) => {
+      reviewHintWindowOpen = href;
       return null;
     };
     document.querySelector("#activityHintBtn").click();
     window.open = nativePostSaveWindowOpen;
     const highlightHintReview = readActivity();
     const highlightHintReviewState = {
-      opened: cardResumeHref,
-      target: cardResumeTarget,
-      features: cardResumeFeatures,
+      opened: reviewHintWindowOpen,
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      focusMode: JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.sessions
+        ?.find((item) => item.id === JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.activeSessionId)
+        ?.focusMode || ""
+    };
+    document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Primary recall source return");
+    setValue("#sourceTitle", "Primary recall source");
+    setValue("#sourceUrl", "https://example.com/primary-recall-source");
+    setValue("#materialType", "article");
+    setValue("#quoteInput", "Primary source return quote.");
+    setValue("#thoughtInput", "This direct card should reopen source as the primary action.");
+    document.querySelector("#captureCardBtn").click();
+    let primaryResumeHref = "";
+    let primaryResumeTarget = "";
+    let primaryResumeFeatures = "";
+    window.open = (href, target, features) => {
+      primaryResumeHref = href;
+      primaryResumeTarget = target;
+      primaryResumeFeatures = features;
+      return null;
+    };
+    document.querySelector("#activityDetailsBtn").click();
+    window.open = nativePostSaveWindowOpen;
+    const highlightPrimaryResume = readActivity();
+    const highlightPrimaryResumeState = {
+      opened: primaryResumeHref,
+      target: primaryResumeTarget,
+      features: primaryResumeFeatures,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       focusMode: JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.sessions
         ?.find((item) => item.id === JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.activeSessionId)
@@ -8158,6 +8227,7 @@ async function assertPostSaveFlow(cdp) {
       activeElement: document.activeElement?.id || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
     };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightCardWorkspace));
     document.querySelector('[data-tab="captures"]').click();
     addThoughtButtonFor(highlightBefore.previousId)?.click();
     const noNoteAnnotationInput = document.querySelector(".highlight-annotation-form textarea");
@@ -8258,6 +8328,49 @@ async function assertPostSaveFlow(cdp) {
     window.open = nativeUnsafeWindowOpen;
     const unsafeSourceReviewOpened = readActivity();
     document.querySelector("#newSessionBtn").click();
+    setValue("#sessionTitle", "Unsafe promoted source fallback");
+    setValue("#sourceTitle", "Unsafe promoted source should not resume");
+    setValue("#sourceUrl", "javascript:alert(2)");
+    document.querySelector("#sourceUrl")?.dispatchEvent(new Event("change", { bubbles: true }));
+    setValue("#quoteInput", "Unsafe promoted highlight should not resume source.");
+    setValue("#thoughtInput", "");
+    document.querySelector("#captureBtn").click();
+    const unsafePromotedId = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      return session?.captures[0]?.id || "";
+    })();
+    addThoughtButtonFor(unsafePromotedId)?.click();
+    const unsafePromotedInput = document.querySelector(".highlight-annotation-form textarea");
+    unsafePromotedInput.value = "Unsafe promoted thought should still create a review card.";
+    unsafePromotedInput.dispatchEvent(new Event("input", { bubbles: true }));
+    document.querySelector(".highlight-annotation-form button[type='submit']").click();
+    [...document.querySelectorAll(\`#captureStack .capture-stack-row[data-stack-capture-id="\${unsafePromotedId}"] button\`)]
+      .find((button) => button.textContent === "Save for recall")
+      ?.click();
+    const unsafeSourcePromotedCardSaved = readActivity();
+    const unsafeSourcePromotedCardState = (() => {
+      const workspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+      const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId);
+      const capture = session?.captures.find((item) => item.id === unsafePromotedId) || {};
+      const card = session?.reviewCards.find((item) => item.sourceCaptureId === capture.id) || {};
+      return {
+        sessionSourceUrl: session?.sourceUrl || "",
+        captureSourceUrl: capture.sourceUrl || "",
+        promoted: Boolean(capture.promotedToReview),
+        cardExists: Boolean(card.id),
+        stackNextKind: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${capture.id}"]\`)?.dataset.stackNextStep || ""
+      };
+    })();
+    let unsafePromotedWindowOpen = "";
+    window.open = (href) => {
+      unsafePromotedWindowOpen = href;
+      return null;
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativeUnsafeWindowOpen;
+    const unsafeSourcePromotedReviewOpened = readActivity();
+    document.querySelector("#newSessionBtn").click();
     setValue("#sessionTitle", "Moved question guard");
     setValue("#sourceTitle", "Moved question source");
     setValue("#sourceUrl", "https://example.com/moved-question-source");
@@ -8300,7 +8413,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintCardDeleted, highlightHintCardDeletedClickState, highlightHintCardRestored, highlightHintReview, highlightHintReviewState, crossSessionCardState, crossSessionCardHidden, crossSessionCardClickState, crossSessionCardRestored, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintCardDeleted, highlightHintCardDeletedPrimaryState, highlightHintCardDeletedClickState, highlightHintCardRestored, highlightPrimaryResume, highlightPrimaryResumeState, highlightMissingSourcePrimaryState, highlightReviewHintRestored, highlightHintReview, highlightHintReviewState, crossSessionCardState, crossSessionCardHidden, crossSessionCardClickState, crossSessionCardRestored, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, unsafeSourcePromotedCardSaved, unsafeSourcePromotedCardState, unsafePromotedWindowOpen, unsafeSourcePromotedReviewOpened, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -8515,23 +8628,32 @@ async function assertPostSaveFlow(cdp) {
     stackNextText: "In Notes · keep reading, or save for recall practice."
   });
   assert.equal(postSaveFlow.highlightHintCard.title, "Review card created");
-  assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
+  assert.equal(postSaveFlow.highlightHintCard.activeTab, "captures");
   assert.equal(postSaveFlow.highlightHintCard.hintHidden, false);
-  assert.equal(postSaveFlow.highlightHintCard.action, "Review");
-  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMadeTextSourceLinked");
-  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Open the source at this quote - the card stays here.");
-  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Open at quote");
-  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Open the source; jump to this review-card quote if supported");
+  assert.equal(postSaveFlow.highlightHintCard.action, "Open at quote");
+  assert.equal(postSaveFlow.highlightHintCard.aria, "Open at quote in a new tab; Quick Capture stays ready");
+  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMade");
+  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Review when you want.");
+  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Review card");
+  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Open the new review card");
   assert.deepEqual(postSaveFlow.highlightHintCardState, {
     promoted: true,
     cardExists: true,
-    activeTab: "review",
+    activeTab: "captures",
     stackNextKind: "review-ready",
     stackNextText: "Card scheduled · keep reading."
   });
   assert.equal(postSaveFlow.highlightHintCardDeleted.title, "Review card created");
   assert.equal(postSaveFlow.highlightHintCardDeleted.hintHidden, true);
   assert.equal(postSaveFlow.highlightHintCardDeleted.hintKind, "");
+  assert.deepEqual(postSaveFlow.highlightHintCardDeletedPrimaryState, {
+    opened: "",
+    toast: "Review card no longer exists",
+    activeTab: "today",
+    title: "Review card created",
+    hintHidden: true,
+    hintKind: ""
+  });
   assert.deepEqual(postSaveFlow.highlightHintCardDeletedClickState, {
     opened: "",
     toast: "Review card no longer exists",
@@ -8541,11 +8663,11 @@ async function assertPostSaveFlow(cdp) {
   });
   assert.equal(postSaveFlow.highlightHintCardRestored.title, "Review card created");
   assert.equal(postSaveFlow.highlightHintCardRestored.hintHidden, false);
-  assert.equal(postSaveFlow.highlightHintCardRestored.hintKind, "afterCardMadeTextSourceLinked");
+  assert.equal(postSaveFlow.highlightHintCardRestored.hintKind, "afterCardMade");
   assert.notEqual(postSaveFlow.crossSessionCardState.sourceSessionId, "");
   assert.match(postSaveFlow.crossSessionCardState.cardId, /^card_/);
   assert.equal(postSaveFlow.crossSessionCardState.activeBeforeSwitch, true);
-  assert.equal(postSaveFlow.crossSessionCardState.activeHintKind, "afterCardMadeTextSourceLinked");
+  assert.equal(postSaveFlow.crossSessionCardState.activeHintKind, "afterCardMade");
   assert.equal(postSaveFlow.crossSessionCardHidden.title, "Link source or jot loose thought");
   assert.equal(postSaveFlow.crossSessionCardHidden.hintHidden, true);
   assert.equal(postSaveFlow.crossSessionCardHidden.hintKind, "");
@@ -8559,19 +8681,36 @@ async function assertPostSaveFlow(cdp) {
   });
   assert.equal(postSaveFlow.crossSessionCardRestored.title, "Review card created");
   assert.equal(postSaveFlow.crossSessionCardRestored.hintHidden, false);
-  assert.equal(postSaveFlow.crossSessionCardRestored.hintKind, "afterCardMadeTextSourceLinked");
-  assert.equal(postSaveFlow.highlightHintReview.title, "Source resumed");
-  assert.equal(postSaveFlow.highlightHintReview.action, "View capture");
-  assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
-  assert.match(postSaveFlow.highlightHintReview.detail, /Continue reading; the saved card is here when you want to review/);
-  assert.deepEqual(postSaveFlow.highlightHintReviewState, {
-    opened: "https://example.com/post-save-flow#:~:text=This%20sentence%20is%20worth%20keeping%20as%20a%20highlight.",
+  assert.equal(postSaveFlow.crossSessionCardRestored.hintKind, "afterCardMade");
+  assert.equal(postSaveFlow.highlightPrimaryResume.title, "Source resumed");
+  assert.equal(postSaveFlow.highlightPrimaryResume.action, "View capture");
+  assert.equal(postSaveFlow.highlightPrimaryResume.hintHidden, true);
+  assert.match(postSaveFlow.highlightPrimaryResume.detail, /Continue reading; the saved card is here when you want to review/);
+  assert.deepEqual(postSaveFlow.highlightPrimaryResumeState, {
+    opened: "https://example.com/primary-recall-source#:~:text=Primary%20source%20return%20quote.",
     target: "_blank",
     features: "noopener,noreferrer",
     activeTab: "captures",
     focusMode: "capture",
     activeElement: "thoughtInput",
     capturePanePulsed: true
+  });
+  assert.deepEqual(postSaveFlow.highlightMissingSourcePrimaryState, {
+    opened: "",
+    toast: "Source no longer exists",
+    title: "Review card created",
+    action: "Open at quote",
+    hintHidden: false,
+    hintKind: "afterCardMade"
+  });
+  assert.equal(postSaveFlow.highlightReviewHintRestored.hintKind, "afterCardMade");
+  assert.equal(postSaveFlow.highlightHintReview.title, "Review card opened");
+  assert.equal(postSaveFlow.highlightHintReview.action, "Review");
+  assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
+  assert.deepEqual(postSaveFlow.highlightHintReviewState, {
+    opened: "",
+    activeTab: "review",
+    focusMode: "review"
   });
   assert.equal(postSaveFlow.noNoteHighlightAnnotated.title, "Highlight annotated");
   assert.doesNotMatch(postSaveFlow.noNoteHighlightAnnotated.detail, /generated note block/);
@@ -8630,6 +8769,22 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.unsafeSourceWindowOpen, "");
   assert.equal(postSaveFlow.unsafeSourceReviewOpened.title, "Review card opened");
   assert.equal(postSaveFlow.unsafeSourceReviewOpened.activeTab, "review");
+  assert.equal(postSaveFlow.unsafeSourcePromotedCardSaved.title, "Review card created");
+  assert.doesNotMatch(postSaveFlow.unsafeSourcePromotedCardSaved.detail, /Jump back|Resume the source|Open at quote/i);
+  assert.equal(postSaveFlow.unsafeSourcePromotedCardSaved.action, "Review");
+  assert.equal(postSaveFlow.unsafeSourcePromotedCardSaved.hintHidden, false);
+  assert.equal(postSaveFlow.unsafeSourcePromotedCardSaved.hintKind, "afterCardMade");
+  assert.equal(postSaveFlow.unsafeSourcePromotedCardSaved.hintAction, "Review card");
+  assert.deepEqual(postSaveFlow.unsafeSourcePromotedCardState, {
+    sessionSourceUrl: "",
+    captureSourceUrl: "",
+    promoted: true,
+    cardExists: true,
+    stackNextKind: "review-ready"
+  });
+  assert.equal(postSaveFlow.unsafePromotedWindowOpen, "");
+  assert.equal(postSaveFlow.unsafeSourcePromotedReviewOpened.title, "Review card opened");
+  assert.equal(postSaveFlow.unsafeSourcePromotedReviewOpened.activeTab, "review");
   assert.equal(postSaveFlow.movedQuestionGuard.title, "Question already moved");
   assert.match(postSaveFlow.movedQuestionGuard.detail, /parked/);
   assert.equal(postSaveFlow.movedQuestionGuard.action, "Today");

@@ -10,7 +10,7 @@ You are taking over a long-running local product iteration for Tony. Work from e
 
 - Workspace: `/Users/bytedance/Documents/Codex/learning-companion`
 - Branch: `main`
-- Latest known product commit before this handoff prompt: `8f52d73 fix: clarify manual mirror return flow`
+- Latest committed baseline before the Recall source-first handoff refresh: `b615148 test: add post-save hint visual receipt`
 - Current known `git status --short`: only `?? {`
 - The untracked root file named `{` is historical. Its origin is not verified; cleanup ownership stays with Tony. Do not delete, edit, or commit it unless Tony explicitly approves cleanup.
 - Primary continuity file: `docs/next-session-handoff.md`
@@ -69,6 +69,11 @@ Latest implemented slices include:
   - New/update note with source: main action is `Open source`, `Open at quote`, or `Resume source`.
   - `View note` is a secondary hint.
   - After source resume, main action becomes `Focus field`.
+- Recall-card after-save is source-first in reading/capture contexts:
+  - Direct Save-for-recall and Recent Stack/capture-surface promotion use `Open at quote` / `Resume source` as the primary Activity action when a safe source can resume.
+  - `Review card` is the secondary hint.
+  - Today question-management card creation remains Review-first.
+  - Unsafe/no-source paths remain Review-first and must not open unsafe source URLs.
 - Static mirror/manual return flow is explicit and honest:
   - Generic mirror filenames are now `learning-companion-mirror.json` and `learning-companion-mirror.zip`.
   - Static Review/Inbox post-save hint leads with: `Move it to Mac, then import or paste it from Today > Return Files`.
@@ -101,20 +106,15 @@ Do not claim:
 
 ## Important Evidence Already Run Recently
 
-For latest commit `8f52d73`:
+For the latest completed Recall source-first slice after `b615148`:
 
-- `node --check apps/companion-web/src/model.js` -> PASS
 - `node --check apps/companion-web/src/app.js` -> PASS
-- `node --check scripts/smoke-web.mjs` -> PASS
 - `node --check scripts/smoke-browser.mjs` -> PASS
-- `node --check scripts/static-return-loop-check.mjs` -> PASS
-- `node --check scripts/build-morning-demo.mjs` -> PASS
+- `node --check scripts/post-save-hint-visual-check.mjs` -> PASS
 - `git diff --check` -> PASS
-- `npm run smoke` -> `smoke_web_ok`
-- `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning` -> `morning_demo_ok`
 - `npm run smoke:browser` -> `smoke_browser_ok`
-- `npm run check:static-return` -> `static_return_loop_ok`
-- `npm run morning:receipts` -> `morning_receipts_ok`
+- `npm run smoke:post-save-hints` -> initial sandbox `listen EPERM 127.0.0.1`, approved local-server rerun -> `post_save_hint_visual_ok /Users/bytedance/Documents/Codex/learning-companion/.codex-tmp/post-save-hint-visual/receipt.json`
+- Mira broker for `.mira-review/recall-after-save-source-first-20260604.md` -> `VERDICT: PASS_WITH_NOTES`, request id `695d015b-df57-42ea-a5ee-4c260aad9428`
 
 For the source-first Notes work:
 
@@ -128,7 +128,7 @@ For the source-first Notes work:
 
 Treat these as controlled/local evidence only. They do not prove real Mac/HarmonyOS/Windows dogfood.
 
-The PASS bullets above were observed in the prior Codex run around product commit `8f52d73`. They are handoff evidence, not durable proof for future claims. Re-run the relevant command before citing it in a new delivery.
+The PASS bullets above are controlled/local evidence, not durable proof for future claims. Re-run the relevant command before citing it in a new delivery.
 
 ## Known Cleanup / Artifact Caveats
 
@@ -178,6 +178,7 @@ Rules:
 
 Recent useful Mira verdicts:
 
+- Recall-card source-first after-save: `PASS_WITH_NOTES`
 - Static return/manual carrier clarification: `PASS_WITH_NOTES`
 - Notes/source-first after-save: `PASS_WITH_NOTES`
 - Text-fragment source resume: `PASS_WITH_NOTES`
@@ -235,18 +236,15 @@ Recommended next slices:
    - Do not delete stale demo artifacts tonight; record caveats.
    - Definition of Done: generated review entry and runbook visibly label Not Run rows; validators still pass; no cleanup/deletion occurs; `docs/next-session-handoff.md` records any stale-artifact caveat.
 
-2. Inspect and improve rendered post-save return hint readability.
-   - Controlled string assertions pass, but no rendered screenshot/visual evidence exists.
-   - If in-app Browser is stale/blocked, use headless smoke and record the visual gap.
-   - Do not clear service worker/cache tonight unless Tony explicitly approves.
-   - Definition of Done: either a project-local screenshot/DOM evidence path is recorded under `.codex-tmp/`, or the visual check is explicitly Not Run with blocker; relevant static/browser assertions pass.
+2. Run or sharpen real Mac dogfood instead of adding more fixture-only claims.
+   - The controlled smokes now cover source-first Notes and Recall paths, but no human has proven the flow beside a real lesson.
+   - Keep Not Run rows explicit; do not convert fixture receipts into dogfood.
+   - Definition of Done: a real runbook row is executed and validated, or the blocker and exact Not Run scope are recorded.
 
-3. Evaluate whether Recall-card after-save should also become source-first.
-   - Mira already flagged this as a follow-up.
-   - Current after-card path may still keep `Review` primary while source resume is secondary.
-   - Compare against the Notes source-first pattern and user study momentum.
-   - Use Mira or Seed before committing if you change product behavior.
-   - Definition of Done: external review verdict is recorded; app behavior and smoke assertions either change deliberately or the current behavior is explicitly kept with rationale; handoff records accepted/deferred review notes.
+3. Improve rendered post-save return evidence only where a new behavior changes.
+   - `npm run smoke:post-save-hints` now covers source-first Notes and Recall Activity strips at 390x760 and 1280x720.
+   - Future copy/layout changes should refresh the receipt and screenshots rather than relying on old images.
+   - Definition of Done: refreshed project-local receipt/screenshots under `.codex-tmp/post-save-hint-visual/`, or explicit Not Run blocker; relevant browser assertions pass.
 
 4. Tighten first-run and sidecar flow only where it directly reduces friction.
    - Avoid adding explanatory marketing text.

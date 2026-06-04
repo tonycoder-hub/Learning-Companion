@@ -289,7 +289,10 @@ assert.match(appJs, /Saved in Answers Today\. It did not close a question becaus
 assert.match(appJs, /Save it for recall if needed/);
 assert.match(appJs, /Question draft still needs a body/);
 const captureSaveActivityBody = appJs.match(/function captureSaveActivity[\s\S]*?\n}\n\nfunction captureSaveToast/)?.[0] || "";
-assert.equal((captureSaveActivityBody.match(/actionLabel:/g) || []).length, 8);
+assert.equal((captureSaveActivityBody.match(/actionLabel:/g) || []).length, 7);
+assert.match(appJs, /function cardMadeActivity/);
+assert.match(appJs, /targetPane: "reviewCardSourceResume"/);
+assert.match(appJs, /sourceFirst: false/);
 assert.match(appJs, /renderTodaySectionMap/);
 assert.match(appJs, /renderLearningFlowPanel/);
 assert.match(appJs, /nextCaptureDecisionItem/);

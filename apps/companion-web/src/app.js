@@ -1656,14 +1656,11 @@ function captureSaveActivity(session, capture, options = {}) {
     };
   }
   if (options.promotedToReview) {
-    return {
+    return cardMadeActivity(session, capture, {
       title: "Capture and card saved",
       detail: `${summarizeCapture(capture)} · A review card was created, so the point can come back when it is due.`,
-      tab: "review",
-      targetId: options.savedCard?.id || "",
-      actionLabel: "Review",
-      nextHint: cardMadeNextHint(session, capture)
-    };
+      savedCard: options.savedCard
+    });
   }
   if (captureHasQuestion(capture)) {
     const hasSourceResume = Boolean(buildCaptureResumeSource(session, capture).href);
@@ -2670,6 +2667,37 @@ function cardMadeNextHint(session, capture) {
     : activityNextHint("afterCardMade");
 }
 
+function cardMadeSourceResumeHint(session, capture) {
+  const resume = buildCaptureResumeSource(session, capture);
+  return resume.href
+    ? activityNextHint(resume.hasTextFragment ? "afterCardMadeTextSourceLinked" : "afterCardMadeSourceLinked")
+    : null;
+}
+
+function cardMadeActivity(session, capture, options = {}) {
+  const sourceHint = cardMadeSourceResumeHint(session, capture);
+  const cardId = options.savedCard?.id || "";
+  if (options.sourceFirst !== false && sourceHint && cardId) {
+    return {
+      title: options.title || "Review card created",
+      detail: options.detail || questionActionDetail(session, capture),
+      tab: "captures",
+      targetId: cardId,
+      targetPane: "reviewCardSourceResume",
+      actionLabel: sourceHint.actionLabel,
+      nextHint: activityNextHint("afterCardMade")
+    };
+  }
+  return {
+    title: options.title || "Review card created",
+    detail: options.detail || questionActionDetail(session, capture),
+    tab: "review",
+    targetId: cardId,
+    actionLabel: options.actionLabel || "Review",
+    nextHint: activityNextHint("afterCardMade")
+  };
+}
+
 function normalizeActivityNextHint(value) {
   if (!value) return null;
   const kind = typeof value === "string" ? value : value.kind;
@@ -2847,7 +2875,7 @@ function activityReviewCardResumeSource(activity) {
 
 function activityStaysInSidecar(activity) {
   return uiPrefs.sidecarLayout && (
-    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity) || activityTargetsSource(activity) || activityTargetsSourceResume(activity)
+    activityTargetsQuickCapture(activity) || activityTargetsHighlightAnnotation(activity) || activityTargetsSource(activity) || activityTargetsSourceResume(activity) || activityTargetsReviewCardSourceResume(activity)
   );
 }
 
@@ -2863,13 +2891,17 @@ function activityTargetsSourceResume(activity) {
   return activity.targetPane === "sourceResume";
 }
 
+function activityTargetsReviewCardSourceResume(activity) {
+  return activity.targetPane === "reviewCardSourceResume";
+}
+
 function activityTargetsHighlightAnnotation(activity) {
   return activity.targetPane === "highlightAnnotation";
 }
 
 function activityActionLabel(activity, baseAction, staysInSidecar) {
   if (activityTargetsSource(activity)) return "Focus Source URL";
-  if (activityTargetsSourceResume(activity)) return `${baseAction} in a new tab; Quick Capture stays ready`;
+  if (activityTargetsSourceResume(activity) || activityTargetsReviewCardSourceResume(activity)) return `${baseAction} in a new tab; Quick Capture stays ready`;
   if (activityTargetsHighlightAnnotation(activity)) return "Add thought to saved highlight";
   if (activityTargetsQuickCapture(activity) && /^focus\s+field$/i.test(baseAction)) return "Focus Quick Capture";
   if (staysInSidecar && activityTargetsQuickCapture(activity)) return "Focus Quick Capture";
@@ -3283,6 +3315,10 @@ function showActivityDetails() {
     resumeActivityHintSource(activity);
     return;
   }
+  if (activityTargetsReviewCardSourceResume(activity)) {
+    resumeReviewCardSourceFromActivity(activity);
+    return;
+  }
   if (activityTargetsSource(activity)) {
     promptForSource();
     return;
@@ -3451,8 +3487,12 @@ function resumeReviewCardSourceFromActivity(activity) {
   const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
   const targetCard = targetSession?.reviewCards.find((card) => card.id === activity?.targetId);
   const sourceCapture = targetSession?.captures.find((capture) => capture.id === targetCard?.sourceCaptureId);
-  if (!targetSession || !targetCard || !sourceCapture) {
+  if (!targetSession || !targetCard) {
     showToast("Review card no longer exists");
+    return;
+  }
+  if (!sourceCapture) {
+    showToast("Source no longer exists");
     return;
   }
   const resume = activityReviewCardResumeSource(activity);
@@ -3466,7 +3506,7 @@ function resumeReviewCardSourceFromActivity(activity) {
   dom.thoughtInput.focus();
   pulseNode(dom.capturePane);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
-  const detail = activity?.nextHint?.kind === "afterCardMadeSourceLinked" || activity?.nextHint?.kind === "afterCardMadeTextSourceLinked"
+  const detail = activityTargetsReviewCardSourceResume(activity) || activity?.nextHint?.kind === "afterCardMadeSourceLinked" || activity?.nextHint?.kind === "afterCardMadeTextSourceLinked"
     ? `${sourceLabel} reopened beside Quick Capture. Continue reading; the saved card is here when you want to review.`
     : `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`;
   setActivity(targetSession, {
@@ -4443,7 +4483,7 @@ function renderToday() {
       const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Save for recall");
       card.type = "button";
       card.disabled = capture.promotedToReview;
-      card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId));
+      card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId, { sourceFirst: false }));
       footer.append(card);
       const park = textEl("button", "mini-button", "Park");
       park.type = "button";
@@ -4597,7 +4637,7 @@ function renderToday() {
           refreshAnsweredQuestionCard(capture.id, sessionId);
           return;
         }
-        promoteCaptureToReview(capture.id, sessionId);
+        promoteCaptureToReview(capture.id, sessionId, { sourceFirst: false });
       });
       footer.append(card);
       const reopen = textEl("button", "mini-button primary", "Reopen");
@@ -6549,7 +6589,7 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
   }
 }
 
-function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspace).id) {
+function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspace).id, options = {}) {
   const targetSession = workspace.sessions.find((session) => session.id === sessionId);
   if (!targetSession) {
     showToast("Topic no longer exists");
@@ -6563,14 +6603,15 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
   if (capture.promotedToReview) return;
   workspace = selectSession(workspace, targetSession.id);
   workspace = promoteCapture(workspace, targetSession.id, capture.id);
-  activeTab = "review";
-  setActivity(getActiveSession(workspace), {
+  const promotedSession = getActiveSession(workspace);
+  const activity = cardMadeActivity(promotedSession, capture, {
     title: "Review card created",
     detail: questionActionDetail(targetSession, capture),
-    tab: "review",
-    targetId: getActiveSession(workspace).reviewCards[0]?.id,
-    nextHint: cardMadeNextHint(targetSession, capture)
+    savedCard: promotedSession.reviewCards[0],
+    sourceFirst: options.sourceFirst
   });
+  activeTab = activity.targetPane === "reviewCardSourceResume" ? "captures" : "review";
+  setActivity(promotedSession, activity);
   persistAndRender("Review card created");
 }
 
