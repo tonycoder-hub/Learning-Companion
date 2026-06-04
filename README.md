@@ -1,13 +1,16 @@
 # Learning Companion
 
-A local-first learning note app for Mac and HarmonyOS, with Feishu as the first cross-device sync layer.
+A Mac-first, local-first learning companion for browser-based study.
+
+Current verified status: the runnable product is the web MVP plus a minimal Mac shell scaffold. Phone/Windows support is currently a static mirror and manual return-file loop. Feishu Drive may be used as a manual file carrier, but live Feishu sync is not verified. The HarmonyOS app is a scaffold/prototype, not a device-verified app.
 
 ## Product Direction
 
-- Mac app: fast capture, browser context, video timestamps, and focused floating notes.
-- Feishu sync: readable cross-device mirror plus structured sync payloads.
-- HarmonyOS app: mobile capture, review, and lightweight edits.
-- Data model: local-first Markdown/SQLite, designed to avoid lock-in.
+- Mac-first study sidecar: fast capture, browser context, video timestamps, source resume, Notes, and Review.
+- Manual cross-device loop: export a static mirror, use Review/Inbox on phone or Windows, then bring return JSON back to Mac.
+- Feishu transport direction: possible manual file-carrier path first; no live sync claim until real integration is verified.
+- HarmonyOS direction: reader/import/export scaffold toward mobile capture and review; no real-device usability claim yet.
+- Data model: local-first portable workspace data, designed to avoid lock-in.
 
 ## Repository Layout
 
