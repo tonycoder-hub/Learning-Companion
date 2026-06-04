@@ -103,6 +103,7 @@ const dom = {
   importReceipt: document.querySelector("#importReceipt"),
   importReceiptTitle: document.querySelector("#importReceiptTitle"),
   importReceiptDetail: document.querySelector("#importReceiptDetail"),
+  importReceiptActionBtn: document.querySelector("#importReceiptActionBtn"),
   importReceiptDismissBtn: document.querySelector("#importReceiptDismissBtn"),
   sessionList: document.querySelector("#sessionList"),
   sessionTitle: document.querySelector("#sessionTitle"),
@@ -317,6 +318,10 @@ dom.importReceiptDismissBtn.addEventListener("click", () => {
   lastImportReceipt = null;
   renderImportReceipt();
   if (activeTab === "today") renderToday();
+});
+dom.importReceiptActionBtn?.addEventListener("click", () => {
+  const action = importReceiptAction(lastImportReceipt);
+  if (action) action.run();
 });
 
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
@@ -3221,6 +3226,13 @@ function renderImportReceipt() {
   if (!receipt) return;
   dom.importReceiptTitle.textContent = importReceiptTitle(receipt);
   dom.importReceiptDetail.textContent = formatImportReceipt(receipt);
+  const action = importReceiptAction(receipt);
+  if (dom.importReceiptActionBtn) {
+    dom.importReceiptActionBtn.hidden = !action;
+    dom.importReceiptActionBtn.textContent = action?.label || "";
+    dom.importReceiptActionBtn.dataset.importReceiptAction = action?.kind || "";
+    dom.importReceiptActionBtn.setAttribute("aria-label", action?.ariaLabel || action?.label || "");
+  }
 }
 
 function importReceiptTitle(receipt) {
@@ -3241,6 +3253,62 @@ function formatImportReceipt(receipt) {
     return formatReviewProgressReceipt(receipt);
   }
   return formatInboxReceipt(receipt);
+}
+
+function importReceiptAction(receipt) {
+  if (!receipt) return null;
+  if (receipt.schema === "learning-companion.import-error-receipt.v1") {
+    return {
+      kind: "return-files",
+      label: "Open Return Files",
+      ariaLabel: "Open Return Files to inspect the import issue",
+      run: openReturnFilesFromReceipt
+    };
+  }
+  const work = returnReceiptNewWork(receipt);
+  if (work.inboxAdded) {
+    const hasReviewUpdate = Boolean(work.reviewApplied);
+    const answerFollowup = returnedAnswerFollowup(work);
+    const closedQuestionTarget = returnRejoinTarget(receipt, "closed_question");
+    const captureTarget = returnRejoinTarget(receipt, "capture");
+    if (answerFollowup && !hasReviewUpdate) {
+      return {
+        kind: "returned-answer",
+        label: answerFollowup.label,
+        ariaLabel: `${answerFollowup.label} from the returned file`,
+        run: closedQuestionTarget ? () => openReturnRejoinTarget(closedQuestionTarget, "closed_questions") : answerFollowup.run
+      };
+    }
+    return {
+      kind: "returned-capture",
+      label: captureTarget ? "View latest capture" : "View captures",
+      ariaLabel: "Open captures returned from phone or Windows",
+      run: captureTarget ? () => openReturnRejoinTarget(captureTarget, "recent_captures") : () => jumpToTodaySection("recent_captures")
+    };
+  }
+  if (work.reviewApplied) {
+    return {
+      kind: "returned-review",
+      label: "Review status",
+      ariaLabel: "Open review status from the returned file",
+      run: () => openReturnedReviewStatus(work)
+    };
+  }
+  if (receipt.schema === "learning-companion.return-files-receipt.v1" && receipt.failedFiles) {
+    return {
+      kind: "return-files",
+      label: "Open Return Files",
+      ariaLabel: "Open Return Files to inspect failed files",
+      run: openReturnFilesFromReceipt
+    };
+  }
+  return null;
+}
+
+function openReturnFilesFromReceipt() {
+  activeTab = "today";
+  renderInspector();
+  focusReturnFilesPanel();
 }
 
 function emptyReturnFilesReceipt(fileCount) {

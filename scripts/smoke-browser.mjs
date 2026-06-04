@@ -6540,6 +6540,23 @@ async function assertPasteReturnFileFromClipboard(cdp) {
         title: document.querySelector("#activityTitle").textContent,
         detail: document.querySelector("#activityDetail").textContent
       };
+      const successActionButton = document.querySelector("#importReceiptActionBtn");
+      const successReceiptAction = {
+        text: successActionButton?.textContent || "",
+        hidden: successActionButton?.hidden === true,
+        action: successActionButton?.dataset.importReceiptAction || "",
+        aria: successActionButton?.getAttribute("aria-label") || ""
+      };
+      successActionButton?.click();
+      await new Promise((resolve) => setTimeout(resolve, 160));
+      const returnedCaptureSelector = pastedCapture?.id ? '[data-capture-id="' + CSS.escape(pastedCapture.id) + '"]' : "";
+      const successReceiptActionResult = {
+        activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+        returnedCaptureVisible: Boolean(returnedCaptureSelector && document.querySelector(returnedCaptureSelector)),
+        activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+        activityDetail: document.querySelector("#activityDetail")?.textContent || ""
+      };
+      document.querySelector('[data-tab="today"]').click();
       const successHandoff = document.querySelector(".handoff-card");
       setClipboard(beforeWorkspaceJson);
       const workspaceRejectionReceipt = await clickPaste();
@@ -6571,6 +6588,8 @@ async function assertPasteReturnFileFromClipboard(cdp) {
           importedPatch: afterSuccess.importedPatches.includes("browser_clipboard_patch_001"),
           receipt: successReceipt,
           activity: successActivity,
+          receiptAction: successReceiptAction,
+          receiptActionResult: successReceiptActionResult,
           handoffOpen: successHandoff?.open === true
         },
         rejection: {
@@ -6607,6 +6626,16 @@ async function assertPasteReturnFileFromClipboard(cdp) {
   assert.match(pasteReturn.success.receipt, /1 added/);
   assert.equal(pasteReturn.success.activity.title, "Mobile inbox imported");
   assert.match(pasteReturn.success.activity.detail, /1 added/);
+  assert.deepEqual(pasteReturn.success.receiptAction, {
+    text: "View latest capture",
+    hidden: false,
+    action: "returned-capture",
+    aria: "Open captures returned from phone or Windows"
+  });
+  assert.equal(pasteReturn.success.receiptActionResult.activeTab, "captures");
+  assert.equal(pasteReturn.success.receiptActionResult.returnedCaptureVisible, true);
+  assert.equal(pasteReturn.success.receiptActionResult.activityTitle, "Capture selected");
+  assert.match(pasteReturn.success.receiptActionResult.activityDetail, /Paste Return File should import copied JSON/);
   assert.equal(pasteReturn.success.handoffOpen, true);
   assert.match(pasteReturn.rejection.workspaceReceipt, /clipboard: Clipboard does not contain an inbox or review return file/);
   assert.match(pasteReturn.rejection.workspaceReceipt, /Use Import Return Files for full workspace files/);
