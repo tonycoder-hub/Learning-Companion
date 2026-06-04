@@ -743,7 +743,7 @@ Latest absorbed Mira notes for static Return next-step cue:
 1. Continue the study loop:
    - Prefer one more Mac-first dogfood polish around source/timestamp capture or sidecar focus before broadening claims.
    - A good next local increment is to tighten the capture context around actual browser study use: what changed, where the note will land, and how to resume the source without touching approval-gated native APIs.
-   - A useful local follow-up is to harden the new soft-undo affordance with a visible expiry cue or a broader one-step undo pattern for review-card deletion, if the current capture-only undo feels good in dogfood.
+   - Capture-delete soft undo now has a visible expiry cue; review-card undo remains deferred until real dogfood shows that broader mistake recovery is worth the extra state surface.
    - Consider a local persisted-view adapter stub only if it helps the Harmony/Windows handoff without claiming device storage has run.
    - Run the separate native/browser gates when approvals/network/device conditions allow; do not let those block local product increments.
 
