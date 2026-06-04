@@ -7,7 +7,7 @@ This project now has several useful local capabilities. This document keeps the 
 | Stage | Meaning | Current Evidence | Promotion Gate |
 | --- | --- | --- | --- |
 | Local internal shell | SwiftPM WKWebView shell runs the web app and exposes native capture/window/file commands. | `npm run check:morning:native`, plus offline pack evidence from `npm run check:morning` | Keep iterating. |
-| Tony dogfood build | Tony can use the shell for a real study session without terminal-only workarounds. | Missing live GUI matrix. | Manual QA for sidecar, clipboard capture, selected-text capture, browser context, import/export, relaunch. |
+| Tony dogfood build | Tony can use the shell for a real study session without terminal-only workarounds. | Missing live GUI matrix; `npm run mac:manual:validate:smoke` only proves the pending receipt stays non-claiming. | Manual QA for sidecar, clipboard capture, selected-text capture, browser context, import/export, relaunch, then `npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json`. |
 | Signed package | Installable `.app` suitable for repeated daily use. | Not started. | App bundle, signing/notarization decision, permission onboarding, update/export safety. |
 
 Current wording: "Mac shell internal build", not "production Mac app".

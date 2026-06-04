@@ -120,8 +120,8 @@ Feishu:
 
 ## Next Product Moves
 
-1. Fill Mac manual QA rows for capture, source context, native saves, import, and relaunch.
-2. Add the same post-save receipt coverage for Mac-shell native NSSavePanel manual QA.
+1. Fill Mac manual QA rows for capture, source context, native saves, import, and relaunch, then validate the filled receipt with `npm run mac:manual:validate`.
+2. Add deeper post-save receipt coverage for Mac-shell native NSSavePanel manual QA only after the current real GUI rows expose a concrete gap.
 3. Verify the static mirror on a real Windows browser and fill `dist/morning-demo/WINDOWS_STATIC_QA.md`.
 4. Compile the Harmony scaffold in DevEco before calling the phone path usable.
 5. Retry Mira once the SSH broker is healthy, but do not block local progress on that path.

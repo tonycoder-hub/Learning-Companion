@@ -2,9 +2,25 @@
 
 Use this during dogfood review of the internal WKWebView shell. It is not evidence of signed packaging, notarization, or live Feishu/HarmonyOS behavior.
 
-Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
+Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`. This is not evidence until the Result column is filled from an actual Mac GUI run.
 
 `Exported` is intentionally destination-agnostic here: the path may be a native save panel, browser picker, or a gated automation fallback, but reviewers should not assume Downloads is the default destination.
+
+## Session Header
+
+| Field | Value |
+| --- | --- |
+| Date/time | TBD |
+| Reviewer | TBD |
+| Mac build/source | TBD |
+| macOS version | TBD |
+| Browser/source used | TBD |
+| Native build gate result | TBD |
+| Browser smoke gate result | TBD |
+| Total elapsed time | TBD |
+| Permission prompts observed | TBD |
+| Native save/import friction observed | TBD |
+| Biggest friction | TBD |
 
 ## Preconditions
 
@@ -41,3 +57,13 @@ Result values: `PASS`, `FAIL`, `BLOCKED`, or `NT`.
 | Relaunch persistence | Quit and relaunch. | Workspace persists through WebKit localStorage. | NT |  |
 
 Permission prompts are expected for Accessibility or browser Automation; record them instead of treating them as automatic failures.
+
+Use `PASS`, `FAIL`, `BLOCKED`, or `NT` for the native build and browser smoke gate result fields; both must be `PASS` before this receipt can support a Mac manual-QA usability claim.
+
+Cannot be filled from controlled browser smoke, SwiftPM build success, or fixture receipts; only a real Mac GUI run can change `NT` rows.
+
+Validate a filled generated receipt with:
+
+```bash
+npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json
+```

@@ -83,6 +83,10 @@ Latest implemented slices include:
 - Morning dogfood materials distinguish generated fixture status from real human dogfood.
   - Dogfood runbook now tracks both Notes and Recall source-return first actions.
   - A completed Mac-loop claim requires non-negative Add-to-Notes and Save-for-recall counters.
+- Mac manual QA materials now have a validator boundary.
+  - `MAC_MANUAL_QA.md` has real-run session fields and says only an actual Mac GUI run can change `NT` rows.
+  - `npm run mac:manual:validate:smoke` accepts the all-`NT` pending receipt but keeps `canClaimMacManualQaUsable=false`; filled claims also require native/browser gate result fields to be `PASS`.
+  - Negative checks reject all-PASS rows with header fields still `TBD` and reject FAIL/BLOCKED rows without notes.
 - Controlled browser smoke exists for fast regression, but it is not real dogfood.
 
 ## Cross-Device Boundary
@@ -130,6 +134,24 @@ For the latest dogfood evidence-surface slice after `fabe368`:
 - `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
 - `npm run dogfood:validate:smoke` -> pending receipt with `macLoopExecuted=false`, `canClaimMacDogfoodUsable=false`
 - Negative validator check on `.codex-tmp/dogfood-runbook/recall-counter-required.md` exited nonzero as expected, requiring both Save-for-recall counters before a six-row Mac loop can claim usability.
+
+For the latest Mac manual-QA validator slice after `a97c0fd`:
+
+- `npm run check:morning:native` -> first sandbox SwiftPM `sandbox_apply: Operation not permitted`; approved outside-sandbox rerun -> `morning_native_check_ok`
+- Mira broker for `.mira-review/mac-manual-qa-validator-20260604.md` -> unavailable, `AUTH_EXPIRED`, request id `0ce255d5-ab10-4a4c-b8dc-263413357492`
+- Seed `ark/seed-code-0602` review -> no verdict, `Error: Reached max turns (14)`
+- Coco review -> no verdict, DNS failure for `aime.bytedance.net` in sandbox, then `401 Unauthorized: invalid token` after escalation
+- `node --check scripts/validate-mac-manual-qa.mjs` -> PASS
+- `node --check scripts/build-morning-demo.mjs` -> PASS
+- `node --check scripts/validate-morning-receipts.mjs` -> PASS
+- `node --check scripts/validate-dogfood-runbook.mjs` -> PASS
+- `MORNING_DEMO_SKIP_CLEAN=1 npm run demo:morning` -> `morning_demo_ok`
+- `npm run morning:receipts` -> `morning_receipts_warning legacy_artifacts=stale_no_clean ...` then `morning_receipts_ok`
+- `npm run mac:manual:validate:smoke` -> pending receipt with `rows=27`, `nt=27`, `allRowsExecuted=false`, `canClaimMacManualQaUsable=false`
+- Negative Mac QA validator checks under `.codex-tmp/mac-manual-qa/` exited nonzero as expected for all-PASS rows with header fields still `TBD`, and for a `FAIL` row without a QA note.
+- `npm run dogfood:validate:smoke` -> pending dogfood receipt
+- `git diff --check` -> PASS
+- `npm run smoke` -> `smoke_web_ok`
 
 For the source-first Notes work:
 
@@ -249,7 +271,8 @@ Recommended next slices:
    - The controlled smokes now cover source-first Notes and Recall paths, but no human has proven the flow beside a real lesson.
    - Keep Not Run rows explicit; do not convert fixture receipts into dogfood.
    - Fill the Notes and Recall source-return counters from real use, not guesses.
-   - Definition of Done: a real runbook row is executed and validated, or the blocker and exact Not Run scope are recorded.
+   - Fill `MAC_MANUAL_QA.md` rows and session header from real Mac GUI use; run `npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json` before claiming Mac manual-QA usability.
+   - Definition of Done: a real runbook/manual-QA row is executed and validated, or the blocker and exact Not Run scope are recorded.
 
 2. Improve rendered post-save return evidence only where a new behavior changes.
    - `npm run smoke:post-save-hints` now covers source-first Notes and Recall Activity strips at 390x760 and 1280x720.
