@@ -613,10 +613,13 @@ try {
     document.querySelector('[data-tab="today"]').click();
     const startHereButtonsBeforeQuestion = [...(document.querySelector(".start-here-inline")?.querySelectorAll("button") || [])].map((button) => ({
       action: button.dataset.startAction,
-      text: button.textContent
+      text: button.textContent,
+      primary: button.classList.contains("primary"),
+      aria: button.getAttribute("aria-label") || ""
     }));
     const startHereTextBeforeQuestion = document.querySelector(".start-here-inline")?.textContent || "";
     const startHereDeviceRouteText = document.querySelector(".start-here-device-route")?.textContent || "";
+    const captureStepBeforeQuestion = document.querySelector('[data-learning-flow-step="capture"]');
     document.querySelector(".start-here-inline")?.querySelector('[data-start-action="question"]')?.click();
     const noSourceDraft = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}")
       .captureDrafts?.[noSourceSession.id] || {};
@@ -652,6 +655,10 @@ try {
       activityDetail: document.querySelector("#activityDetail")?.textContent || "",
       sourceStripPulsed: document.querySelector(".source-strip")?.classList.contains("pulse") === true,
       noSourceQuestion,
+      captureStep: {
+        text: captureStepBeforeQuestion?.textContent || "",
+        actionAria: captureStepBeforeQuestion?.querySelector("button")?.getAttribute("aria-label") || ""
+      },
       timestampOnlyDraft: {
         timestamp: timestampOnlyDraft.timestamp || "",
         sourceTitle: timestampOnlyDraft.sourceTitle || "",
@@ -801,6 +808,11 @@ try {
   assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceTitle, "");
   assert.equal(noSourceFlowStep.noSourceQuestion.draftSourceUrl, "");
   assert.equal(noSourceFlowStep.noSourceQuestion.draftMaterialType, "");
+  assert.match(noSourceFlowStep.captureStep.text, /Capture on Mac/);
+  assert.match(noSourceFlowStep.captureStep.text, /After source/);
+  assert.match(noSourceFlowStep.captureStep.text, /Jot loose thought/);
+  assert.match(noSourceFlowStep.captureStep.text, /cannot resume the source later/);
+  assert.match(noSourceFlowStep.captureStep.actionAria, /source resume will not be available/);
   assert.deepEqual(noSourceFlowStep.timestampOnlyDraft, {
     timestamp: "01:23",
     sourceTitle: "",
@@ -808,14 +820,15 @@ try {
     materialType: ""
   });
   assert.deepEqual(noSourceFlowStep.startHereButtons, [
-    { action: "source", text: "Set source" },
-    { action: "capture", text: "Capture this thought" },
-    { action: "question", text: "Ask about this" },
-    { action: "clipper", text: "Set up page clipper" },
-    { action: "device-flow", text: "Phone/Windows" }
+    { action: "source", text: "Set source", primary: true, aria: "Set source URL for this learning flow" },
+    { action: "capture", text: "Jot loose thought", primary: false, aria: "Jot a loose thought without a source; source resume will not be available" },
+    { action: "question", text: "Ask about this", primary: false, aria: "" },
+    { action: "clipper", text: "Set up page clipper", primary: false, aria: "" },
+    { action: "device-flow", text: "Phone/Windows", primary: false, aria: "Open manual phone and Windows transfer route" }
   ]);
   assert.match(noSourceFlowStep.startHereText, /First Note/);
-  assert.match(noSourceFlowStep.startHereText, /Set a source, then capture the first useful point/);
+  assert.match(noSourceFlowStep.startHereText, /Start by anchoring this study block to the browser source/);
+  assert.match(noSourceFlowStep.startHereText, /Anchor the source first, then capture, then close the loop/);
   assert.match(noSourceFlowStep.startHereDeviceRouteText, /Use phone or Windows later/);
   assert.match(noSourceFlowStep.startHereDeviceRouteText, /Bring return files back to this Mac/);
   assert.match(noSourceFlowStep.afterSetSource.text, /Source linked/);

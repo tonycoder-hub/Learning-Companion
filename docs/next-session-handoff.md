@@ -19,6 +19,7 @@ Current branch: `main`.
 
 Latest product slices:
 
+- no-source first-open Today now makes `Set source` the primary First Note action, changes the capture step to `After source`, keeps a secondary `Jot loose thought` escape hatch, and replaces the prior checklist-style route with inline guidance: anchor source first, then capture, then close the loop. Mira returned `PASS_WITH_NOTES`; accepted fixes softened the escape-hatch label and removed the numbered route visual weight. Current evidence is controlled browser smoke plus source-linked in-app spot check, not a real fresh-profile dogfood run.
 - `8d6b412 feat: route source-only mirrors to reading`
 - `41ca482 fix: explain browser clipper setup`
 - `11c712b feat: clarify first note device route`

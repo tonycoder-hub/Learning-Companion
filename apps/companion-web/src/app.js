@@ -4322,17 +4322,10 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
 
   const track = document.createElement("div");
   track.className = "learning-flow-track";
+  const sourceStep = resolveSourceSessionState();
   const flowSteps = [
-    renderLearningFlowStep(resolveSourceSessionState()),
-    renderLearningFlowStep({
-      kind: "capture",
-      label: "Capture on Mac",
-      status: captureFlowStatus(pack, draftItems),
-      detail: "Keep the browser source open and catch quote, thought, time, or question.",
-      actionLabel: showStartHere ? "Capture this thought" : "Capture",
-      action: focusQuickCaptureFromStart,
-      tone: "capture"
-    })
+    renderLearningFlowStep(sourceStep),
+    renderLearningFlowStep(resolveCaptureFlowState(pack, draftItems, showStartHere, sourceStep))
   ];
   if (!showStartHere) flowSteps.push(renderLearningFlowStep(resolveCloseLoopState(pack, draftItems)));
   track.append(...flowSteps);
@@ -4343,6 +4336,24 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
   panel.append(showStartHere ? renderStartHereInline() : renderTodayPrimaryAction(pack, draftItems));
   if (shouldShowReturnFilesPanel(showStartHere)) panel.append(renderReturnFilesPanel());
   return panel;
+}
+
+function resolveCaptureFlowState(pack, draftItems = [], showStartHere = false, sourceStep = resolveSourceSessionState()) {
+  const needsSource = showStartHere && sourceStep.status === "Needs source";
+  return {
+    kind: "capture",
+    label: "Capture on Mac",
+    status: needsSource ? "After source" : captureFlowStatus(pack, draftItems),
+    detail: needsSource
+      ? "Set the browser source first; unanchored captures stay possible but cannot resume the source later."
+      : "Keep the browser source open and catch quote, thought, time, or question.",
+    actionLabel: needsSource ? "Jot loose thought" : showStartHere ? "Capture this thought" : "Capture",
+    actionAriaLabel: needsSource
+      ? "Jot a loose thought without a source; source resume will not be available"
+      : undefined,
+    action: focusQuickCaptureFromStart,
+    tone: "capture"
+  };
 }
 
 function shouldShowReturnFilesPanel(showStartHere = false) {
@@ -4840,12 +4851,16 @@ function renderStartHereInline() {
   const card = document.createElement("article");
   card.className = "start-here-inline";
   const sourceStep = resolveSourceSessionState();
+  const needsSource = sourceStep.status === "Needs source";
   card.append(
     textEl("div", "item-meta", "First Note"),
-    textEl("p", "card-prompt", sourceStep.status === "Needs source"
-      ? "Set a source, then capture the first useful point."
+    textEl("p", "card-prompt", needsSource
+      ? "Start by anchoring this study block to the browser source."
       : "Choose the first thing to bring back from this source.")
   );
+  if (needsSource) {
+    card.append(textEl("p", "start-here-route", "Anchor the source first, then capture, then close the loop."));
+  }
   card.append(startHereActions(sourceStep));
   if (!shouldShowReturnFilesPanel(true)) card.append(renderStartHereDeviceRoute());
   return card;
@@ -4933,16 +4948,19 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
   const footer = document.createElement("div");
   footer.className = "item-footer";
   const actions = [];
-  if (sourceStep.status === "Needs source") {
-    const source = textEl("button", "mini-button", sourceStep.actionLabel);
+  const needsSource = sourceStep.status === "Needs source";
+  if (needsSource) {
+    const source = textEl("button", "mini-button primary", sourceStep.actionLabel);
     source.type = "button";
     source.dataset.startAction = "source";
+    source.setAttribute("aria-label", sourceStep.actionAriaLabel || "Set source URL for this learning flow");
     source.addEventListener("click", sourceStep.action);
     actions.push(source);
   }
-  const capture = textEl("button", "mini-button primary", "Capture this thought");
+  const capture = textEl("button", needsSource ? "mini-button" : "mini-button primary", needsSource ? "Jot loose thought" : "Capture this thought");
   capture.type = "button";
   capture.dataset.startAction = "capture";
+  if (needsSource) capture.setAttribute("aria-label", "Jot a loose thought without a source; source resume will not be available");
   capture.addEventListener("click", focusQuickCaptureFromStart);
   const question = textEl("button", "mini-button", "Ask about this");
   question.type = "button";
