@@ -7203,9 +7203,22 @@ async function assertPostSaveFlow(cdp) {
       )
     );
     document.querySelector('[data-tab="captures"]').click();
+    const userEditedHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
+      .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    noteBeforeAnnotation.userEditKeepsViewButtonVisible = [...(userEditedHighlightRow?.querySelectorAll("button") || [])]
+      .some((button) => button.textContent === "View in Notes");
+    document.querySelector("#notesEditBtn").click();
+    setValue(
+      "#notesEditor",
+      document.querySelector("#notesEditor").value.replace(
+        /learning-companion:capture-fingerprint:[a-z0-9-]+/,
+        "learning-companion:capture-fingerprint:fnv1a-stale"
+      )
+    );
+    document.querySelector('[data-tab="captures"]').click();
     const staleHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
-    noteBeforeAnnotation.staleButtonVisible = [...(staleHighlightRow?.querySelectorAll("button") || [])]
+    noteBeforeAnnotation.staleFingerprintButtonVisible = [...(staleHighlightRow?.querySelectorAll("button") || [])]
       .some((button) => button.textContent === "Update note");
     [...(staleHighlightRow?.querySelectorAll("button") || [])]
       .find((button) => button.textContent === "Update note")
@@ -7575,7 +7588,8 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.blockCount, 2);
   assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.stackText, /In Notes/);
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.viewButtonVisible, true);
-  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleButtonVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.userEditKeepsViewButtonVisible, true);
+  assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleFingerprintButtonVisible, true);
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.restoredViewButtonVisible, true);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This annotation must stay attached to the existing highlight\./);

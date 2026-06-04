@@ -214,6 +214,8 @@ assert.match(appJs, /View in Notes/);
 assert.match(appJs, /Capture note opened/);
 assert.match(appJs, /captureNoteState/);
 assert.match(appJs, /captureNoteBlockMarkdown/);
+assert.match(appJs, /captureNoteFingerprint/);
+assert.match(appJs, /learning-companion:capture-fingerprint/);
 assert.match(appJs, /Capture note updated/);
 assert.match(appJs, /targetPane: "notes"/);
 assert.match(appJs, /View note/);

@@ -66,6 +66,7 @@ import {
   updateCaptureThought,
   updateSession,
   workspaceBackupFingerprint,
+  workspaceFingerprint,
   workspaceStorageNotice,
   workspaceFromPortableData
 } from "./model.js";
@@ -7052,8 +7053,12 @@ function upsertCaptureNoteBlock(notesMarkdown, capture) {
   return [notes, block].filter(Boolean).join("\n\n");
 }
 
-function captureNoteBlockMarkdown(capture) {
+function captureNoteBlockMarkdown(capture, options = {}) {
+  const includeFingerprint = options.includeFingerprint !== false;
   const lines = [`<!-- learning-companion:capture:${capture.id}:start -->`];
+  if (includeFingerprint) {
+    lines.push(`<!-- learning-companion:capture-fingerprint:${captureNoteFingerprint(capture)} -->`);
+  }
   if (capture.quote) lines.push(`> ${String(capture.quote).replace(/\n/g, "\n> ")}`);
   if (capture.thought) lines.push("", String(capture.thought).trim());
   const source = formatCaptureNoteSource(capture);
@@ -7074,7 +7079,11 @@ function getCaptureNoteBlock(notesMarkdown, captureId) {
 function captureNoteState(notesMarkdown, capture) {
   const existing = getCaptureNoteBlock(notesMarkdown, capture.id);
   if (!existing) return "missing";
-  return existing === captureNoteBlockMarkdown(capture) ? "current" : "stale";
+  const existingFingerprint = existing.match(/<!-- learning-companion:capture-fingerprint:([a-z0-9-]+) -->/)?.[1] || "";
+  if (existingFingerprint) {
+    return existingFingerprint === captureNoteFingerprint(capture) ? "current" : "stale";
+  }
+  return existing === captureNoteBlockMarkdown(capture, { includeFingerprint: false }) ? "current" : "stale";
 }
 
 function hasCaptureNoteBlock(notesMarkdown, captureId) {
@@ -7088,6 +7097,16 @@ function formatCaptureNoteSource(capture) {
   if (href) return `_Source: [${escapeMarkdownLinkText(title)}](${href})${timestamp}_`;
   if (capture.sourceTitle) return `_Source: ${capture.sourceTitle}${timestamp}_`;
   return capture.timestamp ? `_Time: ${capture.timestamp}_` : "";
+}
+
+function captureNoteFingerprint(capture) {
+  return `fnv1a-${workspaceFingerprint(JSON.stringify({
+    quote: String(capture?.quote || ""),
+    thought: String(capture?.thought || ""),
+    timestamp: String(capture?.timestamp || ""),
+    sourceTitle: String(capture?.sourceTitle || ""),
+    sourceUrl: String(capture?.sourceUrl || "")
+  }))}`;
 }
 
 function escapeMarkdownLinkText(value) {
