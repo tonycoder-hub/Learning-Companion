@@ -65,6 +65,10 @@ function isFilled(value) {
   return Boolean(text && text !== "TBD" && text !== "-");
 }
 
+function isNonNegativeInteger(value) {
+  return /^\d+$/.test(String(value || "").trim());
+}
+
 function validateRunbook(markdown, runbookPath) {
   const errors = [];
   if (!/^# Learning Companion Dogfood Runbook$/m.test(markdown)) {
@@ -109,6 +113,8 @@ function validateRunbook(markdown, runbookPath) {
     totalElapsedTime: fields["Total elapsed time"] || "",
     totalManualSteps: fields["Total manual steps"] || "",
     macLoopFrictionObserved: fields["Mac loop friction observed"] || "",
+    addToNotesSourceReturnCount: fields["Add-to-Notes source-return count"] || "",
+    addToNotesViewNoteCount: fields["Add-to-Notes View-note count"] || "",
     manualDeviceLoopFrictionObserved: fields["Manual device loop friction observed"] || "",
     biggestFriction: fields["Biggest friction"] || ""
   };
@@ -117,6 +123,12 @@ function validateRunbook(markdown, runbookPath) {
   const manualDeviceLoopExecuted = deviceCounts.nt === 0 && deviceRows.length === 5;
   if (macLoopExecuted && !isFilled(sessionFields.macLoopFrictionObserved)) {
     errors.push("Mac loop executed but Mac loop friction observed is empty or TBD");
+  }
+  if (macLoopExecuted && !isNonNegativeInteger(sessionFields.addToNotesSourceReturnCount)) {
+    errors.push("Mac loop executed but Add-to-Notes source-return count is not a non-negative integer");
+  }
+  if (macLoopExecuted && !isNonNegativeInteger(sessionFields.addToNotesViewNoteCount)) {
+    errors.push("Mac loop executed but Add-to-Notes View-note count is not a non-negative integer");
   }
   if (manualDeviceLoopExecuted && !isFilled(sessionFields.manualDeviceLoopFrictionObserved)) {
     errors.push("Manual device loop executed but Manual device loop friction observed is empty or TBD");
