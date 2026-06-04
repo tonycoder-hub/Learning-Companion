@@ -2626,7 +2626,28 @@ try {
     transfer.items.add(new File([mirrorText], mirrorImportFileName, { type: "application/json" }));
     importInput.files = transfer.files;
     importInput.dispatchEvent(new Event("change", { bubbles: true }));
-    return new Promise((resolve) => setTimeout(() => {
+    return new Promise((resolve) => {
+      const waitForBrowserSmoke = (predicate, callback, deadline = Date.now() + 1500) => {
+        if (predicate() || Date.now() >= deadline) {
+          callback();
+          return;
+        }
+        setTimeout(() => waitForBrowserSmoke(predicate, callback, deadline), 25);
+      };
+      waitForBrowserSmoke(() => {
+        try {
+          const importedWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
+          const importedSession = importedWorkspace.sessions.find((item) => item.id === importedWorkspace.activeSessionId);
+          const importedPrefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+          const staleDraftStillPresent = Object.values(importedPrefs.captureDrafts || {})
+            .some((draft) => draft.quote === staleDraftPruneQuote);
+          return importedSession?.title === "Learning Companion MVP"
+            && !staleDraftStillPresent
+            && importInput.value === "";
+        } catch {
+          return false;
+        }
+      }, () => {
       const restoredWorkspace = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
       const restoredSession = restoredWorkspace.sessions.find((item) => item.id === restoredWorkspace.activeSessionId);
       const uiPrefsAfterImport = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
@@ -2634,37 +2655,6 @@ try {
         .some((draft) => draft.quote === staleDraftPruneQuote);
       const restoredMirror = JSON.parse(document.querySelector("#mirrorExport").value);
       const synthesisOccurrences = (restoredSession.notesMarkdown.match(/Synthesis - Learning Companion MVP/g) || []).length;
-      const badTransfer = new DataTransfer();
-      badTransfer.items.add(new File([JSON.stringify({ ...mirror, canonical: "bad.json" })], "bad-mirror.json", { type: "application/json" }));
-        importInput.files = badTransfer.files;
-        importInput.dispatchEvent(new Event("change", { bubbles: true }));
-        setTimeout(() => {
-          const badMirrorReceipt = document.querySelector("#importReceipt").textContent;
-          const malformedTransfer = new DataTransfer();
-          malformedTransfer.items.add(new File(["{ broken json"], "broken-patch.json", { type: "application/json" }));
-          importInput.files = malformedTransfer.files;
-          importInput.dispatchEvent(new Event("change", { bubbles: true }));
-          setTimeout(() => {
-            const malformedImportReceipt = document.querySelector("#importReceipt").textContent;
-            const oversizedInboxPatch = {
-              schema: "learning-companion.mobile-inbox-patch.v1",
-              appVersion: 1,
-              patchId: "browser_patch_too_large",
-              captures: [{
-                id: "browser_inbox_capture_too_large",
-                quote: "Oversized inbox patch fixture",
-                thought: "x".repeat(270000)
-              }]
-            };
-            const oversizedTransfer = new DataTransfer();
-            oversizedTransfer.items.add(new File([JSON.stringify(oversizedInboxPatch)], "oversized-inbox-patch.json", { type: "application/json" }));
-            importInput.files = oversizedTransfer.files;
-            importInput.dispatchEvent(new Event("change", { bubbles: true }));
-            setTimeout(() => {
-              const oversizedImportReceipt = document.querySelector("#importReceipt").textContent;
-              const oversizedImportReceiptVisible = !document.querySelector("#importReceipt").hidden
-                && getComputedStyle(document.querySelector("#importReceipt")).display !== "none"
-                && document.querySelector("#importReceipt").classList.contains("import-receipt-error");
           const afterFailedImport = JSON.parse(localStorage.getItem("learning-companion.workspace.v1"));
           const afterFailedSession = afterFailedImport.sessions.find((item) => item.id === afterFailedImport.activeSessionId);
           const reviewProgressPatch = {
@@ -2811,10 +2801,6 @@ try {
           latestCaptureSourceUrl: restoredSession.captures[0].sourceUrl,
           latestCaptureMaterialType: restoredSession.captures[0].materialType,
           latestCaptureSourceProvenance: restoredSession.captures[0].sourceProvenance,
-          badMirrorReceipt,
-          malformedImportReceipt,
-          oversizedImportReceipt,
-          oversizedImportReceiptVisible,
           failedImportTitle: afterFailedSession.title,
           importInputCleared: importInput.value === "",
           importInputMultiple: importInput.multiple === true,
@@ -3017,14 +3003,12 @@ try {
           schemaVersion: restoredWorkspace.schemaVersion,
           clientId: restoredWorkspace.clientId
           });
-          }, 80);
-        }, 80);
-        }, 80);
         }, 80);
         }, 80);
         }, 80);
       }, 80);
-    }, 80));
+      });
+    });
   })()`);
 
   assert.equal(exceptions.length, 0);
@@ -3036,15 +3020,6 @@ try {
   assert.equal(result.latestCaptureSourceUrl, "https://www.youtube.com/watch?v=rust123");
   assert.equal(result.latestCaptureMaterialType, "video");
   assert.equal(result.latestCaptureSourceProvenance, "snapshot");
-  assert.match(result.badMirrorReceipt, /Import issue/);
-  assert.match(result.badMirrorReceipt, /bad-mirror\.json/);
-  assert.match(result.badMirrorReceipt, /canonical payload/);
-  assert.match(result.malformedImportReceipt, /Import issue/);
-  assert.match(result.malformedImportReceipt, /broken-patch\.json/);
-  assert.match(result.oversizedImportReceipt, /Import issue/);
-  assert.match(result.oversizedImportReceipt, /oversized-inbox-patch\.json/);
-  assert.match(result.oversizedImportReceipt, /Mobile inbox patch is too large/);
-  assert.equal(result.oversizedImportReceiptVisible, true);
   assert.equal(result.failedImportTitle, "Learning Companion MVP");
   assert.equal(result.importInputCleared, true);
   assert.equal(result.importInputMultiple, true);
@@ -3650,6 +3625,84 @@ try {
   assert.equal(result.mirrorFingerprintsValid, true);
   assert.equal(result.schemaVersion, 1);
   assert.match(result.clientId, /^client_/);
+
+  const importErrorReceipts = await cdp.evaluate(`(async () => {
+    const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const waitUntil = async (predicate, timeoutMs = 3000) => {
+      const started = Date.now();
+      while (Date.now() - started < timeoutMs) {
+        if (predicate()) return true;
+        await wait(25);
+      }
+      return predicate();
+    };
+    const input = document.querySelector("#importWorkspaceInput");
+    const nativeConfirm = window.confirm;
+    const workspaceBefore = window.learningCompanionNative.exportWorkspaceJson();
+    window.confirm = () => true;
+    const importJsonFile = async (fileName, text, expectedPattern) => {
+      delete input.dataset.importMode;
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([text], fileName, { type: "application/json" }));
+      input.files = transfer.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      const matched = await waitUntil(() => {
+        const receipt = document.querySelector("#importReceipt")?.textContent || "";
+        return input.value === "" && expectedPattern.test(receipt);
+      });
+      return {
+        matched,
+        receipt: document.querySelector("#importReceipt")?.textContent || "",
+        inputValue: input.value,
+        modeAfter: input.dataset.importMode || "",
+        visibleError: document.querySelector("#importReceipt")?.classList.contains("import-receipt-error") === true
+      };
+    };
+    try {
+      const badMirrorBundle = {
+        schema: "learning-companion.mirror-bundle.staging.v1",
+        contractStability: "experimental",
+        canonical: "bad.json",
+        manifest: { totalBytes: 0, fileCount: 0 },
+        files: []
+      };
+      const oversizedInboxPatch = {
+        schema: "learning-companion.mobile-inbox-patch.v1",
+        appVersion: 1,
+        patchId: "browser_patch_too_large",
+        captures: [{
+          id: "browser_inbox_capture_too_large",
+          quote: "Oversized inbox patch fixture",
+          thought: "x".repeat(270000)
+        }]
+      };
+      return {
+        badMirror: await importJsonFile("bad-mirror.json", JSON.stringify(badMirrorBundle), /bad-mirror\\.json/),
+        malformed: await importJsonFile("broken-patch.json", "{ broken json", /broken-patch\\.json/),
+        oversized: await importJsonFile("oversized-inbox-patch.json", JSON.stringify(oversizedInboxPatch), /oversized-inbox-patch\\.json/)
+      };
+    } finally {
+      window.confirm = nativeConfirm;
+      window.learningCompanionNative.importWorkspaceJson(workspaceBefore);
+      document.querySelector('[data-tab="today"]')?.click();
+    }
+  })()`);
+  assert.equal(importErrorReceipts.badMirror.matched, true);
+  assert.match(importErrorReceipts.badMirror.receipt, /Import issue/);
+  assert.match(importErrorReceipts.badMirror.receipt, /bad-mirror\.json/);
+  assert.match(importErrorReceipts.badMirror.receipt, /canonical payload/);
+  assert.equal(importErrorReceipts.badMirror.inputValue, "");
+  assert.equal(importErrorReceipts.badMirror.modeAfter, "");
+  assert.equal(importErrorReceipts.malformed.matched, true);
+  assert.match(importErrorReceipts.malformed.receipt, /Import issue/);
+  assert.match(importErrorReceipts.malformed.receipt, /broken-patch\.json/);
+  assert.equal(importErrorReceipts.malformed.inputValue, "");
+  assert.equal(importErrorReceipts.oversized.matched, true);
+  assert.match(importErrorReceipts.oversized.receipt, /Import issue/);
+  assert.match(importErrorReceipts.oversized.receipt, /oversized-inbox-patch\.json/);
+  assert.match(importErrorReceipts.oversized.receipt, /Mobile inbox patch is too large/);
+  assert.equal(importErrorReceipts.oversized.visibleError, true);
+  assert.equal(importErrorReceipts.oversized.inputValue, "");
 
   const mirrorSaveReceipt = await cdp.evaluate(`(async () => {
     const setValue = (selector, value) => {
