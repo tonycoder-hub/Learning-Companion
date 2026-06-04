@@ -7208,7 +7208,12 @@ async function assertFirstCaptureLoopDecision(cdp) {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       captureVisible: Boolean(detailCard),
       detailNeedsDecision: detailCard?.classList.contains("needs-durable-decision") === true,
-      decisionButtons: [...(detailCard?.querySelectorAll(".capture-decision-button") || [])].map((button) => button.textContent)
+      decisionGuide: detailCard?.querySelector("[data-capture-decision-guide]")?.textContent || "",
+      decisionButtons: [...(detailCard?.querySelectorAll(".capture-decision-button") || [])].map((button) => ({
+        label: button.textContent,
+        title: button.title,
+        aria: button.getAttribute("aria-label") || ""
+      }))
     };
     [...(detailCard?.querySelectorAll("button") || [])]
       .find((button) => button.textContent === "Add to notes")
@@ -7380,7 +7385,19 @@ async function assertFirstCaptureLoopDecision(cdp) {
     activeTab: "captures",
     captureVisible: true,
     detailNeedsDecision: true,
-    decisionButtons: ["Add to notes", "Save for recall"]
+    decisionGuide: "Notes: connect ideas · Recall: remember later",
+    decisionButtons: [
+      {
+        label: "Add to notes",
+        title: "Add this capture to Notes for synthesis",
+        aria: "Add this capture to Notes"
+      },
+      {
+        label: "Save for recall",
+        title: "Save this capture to recall later",
+        aria: "Save this capture to recall later"
+      }
+    ]
   });
   assert.match(result.afterNotes.loopText, /Close the loop/);
   assert.match(result.afterNotes.loopText, /Clear/);
@@ -8319,7 +8336,12 @@ async function assertCaptureStackNextStepMix(cdp) {
     return [...document.querySelectorAll("#captureStack .capture-stack-row")].map((row) => ({
       kind: row.dataset.stackNextStep || "",
       next: row.querySelector(".capture-stack-next")?.textContent || "",
-      buttons: [...row.querySelectorAll("button")].map((button) => button.textContent.trim())
+      guide: row.querySelector("[data-capture-decision-guide]")?.textContent || "",
+      buttons: [...row.querySelectorAll("button")].map((button) => ({
+        label: button.textContent.trim(),
+        title: button.title || "",
+        aria: button.getAttribute("aria-label") || ""
+      }))
     }));
   })()`);
   assert.deepEqual(stackMix.map((row) => row.kind), ["keep-reading", "review-ready", "add-thought"]);
@@ -8328,11 +8350,26 @@ async function assertCaptureStackNextStepMix(cdp) {
     "Card scheduled · keep reading.",
     "Needs your why — or leave it as a quote."
   ]);
-  assert.deepEqual(stackMix.map((row) => row.buttons), [
+  assert.deepEqual(stackMix.map((row) => row.guide), [
+    "",
+    "",
+    ""
+  ]);
+  assert.deepEqual(stackMix.map((row) => row.buttons.map((button) => button.label)), [
     ["Open source", "Add to notes", "Save for recall", "Delete"],
     ["Open source", "Add to notes", "Review", "Delete + 1 card"],
     ["Open source", "Add thought", "Add to notes", "Save for recall", "Delete"]
   ]);
+  assert.deepEqual(stackMix[0].buttons.find((button) => button.label === "Save for recall"), {
+    label: "Save for recall",
+    title: "Save this capture to recall later",
+    aria: "Save this capture to recall later"
+  });
+  assert.deepEqual(stackMix[1].buttons.find((button) => button.label === "Review"), {
+    label: "Review",
+    title: "Open the review card made from this capture",
+    aria: "Open this capture's review card"
+  });
 }
 
 async function assertSidecarHighlightActivity(cdp) {

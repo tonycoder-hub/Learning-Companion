@@ -5659,6 +5659,8 @@ function renderCaptureStack(session) {
     actions.append(noteButton);
     const cardButton = textEl("button", needsDurableDecision ? "mini-button capture-decision-button" : "mini-button", capture.promotedToReview ? "Review" : "Save for recall");
     cardButton.type = "button";
+    cardButton.title = capture.promotedToReview ? "Open the review card made from this capture" : "Save this capture to recall later";
+    cardButton.setAttribute("aria-label", capture.promotedToReview ? "Open this capture's review card" : "Save this capture to recall later");
     cardButton.addEventListener("click", () => {
       if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
       else promoteCaptureToReview(capture.id);
@@ -5694,6 +5696,12 @@ function captureNoteActionMeta(noteState) {
     title: "Add this capture to Notes for synthesis",
     ariaLabel: "Add this capture to Notes"
   };
+}
+
+function captureDecisionGuideEl() {
+  const guide = textEl("p", "capture-decision-guide", "Notes: connect ideas · Recall: remember later");
+  guide.dataset.captureDecisionGuide = "notes-recall";
+  return guide;
 }
 
 function captureStackNextStep(capture, options = {}) {
@@ -6700,6 +6708,7 @@ function renderCaptures() {
     const nextStep = captureStackNextStep(capture, { isInNotes });
     item.dataset.captureNextStep = nextStep.kind;
     item.append(textEl("p", "capture-detail-next", nextStep.text));
+    if (needsDurableDecision) item.append(captureDecisionGuideEl());
     if (isActiveHighlightAnnotation(session.id, capture.id, "details")) {
       item.append(renderHighlightAnnotationForm(session, capture, "details"));
     }
@@ -6743,6 +6752,8 @@ function renderCaptures() {
     promoteButton.className = needsDurableDecision ? "mini-button capture-decision-button" : "mini-button";
     promoteButton.type = "button";
     promoteButton.textContent = capture.promotedToReview ? "Review" : "Save for recall";
+    promoteButton.title = capture.promotedToReview ? "Open the review card made from this capture" : "Save this capture to recall later";
+    promoteButton.setAttribute("aria-label", capture.promotedToReview ? "Open this capture's review card" : "Save this capture to recall later");
     promoteButton.addEventListener("click", () => {
       if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
       else promoteCaptureToReview(capture.id);
