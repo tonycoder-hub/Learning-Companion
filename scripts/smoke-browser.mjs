@@ -7157,7 +7157,9 @@ async function assertFirstCaptureLoopDecision(cdp) {
       .find((item) => item.textContent.includes("This should not count as a closed loop yet."));
     const afterAction = {
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
-      captureVisible: Boolean(detailCard)
+      captureVisible: Boolean(detailCard),
+      detailNeedsDecision: detailCard?.classList.contains("needs-durable-decision") === true,
+      decisionButtons: [...(detailCard?.querySelectorAll(".capture-decision-button") || [])].map((button) => button.textContent)
     };
     [...(detailCard?.querySelectorAll("button") || [])]
       .find((button) => button.textContent === "Add to notes")
@@ -7169,8 +7171,38 @@ async function assertFirstCaptureLoopDecision(cdp) {
       loopAction: afterNotesLoopStep?.querySelector("button")?.textContent || "",
       loopTone: afterNotesLoopStep?.className || ""
     };
+    const takeawayWorkspace = JSON.parse(before);
+    const takeawaySession = {
+      ...takeawayWorkspace.sessions[0],
+      id: "takeaway_loop_decision",
+      title: "Takeaway loop decision",
+      sourceTitle: "Decision source",
+      sourceUrl: "https://example.com/decision-source",
+      materialType: "article",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...takeawayWorkspace,
+      activeSessionId: takeawaySession.id,
+      sessions: [takeawaySession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "Takeaway: This should remain synthesis support.");
+    document.querySelector("#captureBtn").click();
+    document.querySelector('[data-tab="today"]').click();
+    const takeawayLoopStep = document.querySelector('[data-learning-flow-step="loop"]');
+    const takeawayLoop = {
+      loopText: takeawayLoopStep?.textContent || "",
+      loopAction: takeawayLoopStep?.querySelector("button")?.textContent || "",
+      loopTone: takeawayLoopStep?.className || ""
+    };
     window.learningCompanionNative.importWorkspaceJson(before);
-    return { beforeAction, afterAction, afterNotes };
+    return { beforeAction, afterAction, afterNotes, takeawayLoop };
   })()`);
   assert.match(result.beforeAction.loopText, /Close the loop/);
   assert.match(result.beforeAction.loopText, /Needs next step/);
@@ -7183,13 +7215,20 @@ async function assertFirstCaptureLoopDecision(cdp) {
   assert.equal(result.beforeAction.nextMoveKind, "recent");
   assert.deepEqual(result.afterAction, {
     activeTab: "captures",
-    captureVisible: true
+    captureVisible: true,
+    detailNeedsDecision: true,
+    decisionButtons: ["Add to notes", "Save for recall"]
   });
   assert.match(result.afterNotes.loopText, /Close the loop/);
   assert.match(result.afterNotes.loopText, /Clear/);
   assert.doesNotMatch(result.afterNotes.loopText, /Needs next step/);
   assert.equal(result.afterNotes.loopAction, "Inspect");
   assert.match(result.afterNotes.loopTone, /is-clear/);
+  assert.match(result.takeawayLoop.loopText, /Close the loop/);
+  assert.match(result.takeawayLoop.loopText, /Clear/);
+  assert.doesNotMatch(result.takeawayLoop.loopText, /Needs next step/);
+  assert.equal(result.takeawayLoop.loopAction, "Inspect");
+  assert.match(result.takeawayLoop.loopTone, /is-clear/);
 }
 
 async function assertPostSaveFlow(cdp) {

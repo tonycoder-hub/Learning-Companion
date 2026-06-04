@@ -4819,9 +4819,13 @@ function nextCaptureDecisionItem(pack) {
   return pack.recentCaptures.find(({ sessionId, capture }) => {
     const session = workspace.sessions.find((item) => item.id === sessionId);
     if (!session || !capture) return false;
-    if (capture.promotedToReview) return false;
-    return captureNoteState(session.notesMarkdown, capture) === "missing";
+    return captureNeedsDurableDecision(capture, captureNoteState(session.notesMarkdown, capture));
   }) || null;
+}
+
+function captureNeedsDurableDecision(capture, noteState) {
+  if (noteState !== "missing") return false;
+  return captureStackNextStep(capture, { isInNotes: false }).kind === "keep-reading";
 }
 
 function renderReturnedWorkNudge(pack) {
@@ -5521,6 +5525,8 @@ function renderCaptureStack(session) {
     const isParkedQuestion = captureHasParkedQuestion(capture);
     const noteState = captureNoteState(session.notesMarkdown, capture);
     const isInNotes = noteState !== "missing";
+    const needsDurableDecision = captureNeedsDurableDecision(capture, noteState);
+    if (needsDurableDecision) row.classList.add("needs-durable-decision");
     row.append(
       textEl("div", "capture-stack-meta", [
         capture.timestamp || "No time",
@@ -5562,13 +5568,13 @@ function renderCaptureStack(session) {
       actions.append(thoughtButton);
     }
     const noteAction = captureNoteActionMeta(noteState);
-    const noteButton = textEl("button", "mini-button", noteAction.label);
+    const noteButton = textEl("button", needsDurableDecision ? "mini-button capture-decision-button" : "mini-button", noteAction.label);
     noteButton.type = "button";
     noteButton.title = noteAction.title;
     noteButton.setAttribute("aria-label", noteAction.ariaLabel);
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
-    const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Review" : "Save for recall");
+    const cardButton = textEl("button", needsDurableDecision ? "mini-button capture-decision-button" : "mini-button", capture.promotedToReview ? "Review" : "Save for recall");
     cardButton.type = "button";
     cardButton.addEventListener("click", () => {
       if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
@@ -6576,6 +6582,8 @@ function renderCaptures() {
     markCaptureNode(item, capture.id);
     const noteState = captureNoteState(session.notesMarkdown, capture);
     const isInNotes = noteState !== "missing";
+    const needsDurableDecision = captureNeedsDurableDecision(capture, noteState);
+    if (needsDurableDecision) item.classList.add("needs-durable-decision");
     item.append(textEl("div", "item-meta", [
       capture.timestamp || "No time",
       capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
@@ -6626,7 +6634,7 @@ function renderCaptures() {
     }
     const noteAction = captureNoteActionMeta(noteState);
     const noteButton = document.createElement("button");
-    noteButton.className = "mini-button";
+    noteButton.className = needsDurableDecision ? "mini-button capture-decision-button" : "mini-button";
     noteButton.type = "button";
     noteButton.textContent = noteAction.label;
     noteButton.title = noteAction.title;
@@ -6634,7 +6642,7 @@ function renderCaptures() {
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const promoteButton = document.createElement("button");
-    promoteButton.className = "mini-button";
+    promoteButton.className = needsDurableDecision ? "mini-button capture-decision-button" : "mini-button";
     promoteButton.type = "button";
     promoteButton.textContent = capture.promotedToReview ? "Review" : "Save for recall";
     promoteButton.addEventListener("click", () => {

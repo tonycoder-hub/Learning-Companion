@@ -1141,6 +1141,19 @@ textarea:focus {
   justify-content: flex-end;
 }
 
+.needs-durable-decision .capture-decision-button {
+  border-color: rgba(47, 111, 94, 0.34);
+  background: #eef6f3;
+  color: var(--green);
+}
+
+.needs-durable-decision .capture-decision-button:hover,
+.needs-durable-decision .capture-decision-button:focus-visible {
+  border-color: var(--green);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(47, 111, 94, 0.12);
+}
+
 .highlight-annotation-form {
   display: grid;
   gap: 7px;
