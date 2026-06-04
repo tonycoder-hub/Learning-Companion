@@ -1947,6 +1947,11 @@ textarea:focus {
   color: var(--red);
 }
 
+.mini-button.danger.tertiary {
+  border-color: transparent;
+  background: transparent;
+}
+
 .due-card {
   border-color: rgba(167, 96, 23, 0.45);
   background: #fffaf0;

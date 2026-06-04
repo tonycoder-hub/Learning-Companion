@@ -6502,11 +6502,16 @@ function linkedReviewCountsByCapture(session) {
 
 function captureDeleteButton(session, capture, linkedReviewCount = 0) {
   const deleteButton = document.createElement("button");
-  deleteButton.className = "mini-button danger";
+  deleteButton.className = "mini-button tertiary danger";
   deleteButton.type = "button";
   deleteButton.textContent = linkedReviewCount
     ? `Delete + ${linkedReviewCount} card${linkedReviewCount === 1 ? "" : "s"}`
     : "Delete";
+  const linkedCopy = linkedReviewCount
+    ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
+    : "";
+  deleteButton.title = `Delete this capture${linkedCopy} after confirmation`;
+  deleteButton.setAttribute("aria-label", deleteButton.title);
   deleteButton.addEventListener("click", () => deleteCaptureWithConfirmation(session.id, capture.id));
   return deleteButton;
 }

@@ -1863,9 +1863,13 @@ try {
     const cardedCaptureDetail = [...document.querySelectorAll("#captureList .item-card")]
       .find((item) => item.textContent.includes("compiler-enforced lifetimes"));
     const cardedCaptureDetailButtons = [...(cardedCaptureDetail?.querySelectorAll("button") || [])];
+    const cardedCaptureDetailDelete = cardedCaptureDetailButtons.find((button) => button.textContent.startsWith("Delete"));
     const captureDetailAfterCard = {
       buttons: cardedCaptureDetailButtons.map((button) => button.textContent),
-      reviewDisabled: cardedCaptureDetailButtons.find((button) => button.textContent === "Review")?.disabled === true
+      reviewDisabled: cardedCaptureDetailButtons.find((button) => button.textContent === "Review")?.disabled === true,
+      deleteClass: cardedCaptureDetailDelete?.className || "",
+      deleteTitle: cardedCaptureDetailDelete?.title || "",
+      deleteAria: cardedCaptureDetailDelete?.getAttribute("aria-label") || ""
     };
     cardedCaptureDetailButtons.find((button) => button.textContent === "Review")?.click();
     const captureDetailReviewOpen = {
@@ -1878,12 +1882,16 @@ try {
     };
     const firstStackRow = document.querySelector("#captureStack .capture-stack-row");
     const stackButtons = [...(firstStackRow?.querySelectorAll("button") || [])];
+    const stackDelete = stackButtons.find((button) => button.textContent.startsWith("Delete"));
     const captureStackAfterCard = {
       header: document.querySelector("#captureStack .capture-stack-header")?.textContent || "",
       rows: document.querySelectorAll("#captureStack .capture-stack-row").length,
       text: firstStackRow?.textContent || "",
       buttons: stackButtons.map((button) => button.textContent),
-      reviewDisabled: stackButtons.find((button) => button.textContent === "Review")?.disabled === true
+      reviewDisabled: stackButtons.find((button) => button.textContent === "Review")?.disabled === true,
+      deleteClass: stackDelete?.className || "",
+      deleteTitle: stackDelete?.title || "",
+      deleteAria: stackDelete?.getAttribute("aria-label") || ""
     };
     stackButtons.find((button) => button.textContent === "Review")?.click();
     const captureStackReviewOpen = {
@@ -3154,6 +3162,10 @@ try {
   assert.equal(result.activityAfterCard.openLinkText, "Open @ 08:12");
   assert.deepEqual(result.captureDetailAfterCard.buttons, ["Open @ 08:12", "Add to notes", "Review", "Delete + 1 card"]);
   assert.equal(result.captureDetailAfterCard.reviewDisabled, false);
+  assert.match(result.captureDetailAfterCard.deleteClass, /tertiary/);
+  assert.match(result.captureDetailAfterCard.deleteClass, /danger/);
+  assert.match(result.captureDetailAfterCard.deleteTitle, /Delete this capture and 1 linked review card after confirmation/);
+  assert.equal(result.captureDetailAfterCard.deleteAria, result.captureDetailAfterCard.deleteTitle);
   assert.equal(result.captureDetailReviewOpen.activeTab, "review");
   assert.equal(result.captureDetailReviewOpen.focusMode, "review");
   assert.match(result.captureDetailReviewOpen.deskReviewPrompt, /compiler-enforced lifetimes/);
@@ -3169,6 +3181,10 @@ try {
   assert.match(result.captureStackAfterCard.text, /compiler-enforced lifetimes/);
   assert.deepEqual(result.captureStackAfterCard.buttons, ["Open @ 08:12", "Add to notes", "Review", "Delete + 1 card"]);
   assert.equal(result.captureStackAfterCard.reviewDisabled, false);
+  assert.match(result.captureStackAfterCard.deleteClass, /tertiary/);
+  assert.match(result.captureStackAfterCard.deleteClass, /danger/);
+  assert.match(result.captureStackAfterCard.deleteTitle, /Delete this capture and 1 linked review card after confirmation/);
+  assert.equal(result.captureStackAfterCard.deleteAria, result.captureStackAfterCard.deleteTitle);
   assert.equal(result.captureStackReviewOpen.activeTab, "review");
   assert.equal(result.captureStackReviewOpen.focusMode, "review");
   assert.match(result.captureStackReviewOpen.deskReviewPrompt, /compiler-enforced lifetimes/);
