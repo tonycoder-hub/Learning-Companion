@@ -8020,6 +8020,34 @@ async function assertPostSaveFlow(cdp) {
         stackNextText: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"] .capture-stack-next\`)?.textContent || ""
       };
     })();
+    const highlightCardWorkspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const highlightCardDeletedWorkspace = {
+      ...highlightCardWorkspace,
+      sessions: highlightCardWorkspace.sessions.map((session) => session.id === highlightCardWorkspace.activeSessionId
+        ? {
+          ...session,
+          reviewCards: session.reviewCards.filter((card) => card.sourceCaptureId !== highlightBefore.id)
+        }
+        : session)
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightCardDeletedWorkspace));
+    const highlightHintCardDeleted = readActivity();
+    let deletedCardSourceOpen = "";
+    window.open = (href) => {
+      deletedCardSourceOpen = href;
+      return null;
+    };
+    document.querySelector("#activityHintBtn").click();
+    window.open = nativePostSaveWindowOpen;
+    const highlightHintCardDeletedClickState = {
+      opened: deletedCardSourceOpen,
+      toast: document.querySelector("#toast")?.textContent || "",
+      activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
+      hintHidden: document.querySelector("#activityHint")?.hidden !== false,
+      hintKind: document.querySelector("#activityHint")?.dataset.nextStepHint || ""
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(highlightCardWorkspace));
+    const highlightHintCardRestored = readActivity();
     let cardResumeHref = "";
     let cardResumeTarget = "";
     let cardResumeFeatures = "";
@@ -8185,7 +8213,7 @@ async function assertPostSaveFlow(cdp) {
         detail: document.querySelector("#activityDetail")?.textContent || ""
       };
     })();
-    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintReview, highlightHintReviewState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, movedQuestionGuard, movedQuestionGuardState };
+    return { questionSaved, questionSavedCaptureId, questionDetails, questionHintResume, questionHintResumeState, questionAnswerDraft, questionAnswerDraftState, linkedAnswerSaved, linkedQuestionState, linkedAnswerDetails, linkedAnswerMissingSource, linkedAnswerHintResume, linkedAnswerHintResumeState, unlinkedAnswerSaved, unlinkedAnswerDetails, cardedLinkedAnswerSaved, cardedLinkedAnswerState, cardedLinkedAnswerClosedToday, cardedLinkedAnswerCardRemoved, cardedLinkedAnswerCardRemovedState, cardedLinkedAnswerRestored, cardedLinkedAnswerRefresh, cardedLinkedAnswerRefreshState, cardedLinkedAnswerPostRefreshResume, cardedLinkedAnswerPostRefreshResumeState, takeawaySaved, highlightSaved, highlightStackBefore, highlightActivityAnnotation, highlightAnnotated, highlightAnnotationState, highlightHintResume, highlightHintResumeState, highlightHintCard, highlightHintCardState, highlightHintCardDeleted, highlightHintCardDeletedClickState, highlightHintCardRestored, highlightHintReview, highlightHintReviewState, noNoteHighlightAnnotated, noNoteHighlightState, ordinarySaved, ordinaryDetailState, quoteQuestionSaved, noSourceHighlightAnnotated, noSourceHighlightBranch, noSourceQuestionSaved, unsafeSourceCardSaved, unsafeSourceCardState, unsafeSourceWindowOpen, unsafeSourceReviewOpened, movedQuestionGuard, movedQuestionGuardState };
   })()`, 70000); // Covers a long post-save flow; budget guards observed CDP evaluate flakes without relaxing assertions.
   assert.equal(postSaveFlow.questionSaved.title, "Question saved");
   assert.equal(postSaveFlow.questionSaved.targetId, postSaveFlow.questionSavedCaptureId);
@@ -8414,6 +8442,19 @@ async function assertPostSaveFlow(cdp) {
     stackNextKind: "review-ready",
     stackNextText: "Card scheduled · keep reading."
   });
+  assert.equal(postSaveFlow.highlightHintCardDeleted.title, "Review card created");
+  assert.equal(postSaveFlow.highlightHintCardDeleted.hintHidden, true);
+  assert.equal(postSaveFlow.highlightHintCardDeleted.hintKind, "");
+  assert.deepEqual(postSaveFlow.highlightHintCardDeletedClickState, {
+    opened: "",
+    toast: "Review card no longer exists",
+    activeTab: "today",
+    hintHidden: true,
+    hintKind: ""
+  });
+  assert.equal(postSaveFlow.highlightHintCardRestored.title, "Review card created");
+  assert.equal(postSaveFlow.highlightHintCardRestored.hintHidden, false);
+  assert.equal(postSaveFlow.highlightHintCardRestored.hintKind, "afterCardMadeTextSourceLinked");
   assert.equal(postSaveFlow.highlightHintReview.title, "Source resumed");
   assert.equal(postSaveFlow.highlightHintReview.action, "View capture");
   assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
