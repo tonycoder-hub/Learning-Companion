@@ -1966,9 +1966,19 @@ try {
     setValue("#timestampInput", "08:12");
     const noteButton = [...document.querySelectorAll("#captureList .mini-button")]
       .find((button) => button.textContent === "Add to notes");
+    const noteButtonMeta = {
+      label: noteButton?.textContent || "",
+      title: noteButton?.getAttribute("title") || "",
+      aria: noteButton?.getAttribute("aria-label") || ""
+    };
     noteButton.click();
     const noteReopenButton = [...document.querySelectorAll("#captureList .mini-button")]
       .find((button) => button.textContent === "View in Notes");
+    const noteReopenButtonMeta = {
+      label: noteReopenButton?.textContent || "",
+      title: noteReopenButton?.getAttribute("title") || "",
+      aria: noteReopenButton?.getAttribute("aria-label") || ""
+    };
     noteReopenButton.click();
     const noteReopenActivityTitle = document.querySelector("#activityTitle").textContent;
     const noteInsertions = (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length;
@@ -2701,8 +2711,10 @@ try {
           noteInsertions,
           noteHasSource,
           noteAnchorVisible,
+          noteButtonMeta,
           noteActionLabel,
           noteReopenButtonLabel: noteReopenButton?.textContent || "",
+          noteReopenButtonMeta,
           noteReopenActivityTitle,
           noteTargetPulsed,
           noteFocused,
@@ -3250,7 +3262,17 @@ try {
   assert.equal(result.noteInsertions, 2);
   assert.equal(result.noteHasSource, true);
   assert.equal(result.noteAnchorVisible, true);
+  assert.deepEqual(result.noteButtonMeta, {
+    label: "Add to notes",
+    title: "Add this capture to Notes for synthesis",
+    aria: "Add this capture to Notes"
+  });
   assert.equal(result.noteReopenButtonLabel, "View in Notes");
+  assert.deepEqual(result.noteReopenButtonMeta, {
+    label: "View in Notes",
+    title: "View this generated capture block in Notes",
+    aria: "View this capture in Notes"
+  });
   assert.equal(result.noteReopenActivityTitle, "Capture note opened");
   assert.equal(result.noteActionLabel, "View note");
   assert.equal(result.noteTargetPulsed, true);
@@ -7183,6 +7205,17 @@ async function assertPostSaveFlow(cdp) {
       .find((button) => button.textContent === "Add thought" && button.dataset.highlightAnnotationTrigger === captureId);
     const highlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    const readNoteButtonMeta = (row, label) => {
+      const button = [...(row?.querySelectorAll("button") || [])]
+        .find((item) => item.textContent === label);
+      return {
+        visible: Boolean(button),
+        label: button?.textContent || "",
+        title: button?.getAttribute("title") || "",
+        aria: button?.getAttribute("aria-label") || ""
+      };
+    };
+    const addNoteButtonMeta = readNoteButtonMeta(highlightRow, "Add to notes");
     [...(highlightRow?.querySelectorAll("button") || [])]
       .find((button) => button.textContent === "Add to notes")
       ?.click();
@@ -7192,6 +7225,8 @@ async function assertPostSaveFlow(cdp) {
       text: document.querySelector("#notesEditor").value,
       blockCount: (document.querySelector("#notesEditor").value.match(/learning-companion:capture:/g) || []).length,
       stackText: notedHighlightRow?.textContent || "",
+      addNoteButtonMeta,
+      viewButtonMeta: readNoteButtonMeta(notedHighlightRow, "View in Notes"),
       viewButtonVisible: [...(notedHighlightRow?.querySelectorAll("button") || [])].some((button) => button.textContent === "View in Notes")
     };
     document.querySelector("#notesEditBtn").click();
@@ -7205,6 +7240,7 @@ async function assertPostSaveFlow(cdp) {
     document.querySelector('[data-tab="captures"]').click();
     const userEditedHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    noteBeforeAnnotation.userEditViewButtonMeta = readNoteButtonMeta(userEditedHighlightRow, "View in Notes");
     noteBeforeAnnotation.userEditKeepsViewButtonVisible = [...(userEditedHighlightRow?.querySelectorAll("button") || [])]
       .some((button) => button.textContent === "View in Notes");
     document.querySelector("#notesEditBtn").click();
@@ -7218,6 +7254,7 @@ async function assertPostSaveFlow(cdp) {
     document.querySelector('[data-tab="captures"]').click();
     const staleHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    noteBeforeAnnotation.staleFingerprintButtonMeta = readNoteButtonMeta(staleHighlightRow, "Update note");
     noteBeforeAnnotation.staleFingerprintButtonVisible = [...(staleHighlightRow?.querySelectorAll("button") || [])]
       .some((button) => button.textContent === "Update note");
     [...(staleHighlightRow?.querySelectorAll("button") || [])]
@@ -7225,6 +7262,7 @@ async function assertPostSaveFlow(cdp) {
       ?.click();
     const refreshedHighlightRow = [...document.querySelectorAll("#captureStack .capture-stack-row")]
       .find((row) => row.dataset.stackCaptureId === highlightBefore.id);
+    noteBeforeAnnotation.restoredViewButtonMeta = readNoteButtonMeta(refreshedHighlightRow, "View in Notes");
     noteBeforeAnnotation.restoredViewButtonVisible = [...(refreshedHighlightRow?.querySelectorAll("button") || [])]
       .some((button) => button.textContent === "View in Notes");
     addThoughtButtonFor(highlightBefore.id)?.click();
@@ -7587,9 +7625,39 @@ async function assertPostSaveFlow(cdp) {
   assert.doesNotMatch(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.text, /annotation must stay attached/);
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.blockCount, 2);
   assert.match(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.stackText, /In Notes/);
+  assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.addNoteButtonMeta, {
+    visible: true,
+    label: "Add to notes",
+    title: "Add this capture to Notes for synthesis",
+    aria: "Add this capture to Notes"
+  });
+  assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.viewButtonMeta, {
+    visible: true,
+    label: "View in Notes",
+    title: "View this generated capture block in Notes",
+    aria: "View this capture in Notes"
+  });
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.viewButtonVisible, true);
+  assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.userEditViewButtonMeta, {
+    visible: true,
+    label: "View in Notes",
+    title: "View this generated capture block in Notes",
+    aria: "View this capture in Notes"
+  });
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.userEditKeepsViewButtonVisible, true);
+  assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleFingerprintButtonMeta, {
+    visible: true,
+    label: "Update note",
+    title: "Update the generated Notes block from this capture",
+    aria: "Update this capture's generated Notes block"
+  });
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.staleFingerprintButtonVisible, true);
+  assert.deepEqual(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.restoredViewButtonMeta, {
+    visible: true,
+    label: "View in Notes",
+    title: "View this generated capture block in Notes",
+    aria: "View this capture in Notes"
+  });
   assert.equal(postSaveFlow.highlightAnnotationState.noteBeforeAnnotation.restoredViewButtonVisible, true);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This sentence is worth keeping as a highlight\./);
   assert.match(postSaveFlow.highlightAnnotationState.noteAfterAnnotation.text, /This annotation must stay attached to the existing highlight\./);

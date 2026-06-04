@@ -5463,8 +5463,11 @@ function renderCaptureStack(session) {
       thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "stack"));
       actions.append(thoughtButton);
     }
-    const noteButton = textEl("button", "mini-button", captureNoteActionLabel(noteState));
+    const noteAction = captureNoteActionMeta(noteState);
+    const noteButton = textEl("button", "mini-button", noteAction.label);
     noteButton.type = "button";
+    noteButton.title = noteAction.title;
+    noteButton.setAttribute("aria-label", noteAction.ariaLabel);
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const cardButton = textEl("button", "mini-button", capture.promotedToReview ? "Review" : "Save for recall");
@@ -5484,10 +5487,26 @@ function renderCaptureStack(session) {
   dom.captureStack.append(list);
 }
 
-function captureNoteActionLabel(noteState) {
-  if (noteState === "current") return "View in Notes";
-  if (noteState === "stale") return "Update note";
-  return "Add to notes";
+function captureNoteActionMeta(noteState) {
+  if (noteState === "current") {
+    return {
+      label: "View in Notes",
+      title: "View this generated capture block in Notes",
+      ariaLabel: "View this capture in Notes"
+    };
+  }
+  if (noteState === "stale") {
+    return {
+      label: "Update note",
+      title: "Update the generated Notes block from this capture",
+      ariaLabel: "Update this capture's generated Notes block"
+    };
+  }
+  return {
+    label: "Add to notes",
+    title: "Add this capture to Notes for synthesis",
+    ariaLabel: "Add this capture to Notes"
+  };
 }
 
 function captureStackNextStep(capture, options = {}) {
@@ -6467,10 +6486,13 @@ function renderCaptures() {
       thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "details"));
       actions.append(thoughtButton);
     }
+    const noteAction = captureNoteActionMeta(noteState);
     const noteButton = document.createElement("button");
     noteButton.className = "mini-button";
     noteButton.type = "button";
-    noteButton.textContent = captureNoteActionLabel(noteState);
+    noteButton.textContent = noteAction.label;
+    noteButton.title = noteAction.title;
+    noteButton.setAttribute("aria-label", noteAction.ariaLabel);
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
     const promoteButton = document.createElement("button");
