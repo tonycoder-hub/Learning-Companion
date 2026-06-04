@@ -1652,7 +1652,7 @@ function captureSaveActivity(session, capture, options = {}) {
       tab: "review",
       targetId: options.savedCard?.id || "",
       actionLabel: "Review",
-      nextHint: activityNextHint("afterCardMade")
+      nextHint: cardMadeNextHint(session, capture)
     };
   }
   if (options.promotedToReview) {
@@ -1662,7 +1662,7 @@ function captureSaveActivity(session, capture, options = {}) {
       tab: "review",
       targetId: options.savedCard?.id || "",
       actionLabel: "Review",
-      nextHint: activityNextHint("afterCardMade")
+      nextHint: cardMadeNextHint(session, capture)
     };
   }
   if (captureHasQuestion(capture)) {
@@ -2532,9 +2532,15 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
   }),
   afterCardMade: Object.freeze({
     kind: "afterCardMade",
-    text: "Saved for recall. Review when you want, or keep reading.",
+    text: "Saved for recall. Review when you want.",
     actionLabel: "Review card",
     ariaLabel: "Open the new review card"
+  }),
+  afterCardMadeSourceLinked: Object.freeze({
+    kind: "afterCardMadeSourceLinked",
+    text: "Saved for recall. Jump back to the source; the card is here when you want to review.",
+    actionLabel: "Resume source",
+    ariaLabel: "Resume the source after saving this review card"
   }),
   afterQuestionSavedSourceLinked: Object.freeze({
     kind: "afterQuestionSavedSourceLinked",
@@ -2577,6 +2583,12 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
 function activityNextHint(kind) {
   const hint = ACTIVITY_NEXT_HINTS[kind];
   return hint ? { ...hint } : null;
+}
+
+function cardMadeNextHint(session, capture) {
+  return buildCaptureResumeSource(session, capture).href
+    ? activityNextHint("afterCardMadeSourceLinked")
+    : activityNextHint("afterCardMade");
 }
 
 function normalizeActivityNextHint(value) {
@@ -2708,7 +2720,7 @@ function activityHintAvailable(activity, hint) {
     const answerCapture = targetSession?.captures.find((capture) => capture.id === activity?.targetId);
     return linkedAnswerCanRefreshReviewCard(targetSession, answerCapture);
   }
-  if (hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
+  if (hint.kind === "afterCardMadeSourceLinked" || hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
     return Boolean(activityReviewCardResumeSource(activity).href);
   }
   if (hint.kind === "afterCardMade") {
@@ -3226,7 +3238,7 @@ function runActivityHintAction() {
     refreshQuestionCardFromAnswerActivity(activity);
     return;
   }
-  if (hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
+  if (hint.kind === "afterCardMadeSourceLinked" || hint.kind === "afterQuestionCardRefreshedSourceLinked" || hint.kind === "afterReviewQueueClearedSourceLinked") {
     resumeReviewCardSourceFromActivity(activity);
     return;
   }
@@ -3334,9 +3346,12 @@ function resumeReviewCardSourceFromActivity(activity) {
   dom.thoughtInput.focus();
   pulseNode(dom.capturePane);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
+  const detail = activity?.nextHint?.kind === "afterCardMadeSourceLinked"
+    ? `${sourceLabel} reopened beside Quick Capture. Continue reading; the saved card is here when you want to review.`
+    : `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`;
   setActivity(targetSession, {
     title: "Source resumed",
-    detail: `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`,
+    detail,
     tab: "captures",
     targetId: sourceCapture.id,
     actionLabel: captureHasQuestion(sourceCapture) ? "Question" : "View capture"
@@ -6421,7 +6436,7 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
     detail: questionActionDetail(targetSession, capture),
     tab: "review",
     targetId: getActiveSession(workspace).reviewCards[0]?.id,
-    nextHint: activityNextHint("afterCardMade")
+    nextHint: cardMadeNextHint(targetSession, capture)
   });
   persistAndRender("Review card created");
 }

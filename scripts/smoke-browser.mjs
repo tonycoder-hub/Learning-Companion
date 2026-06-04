@@ -7873,15 +7873,28 @@ async function assertPostSaveFlow(cdp) {
         stackNextText: document.querySelector(\`#captureStack .capture-stack-row[data-stack-capture-id="\${highlightBefore.id}"] .capture-stack-next\`)?.textContent || ""
       };
     })();
+    let cardResumeHref = "";
+    let cardResumeTarget = "";
+    let cardResumeFeatures = "";
+    window.open = (href, target, features) => {
+      cardResumeHref = href;
+      cardResumeTarget = target;
+      cardResumeFeatures = features;
+      return null;
+    };
     document.querySelector("#activityHintBtn").click();
+    window.open = nativePostSaveWindowOpen;
     const highlightHintReview = readActivity();
     const highlightHintReviewState = {
+      opened: cardResumeHref,
+      target: cardResumeTarget,
+      features: cardResumeFeatures,
       activeTab: document.querySelector(".tab.active")?.dataset.tab || "",
       focusMode: JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.sessions
         ?.find((item) => item.id === JSON.parse(localStorage.getItem("learning-companion.workspace.v1"))?.activeSessionId)
         ?.focusMode || "",
-      deskReviewPrompt: document.querySelector("#deskReviewPrompt")?.textContent || "",
-      activeReviewCard: Boolean(document.querySelector("#reviewList .active-review-card"))
+      activeElement: document.activeElement?.id || "",
+      capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
     };
     document.querySelector('[data-tab="captures"]').click();
     addThoughtButtonFor(highlightBefore.previousId)?.click();
@@ -8205,10 +8218,11 @@ async function assertPostSaveFlow(cdp) {
   assert.equal(postSaveFlow.highlightHintCard.title, "Review card created");
   assert.equal(postSaveFlow.highlightHintCard.activeTab, "review");
   assert.equal(postSaveFlow.highlightHintCard.hintHidden, false);
-  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMade");
-  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Review when you want, or keep reading.");
-  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Review card");
-  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Open the new review card");
+  assert.equal(postSaveFlow.highlightHintCard.action, "Review");
+  assert.equal(postSaveFlow.highlightHintCard.hintKind, "afterCardMadeSourceLinked");
+  assert.equal(postSaveFlow.highlightHintCard.hintText, "Saved for recall. Jump back to the source; the card is here when you want to review.");
+  assert.equal(postSaveFlow.highlightHintCard.hintAction, "Resume source");
+  assert.equal(postSaveFlow.highlightHintCard.hintAria, "Resume the source after saving this review card");
   assert.deepEqual(postSaveFlow.highlightHintCardState, {
     promoted: true,
     cardExists: true,
@@ -8216,14 +8230,18 @@ async function assertPostSaveFlow(cdp) {
     stackNextKind: "review-ready",
     stackNextText: "Card scheduled · keep reading."
   });
-  assert.equal(postSaveFlow.highlightHintReview.title, "Review card opened");
-  assert.equal(postSaveFlow.highlightHintReview.action, "Review");
+  assert.equal(postSaveFlow.highlightHintReview.title, "Source resumed");
+  assert.equal(postSaveFlow.highlightHintReview.action, "View capture");
   assert.equal(postSaveFlow.highlightHintReview.hintHidden, true);
+  assert.match(postSaveFlow.highlightHintReview.detail, /Continue reading; the saved card is here when you want to review/);
   assert.deepEqual(postSaveFlow.highlightHintReviewState, {
-    activeTab: "review",
-    focusMode: "review",
-    deskReviewPrompt: "Recall the point behind: This annotation must stay attached to the existing highlight.",
-    activeReviewCard: true
+    opened: "https://example.com/post-save-flow",
+    target: "_blank",
+    features: "noopener,noreferrer",
+    activeTab: "captures",
+    focusMode: "capture",
+    activeElement: "thoughtInput",
+    capturePanePulsed: true
   });
   assert.equal(postSaveFlow.noNoteHighlightAnnotated.title, "Highlight annotated");
   assert.doesNotMatch(postSaveFlow.noNoteHighlightAnnotated.detail, /generated note block/);
