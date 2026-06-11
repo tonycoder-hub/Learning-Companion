@@ -5728,7 +5728,7 @@ function revealDeviceFlowFromFirstNote() {
     detail: langText("Manual phone/Windows transfer stays available after the first capture or an exported mirror.", "第一条摘录或导出镜像后，手动手机/Windows 传输仍可使用。"),
     tab: "today",
     targetId: "",
-    actionLabel: "Device Flow"
+    actionLabel: langText("Device Flow", "设备流程")
   });
   renderActivity(getActiveSession(workspace));
   renderToday();
@@ -6141,49 +6141,49 @@ function renderReturnFilesPanel() {
   const header = document.createElement("div");
   header.className = "handoff-header";
   header.append(
-    textEl("strong", "", "Device Flow"),
+    textEl("strong", "", langText("Device Flow", "设备流程")),
     textEl("span", "item-meta", deviceFlowSummaryLabel())
   );
   const badges = document.createElement("span");
   badges.className = "device-flow-badges";
   badges.append(
-    textEl("span", "manual-transfer-badge", "Manual transfer"),
-    textEl("span", "manual-transfer-badge is-muted", "No live sync")
+    textEl("span", "manual-transfer-badge", langText("Manual transfer", "手动传输")),
+    textEl("span", "manual-transfer-badge is-muted", langText("No live sync", "无实时同步"))
   );
   summary.append(header, badges);
   const detail = textEl(
     "p",
     "handoff-detail",
     pendingReturnFilePreview
-      ? "Return file parsed; confirm before applying changes to this Mac workspace."
-      : lastImportReceipt ? `Last import: ${formatImportReceipt(lastImportReceipt)}` : "Export a mirror, use it on phone or Windows, then bring return files back."
+      ? langText("Return file parsed; confirm before applying changes to this Mac workspace.", "返回文件已解析；应用到这台 Mac 工作区前请确认。")
+      : lastImportReceipt ? langText(`Last import: ${formatImportReceipt(lastImportReceipt)}`, `上次导入：${formatImportReceipt(lastImportReceipt)}`) : langText("Export a mirror, use it on phone or Windows, then bring return files back.", "导出镜像，在手机或 Windows 上使用，然后把返回文件带回来。")
   );
   const handoffState = renderMirrorHandoffStatus();
   const steps = document.createElement("ol");
   steps.className = "return-files-steps";
   [
-    "Export mirror on this Mac.",
-    "Transfer it yourself through USB, AirDrop, email, or any file share, including a manual Feishu Drive upload.",
-    "On phone or Windows, open index.html first; it will point you to Review, Inbox, or the source.",
-    "Back on this Mac, import return files or paste a copied return file."
+    langText("Export mirror on this Mac.", "在这台 Mac 上导出镜像。"),
+    langText("Transfer it yourself through USB, AirDrop, email, or any file share, including a manual Feishu Drive upload.", "通过 USB、AirDrop、邮件或任意文件共享自行转移，也可以手动上传到飞书云文档。"),
+    langText("On phone or Windows, open index.html first; it will point you to Review, Inbox, or the source.", "在手机或 Windows 上先打开 index.html；它会指向复习、收件箱或来源。"),
+    langText("Back on this Mac, import return files or paste a copied return file.", "回到这台 Mac 后，导入返回文件或粘贴已复制的返回文件。")
   ].forEach((step) => {
     steps.append(textEl("li", "", step));
   });
-  const boundary = textEl("p", "handoff-boundary", "Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.");
+  const boundary = textEl("p", "handoff-boundary", langText("Manual transfer only. No live Feishu sync or verified HarmonyOS device app yet.", "仅手动传输。还没有实时飞书同步，也没有已验证的 HarmonyOS 设备应用。"));
   const actionState = deviceFlowActionState();
   const actionHint = textEl(
     "p",
     "return-files-action-hint",
-    pendingReturnFilePreview ? "Next: review the parsed return file, then apply or discard it." : actionState.hint
+    pendingReturnFilePreview ? langText("Next: review the parsed return file, then apply or discard it.", "下一步：检查已解析的返回文件，然后应用或丢弃。") : actionState.hint
   );
   actionHint.dataset.returnFilesActionHint = actionState.primary;
   const footer = document.createElement("div");
   footer.className = "item-footer return-files-actions";
-  const importPatch = textEl("button", actionState.primary === "import" ? "mini-button primary" : "mini-button", "Import Return Files");
+  const importPatch = textEl("button", actionState.primary === "import" ? "mini-button primary" : "mini-button", langText("Import Return Files", "导入返回文件"));
   importPatch.type = "button";
   importPatch.dataset.returnFilesStep = "import";
   importPatch.addEventListener("click", openReturnFilesImportPicker);
-  const pasteReturn = textEl("button", "mini-button", "Paste Return File");
+  const pasteReturn = textEl("button", "mini-button", langText("Paste Return File", "粘贴返回文件"));
   pasteReturn.type = "button";
   pasteReturn.dataset.returnFilesStep = "paste";
   pasteReturn.addEventListener("click", pasteReturnFileFromClipboard);
@@ -6193,11 +6193,11 @@ function renderReturnFilesPanel() {
   exportMirror.addEventListener("click", openReturnFilesMirrorExport);
   const exportGroup = document.createElement("div");
   exportGroup.className = "return-files-action-group is-export";
-  exportGroup.setAttribute("aria-label", "Send mirror out");
+  exportGroup.setAttribute("aria-label", langText("Send mirror out", "发送镜像"));
   exportGroup.append(exportMirror);
   const intakeGroup = document.createElement("div");
   intakeGroup.className = "return-files-action-group is-intake";
-  intakeGroup.setAttribute("aria-label", "Bring return files back");
+  intakeGroup.setAttribute("aria-label", langText("Bring return files back", "带回返回文件"));
   intakeGroup.append(importPatch, pasteReturn);
   footer.append(exportGroup, intakeGroup);
   panel.append(summary, detail, handoffState, renderDeviceTransferGuide());
@@ -6213,27 +6213,27 @@ function renderDeviceTransferGuide() {
   guide.dataset.deviceTransferGuide = "true";
   const summary = document.createElement("summary");
   summary.append(
-    textEl("strong", "", "Manual round trip"),
-    textEl("span", "item-meta", "Know where the files go before export")
+    textEl("strong", "", langText("Manual round trip", "手动往返")),
+    textEl("span", "item-meta", langText("Know where the files go before export", "导出前先明确文件去向"))
   );
   const grid = document.createElement("div");
   grid.className = "device-transfer-grid";
   [
     {
       title: "Mac -> Windows",
-      body: "Move the mirror ZIP or folder yourself. If it is a ZIP, extract it first, then open index.html in Edge or Chrome."
+      body: langText("Move the mirror ZIP or folder yourself. If it is a ZIP, extract it first, then open index.html in Edge or Chrome.", "自行移动镜像 ZIP 或文件夹。如果是 ZIP，先解压，再用 Edge 或 Chrome 打开 index.html。")
     },
     {
       title: "Mac -> Harmony",
-      body: "Use the extracted mirror or import workspace.json. Return patches move Mac-ward only; the phone reader does not import inbox/review return patches back into itself."
+      body: langText("Use the extracted mirror or import workspace.json. Return patches move Mac-ward only; the phone reader does not import inbox/review return patches back into itself.", "使用已解压镜像或导入 workspace.json。返回补丁只向 Mac 移动；手机阅读器不会把收件箱/复习返回补丁再导回自身。")
     },
     {
       title: "Device -> Mac",
-      body: "Review or Inbox creates return JSON named like learning-companion-inbox-patch-*.json or learning-companion-review-progress-patch-*.json. If the browser used a download fallback, check that device browser's download list, then bring the selected file back to this Mac."
+      body: langText("Review or Inbox creates return JSON named like learning-companion-inbox-patch-*.json or learning-companion-review-progress-patch-*.json. If the browser used a download fallback, check that device browser's download list, then bring the selected file back to this Mac.", "复习或收件箱会创建类似 learning-companion-inbox-patch-*.json 或 learning-companion-review-progress-patch-*.json 的返回 JSON。如果浏览器使用下载兜底，请检查该设备浏览器的下载列表，再把选中的文件带回这台 Mac。")
     },
     {
       title: "Back on Mac",
-      body: "Use Import Return Files or Paste Return File. This app will not auto-scan Downloads; after Apply, export a fresh mirror for the next device pass."
+      body: langText("Use Import Return Files or Paste Return File. This app will not auto-scan Downloads; after Apply, export a fresh mirror for the next device pass.", "使用导入返回文件或粘贴返回文件。本应用不会自动扫描下载目录；应用后，为下一次设备流程导出新镜像。")
     }
   ].forEach((item) => {
     const card = document.createElement("div");
@@ -6241,7 +6241,7 @@ function renderDeviceTransferGuide() {
     card.append(textEl("strong", "", item.title), textEl("p", "", item.body));
     grid.append(card);
   });
-  const note = textEl("p", "handoff-boundary", "Feishu Drive can be a manual file carrier here; it is not verified live sync.");
+  const note = textEl("p", "handoff-boundary", langText("Feishu Drive can be a manual file carrier here; it is not verified live sync.", "飞书云文档在这里只能作为手动文件载体；它不是已验证的实时同步。"));
   guide.append(summary, grid, note);
   return guide;
 }
@@ -6300,8 +6300,8 @@ function renderReturnFilesModeNote(hasPreview = false) {
     "p",
     "return-files-mode-note",
     hasPreview
-      ? "Preview is in memory only. Apply changes this Mac workspace; Discard leaves it unchanged."
-      : "Paste or import return files to preview them first; Apply changes this Mac workspace."
+      ? langText("Preview is in memory only. Apply changes this Mac workspace; Discard leaves it unchanged.", "预览只在内存中。应用会更改这台 Mac 的工作区；丢弃则保持不变。")
+      : langText("Paste or import return files to preview them first; Apply changes this Mac workspace.", "先粘贴或导入返回文件进行预览；应用会更改这台 Mac 的工作区。")
   );
 }
 
@@ -6312,35 +6312,35 @@ function deviceFlowActionState() {
   if (!hasExport) {
     return {
       primary: "export",
-      exportLabel: "Export Mirror",
-      hint: "Next: export a mirror, then move it to phone or Windows."
+      exportLabel: langText("Export Mirror", "导出镜像"),
+      hint: langText("Next: export a mirror, then move it to phone or Windows.", "下一步：导出镜像，然后移动到手机或 Windows。")
     };
   }
   if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) {
     return {
       primary: "export",
-      exportLabel: "Export Updated Mirror",
-      hint: "Next: export a fresh mirror so the next device pass starts after this return."
+      exportLabel: langText("Export Updated Mirror", "导出更新镜像"),
+      hint: langText("Next: export a fresh mirror so the next device pass starts after this return.", "下一步：导出新镜像，让下一次设备流程从这次返回之后开始。")
     };
   }
   if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) {
     return {
       primary: "export",
-      exportLabel: "Export Updated Mirror",
-      hint: "Next: export a fresh mirror to replace the legacy handoff check."
+      exportLabel: langText("Export Updated Mirror", "导出更新镜像"),
+      hint: langText("Next: export a fresh mirror to replace the legacy handoff check.", "下一步：导出新镜像，替换旧版交接检查。")
     };
   }
   if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
     return {
       primary: "export",
-      exportLabel: "Export Updated Mirror",
-      hint: "Next: export an updated mirror before another phone or Windows study pass."
+      exportLabel: langText("Export Updated Mirror", "导出更新镜像"),
+      hint: langText("Next: export an updated mirror before another phone or Windows study pass.", "下一步：再次使用手机或 Windows 学习前，先导出更新镜像。")
     };
   }
   return {
     primary: "import",
-    exportLabel: "Export Mirror",
-    hint: "Next: import or paste the return file when it comes back to this Mac."
+    exportLabel: langText("Export Mirror", "导出镜像"),
+    hint: langText("Next: import or paste the return file when it comes back to this Mac.", "下一步：返回文件回到这台 Mac 后导入或粘贴它。")
   };
 }
 
@@ -6350,11 +6350,11 @@ function deviceFlowSummaryLabel() {
   const counts = deviceFlowReturnCountsLabel();
   const countsSuffix = counts ? ` · ${counts}` : "";
   const hasExport = Boolean(state?.returnBaseFingerprint && state?.exportedAt && state?.kind);
-  if (!hasExport) return `Next: export mirror${countsSuffix}`;
-  if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) return `Return imported · ready for next export${countsSuffix}`;
-  if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) return `Return imported (legacy check) · export fresh mirror${countsSuffix}`;
-  if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) return `Mac changed · ${mirrorExportChangeSummary(state)}${countsSuffix}`;
-  return `Mirror ready · waiting for phone/Windows return${countsSuffix}`;
+  if (!hasExport) return `${langText("Next: export mirror", "下一步：导出镜像")}${countsSuffix}`;
+  if (mirrorReturnImportCoversCurrentWorkspace(state, currentWorkspaceFingerprint)) return `${langText("Return imported · ready for next export", "返回已导入 · 可导出下一版")}${countsSuffix}`;
+  if (mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint)) return `${langText("Return imported (legacy check) · export fresh mirror", "返回已导入（旧版检查）· 导出新镜像")}${countsSuffix}`;
+  if (mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) return `${langText("Mac changed", "Mac 已变化")} · ${mirrorExportChangeSummary(state)}${countsSuffix}`;
+  return `${langText("Mirror ready · waiting for phone/Windows return", "镜像已准备 · 等待手机/Windows 返回")}${countsSuffix}`;
 }
 
 function renderMirrorHandoffStatus() {
@@ -6368,28 +6368,28 @@ function renderMirrorHandoffStatus() {
   const legacyReturnImported = mirrorLegacyReturnImportCoversExport(state, currentWorkspaceFingerprint);
   if (!hasExport) {
     grid.append(renderHandoffStateItem(
-      "No mirror exported yet",
-      "Export to take Today to phone or Windows."
+      langText("No mirror exported yet", "还没有导出镜像"),
+      langText("Export to take Today to phone or Windows.", "导出后把今日学习带到手机或 Windows。")
     ));
   } else if (returnImportedCurrent) {
     grid.append(renderHandoffStateItem(
-      "Return imported",
-      "Ready to export a fresh mirror for the next phone or Windows study pass."
+      langText("Return imported", "返回已导入"),
+      langText("Ready to export a fresh mirror for the next phone or Windows study pass.", "可以为下一次手机或 Windows 学习导出新镜像。")
     ));
   } else if (legacyReturnImported) {
     grid.append(renderHandoffStateItem(
-      "Return imported (legacy check)",
-      "Export an updated mirror to replace the legacy handoff baseline."
+      langText("Return imported (legacy check)", "返回已导入（旧版检查）"),
+      langText("Export an updated mirror to replace the legacy handoff baseline.", "导出更新镜像以替换旧版交接基线。")
     ));
   } else if (!mirrorHandoffContentChanged(state, currentWorkspaceFingerprint)) {
     grid.append(renderHandoffStateItem(
-      "Mirror current",
-      `${state.kind} exported ${formatRelativeLocalTime(state.exportedAt)}. Ready to open inbox.html or review.html.`
+      langText("Mirror current", "镜像是最新的"),
+      langText(`${state.kind} exported ${formatRelativeLocalTime(state.exportedAt)}. Ready to open inbox.html or review.html.`, `${state.kind} 已于 ${formatRelativeLocalTime(state.exportedAt)} 导出。可以打开 inbox.html 或 review.html。`)
     ));
   } else {
     grid.append(renderHandoffStateItem(
-      "Mac changed since mirror export",
-      `${mirrorExportChangeDetail(state)}. Export an updated mirror before another phone or Windows study pass.`
+      langText("Mac changed since mirror export", "导出镜像后 Mac 已变化"),
+      langText(`${mirrorExportChangeDetail(state)}. Export an updated mirror before another phone or Windows study pass.`, `${mirrorExportChangeDetail(state)}。再次用手机或 Windows 学习前先导出更新镜像。`)
     ));
     grid.append(renderMirrorChangeDetail(state, currentWorkspaceFingerprint));
   }
@@ -6397,18 +6397,18 @@ function renderMirrorHandoffStatus() {
   const waitingForReturn = hasExport && !returnImportCoversExport(state);
   if (state?.lastReturnImport && !waitingForReturn) {
     grid.append(renderHandoffStateItem(
-      "Last return imported",
+      langText("Last return imported", "上次返回已导入"),
       mirrorReturnImportDetail(state.lastReturnImport)
     ));
   } else if (waitingForReturn) {
     grid.append(renderHandoffStateItem(
-      "Waiting for return file",
-      "Import the return file when you are back at this Mac."
+      langText("Waiting for return file", "等待返回文件"),
+      langText("Import the return file when you are back at this Mac.", "回到这台 Mac 后导入返回文件。")
     ));
   } else {
     grid.append(renderHandoffStateItem(
-      "No return imported yet",
-      "Use Review or Inbox on the mirror, then bring return files back."
+      langText("No return imported yet", "还没有导入返回"),
+      langText("Use Review or Inbox on the mirror, then bring return files back.", "在镜像里使用复习或收件箱，然后把返回文件带回来。")
     ));
   }
   return grid;
@@ -6495,13 +6495,16 @@ function renderMirrorChangeDetail(state, currentWorkspaceFingerprint = workspace
   const node = document.createElement("div");
   node.className = "handoff-change-detail";
   node.dataset.testid = "device-flow-change-detail";
-  node.setAttribute("aria-label", `${changes.length ? "Mirror contents changed" : "Mirror baseline changed"}: ${labels.join(", ")} since the last mirror export. Manual transfer is not live sync.`);
+  node.setAttribute("aria-label", langText(
+    `${changes.length ? "Mirror contents changed" : "Mirror baseline changed"}: ${labels.join(", ")} since the last mirror export. Manual transfer is not live sync.`,
+    `${changes.length ? "镜像内容已变化" : "镜像基线已变化"}：${labels.join("，")}，发生在上次镜像导出之后。手动传输不是实时同步。`
+  ));
   const list = document.createElement("ul");
   list.className = "handoff-change-list";
   labels.forEach((label) => list.append(textEl("li", "", label)));
   node.append(
-    textEl("strong", "", changes.length ? "Mirror contents changed" : "Mirror baseline changed"),
-    textEl("span", "", "Since the last mirror export; manual transfer is not live sync."),
+    textEl("strong", "", changes.length ? langText("Mirror contents changed", "镜像内容已变化") : langText("Mirror baseline changed", "镜像基线已变化")),
+    textEl("span", "", langText("Since the last mirror export; manual transfer is not live sync.", "发生在上次镜像导出之后；手动传输不是实时同步。")),
     list
   );
   return node;
@@ -6563,8 +6566,8 @@ function openReturnFilesMirrorExport() {
   const session = getActiveSession(workspace);
   activeTab = "export";
   setActivity(session, {
-    title: "Mirror export ready",
-    detail: "Save Mirror JSON or ZIP, then move it through USB, AirDrop, email, file share, or a manual Feishu Drive upload.",
+    title: langText("Mirror export ready", "镜像导出已准备好"),
+    detail: langText("Save Mirror JSON or ZIP, then move it through USB, AirDrop, email, file share, or a manual Feishu Drive upload.", "保存 Mirror JSON 或 ZIP，然后通过 USB、AirDrop、邮件、文件共享或手动飞书云文档上传来移动。"),
     tab: "export",
     targetId: ""
   });

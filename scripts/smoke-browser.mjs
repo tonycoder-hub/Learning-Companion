@@ -298,6 +298,25 @@ try {
       bodyWidth: document.body.scrollWidth,
       innerWidth: window.innerWidth
     };
+    noSourcePanel?.querySelector(".start-here-device-route summary")?.click();
+    noSourcePanel?.querySelector(".start-here-device-route [data-start-action='device-flow']")?.click();
+    const deviceFlowPanel = document.querySelector(".handoff-card");
+    const deviceFlowState = {
+      open: deviceFlowPanel?.open === true,
+      summaryText: deviceFlowPanel?.querySelector(".device-flow-summary")?.textContent || "",
+      detail: deviceFlowPanel?.querySelector(".handoff-detail")?.textContent || "",
+      stateText: deviceFlowPanel?.querySelector(".handoff-state-grid")?.textContent || "",
+      guideText: deviceFlowPanel?.querySelector(".device-transfer-guide")?.textContent || "",
+      stepsText: deviceFlowPanel?.querySelector(".return-files-steps")?.textContent || "",
+      boundaryText: [...(deviceFlowPanel?.querySelectorAll(".handoff-boundary") || [])].map((node) => node.textContent).join(" "),
+      modeNote: deviceFlowPanel?.querySelector(".return-files-mode-note")?.textContent || "",
+      actionHint: deviceFlowPanel?.querySelector(".return-files-action-hint")?.textContent || "",
+      buttonTexts: [...(deviceFlowPanel?.querySelectorAll(".return-files-actions button") || [])].map((button) => button.textContent),
+      actionGroups: [...(deviceFlowPanel?.querySelectorAll(".return-files-action-group") || [])].map((group) => group.getAttribute("aria-label") || ""),
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || ""
+    };
     select.value = "en";
     select.dispatchEvent(new Event("change", { bubbles: true }));
     window.learningCompanionNative.importWorkspaceJson(originalWorkspaceJson);
@@ -307,6 +326,7 @@ try {
       linkedState,
       recentState,
       noSourceState,
+      deviceFlowState,
       restored: {
         htmlLang: document.documentElement.lang,
         bodyLanguage: document.body.dataset.uiLanguage,
@@ -363,6 +383,25 @@ try {
     Math.max(bilingualProbe.noSourceState.documentWidth, bilingualProbe.noSourceState.bodyWidth) <= bilingualProbe.noSourceState.innerWidth,
     `Expected Chinese mobile surface to avoid horizontal overflow, got doc=${bilingualProbe.noSourceState.documentWidth}, body=${bilingualProbe.noSourceState.bodyWidth}, inner=${bilingualProbe.noSourceState.innerWidth}`
   );
+  assert.equal(bilingualProbe.deviceFlowState.open, true);
+  assert.match(bilingualProbe.deviceFlowState.summaryText, /设备流程/);
+  assert.match(bilingualProbe.deviceFlowState.summaryText, /手动传输/);
+  assert.match(bilingualProbe.deviceFlowState.summaryText, /无实时同步/);
+  assert.match(bilingualProbe.deviceFlowState.detail, /导出镜像/);
+  assert.match(bilingualProbe.deviceFlowState.stateText, /还没有导出镜像/);
+  assert.match(bilingualProbe.deviceFlowState.stateText, /还没有导入返回/);
+  assert.match(bilingualProbe.deviceFlowState.guideText, /手动往返/);
+  assert.match(bilingualProbe.deviceFlowState.guideText, /导出前先明确文件去向/);
+  assert.match(bilingualProbe.deviceFlowState.stepsText, /在这台 Mac 上导出镜像/);
+  assert.match(bilingualProbe.deviceFlowState.boundaryText, /仅手动传输/);
+  assert.match(bilingualProbe.deviceFlowState.boundaryText, /飞书云文档/);
+  assert.match(bilingualProbe.deviceFlowState.modeNote, /先粘贴或导入返回文件/);
+  assert.match(bilingualProbe.deviceFlowState.actionHint, /下一步：导出镜像/);
+  assert.deepEqual(bilingualProbe.deviceFlowState.buttonTexts, ["导出镜像", "导入返回文件", "粘贴返回文件"]);
+  assert.deepEqual(bilingualProbe.deviceFlowState.actionGroups, ["发送镜像", "带回返回文件"]);
+  assert.equal(bilingualProbe.deviceFlowState.activityTitle, "设备流程已打开");
+  assert.match(bilingualProbe.deviceFlowState.activityDetail, /手动手机\/Windows 传输/);
+  assert.equal(bilingualProbe.deviceFlowState.activityAction, "设备流程");
   assert.equal(bilingualProbe.restored.htmlLang, "en");
   assert.equal(bilingualProbe.restored.bodyLanguage, "en");
   assert.equal(bilingualProbe.restored.selectValue, "en");

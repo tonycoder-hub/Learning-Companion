@@ -31,6 +31,13 @@ The second implementation slice extends the same boundary to:
 - the first-run `First Note` card and its primary buttons,
 - the collapsed first-run `Other devices later` route copy.
 
+The third implementation slice extends the app UI surface to:
+
+- the expanded `Device Flow` / `Return Files` panel,
+- manual transfer steps and device-transfer guide cards,
+- mirror handoff status and primary import/export/paste actions,
+- the mirror-export Activity feedback opened from Return Files.
+
 It does not cover static mirrors, generated receipts, QA runbooks, native Mac shell copy, Windows/HarmonyOS surfaces, or full document export language.
 
 ## External Source Visual Validation
