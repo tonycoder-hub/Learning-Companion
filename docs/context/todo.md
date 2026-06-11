@@ -46,6 +46,14 @@ All five commands passed on 2026-06-11. Browser smoke and local dev server were 
 Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy, generated `TODAY.md` / Review Pack shell copy, per-session Markdown, synthesis drafts, mirror `README.md`, and import/return receipt display copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
 The next generated-artifact gap is QA receipt templates and document exports; the next runtime evidence gap is browser-executed DOM switching plus approved external source screenshot validation.
 
+Goal paused note on 2026-06-11:
+
+- User paused the active goal after checkpoint `91371f1 feat: add bilingual generated artifact shells`.
+- Worktree was clean except the pre-existing untracked `?? {` before this pause note was written; leave that file untouched unless the user explicitly asks.
+- No subagents are left running from the latest generated-artifact slice.
+- Resume by choosing either: add bilingual QA receipt templates/document exports, or run browser/external-source validation after current-turn authorization and approved non-private reading/video URLs.
+- Do not claim full bilingual support until QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
+
 ## User Priorities
 
 1. Make the product bilingual at minimum: English and Chinese should be first-class surfaces, not a partial demo label swap.
