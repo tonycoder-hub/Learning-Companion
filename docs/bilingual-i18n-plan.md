@@ -49,6 +49,16 @@ The fourth implementation slice should cover the static mirror entry point:
 
 This slice still must not be treated as full bilingual coverage until generated Review/Inbox static pages, receipts, native shells, Windows/HarmonyOS surfaces, and document exports are also covered or explicitly marked out of scope.
 
+The fifth implementation slice starts static Review/Inbox coverage:
+
+- bilingual language switch and static chrome for `review.html` and `inbox.html`,
+- bilingual return-ready badge and return-to-Mac guidance,
+- bilingual initial form labels, initial action buttons, card control labels, and return-file preview guidance,
+- bilingual startup-safe save-mode button/help, Inbox answer-mode labels/placeholders, and active answer-context title/help,
+- static smoke assertions proving both English and Chinese copy are emitted while return-file schema/fingerprint behavior remains stable.
+
+This slice still does not cover most JavaScript runtime status strings after user interaction, after-save/follow-up copy, generated receipts, native shells, Windows/HarmonyOS surfaces, or document exports.
+
 ## External Source Visual Validation
 
 Future study-loop validation should include public or user-approved non-private reading/video material and store screenshots under project-local `.codex-tmp/`.
@@ -66,4 +76,4 @@ Do not use authenticated/private pages, cookies, or sensitive content. A screens
 
 ## Continuation TODO
 
-Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index bilingual slice is locally verified; the next step is to add external document/video screenshot validation with approved non-private sources and continue bilingual coverage into static Review/Inbox and generated artifacts.
+Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index and the static Review/Inbox chrome are locally verified; startup-safe Review/Inbox save-mode and answer-context controls are partially covered. The next step is to add the remaining Review/Inbox JavaScript runtime i18n, then external document/video screenshot validation with approved non-private sources.

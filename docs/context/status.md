@@ -17,12 +17,22 @@ The static mirror index bilingual slice is locally verified. It now emits Englis
 - common resume action and warning copy,
 - due/open/recent/session preview headings and empty states.
 
-This is not full bilingual coverage. Static Review/Inbox pages, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are still outside the completed boundary.
+The static Review/Inbox chrome bilingual slice is also locally verified. It now emits English and Chinese copy for:
+
+- Review and Inbox page headings, summaries, language switch, and return-ready badge,
+- return-to-Mac guidance,
+- Review initial card metadata/control labels and return-file controls,
+- Inbox initial form labels/placeholders, action buttons, draft section, and return-file preview guidance,
+- startup-safe Review/Inbox save-mode button/help and Inbox answer-mode labels/placeholders plus active answer-context title/help that JS overwrites on load.
+
+This is not full bilingual coverage. Most Review/Inbox JavaScript runtime status strings after interaction, after-save/follow-up copy, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are still outside the completed boundary.
 
 Subagent review follow-up:
 
 - `PASS_WITH_NOTES`: external-source validation runbook needed stricter approval, privacy, app revision, and timestamp evidence fields. Fixed in `docs/external-source-validation.md`.
 - `PASS_WITH_NOTES`: static mirror bilingual review found Review/Inbox badge language leakage, English-only dynamic Resume copy, and permissive script CSP. Fixed in `apps/companion-web/src/model.js` and `scripts/smoke-web.mjs`.
+- `PASS_WITH_NOTES`: Review/Inbox static page reviewers recommended dynamic runtime i18n too. Static chrome plus startup-overwritten save-mode and answer-mode controls were implemented in this slice; remaining runtime JS status/after-save/follow-up strings stay as the next bilingual task.
+- `BLOCKED`: final subagent review found active Inbox answer-context title/help still used English-only `textContent`. Fixed with `setI18nHtml(...)` and smoke assertions for the active title/help calls.
 
 ## Verification
 
@@ -43,4 +53,5 @@ PASS:
 ## Next Best Action
 
 1. With approved URLs and current-turn authorization, run one reading-source and one video-source validation side by side with the app using [docs/external-source-validation.md](../external-source-validation.md).
-2. Continue bilingual coverage into static Review/Inbox and generated artifacts before claiming full bilingual support.
+2. Add the remaining Review/Inbox JavaScript runtime i18n for status messages, after-save guidance, and follow-up link copy.
+3. Continue bilingual coverage into generated artifacts before claiming full bilingual support.
