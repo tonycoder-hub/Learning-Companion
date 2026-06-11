@@ -260,6 +260,7 @@ textarea {
 .search-wrap input:focus,
 .field input:focus,
 .field select:focus,
+.sidebar-settings select:focus,
 textarea:focus {
   border-color: var(--green);
   box-shadow: 0 0 0 3px rgba(47, 111, 94, 0.14);
@@ -268,7 +269,23 @@ textarea:focus {
 .toolbar-row {
   display: flex;
   gap: 8px;
-  margin: 12px 0 16px;
+  margin: 12px 0 10px;
+}
+
+.sidebar-settings {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.sidebar-settings select {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
 }
 
 .storage-notice {

@@ -74,7 +74,8 @@ import { renderMarkdown } from "./markdown.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
-const UI_PREFS_SCHEMA_VERSION = 3;
+const UI_PREFS_SCHEMA_VERSION = 4;
+const UI_LANGUAGES = new Set(["en", "zh"]);
 const CAPTURE_DELETE_UNDO_MS = 10000;
 const CAPTURE_NODE_ATTR = "data-capture-id";
 const nativeSaveRequests = new Map();
@@ -106,6 +107,8 @@ const dom = {
   importReceiptDetail: document.querySelector("#importReceiptDetail"),
   importReceiptActionBtn: document.querySelector("#importReceiptActionBtn"),
   importReceiptDismissBtn: document.querySelector("#importReceiptDismissBtn"),
+  languageLabel: document.querySelector("#languageLabel"),
+  languageSelect: document.querySelector("#languageSelect"),
   sessionList: document.querySelector("#sessionList"),
   sessionTitle: document.querySelector("#sessionTitle"),
   sourceTitle: document.querySelector("#sourceTitle"),
@@ -147,6 +150,7 @@ const dom = {
   captureContextSource: document.querySelector("#captureContextSource"),
   captureContextTime: document.querySelector("#captureContextTime"),
   captureContextOpenBtn: document.querySelector("#captureContextOpenBtn"),
+  captureStarterLabel: document.querySelector("#captureStarterLabel"),
   captureStack: document.querySelector("#captureStack"),
   captureDraftStatus: document.querySelector("#captureDraftStatus"),
   reanchorCaptureDraftBtn: document.querySelector("#reanchorCaptureDraftBtn"),
@@ -316,6 +320,15 @@ if (dom.updateReloadBtn) {
     window.location.reload();
   });
 }
+dom.languageSelect?.addEventListener("change", () => {
+  uiPrefs = {
+    ...uiPrefs,
+    language: normalizeUiLanguage(dom.languageSelect.value)
+  };
+  saveUiPrefs();
+  render();
+  showToast(langText("Language set to English", "已切换为中文"));
+});
 dom.importReceiptDismissBtn.addEventListener("click", () => {
   dismissedReturnNudgeKey = returnNudgeKey(lastImportReceipt);
   lastImportReceipt = null;
@@ -1037,6 +1050,7 @@ function loadUiPrefs() {
     const parsed = JSON.parse(raw);
     return {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
+      language: normalizeUiLanguage(parsed.language),
       sidecarLayout: Boolean(parsed.sidecarLayout),
       captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts),
       workspaceBackup: normalizeWorkspaceBackup(parsed.workspaceBackup),
@@ -1051,6 +1065,7 @@ function saveUiPrefs() {
   try {
     localStorage.setItem(UI_PREFS_KEY, JSON.stringify({
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
+      language: normalizeUiLanguage(uiPrefs.language),
       sidecarLayout: Boolean(uiPrefs.sidecarLayout),
       captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts),
       workspaceBackup: normalizeWorkspaceBackup(uiPrefs.workspaceBackup),
@@ -1064,11 +1079,33 @@ function saveUiPrefs() {
 function defaultUiPrefs() {
   return {
     schemaVersion: UI_PREFS_SCHEMA_VERSION,
+    language: "en",
     sidecarLayout: false,
     captureDrafts: {},
     workspaceBackup: null,
     mirrorHandoff: null
   };
+}
+
+function normalizeUiLanguage(value) {
+  const language = String(value || "").trim();
+  return UI_LANGUAGES.has(language) ? language : "en";
+}
+
+function currentLanguage() {
+  return normalizeUiLanguage(uiPrefs.language);
+}
+
+function isChineseUi() {
+  return currentLanguage() === "zh";
+}
+
+function langText(en, zh) {
+  return isChineseUi() ? zh : en;
+}
+
+function sessionCountText(count) {
+  return isChineseUi() ? `${count} 个主题` : `${count} ${count === 1 ? "session" : "sessions"}`;
 }
 
 function normalizeWorkspaceBackup(value) {
@@ -1903,7 +1940,8 @@ function persist() {
 
 function render() {
   const session = getActiveSession(workspace);
-  dom.workspaceMeta.textContent = `${workspace.sessions.length} sessions`;
+  renderStaticBilingualShell();
+  dom.workspaceMeta.textContent = sessionCountText(workspace.sessions.length);
   dom.sessionTitle.value = session.title;
   dom.sourceTitle.value = session.sourceTitle;
   dom.sourceUrl.value = session.sourceUrl;
@@ -1925,6 +1963,69 @@ function render() {
   renderSessions();
   renderSearchResults();
   renderInspector();
+}
+
+function renderStaticBilingualShell() {
+  const language = currentLanguage();
+  document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
+  document.body.dataset.uiLanguage = language;
+  if (dom.languageSelect) {
+    dom.languageSelect.value = language;
+    dom.languageSelect.setAttribute("aria-label", langText("Language", "界面语言"));
+    dom.languageSelect.title = langText("Choose interface language", "选择界面语言");
+  }
+  if (dom.languageLabel) dom.languageLabel.textContent = langText("Language", "语言");
+  const captureHeading = document.querySelector("#capturePane .panel-heading h2");
+  if (captureHeading) captureHeading.textContent = langText("Quick Capture", "快速摘录");
+  document.querySelector("#captureStarters")?.setAttribute("aria-label", langText("Capture starters", "摘录开头"));
+  if (dom.captureStarterLabel) dom.captureStarterLabel.textContent = langText("Write as", "写成");
+  renderCaptureStarterCopy();
+  renderCaptureActionCopy();
+}
+
+function renderCaptureStarterCopy() {
+  const starterCopy = {
+    question: {
+      text: langText("Question", "问题"),
+      title: langText("Start a local question draft (Cmd/Ctrl+Shift+1)", "开始一个本地问题草稿（Cmd/Ctrl+Shift+1）"),
+      aria: langText("Start a local question draft with Cmd or Control Shift 1", "用 Cmd 或 Control Shift 1 开始本地问题草稿")
+    },
+    answer: {
+      text: langText("Answer", "回答"),
+      title: langText("Start a local answer draft (Cmd/Ctrl+Shift+2)", "开始一个本地回答草稿（Cmd/Ctrl+Shift+2）"),
+      aria: langText("Start a local answer draft with Cmd or Control Shift 2", "用 Cmd 或 Control Shift 2 开始本地回答草稿")
+    },
+    takeaway: {
+      text: langText("Takeaway", "收获"),
+      title: langText("Start a local takeaway draft (Cmd/Ctrl+Shift+3)", "开始一个本地收获草稿（Cmd/Ctrl+Shift+3）"),
+      aria: langText("Start a local takeaway draft with Cmd or Control Shift 3", "用 Cmd 或 Control Shift 3 开始本地收获草稿")
+    }
+  };
+  document.querySelectorAll("[data-capture-starter]").forEach((button) => {
+    const copy = starterCopy[button.dataset.captureStarter];
+    if (!copy) return;
+    button.textContent = copy.text;
+    button.title = copy.title;
+    button.setAttribute("aria-label", copy.aria);
+  });
+}
+
+function renderCaptureActionCopy() {
+  if (dom.captureBtn) {
+    dom.captureBtn.textContent = langText("Capture", "摘录");
+    dom.captureBtn.title = langText("Capture (Cmd/Ctrl+Enter)", "摘录（Cmd/Ctrl+Enter）");
+    dom.captureBtn.setAttribute("aria-label", langText("Capture (Cmd or Control Enter)", "用 Cmd 或 Control Enter 摘录"));
+  }
+  if (dom.captureCardBtn) {
+    dom.captureCardBtn.textContent = langText("Save for recall", "保存到复习");
+    dom.captureCardBtn.title = langText("Capture and save for recall (Cmd/Ctrl+Shift+Enter)", "摘录并保存到复习（Cmd/Ctrl+Shift+Enter）");
+    dom.captureCardBtn.setAttribute("aria-label", langText("Capture and save for recall with Cmd or Control Shift Enter", "用 Cmd 或 Control Shift Enter 摘录并保存到复习"));
+  }
+  if (dom.captureClozeBtn) {
+    dom.captureClozeBtn.textContent = langText("Blank", "填空");
+    dom.captureClozeBtn.title = langText("Create a fill-in-the-blank recall card from selected quote text", "用选中的原文创建填空复习卡");
+    dom.captureClozeBtn.setAttribute("aria-label", langText("Create a fill-in-the-blank recall card from selected quote text", "用选中的原文创建填空复习卡"));
+  }
 }
 
 function resumeCurrentSource() {
@@ -1956,12 +2057,12 @@ function handleCaptureContextSourceAction() {
 function promptForSource(session = getActiveSession(workspace)) {
   activeTab = "captures";
   setActivity(session, {
-    title: "Add a source",
-    detail: "Paste the browser page or video URL so captures can resume from it.",
+    title: langText("Add a source", "添加来源"),
+    detail: langText("Paste the browser page or video URL so captures can resume from it.", "粘贴浏览器页面或视频 URL，之后摘录才能回到来源。"),
     tab: "captures",
     targetId: "",
     targetPane: "source",
-    actionLabel: "Set source"
+    actionLabel: langText("Set source", "设置来源")
   });
   renderInspector();
   renderActivity(session);
@@ -2191,24 +2292,31 @@ function nudgeCaptureTime(deltaSeconds) {
 function renderOpenSourceButton(session) {
   const resume = buildResumeSource(session, dom.timestampInput.value);
   dom.openSourceBtn.disabled = !resume.href;
-  const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
+  const title = resume.timestamp
+    ? langText(`Open source at ${resume.timestamp}`, `打开来源到 ${resume.timestamp}`)
+    : langText("Open source", "打开来源");
   dom.openSourceBtn.title = title;
   dom.openSourceBtn.setAttribute("aria-label", title);
 }
 
 function renderCaptureContext(session) {
   const resume = buildResumeSource(session, dom.timestampInput.value);
-  const sourceLabel = resume.title || readableSourceHost(resume.url) || "No source";
-  const title = resume.timestamp ? `Open source at ${resume.timestamp}` : "Open source";
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || langText("No source", "无来源");
+  const title = resume.timestamp
+    ? langText(`Open source at ${resume.timestamp}`, `打开来源到 ${resume.timestamp}`)
+    : langText("Open source", "打开来源");
   const openLabel = captureContextOpenLabel(resume);
-  const targetLabel = `To ${session.title || "current topic"}`;
+  const targetLabel = langText(`To ${session.title || "current topic"}`, `到 ${session.title || "当前主题"}`);
   const hasSource = Boolean(resume.href);
   const hasTime = Boolean(resume.timestamp);
   const intent = captureDraftIntent(session);
   const draft = getCaptureDraft(session.id);
   const sourceChanged = captureDraftSourceChanged(session, draft);
   const sourceChangedDetail = sourceChanged
-    ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
+    ? langText(
+      `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`,
+      `草稿开始于 ${sourceSnapshotLabel(draft)}；当前来源是 ${sourceSnapshotLabel(session)}。`
+    )
     : "";
   const contextSummary = captureContextDraftSummary(session, resume, intent, draft, sourceChanged);
   dom.captureContext.dataset.sourceState = hasSource ? "linked" : "missing";
@@ -2217,8 +2325,14 @@ function renderCaptureContext(session) {
   dom.captureContext.dataset.draftSourceState = sourceChanged ? "changed" : hasCaptureDraft(draft) ? "same" : "none";
   dom.captureContext.setAttribute("aria-label", captureContextSummary(session, resume, intent, sourceLabel, contextSummary));
   dom.captureContextTarget.textContent = targetLabel;
-  dom.captureContextTarget.title = `Captures save to ${session.title || "the current topic"}`;
-  dom.captureContextTarget.setAttribute("aria-label", `Show capture destination: ${session.title || "current topic"}`);
+  dom.captureContextTarget.title = langText(
+    `Captures save to ${session.title || "the current topic"}`,
+    `摘录会保存到 ${session.title || "当前主题"}`
+  );
+  dom.captureContextTarget.setAttribute("aria-label", langText(
+    `Show capture destination: ${session.title || "current topic"}`,
+    `显示摘录目标：${session.title || "当前主题"}`
+  ));
   dom.captureContextIntent.textContent = intent.label;
   dom.captureContextIntent.title = intent.title;
   dom.captureContextDraft.textContent = contextSummary;
@@ -2226,37 +2340,43 @@ function renderCaptureContext(session) {
   dom.captureContextSource.textContent = sourceLabel;
   dom.captureContextSource.classList.toggle("warn", sourceChanged);
   dom.captureContextSource.title = sourceChanged
-    ? `${sourceChangedDetail} Use current to re-anchor before saving.`
+    ? langText(
+      `${sourceChangedDetail} Use current to re-anchor before saving.`,
+      `${sourceChangedDetail} 保存前可使用当前来源重新锚定。`
+    )
     : resume.href
-    ? `Captures attach to ${sourceLabel}. ${title}.`
-    : "No source URL yet. Set one to resume the browser source later.";
+    ? langText(`Captures attach to ${sourceLabel}. ${title}.`, `摘录会绑定到 ${sourceLabel}。${title}。`)
+    : langText("No source URL yet. Set one to resume the browser source later.", "还没有来源 URL。设置后之后可以回到浏览器来源。");
   dom.captureContextSource.setAttribute("aria-label", sourceChanged
-    ? `Source changed. ${sourceChangedDetail}`
+    ? langText(`Source changed. ${sourceChangedDetail}`, `来源已变化。${sourceChangedDetail}`)
     : resume.href
-    ? `Show capture source: ${sourceLabel}`
-    : "Show capture source: no source URL yet");
+    ? langText(`Show capture source: ${sourceLabel}`, `显示摘录来源：${sourceLabel}`)
+    : langText("Show capture source: no source URL yet", "显示摘录来源：还没有来源 URL"));
   dom.captureContextTime.hidden = !resume.timestamp;
   dom.captureContextTime.textContent = resume.timestamp ? `@ ${resume.timestamp}` : "";
   dom.captureContextOpenBtn.disabled = false;
   dom.captureContextOpenBtn.textContent = openLabel;
-  dom.captureContextOpenBtn.title = resume.href ? title : "Set source URL";
-  dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : "Set source URL");
+  dom.captureContextOpenBtn.title = resume.href ? title : langText("Set source URL", "设置来源 URL");
+  dom.captureContextOpenBtn.setAttribute("aria-label", resume.href ? title : langText("Set source URL", "设置来源 URL"));
   renderCaptureGuidance(session, resume);
   renderCaptureStarters();
 }
 
 function captureContextSummary(session, resume, intent, sourceLabel, contextSummary = "") {
-  const destination = session.title || "current topic";
-  const source = resume.href ? sourceLabel : "no source set";
-  const time = resume.timestamp ? `time ${resume.timestamp}` : "no timestamp";
+  const destination = session.title || langText("current topic", "当前主题");
+  const source = resume.href ? sourceLabel : langText("no source set", "未设置来源");
+  const time = resume.timestamp ? langText(`time ${resume.timestamp}`, `时间 ${resume.timestamp}`) : langText("no timestamp", "无时间戳");
   const draft = contextSummary ? ` ${contextSummary}` : "";
-  return `Capture context: to ${destination}; ${intent.label}; source ${source}; ${time}.${draft}`;
+  return langText(
+    `Capture context: to ${destination}; ${intent.label}; source ${source}; ${time}.${draft}`,
+    `摘录上下文：到 ${destination}；${intent.label}；来源 ${source}；${time}。${draft}`
+  );
 }
 
 function captureContextOpenLabel(resume) {
-  if (!resume?.href) return "Set source";
-  if (resume.timestamp) return `Resume @ ${resume.timestamp}`;
-  return "Open source";
+  if (!resume?.href) return langText("Set source", "设置来源");
+  if (resume.timestamp) return langText(`Resume @ ${resume.timestamp}`, `从 ${resume.timestamp} 继续`);
+  return langText("Open source", "打开来源");
 }
 
 function captureDraftIntent(session) {
@@ -2276,88 +2396,97 @@ function captureDraftIntent(session) {
   if (!quote && !thought) {
     const guidance = captureGuidanceFor(session, buildResumeSource(session, dom.timestampInput.value));
     return {
+      kind: guidance.intentKind,
       label: guidance.intent,
       title: guidance.intentTitle
     };
   }
   if (questionPrefix && !captureHasQuestion(draftCapture)) {
     return {
-      label: "Question draft",
-      title: "Finish the question before saving it to Open Questions."
+      kind: "question_draft",
+      label: langText("Question draft", "问题草稿"),
+      title: langText("Finish the question before saving it to Open Questions.", "补全问题后再保存到开放问题。")
     };
   }
   if (answerPrefix && !captureHasReviewReadyAnswer(draftCapture)) {
     return {
-      label: answersQuestionCaptureId ? "Answer draft" : "Answer draft",
+      kind: "answer_draft",
+      label: langText("Answer draft", "回答草稿"),
       title: answersQuestionCaptureId
-        ? "This will answer the linked question once you add enough detail."
-        : "This looks like an answer draft; add enough detail before saving as answer evidence."
+        ? langText("This will answer the linked question once you add enough detail.", "补充足够细节后，这会回答已关联的问题。")
+        : langText("This looks like an answer draft; add enough detail before saving as answer evidence.", "这看起来是回答草稿；补充足够细节后再保存为回答证据。")
     };
   }
   if (captureHasAnswer(draftCapture)) {
     return {
-      label: "Answer",
+      kind: "answer",
+      label: langText("Answer", "回答"),
       title: answersQuestionCaptureId
-        ? "This capture will answer the linked question."
-        : "This capture can appear in Answers Today."
+        ? langText("This capture will answer the linked question.", "这条摘录会回答已关联的问题。")
+        : langText("This capture can appear in Answers Today.", "这条摘录可进入今日回答。")
     };
   }
   if (takeawayPrefix) {
     return {
-      label: "Takeaway",
-      title: "This will save as a takeaway thought."
+      kind: "takeaway",
+      label: langText("Takeaway", "收获"),
+      title: langText("This will save as a takeaway thought.", "这会保存为一条收获。")
     };
   }
   if (captureHasQuestion(draftCapture)) {
     return {
-      label: "Question",
-      title: "This capture will enter Open Questions."
+      kind: "question",
+      label: langText("Question", "问题"),
+      title: langText("This capture will enter Open Questions.", "这条摘录会进入开放问题。")
     };
   }
   if (quote && !thought) {
     return {
-      label: "Quote",
-      title: "This will save as a quote capture."
+      kind: "quote",
+      label: langText("Quote", "原文"),
+      title: langText("This will save as a quote capture.", "这会保存为一条原文摘录。")
     };
   }
   if (thought && !quote) {
     return {
-      label: "Thought",
-      title: "This will save as a thought capture."
+      kind: "thought",
+      label: langText("Thought", "想法"),
+      title: langText("This will save as a thought capture.", "这会保存为一条想法摘录。")
     };
   }
   return {
-    label: "Capture",
-    title: "This will save as a capture with quote and thought."
+    kind: "capture",
+    label: langText("Capture", "摘录"),
+    title: langText("This will save as a capture with quote and thought.", "这会保存为包含原文和想法的摘录。")
   };
 }
 
 function captureContextDraftSummary(session, resume, intent, draft, sourceChanged) {
-  const destination = session.title || "current topic";
+  const destination = session.title || langText("current topic", "当前主题");
   const sourceState = captureContextSourceStateSummary(resume, sourceChanged);
   const answersQuestionCaptureId = answerDraftTargetForThought(draft.answersQuestionCaptureId, dom.thoughtInput.value);
   const outcome = {
-    "Question draft": "Finish the question body before it enters Open Questions.",
-    "Answer draft": answersQuestionCaptureId
-      ? "Add detail before it can close the linked question."
-      : "Add detail before it can count as answer evidence.",
-    Question: `Will enter Open Questions in ${destination}.`,
-    Answer: answersQuestionCaptureId
-      ? `Will close the linked question in ${destination}.`
-      : `Will appear in Answers Today in ${destination}.`,
-    Takeaway: `Will save as a takeaway in ${destination}.`,
-    Quote: `Will save as a highlight in ${destination}.`,
-    Thought: `Will save as a thought in ${destination}.`,
-    Capture: `Will save as a capture in ${destination}.`
-  }[intent.label] || `Ready for ${intent.label.toLowerCase()} in ${destination}.`;
+    question_draft: langText("Finish the question body before it enters Open Questions.", "补全问题内容后再进入开放问题。"),
+    answer_draft: answersQuestionCaptureId
+      ? langText("Add detail before it can close the linked question.", "补充细节后才能关闭已关联的问题。")
+      : langText("Add detail before it can count as answer evidence.", "补充细节后才能计为回答证据。"),
+    question: langText(`Will enter Open Questions in ${destination}.`, `会进入 ${destination} 的开放问题。`),
+    answer: answersQuestionCaptureId
+      ? langText(`Will close the linked question in ${destination}.`, `会关闭 ${destination} 中已关联的问题。`)
+      : langText(`Will appear in Answers Today in ${destination}.`, `会出现在 ${destination} 的今日回答。`),
+    takeaway: langText(`Will save as a takeaway in ${destination}.`, `会作为收获保存到 ${destination}。`),
+    quote: langText(`Will save as a highlight in ${destination}.`, `会作为高亮保存到 ${destination}。`),
+    thought: langText(`Will save as a thought in ${destination}.`, `会作为想法保存到 ${destination}。`),
+    capture: langText(`Will save as a capture in ${destination}.`, `会作为摘录保存到 ${destination}。`)
+  }[intent.kind] || langText(`Ready for ${intent.label.toLowerCase()} in ${destination}.`, `已准备写入 ${destination}。`);
   return `${outcome} ${sourceState}`;
 }
 
 function captureContextSourceStateSummary(resume, sourceChanged) {
-  if (sourceChanged) return "Source changed; use current to re-anchor.";
-  if (resume?.href && resume.timestamp) return `Source resumes at ${resume.timestamp}.`;
-  if (resume?.href) return "Source resume ready.";
-  return "No source resume yet.";
+  if (sourceChanged) return langText("Source changed; use current to re-anchor.", "来源已变化；可使用当前来源重新锚定。");
+  if (resume?.href && resume.timestamp) return langText(`Source resumes at ${resume.timestamp}.`, `来源会从 ${resume.timestamp} 继续。`);
+  if (resume?.href) return langText("Source resume ready.", "来源已可继续。");
+  return langText("No source resume yet.", "还没有可继续的来源。");
 }
 
 function renderCaptureGuidance(session, resume) {
@@ -2390,31 +2519,35 @@ function captureGuidanceFor(session, resume) {
   if (!hasSource) return defaultCaptureGuidance();
   if (materialType === "video") {
     return hasTime ? {
-      intent: "Video moment",
-      intentTitle: "Capture the current video moment with the transcript line, question, or answer it triggered.",
-      quotePlaceholder: "Transcript line or key phrase at this moment",
-      thoughtPlaceholder: "Your question, takeaway, or answer for this moment"
+      intentKind: "video_moment",
+      intent: langText("Video moment", "视频片段"),
+      intentTitle: langText("Capture the current video moment with the transcript line, question, or answer it triggered.", "摘录当前视频片段，包括字幕行、问题或它触发的回答。"),
+      quotePlaceholder: langText("Transcript line or key phrase at this moment", "此刻的字幕行或关键词"),
+      thoughtPlaceholder: langText("Your question, takeaway, or answer for this moment", "你对此刻的问题、收获或回答")
     } : {
-      intent: "Video note",
-      intentTitle: "Capture a video point; add Time when the moment matters.",
-      quotePlaceholder: "Transcript line or key phrase from the video",
-      thoughtPlaceholder: "Question, takeaway, or answer from this segment"
+      intentKind: "video_note",
+      intent: langText("Video note", "视频笔记"),
+      intentTitle: langText("Capture a video point; add Time when the moment matters.", "摘录视频中的一个点；关键时刻需要回看时再加时间。"),
+      quotePlaceholder: langText("Transcript line or key phrase from the video", "视频中的字幕行或关键词"),
+      thoughtPlaceholder: langText("Question, takeaway, or answer from this segment", "这一段带来的问题、收获或回答")
     };
   }
   if (materialType === "doc" || materialType === "article" || materialType === "book") {
     return {
+      intentKind: `${materialType}_excerpt`,
       intent: textSourceIntentLabel(materialType),
-      intentTitle: "Capture the sentence, section, or claim you are reading now.",
-      quotePlaceholder: "Sentence, section excerpt, or key claim you are reading",
-      thoughtPlaceholder: "Your takeaway, question, or how you would apply it"
+      intentTitle: langText("Capture the sentence, section, or claim you are reading now.", "摘录你正在阅读的句子、段落或论点。"),
+      quotePlaceholder: langText("Sentence, section excerpt, or key claim you are reading", "正在阅读的句子、段落摘录或关键论点"),
+      thoughtPlaceholder: langText("Your takeaway, question, or how you would apply it", "你的收获、问题，或会如何应用它")
     };
   }
   if (hasSource) {
     return {
-      intent: "Source note",
-      intentTitle: "Capture the current source point before switching context.",
-      quotePlaceholder: "Source excerpt, line, or key idea",
-      thoughtPlaceholder: "Why it matters, what is unclear, or next step"
+      intentKind: "source_note",
+      intent: langText("Source note", "来源笔记"),
+      intentTitle: langText("Capture the current source point before switching context.", "切换上下文前先摘录当前来源中的要点。"),
+      quotePlaceholder: langText("Source excerpt, line, or key idea", "来源摘录、行文或关键想法"),
+      thoughtPlaceholder: langText("Why it matters, what is unclear, or next step", "它为什么重要、哪里不清楚，或下一步")
     };
   }
   return defaultCaptureGuidance();
@@ -2422,10 +2555,11 @@ function captureGuidanceFor(session, resume) {
 
 function defaultCaptureGuidance() {
   return {
-    intent: "No source",
-    intentTitle: "Captures are allowed, but linking the browser source first makes them resumable.",
-    quotePlaceholder: "Paste a quote, transcript line, or key idea",
-    thoughtPlaceholder: "Your note, question, or synthesis"
+    intentKind: "no_source",
+    intent: langText("No source", "无来源"),
+    intentTitle: langText("Captures are allowed, but linking the browser source first makes them resumable.", "可以先摘录；但先绑定浏览器来源，之后才能继续回看。"),
+    quotePlaceholder: langText("Paste a quote, transcript line, or key idea", "粘贴原文、字幕行或关键想法"),
+    thoughtPlaceholder: langText("Your note, question, or synthesis", "你的笔记、问题或综合")
   };
 }
 
@@ -2434,21 +2568,21 @@ function quickCaptureReadyActivity(session) {
   // No-source empty state has two valid intents: Activity should offer source anchoring,
   // while explicit Quick Capture entry still lets the learner jot an unanchored thought.
   return {
-    title: hasSource ? "Ready to capture" : "Link source or jot loose thought",
+    title: hasSource ? langText("Ready to capture", "准备摘录") : langText("Link source or jot loose thought", "绑定来源或先记想法"),
     detail: hasSource
-      ? "Paste a quote or use the browser clipper."
-      : "Paste the browser URL first to resume later, or capture an unanchored thought.",
+      ? langText("Paste a quote or use the browser clipper.", "粘贴原文，或使用浏览器 clipper。")
+      : langText("Paste the browser URL first to resume later, or capture an unanchored thought.", "先粘贴浏览器 URL 以便之后继续，也可以先保存未锚定的想法。"),
     tab: "captures",
     targetId: "",
     targetPane: hasSource ? "quickCapture" : "source",
-    actionLabel: hasSource ? "Capture" : "Set source"
+    actionLabel: hasSource ? langText("Capture", "摘录") : langText("Set source", "设置来源")
   };
 }
 
 function textSourceIntentLabel(materialType) {
-  if (materialType === "book") return "Book excerpt";
-  if (materialType === "article") return "Article excerpt";
-  return "Doc excerpt";
+  if (materialType === "book") return langText("Book excerpt", "书籍摘录");
+  if (materialType === "article") return langText("Article excerpt", "文章摘录");
+  return langText("Doc excerpt", "文档摘录");
 }
 
 function applyCaptureStarter(kind) {
@@ -2466,12 +2600,12 @@ function applyCaptureStarter(kind) {
     ...draftSourceSnapshotFor(session.id, dom.sourceTitle.value, dom.sourceUrl.value, dom.materialType.value)
   });
   setActivity(session, {
-    title: `${starter.label} draft started`,
+    title: langText(`${starter.label} draft started`, `${starter.label}草稿已开始`),
     detail: captureStarterActivityDetail(starter, session),
     tab: "captures",
     targetId: "",
     targetPane: "quickCapture",
-    actionLabel: "Capture"
+    actionLabel: langText("Capture", "摘录")
   });
   persistAndRender("", { keepCaptureUndo: true });
   dom.thoughtInput.focus();
@@ -2482,25 +2616,25 @@ function captureStarterDefinition(kind) {
   if (kind === "question") {
     return {
       kind,
-      label: "Question",
+      label: langText("Question", "问题"),
       prefix: "Question: ",
-      detail: "Local draft started. Press Capture when the question is specific."
+      detail: langText("Local draft started. Press Capture when the question is specific.", "本地草稿已开始。问题足够具体后按摘录保存。")
     };
   }
   if (kind === "answer") {
     return {
       kind,
-      label: "Answer",
+      label: langText("Answer", "回答"),
       prefix: "Answer: ",
-      detail: "Local draft started. Linked answers can close questions once they have enough detail."
+      detail: langText("Local draft started. Linked answers can close questions once they have enough detail.", "本地草稿已开始。关联回答有足够细节后可关闭问题。")
     };
   }
   if (kind === "takeaway") {
     return {
       kind,
-      label: "Takeaway",
+      label: langText("Takeaway", "收获"),
       prefix: "Takeaway: ",
-      detail: "Local draft started. Press Capture to save the point you want to keep."
+      detail: langText("Local draft started. Press Capture to save the point you want to keep.", "本地草稿已开始。按摘录保存你想留下的要点。")
     };
   }
   return null;
@@ -2510,9 +2644,9 @@ function captureStarterActivityDetail(starter, session) {
   if (starter.kind !== "answer") return starter.detail;
   const draft = getCaptureDraft(session.id);
   if (draft.answersQuestionCaptureId) {
-    return "Local answer draft started for the linked question.";
+    return langText("Local answer draft started for the linked question.", "已为关联问题开始本地回答草稿。");
   }
-  return "Local answer draft started. Not linked yet; press Capture to save it as an answer note.";
+  return langText("Local answer draft started. Not linked yet; press Capture to save it as an answer note.", "本地回答草稿已开始。尚未关联问题；按摘录保存为回答笔记。");
 }
 
 function starterTextFor(value, prefix) {
@@ -2794,9 +2928,9 @@ function setSidecarLayout(enabled) {
 function renderShellMode() {
   dom.appShell.classList.toggle("sidecar-layout", uiPrefs.sidecarLayout);
   dom.sidecarLayoutBtn.setAttribute("aria-pressed", String(uiPrefs.sidecarLayout));
-  dom.sidecarLayoutBtn.textContent = uiPrefs.sidecarLayout ? "Full Desk" : "Focus Sidecar";
-  dom.sidecarLayoutBtn.title = uiPrefs.sidecarLayout ? "Return to full desk layout" : "Focus sidecar layout";
-  dom.sidecarLayoutBtn.setAttribute("aria-label", uiPrefs.sidecarLayout ? "Return to full desk layout" : "Focus sidecar layout");
+  dom.sidecarLayoutBtn.textContent = uiPrefs.sidecarLayout ? langText("Full Desk", "完整桌面") : langText("Focus Sidecar", "专注侧栏");
+  dom.sidecarLayoutBtn.title = uiPrefs.sidecarLayout ? langText("Return to full desk layout", "返回完整桌面布局") : langText("Focus sidecar layout", "专注侧栏布局");
+  dom.sidecarLayoutBtn.setAttribute("aria-label", uiPrefs.sidecarLayout ? langText("Return to full desk layout", "返回完整桌面布局") : langText("Focus sidecar layout", "专注侧栏布局"));
 }
 
 function setActivity(session, activity) {
@@ -4806,12 +4940,12 @@ function shouldShowStartHere(pack, draftItems = []) {
 function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
   const panel = document.createElement("section");
   panel.className = "learning-flow-panel";
-  panel.setAttribute("aria-label", "Learning flow");
+  panel.setAttribute("aria-label", langText("Learning flow", "学习流"));
   const header = document.createElement("div");
   header.className = "learning-flow-header";
   header.append(
-    textEl("div", "item-meta", "Learning Flow"),
-    textEl("span", "learning-flow-badge", "Mac first")
+    textEl("div", "item-meta", langText("Learning Flow", "学习流")),
+    textEl("span", "learning-flow-badge", langText("Mac first", "Mac 优先"))
   );
   panel.append(header);
 
@@ -4836,17 +4970,17 @@ function renderLearningFlowPanel(pack, draftItems = [], showStartHere = false) {
 }
 
 function resolveCaptureFlowState(pack, draftItems = [], showStartHere = false, sourceStep = resolveSourceSessionState()) {
-  const needsSource = showStartHere && sourceStep.status === "Needs source";
+  const needsSource = showStartHere && sourceStep.needsSource === true;
   return {
     kind: "capture",
-    label: "Capture on Mac",
-    status: needsSource ? "After source" : captureFlowStatus(pack, draftItems),
+    label: langText("Capture on Mac", "在 Mac 上摘录"),
+    status: needsSource ? langText("After source", "先设置来源") : captureFlowStatus(pack, draftItems),
     detail: needsSource
-      ? "Set the browser source first; unanchored captures stay possible but cannot resume the source later."
-      : "Keep the browser source open and catch quote, thought, time, or question.",
-    actionLabel: needsSource ? "Jot loose thought" : showStartHere ? "Capture this thought" : "Capture",
+      ? langText("Set the browser source first; unanchored captures stay possible but cannot resume the source later.", "先设置浏览器来源；未锚定摘录仍可保存，但之后不能回到来源。")
+      : langText("Keep the browser source open and catch quote, thought, time, or question.", "保持浏览器来源打开，摘下原文、想法、时间或问题。"),
+    actionLabel: needsSource ? langText("Jot loose thought", "先记想法") : showStartHere ? langText("Capture this thought", "摘录这个想法") : langText("Capture", "摘录"),
     actionAriaLabel: needsSource
-      ? "Jot a loose thought without a source; source resume will not be available"
+      ? langText("Jot a loose thought without a source; source resume will not be available", "先记录没有来源的想法；之后不能回到来源")
       : undefined,
     action: focusQuickCaptureFromStart,
     tone: "capture"
@@ -4856,11 +4990,11 @@ function resolveCaptureFlowState(pack, draftItems = [], showStartHere = false, s
 function resolveStartHereLoopPreviewState() {
   return {
     kind: "loop",
-    label: "Close the loop",
-    status: "Pending - After first capture",
-    detail: "Save the first point, then decide whether it belongs in Notes, Review, or a later phone/Windows pass.",
-    actionLabel: "Capture first",
-    actionAriaLabel: "Capture the first point before closing the learning loop",
+    label: langText("Close the loop", "闭环"),
+    status: langText("Pending - After first capture", "等待中 - 先完成第一条摘录"),
+    detail: langText("Save the first point, then decide whether it belongs in Notes, Review, or a later phone/Windows pass.", "先保存第一个要点，再决定它属于笔记、复习，还是之后的手机/Windows 流程。"),
+    actionLabel: langText("Capture first", "先摘录"),
+    actionAriaLabel: langText("Capture the first point before closing the learning loop", "先摘录第一个要点，再关闭学习循环"),
     action: focusFirstCaptureFromLoopPreview,
     wide: true,
     tone: "pending"
@@ -4910,30 +5044,34 @@ function resolveSourceSessionState() {
   const draft = getCaptureDraft(session.id);
   const timestamp = dom.timestampInput.value || draft.timestamp || "";
   const resume = buildResumeSource(session, timestamp);
-  const sourceLabel = resume.title || readableSourceHost(resume.url) || "No source";
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || langText("No source", "无来源");
   if (resume.href) {
     return {
       kind: "source",
-      label: "Read source",
-      status: resume.timestamp ? `Resume @ ${resume.timestamp}` : "Source linked",
+      label: langText("Read source", "阅读来源"),
+      status: resume.timestamp ? langText(`Resume @ ${resume.timestamp}`, `从 ${resume.timestamp} 继续`) : langText("Source linked", "来源已连接"),
       detail: resume.timestamp
-        ? `${sourceLabel} · open the saved moment beside Quick Capture.`
-        : `${sourceLabel} · open it beside Quick Capture before writing the next point.`,
-      actionLabel: resume.timestamp ? "Resume source" : "Open source",
-      actionAriaLabel: `${resume.timestamp ? `Resume ${sourceLabel} at ${resume.timestamp}` : `Open ${sourceLabel}`} beside Quick Capture`,
+        ? langText(`${sourceLabel} · open the saved moment beside Quick Capture.`, `${sourceLabel} · 在快速摘录旁打开保存的时刻。`)
+        : langText(`${sourceLabel} · open it beside Quick Capture before writing the next point.`, `${sourceLabel} · 写下一个要点前，在快速摘录旁打开它。`),
+      actionLabel: resume.timestamp ? langText("Resume source", "继续来源") : langText("Open source", "打开来源"),
+      actionAriaLabel: resume.timestamp
+        ? langText(`Resume ${sourceLabel} at ${resume.timestamp} beside Quick Capture`, `在快速摘录旁从 ${resume.timestamp} 继续 ${sourceLabel}`)
+        : langText(`Open ${sourceLabel} beside Quick Capture`, `在快速摘录旁打开 ${sourceLabel}`),
       action: resumeSourceFromLearningFlow,
+      needsSource: false,
       wide: Boolean(resume.timestamp),
       tone: "source"
     };
   }
   return {
     kind: "source",
-    label: "Read source",
-    status: "Needs source",
-    detail: "Paste the source URL you copied from the browser. Manual entry stays available.",
-    actionLabel: "Paste source",
-    actionAriaLabel: "Paste source URL from clipboard for this learning flow",
+    label: langText("Read source", "阅读来源"),
+    status: langText("Needs source", "需要来源"),
+    detail: langText("Paste the source URL you copied from the browser. Manual entry stays available.", "粘贴从浏览器复制的来源 URL，也可以手动输入。"),
+    actionLabel: langText("Paste source", "粘贴来源"),
+    actionAriaLabel: langText("Paste source URL from clipboard for this learning flow", "从剪贴板粘贴本次学习流的来源 URL"),
     action: pasteSourceFromClipboard,
+    needsSource: true,
     wide: true,
     tone: "source"
   };
@@ -4948,8 +5086,11 @@ function resumeSourceFromLearningFlow() {
     return;
   }
   setActivity(session, {
-    title: resume.timestamp ? `Source resumed @ ${resume.timestamp}` : "Source opened",
-    detail: `${resume.title || readableSourceHost(resume.url) || "Source"} · keep this app beside it and capture the next point.`,
+    title: resume.timestamp ? langText(`Source resumed @ ${resume.timestamp}`, `来源已从 ${resume.timestamp} 继续`) : langText("Source opened", "来源已打开"),
+    detail: langText(
+      `${resume.title || readableSourceHost(resume.url) || "Source"} · keep this app beside it and capture the next point.`,
+      `${resume.title || readableSourceHost(resume.url) || "来源"} · 把这个应用放在旁边，继续摘录下一个要点。`
+    ),
     tab: "captures",
     targetId: ""
   });
@@ -4961,9 +5102,10 @@ function captureFlowStatus(pack, draftItems = []) {
   const captureCount = Number(pack.stats.captures) || 0;
   const draftCount = draftItems.length;
   if (captureCount || draftCount) {
+    if (isChineseUi()) return `${captureCount} 条摘录 · ${draftCount} 个草稿`;
     return `${captureCount} ${captureCount === 1 ? "capture" : "captures"} · ${draftCount} ${draftCount === 1 ? "draft" : "drafts"}`;
   }
-  return "Ready";
+  return langText("Ready", "准备就绪");
 }
 
 function resolveCloseLoopState(pack, draftItems = []) {
@@ -4971,10 +5113,10 @@ function resolveCloseLoopState(pack, draftItems = []) {
   if (priority.kind === "review") {
     const dueItem = priority.item;
     return {
-      label: "Close the loop",
-      status: `${pack.stats.due} due`,
-      detail: `${dueItem.sessionTitle} · review the next due card before adding more material.`,
-      actionLabel: "Review",
+      label: langText("Close the loop", "闭环"),
+      status: langText(`${pack.stats.due} due`, `${pack.stats.due} 张待复习`),
+      detail: langText(`${dueItem.sessionTitle} · review the next due card before adding more material.`, `${dueItem.sessionTitle} · 添加更多材料前先复习下一张到期卡。`),
+      actionLabel: langText("Review", "复习"),
       action: () => startReviewAtItem(dueItem),
       kind: "loop",
       tone: "review"
@@ -4984,10 +5126,10 @@ function resolveCloseLoopState(pack, draftItems = []) {
   if (priority.kind === "question") {
     const questionItem = priority.item;
     return {
-      label: "Close the loop",
-      status: `${pack.stats.questions} open`,
-      detail: `${questionItem.sessionTitle} · answer, park, resolve, or turn it into a card.`,
-      actionLabel: "Answer",
+      label: langText("Close the loop", "闭环"),
+      status: langText(`${pack.stats.questions} open`, `${pack.stats.questions} 个开放问题`),
+      detail: langText(`${questionItem.sessionTitle} · answer, park, resolve, or turn it into a card.`, `${questionItem.sessionTitle} · 回答、暂存、解决，或转成卡片。`),
+      actionLabel: langText("Answer", "回答"),
       action: () => answerQuestionFromToday(questionItem.capture.id, questionItem.sessionId),
       kind: "loop",
       tone: "question"
@@ -4997,10 +5139,10 @@ function resolveCloseLoopState(pack, draftItems = []) {
   if (priority.kind === "draft") {
     const draftItem = priority.item;
     return {
-      label: "Close the loop",
-      status: `${draftItems.length} ${draftItems.length === 1 ? "draft" : "drafts"}`,
-      detail: `${draftItem.session.title} · finish the waiting capture before opening another thread.`,
-      actionLabel: "Resume",
+      label: langText("Close the loop", "闭环"),
+      status: langText(`${draftItems.length} ${draftItems.length === 1 ? "draft" : "drafts"}`, `${draftItems.length} 个草稿`),
+      detail: langText(`${draftItem.session.title} · finish the waiting capture before opening another thread.`, `${draftItem.session.title} · 开启另一个线索前先完成等待中的摘录。`),
+      actionLabel: langText("Resume", "继续"),
       action: () => resumeCaptureDraft(draftItem.session.id),
       kind: "loop",
       tone: "parked"
@@ -5010,10 +5152,10 @@ function resolveCloseLoopState(pack, draftItems = []) {
   if (priority.kind === "parked") {
     const parkedItem = priority.item;
     return {
-      label: "Close the loop",
-      status: `${pack.stats.parkedQuestions} parked`,
-      detail: `${parkedItem.sessionTitle} · resume a saved question when this study block has room.`,
-      actionLabel: "Resume",
+      label: langText("Close the loop", "闭环"),
+      status: langText(`${pack.stats.parkedQuestions} parked`, `${pack.stats.parkedQuestions} 个暂存问题`),
+      detail: langText(`${parkedItem.sessionTitle} · resume a saved question when this study block has room.`, `${parkedItem.sessionTitle} · 本次学习有余量时再继续暂存问题。`),
+      actionLabel: langText("Resume", "继续"),
       action: () => setQuestionParked(parkedItem.capture.id, parkedItem.sessionId, false),
       kind: "loop",
       tone: "parked"
@@ -5023,10 +5165,10 @@ function resolveCloseLoopState(pack, draftItems = []) {
   if (priority.kind === "capture_decision") {
     const decisionItem = priority.item;
     return {
-      label: "Close the loop",
-      status: "Needs next step",
-      detail: `${decisionItem.sessionTitle} · choose whether the latest capture belongs in Notes or Review before moving on.`,
-      actionLabel: "Choose next",
+      label: langText("Close the loop", "闭环"),
+      status: langText("Needs next step", "需要下一步"),
+      detail: langText(`${decisionItem.sessionTitle} · choose whether the latest capture belongs in Notes or Review before moving on.`, `${decisionItem.sessionTitle} · 继续前先决定最新摘录属于笔记还是复习。`),
+      actionLabel: langText("Choose next", "选择下一步"),
       action: () => openCaptureFromToday(decisionItem.sessionId, decisionItem.capture),
       kind: "loop",
       tone: "capture"
@@ -5034,10 +5176,10 @@ function resolveCloseLoopState(pack, draftItems = []) {
   }
 
   return {
-    label: "Close the loop",
-    status: "Clear",
-    detail: "No due cards or open questions are blocking the next capture.",
-    actionLabel: "Inspect",
+    label: langText("Close the loop", "闭环"),
+    status: langText("Clear", "已清空"),
+    detail: langText("No due cards or open questions are blocking the next capture.", "没有到期卡片或开放问题阻碍下一条摘录。"),
+    actionLabel: langText("Inspect", "查看"),
     action: () => jumpToTodaySection("question_health"),
     kind: "loop",
     tone: "clear"
@@ -5395,7 +5537,7 @@ function renderStartHereInline() {
   const card = document.createElement("article");
   card.className = "start-here-inline";
   const sourceStep = resolveSourceSessionState();
-  const needsSource = sourceStep.status === "Needs source";
+  const needsSource = sourceStep.needsSource === true;
   card.append(
     textEl("div", "item-meta", "First Note"),
     textEl("p", "card-prompt", needsSource
@@ -5505,7 +5647,7 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
   const footer = document.createElement("div");
   footer.className = "item-footer";
   const actions = [];
-  const needsSource = sourceStep.status === "Needs source";
+  const needsSource = sourceStep.needsSource === true;
   if (needsSource) {
     const source = textEl("button", "mini-button primary", sourceStep.actionLabel);
     source.type = "button";

@@ -36,6 +36,13 @@
             <input id="importWorkspaceInput" type="file" accept="application/json" multiple>
           </label>
         </div>
+        <div class="sidebar-settings" aria-label="Interface settings">
+          <label id="languageLabel" for="languageSelect">Language</label>
+          <select id="languageSelect" aria-label="Language">
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+          </select>
+        </div>
         <div id="storageNotice" class="storage-notice" hidden>
           <span id="storageNoticeText">Export workspace</span>
           <button id="storageExportNowBtn" class="mini-button" type="button">Export</button>
@@ -174,7 +181,7 @@
               <button id="captureContextOpenBtn" class="mini-button" type="button">Open</button>
             </div>
             <div id="captureStarters" class="capture-starters" aria-label="Capture starters">
-              <span class="capture-starter-label">Write as</span>
+              <span id="captureStarterLabel" class="capture-starter-label">Write as</span>
               <button class="starter-button" type="button" data-capture-starter="question" title="Start a local question draft (Cmd/Ctrl+Shift+1)" aria-label="Start a local question draft with Cmd or Control Shift 1">Question</button>
               <button class="starter-button" type="button" data-capture-starter="answer" title="Start a local answer draft (Cmd/Ctrl+Shift+2)" aria-label="Start a local answer draft with Cmd or Control Shift 2">Answer</button>
               <button class="starter-button" type="button" data-capture-starter="takeaway" title="Start a local takeaway draft (Cmd/Ctrl+Shift+3)" aria-label="Start a local takeaway draft with Cmd or Control Shift 3">Takeaway</button>

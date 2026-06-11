@@ -207,6 +207,116 @@ try {
   await cdp.send("Page.navigate", { url: appUrl });
   await sleep(500);
 
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 2,
+    mobile: true
+  });
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
+  const bilingualProbe = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+      node.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const originalWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const select = document.querySelector("#languageSelect");
+    select.value = "zh";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    document.querySelector('[data-tab="today"]').click();
+    const linkedPanel = document.querySelector(".learning-flow-panel");
+    const linkedState = {
+      htmlLang: document.documentElement.lang,
+      bodyLanguage: document.body.dataset.uiLanguage,
+      selectValue: select.value,
+      label: document.querySelector("#languageLabel")?.textContent || "",
+      panelText: linkedPanel?.textContent || "",
+      quickHeading: document.querySelector("#capturePane .panel-heading h2")?.textContent || "",
+      starterLabel: document.querySelector("#captureStarterLabel")?.textContent || "",
+      starterTexts: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.textContent),
+      prefsLanguage: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").language || ""
+    };
+    const noSourceWorkspace = JSON.parse(originalWorkspaceJson);
+    const activeSession = noSourceWorkspace.sessions.find((session) => session.id === noSourceWorkspace.activeSessionId) || noSourceWorkspace.sessions[0];
+    activeSession.title = "超长中文学习主题用于布局验证";
+    activeSession.sourceTitle = "";
+    activeSession.sourceUrl = "";
+    activeSession.materialType = "article";
+    activeSession.captures = [];
+    activeSession.reviewCards = [];
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(noSourceWorkspace));
+    document.querySelector('[data-tab="today"]').click();
+    document.querySelector('[data-focus-mode="capture"]').click();
+    setValue("#quoteInput", "");
+    setValue("#thoughtInput", "");
+    const noSourcePanel = document.querySelector(".learning-flow-panel");
+    const noSourceState = {
+      panelText: noSourcePanel?.textContent || "",
+      contextIntent: document.querySelector("#captureContextIntent")?.textContent || "",
+      contextDraft: document.querySelector("#captureContextDraft")?.textContent || "",
+      contextSource: document.querySelector("#captureContextSource")?.textContent || "",
+      quotePlaceholder: document.querySelector("#quoteInput")?.placeholder || "",
+      thoughtPlaceholder: document.querySelector("#thoughtInput")?.placeholder || "",
+      documentWidth: document.documentElement.scrollWidth,
+      bodyWidth: document.body.scrollWidth,
+      innerWidth: window.innerWidth
+    };
+    select.value = "en";
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    window.learningCompanionNative.importWorkspaceJson(originalWorkspaceJson);
+    document.querySelector('[data-tab="today"]').click();
+    const restoredPanel = document.querySelector(".learning-flow-panel");
+    return {
+      linkedState,
+      noSourceState,
+      restored: {
+        htmlLang: document.documentElement.lang,
+        bodyLanguage: document.body.dataset.uiLanguage,
+        selectValue: document.querySelector("#languageSelect")?.value || "",
+        prefsLanguage: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").language || "",
+        panelText: restoredPanel?.textContent || "",
+        quickHeading: document.querySelector("#capturePane .panel-heading h2")?.textContent || "",
+        starterLabel: document.querySelector("#captureStarterLabel")?.textContent || ""
+      }
+    };
+  })()`);
+  assert.equal(bilingualProbe.linkedState.htmlLang, "zh-CN");
+  assert.equal(bilingualProbe.linkedState.bodyLanguage, "zh");
+  assert.equal(bilingualProbe.linkedState.selectValue, "zh");
+  assert.equal(bilingualProbe.linkedState.label, "语言");
+  assert.equal(bilingualProbe.linkedState.prefsLanguage, "zh");
+  assert.match(bilingualProbe.linkedState.panelText, /学习流/);
+  assert.match(bilingualProbe.linkedState.panelText, /阅读来源/);
+  assert.match(bilingualProbe.linkedState.panelText, /在 Mac 上摘录/);
+  assert.equal(bilingualProbe.linkedState.quickHeading, "快速摘录");
+  assert.equal(bilingualProbe.linkedState.starterLabel, "写成");
+  assert.deepEqual(bilingualProbe.linkedState.starterTexts, ["问题", "回答", "收获"]);
+  assert.match(bilingualProbe.noSourceState.panelText, /需要来源/);
+  assert.match(bilingualProbe.noSourceState.panelText, /先设置来源/);
+  assert.equal(bilingualProbe.noSourceState.contextIntent, "无来源");
+  assert.match(bilingualProbe.noSourceState.contextDraft, /还没有可继续的来源/);
+  assert.equal(bilingualProbe.noSourceState.contextSource, "无来源");
+  assert.match(bilingualProbe.noSourceState.quotePlaceholder, /原文|字幕/);
+  assert.match(bilingualProbe.noSourceState.thoughtPlaceholder, /笔记|问题/);
+  assert.ok(
+    Math.max(bilingualProbe.noSourceState.documentWidth, bilingualProbe.noSourceState.bodyWidth) <= bilingualProbe.noSourceState.innerWidth,
+    `Expected Chinese mobile surface to avoid horizontal overflow, got doc=${bilingualProbe.noSourceState.documentWidth}, body=${bilingualProbe.noSourceState.bodyWidth}, inner=${bilingualProbe.noSourceState.innerWidth}`
+  );
+  assert.equal(bilingualProbe.restored.htmlLang, "en");
+  assert.equal(bilingualProbe.restored.bodyLanguage, "en");
+  assert.equal(bilingualProbe.restored.selectValue, "en");
+  assert.equal(bilingualProbe.restored.prefsLanguage, "en");
+  assert.match(bilingualProbe.restored.panelText, /Learning Flow/);
+  assert.equal(bilingualProbe.restored.quickHeading, "Quick Capture");
+  assert.equal(bilingualProbe.restored.starterLabel, "Write as");
+
+  await cdp.send("Emulation.clearDeviceMetricsOverride");
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
+
   const firstRun = await cdp.evaluate(`(() => {
     const setValue = (selector, value) => {
       const node = document.querySelector(selector);
@@ -1156,6 +1266,7 @@ try {
       pressed: toggle.getAttribute("aria-pressed"),
       stored: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").sidecarLayout === true,
       storedVersion: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").schemaVersion,
+      storedLanguage: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").language || "",
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       capturePanePulsed: document.querySelector("#capturePane")?.classList.contains("pulse") === true
     });
@@ -1427,7 +1538,8 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
-  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 3);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 4);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedLanguage, "en");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeTab, "captures");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeId, "quoteInput");

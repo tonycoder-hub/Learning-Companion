@@ -320,6 +320,7 @@ Recommended next slices:
 
 0. Preserve Tony's requested next iteration priorities.
    - Make the product bilingual at minimum. Start with an explicit English/Chinese copy/i18n plan, then move Learning Flow, Quick Capture, Activity, Today, Device Flow, static mirror, generated packs, and QA receipts toward switchable bilingual copy.
+   - Use `docs/bilingual-i18n-plan.md` as the rollout boundary. Current first-slice scope is only persisted language preference, visible English/Chinese selector, Learning Flow, and Quick Capture context/guidance/starter copy.
    - Verification must include Chinese and English long-copy fit at sidecar/mobile widths. Do not claim full i18n until app UI plus generated artifacts are covered.
    - When validating the study loop, proactively include visual evidence from a real external reading/video source. Use public or user-approved non-private material only; store screenshots under project-local `.codex-tmp/`; record source URL/title/timestamp and viewport; show the app beside the source while capturing, resuming, and saving.
    - Do not use authenticated/private pages, cookies, or sensitive content. Do not claim live platform playback/support from a screenshot unless that exact behavior was actually proven.
