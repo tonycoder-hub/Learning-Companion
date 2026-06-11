@@ -2373,11 +2373,39 @@ function returnReadyBadgeCss() {
   ];
 }
 
+function staticMirrorI18nCss() {
+  return [
+    "    .mirror-language-radio { position: absolute; opacity: 0; pointer-events: none; }",
+    "    .mirror-language-switch { max-width: 860px; margin: 0 auto 12px; display: flex; gap: 8px; justify-content: flex-end; }",
+    "    .mirror-language-switch label { display: inline-flex; min-height: 34px; align-items: center; padding: 6px 10px; border: 1px solid #dcd8cc; border-radius: 8px; background: #fff; color: #315f82; font-size: 13px; font-weight: 700; cursor: pointer; }",
+    "    #mirrorLangEn:checked ~ .mirror-language-switch label[for='mirrorLangEn'], #mirrorLangZh:checked ~ .mirror-language-switch label[for='mirrorLangZh'] { border-color: #2f6f5e; background: #e7f1ec; color: #202124; }",
+    "    .i18n-zh { display: none; }",
+    "    #mirrorLangZh:checked ~ main .i18n-en, #mirrorLangZh:checked ~ .mirror-language-switch .i18n-en { display: none; }",
+    "    #mirrorLangZh:checked ~ main .i18n-zh, #mirrorLangZh:checked ~ .mirror-language-switch .i18n-zh { display: inline; }",
+    "    #mirrorLangEn:checked ~ main .i18n-zh, #mirrorLangEn:checked ~ .mirror-language-switch .i18n-zh { display: none; }"
+  ];
+}
+
+function staticMirrorLanguageToggleHtml() {
+  return [
+    "  <input class=\"mirror-language-radio\" id=\"mirrorLangEn\" name=\"mirrorLanguage\" type=\"radio\" checked>",
+    "  <input class=\"mirror-language-radio\" id=\"mirrorLangZh\" name=\"mirrorLanguage\" type=\"radio\">",
+    "  <div class=\"mirror-language-switch\" role=\"group\" aria-label=\"Language / 语言\">",
+    "    <label for=\"mirrorLangEn\">English</label>",
+    "    <label for=\"mirrorLangZh\">中文</label>",
+    "  </div>"
+  ];
+}
+
+function i18nText(en, zh) {
+  return `<span class="i18n-en">${htmlText(en)}</span><span class="i18n-zh" lang="zh-CN">${htmlText(zh)}</span>`;
+}
+
 function returnReadyBadgeHtml() {
   return [
     "    <section class=\"return-ready-badge\" aria-label=\"Return-ready mirror\">",
-    "      <strong>Return-ready mirror</strong>",
-    "      <span>Review and Inbox return files from this mirror include the Mac return-base check via source.returnBaseFingerprint. Static mirror only; no live sync.</span>",
+    `      <strong>${i18nText("Return-ready mirror", "可返回的镜像")}</strong>`,
+    `      <span>${i18nText("Review and Inbox return files from this mirror include the Mac return-base check via source.returnBaseFingerprint. Static mirror only; no live sync.", "这个镜像中的复习和收件箱返回文件会包含 Mac 返回基线检查 source.returnBaseFingerprint。仅静态镜像；无实时同步。")}</span>`,
     "    </section>"
   ];
 }
@@ -3232,13 +3260,13 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     return [
       '<article class="session">',
       `  <a href="${htmlAttribute(paths.markdownPath)}">${htmlText(session.title)}</a>`,
-      `  <span>${htmlText(session.captures.length)} captures · ${htmlText(session.reviewCards.length)} cards · ${htmlText(due)} due</span>`,
+      `  <span>${i18nText(`${session.captures.length} captures · ${session.reviewCards.length} cards · ${due} due`, `${session.captures.length} 条摘录 · ${session.reviewCards.length} 张卡片 · ${due} 张到期`)}</span>`,
       "</article>"
     ].join("\n");
   });
   const dueList = pack.dueItems.length
     ? pack.dueItems.map(({ sessionTitle, card }) => `<li>${htmlText(card.prompt)} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
-    : "<li>No cards due right now.</li>";
+    : `<li>${i18nText("No cards due right now.", "现在没有到期卡片。")}</li>`;
   const questionList = pack.questionItems.length
     ? [
         ...pack.questionItems.map(({ sessionId, sessionTitle, sessionPath, capture }) => {
@@ -3246,23 +3274,23 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
             ? `<a href="${htmlAttribute(sessionPath)}">${htmlText(sessionTitle)}</a>`
             : htmlText(sessionTitle);
           const answerHref = buildInboxAnswerHref(sessionId, capture);
-          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel} · <a href="${htmlAttribute(answerHref)}">Draft answer in inbox</a></span></li>`;
+          return `<li>${htmlText(capture.thought || capture.quote || "Untitled question")} <span>${sessionLabel} · <a href="${htmlAttribute(answerHref)}">${i18nText("Draft answer in inbox", "在收件箱草拟回答")}</a></span></li>`;
         }),
-        pack.questionOverflow > 0 ? `<li>${htmlText(formatCount(pack.questionOverflow, "more open question"))} in <a href="TODAY.md">TODAY.md</a>.</li>` : ""
+        pack.questionOverflow > 0 ? `<li>${i18nText(`${formatCount(pack.questionOverflow, "more open question")} in`, `还有 ${pack.questionOverflow} 个开放问题在`)} <a href="TODAY.md">TODAY.md</a>.</li>` : ""
       ].filter(Boolean).join("\n")
-    : "<li>No open questions captured yet.</li>";
+    : `<li>${i18nText("No open questions captured yet.", "还没有捕获开放问题。")}</li>`;
   const recentList = pack.recentCaptures.length
     ? pack.recentCaptures.map(({ sessionTitle, capture }) => `<li>${htmlText(capture.thought || capture.quote || "Untitled capture")} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
-    : "<li>No captures yet.</li>";
+    : `<li>${i18nText("No captures yet.", "还没有摘录。")}</li>`;
   const signalList = brief.warnings.length
     ? brief.warnings.map((warning) => `<li>${htmlText(warning.label)} <span>${htmlText(warning.detail)}</span></li>`).join("\n")
-    : "<li>Session is ready to continue.</li>";
+    : `<li>${i18nText("Session is ready to continue.", "这个主题可以继续学习。")}</li>`;
   const sourceLine = brief.source.href
     ? `<a href="${htmlAttribute(brief.source.href)}">${htmlText(brief.source.title || "Open source")}</a>`
-    : "Add a source URL before the next export.";
+    : i18nText("Add a source URL before the next export.", "下次导出前请添加来源 URL。");
   const latestLine = brief.latestCapture
     ? `${htmlText(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` <span>@ ${htmlText(brief.latestCapture.timestamp)}</span>` : ""}`
-    : "No captures yet.";
+    : i18nText("No captures yet.", "还没有摘录。");
   const mirrorDeviceAction = buildMirrorDeviceAction(pack, brief);
 
   return [
@@ -3291,6 +3319,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    .action { display: grid; gap: 5px; text-decoration: none; color: #202124; }",
     "    .action strong { color: #2f6f5e; }",
     "    .panel { display: grid; gap: 10px; }",
+    ...staticMirrorI18nCss(),
     ...returnReadyBadgeCss(),
     "    .steps { margin: 0; padding-left: 22px; }",
     "    .steps li { padding-left: 2px; }",
@@ -3313,58 +3342,59 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "  </style>",
     "</head>",
     "<body>",
+    ...staticMirrorLanguageToggleHtml(),
     "  <main>",
     ...staticNoScriptHtml(),
     "    <header>",
-    "      <h1>Learning Companion Mirror</h1>",
-    `      <p class="summary">Generated at ${htmlText(pack.generatedAt)} · ${htmlText(formatCount(pack.stats.sessions, "session"))} · ${htmlText(formatCount(pack.stats.questions, "open question"))} · ${htmlText(formatCount(pack.stats.due, "due card"))} · source of truth: workspace.json</p>`,
+    `      <h1>${i18nText("Learning Companion Mirror", "学习伴侣镜像")}</h1>`,
+    `      <p class="summary">${i18nText(`Generated at ${pack.generatedAt} · ${formatCount(pack.stats.sessions, "session")} · ${formatCount(pack.stats.questions, "open question")} · ${formatCount(pack.stats.due, "due card")} · source of truth: workspace.json`, `生成于 ${pack.generatedAt} · ${pack.stats.sessions} 个主题 · ${pack.stats.questions} 个开放问题 · ${pack.stats.due} 张到期卡 · 事实来源：workspace.json`)}</p>`,
     "    </header>",
     ...returnReadyBadgeHtml(),
     "    <section class=\"panel device-next-panel\" aria-label=\"Next from this export\">",
-    "      <h2>Next from this export</h2>",
-    `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"${mirrorDeviceAction.external ? ' target="_blank" rel="noreferrer noopener"' : ""}><strong>${htmlText(mirrorDeviceAction.label)}</strong><span>${htmlText(mirrorDeviceAction.detail)}</span><small>${htmlText(mirrorDeviceAction.meta)} · As of ${htmlText(pack.generatedAt)} · Static mirror. Save a return file when done.</small></a>`,
+    `      <h2>${i18nText("Next from this export", "本次导出的下一步")}</h2>`,
+    `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"${mirrorDeviceAction.external ? ' target="_blank" rel="noreferrer noopener"' : ""}><strong>${i18nText(mirrorDeviceAction.label, mirrorDeviceAction.labelZh)}</strong><span>${i18nText(mirrorDeviceAction.detail, mirrorDeviceAction.detailZh)}</span><small>${i18nText(`${mirrorDeviceAction.meta} · As of ${pack.generatedAt} · Static mirror. Save a return file when done.`, `${mirrorDeviceAction.metaZh} · 截至 ${pack.generatedAt} · 静态镜像。完成后保存返回文件。`)}</small></a>`,
     ...(mirrorDeviceAction.secondary ? [mirrorDeviceAction.secondaryHref
-      ? `      <a class="device-next-secondary" href="${htmlAttribute(mirrorDeviceAction.secondaryHref)}">${htmlText(mirrorDeviceAction.secondary)}</a>`
-      : `      <span class="device-next-secondary">${htmlText(mirrorDeviceAction.secondary)}</span>`] : []),
+      ? `      <a class="device-next-secondary" href="${htmlAttribute(mirrorDeviceAction.secondaryHref)}">${i18nText(mirrorDeviceAction.secondary, mirrorDeviceAction.secondaryZh || mirrorDeviceAction.secondary)}</a>`
+      : `      <span class="device-next-secondary">${i18nText(mirrorDeviceAction.secondary, mirrorDeviceAction.secondaryZh || mirrorDeviceAction.secondary)}</span>`] : []),
     "    </section>",
     "    <nav class=\"actions\" aria-label=\"Mirror entry points\">",
-    "      <a class=\"action\" href=\"TODAY.md\"><strong>Today</strong><span>Due review, open questions, and recent captures</span></a>",
-    "      <a class=\"action\" href=\"review.html\"><strong>Review</strong><span>Grade cards, then save a return file</span></a>",
-    "      <a class=\"action\" href=\"inbox.html\"><strong>Inbox</strong><span>Capture on mobile or Windows, then save a return file</span></a>",
-    "      <a class=\"action\" href=\"workspace.json\"><strong>Restore</strong><span>Canonical workspace JSON</span></a>",
+    `      <a class="action" href="TODAY.md"><strong>${i18nText("Today", "今日")}</strong><span>${i18nText("Due review, open questions, and recent captures", "到期复习、开放问题和最近摘录")}</span></a>`,
+    `      <a class="action" href="review.html"><strong>${i18nText("Review", "复习")}</strong><span>${i18nText("Grade cards, then save a return file", "给卡片评分，然后保存返回文件")}</span></a>`,
+    `      <a class="action" href="inbox.html"><strong>${i18nText("Inbox", "收件箱")}</strong><span>${i18nText("Capture on mobile or Windows, then save a return file", "在手机或 Windows 上摘录，然后保存返回文件")}</span></a>`,
+    `      <a class="action" href="workspace.json"><strong>${i18nText("Restore", "恢复")}</strong><span>${i18nText("Canonical workspace JSON", "权威工作区 JSON")}</span></a>`,
     "    </nav>",
     "    <section class=\"panel\">",
-    "      <h2>Manual Return</h2>",
+    `      <h2>${i18nText("Manual Return", "手动返回")}</h2>`,
     "      <ol class=\"steps\">",
-    "        <li><strong>Read Today</strong><span>Start with the due cards, open questions, and latest capture context.</span></li>",
-    "        <li><strong>Work here</strong><span>Use Review for due cards or Inbox for mobile/Windows notes and answers.</span></li>",
-    "        <li><strong>Return file back to Mac</strong><span>Save a return file, move it back yourself, then import it from Today &gt; Return Files.</span></li>",
+    `        <li><strong>${i18nText("Read Today", "阅读今日")}</strong><span>${i18nText("Start with the due cards, open questions, and latest capture context.", "从到期卡片、开放问题和最新摘录上下文开始。")}</span></li>`,
+    `        <li><strong>${i18nText("Work here", "在这里处理")}</strong><span>${i18nText("Use Review for due cards or Inbox for mobile/Windows notes and answers.", "用复习处理到期卡，用收件箱记录手机/Windows 笔记和回答。")}</span></li>`,
+    `        <li><strong>${i18nText("Return file back to Mac", "把返回文件带回 Mac")}</strong><span>${i18nText("Save a return file, move it back yourself, then import it from Today > Return Files.", "保存返回文件，自行带回，然后从今日 > 返回文件导入。")}</span></li>`,
     "      </ol>",
-    "      <p class=\"summary\">Static mirror only. This page does not live sync with the Mac workspace.</p>",
+    `      <p class="summary">${i18nText("Static mirror only. This page does not live sync with the Mac workspace.", "仅静态镜像。此页面不会与 Mac 工作区实时同步。")}</p>`,
     "    </section>",
     "    <section class=\"panel\">",
-    "      <h2>Resume Here</h2>",
+    `      <h2>${i18nText("Resume Here", "从这里继续")}</h2>`,
     `      <p><strong>${htmlText(brief.nextAction.label)}</strong> <span>${htmlText(brief.nextAction.detail)}</span></p>`,
-    `      <p class="why">Why: ${htmlText(brief.nextAction.reason)}</p>`,
-    `      <p>Session: <a href="${htmlAttribute(brief.sessionPath)}">${htmlText(brief.sessionTitle)}</a></p>`,
-    `      <p>Source: ${sourceLine}</p>`,
-    `      <p>Latest: ${latestLine}</p>`,
+    `      <p class="why">${i18nText(`Why: ${brief.nextAction.reason}`, `原因：${brief.nextAction.reason}`)}</p>`,
+    `      <p>${i18nText("Session:", "主题：")} <a href="${htmlAttribute(brief.sessionPath)}">${htmlText(brief.sessionTitle)}</a></p>`,
+    `      <p>${i18nText("Source:", "来源：")} ${sourceLine}</p>`,
+    `      <p>${i18nText("Latest:", "最新：")} ${latestLine}</p>`,
     `      <ul>${signalList}</ul>`,
     "    </section>",
     "    <section class=\"panel\">",
-    "      <h2>Due Review Preview</h2>",
+    `      <h2>${i18nText("Due Review Preview", "到期复习预览")}</h2>`,
     `      <ul>${dueList}</ul>`,
     "    </section>",
     "    <section class=\"panel\">",
-    "      <h2>Open Question Preview</h2>",
+    `      <h2>${i18nText("Open Question Preview", "开放问题预览")}</h2>`,
     `      <ul>${questionList}</ul>`,
     "    </section>",
     "    <section class=\"panel\">",
-    "      <h2>Recent Capture Preview</h2>",
+    `      <h2>${i18nText("Recent Capture Preview", "最近摘录预览")}</h2>`,
     `      <ul>${recentList}</ul>`,
     "    </section>",
     "    <section class=\"panel\">",
-    "      <h2>Sessions</h2>",
+    `      <h2>${i18nText("Sessions", "主题")}</h2>`,
     `      <div class="sessions">${sessionLinks.join("\n")}</div>`,
     "    </section>",
     "  </main>",
@@ -3381,9 +3411,13 @@ function buildMirrorDeviceAction(pack, brief = null) {
     return {
       href: "review.html",
       label: "Review due cards",
+      labelZh: "复习到期卡片",
       detail: "Grade the due queue here, then save a return file for Mac.",
+      detailZh: "在这里完成到期队列评分，然后为 Mac 保存返回文件。",
       meta: formatCount(pack.stats.due, "due card"),
+      metaZh: `${pack.stats.due} 张到期卡`,
       secondary: pack.stats.questions ? `Also answer ${formatCount(pack.stats.questions, "open question")} in Inbox.` : "",
+      secondaryZh: pack.stats.questions ? `也可以在收件箱回答 ${pack.stats.questions} 个开放问题。` : "",
       secondaryHref: pack.stats.questions ? secondaryHref : ""
     };
   }
@@ -3392,8 +3426,11 @@ function buildMirrorDeviceAction(pack, brief = null) {
     return {
       href: buildInboxAnswerHref(item.sessionId, item.capture),
       label: "Answer next question",
+      labelZh: "回答下一个问题",
       detail: summarizeMirrorDeviceAction(item.capture?.thought || item.capture?.quote || "Open question"),
+      detailZh: summarizeMirrorDeviceAction(item.capture?.thought || item.capture?.quote || "开放问题"),
       meta: formatCount(pack.stats.questions, "open question"),
+      metaZh: `${pack.stats.questions} 个开放问题`,
       secondary: ""
     };
   }
@@ -3404,9 +3441,13 @@ function buildMirrorDeviceAction(pack, brief = null) {
     return {
       href: source.href,
       label: timestamp ? "Resume source on this device" : "Read source on this device",
+      labelZh: timestamp ? "在此设备继续来源" : "在此设备阅读来源",
       detail: `${sourceLabel}${timestamp ? ` @ ${timestamp}` : ""} · then return to Inbox to save a note for Mac.`,
+      detailZh: `${sourceLabel}${timestamp ? ` @ ${timestamp}` : ""} · 然后回到收件箱，为 Mac 保存笔记。`,
       meta: timestamp ? "Source moment available; come back to this mirror tab for return JSON" : "Source linked; come back to this mirror tab for return JSON",
+      metaZh: timestamp ? "来源时刻可用；返回这个镜像标签页生成返回 JSON" : "来源已连接；返回这个镜像标签页生成返回 JSON",
       secondary: "Then capture in Inbox.",
+      secondaryZh: "然后在收件箱摘录。",
       secondaryHref: "inbox.html",
       external: true
     };
@@ -3414,8 +3455,11 @@ function buildMirrorDeviceAction(pack, brief = null) {
   return {
     href: "inbox.html",
     label: "Capture on this device",
+    labelZh: "在此设备摘录",
     detail: "Add a note here, then save a return file for Mac.",
+    detailZh: "在这里添加笔记，然后为 Mac 保存返回文件。",
     meta: "No due cards or open questions; return by JSON",
+    metaZh: "没有到期卡或开放问题；通过 JSON 返回",
     secondary: ""
   };
 }

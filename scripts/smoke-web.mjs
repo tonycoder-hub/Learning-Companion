@@ -1924,10 +1924,12 @@ assert.match(questionTodayMarkdown, /Question loop has active work/);
 assert.match(questionTodayMarkdown, /Backlog: 1 unresolved question/);
 const mixedMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(mixedMirrorIndexHtml, /Next from this export/);
+assert.match(mixedMirrorIndexHtml, /本次导出的下一步/);
 assert.match(mixedMirrorIndexHtml, /Review due cards/);
+assert.match(mixedMirrorIndexHtml, /复习到期卡片/);
 assert.match(mixedMirrorIndexHtml, /Also answer 1 open question in Inbox\./);
 assert.match(mixedMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html\?/);
-assert.doesNotMatch(mixedMirrorIndexHtml, /<strong>Answer next question/);
+assert.doesNotMatch(mixedMirrorIndexHtml, /class="device-next-link" href="inbox\.html\?[^"]+"/);
 const mixedSecondaryHref = mixedMirrorIndexHtml.match(/class="device-next-secondary" href="([^"]+)"/)?.[1] || "";
 assert.match(mixedSecondaryHref, /^inbox\.html\?[^#]+$/);
 assert.match(mixedSecondaryHref, /answerToCaptureId=/);
@@ -2070,18 +2072,20 @@ assert.equal(extractStaticSeed(generateReviewHtml(questionOnlyMirrorWorkspace, f
 const questionMirrorIndexHtml = generateMirrorIndexHtml(questionOnlyMirrorWorkspace, frozenToday);
 assert.match(questionMirrorIndexHtml, /Next from this export/);
 assert.match(questionMirrorIndexHtml, /Answer next question/);
+assert.match(questionMirrorIndexHtml, /回答下一个问题/);
 assert.match(questionMirrorIndexHtml, /Open Question Preview/);
 assert.match(questionMirrorIndexHtml, /1 open question/);
 assert.match(questionMirrorIndexHtml, /Which invariant breaks if the heap is stale\?/);
 assert.match(questionMirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(questionMirrorIndexHtml, /Draft answer in inbox/);
+assert.match(questionMirrorIndexHtml, /在收件箱草拟回答/);
 assert.doesNotMatch(questionMirrorIndexHtml, /Read source on this device/);
-assert.doesNotMatch(questionMirrorIndexHtml, /target="_blank" rel="noreferrer noopener"><strong>Answer next question/);
-const nextQuestionHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)"><strong>Answer next question/)?.[1]?.replace(/&amp;/g, "&") || "";
+assert.doesNotMatch(questionMirrorIndexHtml, /class="device-next-link" href="inbox\.html\?[^"]+" target="_blank"/);
+const nextQuestionHref = questionMirrorIndexHtml.match(/class="device-next-link" href="(inbox\.html\?[^"]+)"/)?.[1]?.replace(/&amp;/g, "&") || "";
 const nextQuestionParams = new URLSearchParams(nextQuestionHref.split("?")[1] || "");
 assert.equal(nextQuestionParams.get("answerToCaptureId"), questionOnlyMirrorPack.questionItems[0].capture.id);
 assert.equal(nextQuestionParams.get("thought"), "Answer:");
-const questionAnswerHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
+const questionAnswerHref = questionMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">[\s\S]*?Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
 const questionAnswerParams = new URLSearchParams(questionAnswerHref.split("?")[1] || "");
 assert.equal(questionAnswerParams.get("topicId"), algorithmsSession.id);
 assert.equal(questionAnswerParams.get("answerToCaptureId"), questionOnlyMirrorPack.questionItems[0].capture.id);
@@ -2095,7 +2099,7 @@ let hostileQuestionWorkspace = addCapture(multiReviewWorkspace, algorithmsSessio
   tags: "question hostile"
 }, { now: "2099-01-02T00:30:00.000Z" });
 const hostileMirrorIndexHtml = generateMirrorIndexHtml(hostileQuestionWorkspace, frozenToday);
-const hostileAnswerHref = hostileMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
+const hostileAnswerHref = hostileMirrorIndexHtml.match(/href="(inbox\.html\?[^"]+)">[\s\S]*?Draft answer in inbox/)?.[1]?.replace(/&amp;/g, "&") || "";
 const hostileAnswerParams = new URLSearchParams(hostileAnswerHref.split("?")[1] || "");
 assert.equal(hostileAnswerParams.get("topicId"), algorithmsSession.id);
 assert.match(hostileAnswerParams.get("answerToCaptureId") || "", /^capture_/);
@@ -2110,7 +2114,7 @@ const hostileQuestionOnlyMirrorHtml = generateMirrorIndexHtml(workspaceFromPorta
 }), frozenToday);
 assert.match(hostileQuestionOnlyMirrorHtml, /Answer next question/);
 assert.doesNotMatch(hostileQuestionOnlyMirrorHtml, /<script>alert/);
-const hostileNextHref = hostileQuestionOnlyMirrorHtml.match(/href="(inbox\.html\?[^"]+)"><strong>Answer next question/)?.[1]?.replace(/&amp;/g, "&") || "";
+const hostileNextHref = hostileQuestionOnlyMirrorHtml.match(/class="device-next-link" href="(inbox\.html\?[^"]+)"/)?.[1]?.replace(/&amp;/g, "&") || "";
 const hostileNextParams = new URLSearchParams(hostileNextHref.split("?")[1] || "");
 assert.match(hostileNextParams.get("quote") || "", /Can mirror links carry <script>alert\("x"\)<\/script> & #hash \?q=1emoji 😀 RTL שלום/);
 assert.doesNotMatch(hostileNextParams.get("quote") || "", /[\r\n]/);
@@ -2129,7 +2133,9 @@ for (let index = 0; index < 6; index += 1) {
 }
 const overflowMirrorIndexHtml = generateMirrorIndexHtml(overflowMirrorQuestionWorkspace, frozenToday);
 assert.match(overflowMirrorIndexHtml, /Open Question Preview/);
-assert.match(overflowMirrorIndexHtml, /2 more open questions in <a href="TODAY\.md">TODAY\.md<\/a>/);
+assert.match(overflowMirrorIndexHtml, /2 more open questions in/);
+assert.match(overflowMirrorIndexHtml, /还有 2 个开放问题在/);
+assert.match(overflowMirrorIndexHtml, /<a href="TODAY\.md">TODAY\.md<\/a>/);
 assert.doesNotMatch(overflowMirrorIndexHtml, /<script>alert/);
 assert.doesNotMatch(overflowMirrorIndexHtml, /"quotes"/);
 assert.match(overflowMirrorIndexHtml, /What about &lt;script&gt;alert\(&quot;x&quot;\)&lt;\/script&gt; &amp; &quot;quotes&quot;\?/);
@@ -2483,6 +2489,9 @@ assert.equal((manyCardsReviewHtml.match(/<article class="card"/g) || []).length,
 
 const mirrorIndexHtml = generateMirrorIndexHtml(multiReviewWorkspace, frozenToday);
 assert.match(mirrorIndexHtml, /Learning Companion Mirror/);
+assert.match(mirrorIndexHtml, /学习伴侣镜像/);
+assert.match(mirrorIndexHtml, /mirror-language-switch/);
+assert.match(mirrorIndexHtml, /id="mirrorLangZh"/);
 assert.match(mirrorIndexHtml, /href="TODAY\.md"/);
 assert.match(mirrorIndexHtml, /href="review\.html"/);
 assert.match(mirrorIndexHtml, /href="inbox\.html"/);
@@ -2490,22 +2499,34 @@ assert.match(mirrorIndexHtml, /href="workspace\.json"/);
 assert.match(mirrorIndexHtml, /Next from this export/);
 assert.ok(mirrorIndexHtml.indexOf("Next from this export") < mirrorIndexHtml.indexOf("Mirror entry points"));
 assert.match(mirrorIndexHtml, /Review due cards/);
+assert.match(mirrorIndexHtml, /复习到期卡片/);
 assert.match(mirrorIndexHtml, /2 due cards/);
-assert.doesNotMatch(mirrorIndexHtml, /target="_blank" rel="noreferrer noopener"><strong>Review due cards/);
+assert.doesNotMatch(mirrorIndexHtml, /class="device-next-link" href="review\.html" target="_blank"/);
 assert.match(mirrorIndexHtml, /As of 2099-01-02T08:00:00\+08:00/);
 assert.match(mirrorIndexHtml, /device-next-link:focus-visible/);
 assert.match(mirrorIndexHtml, /device-next-secondary:focus-visible/);
 assert.match(mirrorIndexHtml, /span\.device-next-secondary/);
 assert.match(mirrorIndexHtml, /Manual Return/);
+assert.match(mirrorIndexHtml, /手动返回/);
 assert.match(mirrorIndexHtml, /Read Today/);
+assert.match(mirrorIndexHtml, /阅读今日/);
 assert.match(mirrorIndexHtml, /Work here/);
 assert.match(mirrorIndexHtml, /Return file back to Mac/);
 assert.match(mirrorIndexHtml, /Static mirror only/);
+assert.match(mirrorIndexHtml, /仅静态镜像/);
 assert.match(mirrorIndexHtml, /Today &gt; Return Files/);
 assert.match(mirrorIndexHtml, /href="sessions\/.+\.md"/);
 assert.match(mirrorIndexHtml, /Resume Here/);
+assert.match(mirrorIndexHtml, /从这里继续/);
 assert.match(mirrorIndexHtml, /Review 1 due card/);
 assert.match(mirrorIndexHtml, /Why: Active topic has due review due now/);
+assert.match(mirrorIndexHtml, /原因：Active topic has due review due now/);
+assert.match(mirrorIndexHtml, /Session:/);
+assert.match(mirrorIndexHtml, /主题：/);
+assert.match(mirrorIndexHtml, /Source:/);
+assert.match(mirrorIndexHtml, /来源：/);
+assert.match(mirrorIndexHtml, /Latest:/);
+assert.match(mirrorIndexHtml, /最新：/);
 assert.match(mirrorIndexHtml, /Open Question Preview/);
 assert.match(mirrorIndexHtml, /No open questions captured yet/);
 assert.match(generateMirrorIndexHtml(workspace, focusNow), /href="https:\/\/www\.youtube\.com\/watch\?v=rust123&amp;t=492s"/);
@@ -2513,6 +2534,7 @@ assert.match(mirrorIndexHtml, /Content-Security-Policy/);
 assert.match(mirrorIndexHtml, /learning-companion-workspace-fingerprint/);
 assert.match(mirrorIndexHtml, /learning-companion-return-base-fingerprint/);
 assert.match(mirrorIndexHtml, /Return-ready mirror/);
+assert.match(mirrorIndexHtml, /可返回的镜像/);
 assert.match(mirrorIndexHtml, /Mac return-base check/);
 assert.match(mirrorIndexHtml, /source\.returnBaseFingerprint/);
 assert.doesNotMatch(mirrorIndexHtml, /Return JSON back to Mac/);
@@ -2528,7 +2550,8 @@ const noSourceMirrorWorkspace = updateSession(noSourceBase, noSourceSession.id, 
 const noSourceMirrorIndexHtml = generateMirrorIndexHtml(noSourceMirrorWorkspace, frozenToday);
 assert.match(noSourceMirrorIndexHtml, /Next from this export/);
 assert.match(noSourceMirrorIndexHtml, /Capture on this device/);
-assert.match(noSourceMirrorIndexHtml, /href="inbox\.html"><strong>Capture on this device/);
+assert.match(noSourceMirrorIndexHtml, /在此设备摘录/);
+assert.match(noSourceMirrorIndexHtml, /class="device-next-link" href="inbox\.html"/);
 assert.match(noSourceMirrorIndexHtml, /No due cards or open questions; return by JSON/);
 assert.doesNotMatch(noSourceMirrorIndexHtml, /Read source on this device/);
 const sourceOnlyBase = createDefaultWorkspace();
@@ -2541,11 +2564,14 @@ const sourceOnlyWorkspace = updateSession(sourceOnlyBase, sourceOnlySession.id, 
 const sourceOnlyMirrorIndexHtml = generateMirrorIndexHtml(sourceOnlyWorkspace, frozenToday);
 assert.match(sourceOnlyMirrorIndexHtml, /Next from this export/);
 assert.match(sourceOnlyMirrorIndexHtml, /Read source on this device/);
-assert.match(sourceOnlyMirrorIndexHtml, /href="https:\/\/example\.com\/device-reading" target="_blank" rel="noreferrer noopener"><strong>Read source on this device/);
+assert.match(sourceOnlyMirrorIndexHtml, /在此设备阅读来源/);
+assert.match(sourceOnlyMirrorIndexHtml, /href="https:\/\/example\.com\/device-reading" target="_blank" rel="noreferrer noopener"/);
 assert.match(sourceOnlyMirrorIndexHtml, /Device reading source · then return to Inbox to save a note for Mac\./);
+assert.match(sourceOnlyMirrorIndexHtml, /然后回到收件箱/);
 assert.match(sourceOnlyMirrorIndexHtml, /Source linked; come back to this mirror tab for return JSON/);
-assert.match(sourceOnlyMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
-assert.doesNotMatch(sourceOnlyMirrorIndexHtml, /<strong>Capture on this device/);
+assert.match(sourceOnlyMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">[\s\S]*?Then capture in Inbox\./);
+assert.match(sourceOnlyMirrorIndexHtml, /然后在收件箱摘录/);
+assert.doesNotMatch(sourceOnlyMirrorIndexHtml, /class="device-next-link" href="inbox\.html"/);
 const sourceResumeBase = createDefaultWorkspace();
 const sourceResumeSession = getActiveSession(sourceResumeBase);
 let sourceResumeWorkspace = updateSession(sourceResumeBase, sourceResumeSession.id, {
@@ -2560,10 +2586,12 @@ sourceResumeWorkspace = addCapture(sourceResumeWorkspace, sourceResumeSession.id
 }, { now: "2099-01-02T00:45:00.000Z" });
 const sourceResumeMirrorIndexHtml = generateMirrorIndexHtml(sourceResumeWorkspace, frozenToday);
 assert.match(sourceResumeMirrorIndexHtml, /Resume source on this device/);
-assert.match(sourceResumeMirrorIndexHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=device123&amp;t=95s" target="_blank" rel="noreferrer noopener"><strong>Resume source on this device/);
+assert.match(sourceResumeMirrorIndexHtml, /在此设备继续来源/);
+assert.match(sourceResumeMirrorIndexHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=device123&amp;t=95s" target="_blank" rel="noreferrer noopener"/);
 assert.match(sourceResumeMirrorIndexHtml, /Device video source @ 01:35 · then return to Inbox to save a note for Mac\./);
 assert.match(sourceResumeMirrorIndexHtml, /Source moment available; come back to this mirror tab for return JSON/);
-assert.match(sourceResumeMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\./);
+assert.match(sourceResumeMirrorIndexHtml, /class="device-next-secondary" href="inbox\.html">[\s\S]*?Then capture in Inbox\./);
+assert.match(sourceResumeMirrorIndexHtml, /然后在收件箱摘录/);
 const unsafeSourceMirrorWorkspace = updateSession(noSourceBase, noSourceSession.id, {
   sourceTitle: "Unsafe source",
   sourceUrl: "javascript:alert(1)",
@@ -2571,6 +2599,7 @@ const unsafeSourceMirrorWorkspace = updateSession(noSourceBase, noSourceSession.
 });
 const unsafeSourceMirrorIndexHtml = generateMirrorIndexHtml(unsafeSourceMirrorWorkspace, frozenToday);
 assert.match(unsafeSourceMirrorIndexHtml, /Capture on this device/);
+assert.match(unsafeSourceMirrorIndexHtml, /在此设备摘录/);
 assert.doesNotMatch(unsafeSourceMirrorIndexHtml, /Read source on this device|Resume source on this device|javascript:alert/);
 const bareQuestionWorkspace = addCapture(noSourceMirrorWorkspace, noSourceSession.id, {
   thought: "Question:",

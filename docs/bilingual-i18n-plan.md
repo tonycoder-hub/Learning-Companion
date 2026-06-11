@@ -40,6 +40,15 @@ The third implementation slice extends the app UI surface to:
 
 It does not cover static mirrors, generated receipts, QA runbooks, native Mac shell copy, Windows/HarmonyOS surfaces, or full document export language.
 
+The fourth implementation slice should cover the static mirror entry point:
+
+- bilingual static mirror index heading, generated summary, next action, and return-ready guidance,
+- bilingual manual return instructions,
+- bilingual resume/source/session summary labels,
+- static smoke assertions proving both English and Chinese copy are emitted.
+
+This slice still must not be treated as full bilingual coverage until generated Review/Inbox static pages, receipts, native shells, Windows/HarmonyOS surfaces, and document exports are also covered or explicitly marked out of scope.
+
 ## External Source Visual Validation
 
 Future study-loop validation should include public or user-approved non-private reading/video material and store screenshots under project-local `.codex-tmp/`.
@@ -54,3 +63,7 @@ Record for each run:
 - screenshot showing source resume after saving.
 
 Do not use authenticated/private pages, cookies, or sensitive content. A screenshot is visual evidence only; it is not proof of live playback, platform compatibility, or human comprehension unless the test actually exercises and records that behavior.
+
+## Continuation TODO
+
+Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index bilingual slice is locally verified; the next step is to add external document/video screenshot validation with approved non-private sources and continue bilingual coverage into static Review/Inbox and generated artifacts.
