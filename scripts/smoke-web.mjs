@@ -144,7 +144,36 @@ assert.match(appJs, /openSearchResult\(results\[Math\.max\(0, activeSearchIndex\
 assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 4/);
 assert.match(appJs, /language: normalizeUiLanguage\(parsed\.language\)/);
 assert.match(appJs, /function langText\(en, zh\)/);
+assert.match(appJs, /function languageText\(language, en, zh\)/);
 assert.match(appJs, /document\.documentElement\.lang = language === "zh" \? "zh-CN" : "en"/);
+assert.match(appJs, /function importReceiptTitle\(receipt, language = currentLanguage\(\)\)/);
+assert.match(appJs, /function formatImportReceipt\(receipt, language = currentLanguage\(\)\)/);
+assert.match(appJs, /function formatReturnFilesReceipt\(receipt, language = currentLanguage\(\)\)/);
+assert.match(appJs, /function returnedWorkTitle\(work, language = currentLanguage\(\)\)/);
+assert.match(appJs, /formatImportReceipt\(lastImportReceipt, "en"\)/);
+assert.match(appJs, /formatImportReceipt\(lastImportReceipt, "zh"\)/);
+[
+  "Return files imported",
+  "Mobile inbox imported",
+  "Review progress imported",
+  "Import issue",
+  "Open Return Files",
+  "Import failed",
+  "Last import:",
+  "返回文件已导入",
+  "移动收件箱已导入",
+  "复习进度已导入",
+  "导入问题",
+  "导入失败",
+  "打开返回文件",
+  "上次导入：",
+  "镜像基线已变化 - 下次设备处理前请导出更新镜像",
+  "刷新卡片",
+  "查看已关闭问题",
+  "导入详情"
+].forEach((text) => assert.ok(appJs.includes(text), `app.js should include bilingual receipt copy: ${text}`));
+assert.match(appJs, /schema === "learning-companion\.return-files-receipt\.v1"/);
+assert.match(appJs, /kind: "return-files"/);
 assert.match(appJs, /renderCaptureStarterCopy/);
 assert.match(appJs, /workspaceBackupFingerprint/);
 assert.match(appJs, /workspaceStorageNotice/);

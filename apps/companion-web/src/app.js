@@ -613,7 +613,12 @@ function applyParsedReturnFiles(returnFiles = [], parseSummary = emptyReturnFile
     }
   }
   completeReturnFilesReceipt(summary);
-  if (summary.failedFiles) showToast(`${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`);
+  if (summary.failedFiles) {
+    showToast(langText(
+      `${summary.failedFiles} return ${summary.failedFiles === 1 ? "file" : "files"} failed`,
+      `${summary.failedFiles} 个返回文件失败`
+    ));
+  }
 }
 
 function completeReturnFilesReceipt(summary) {
@@ -627,7 +632,10 @@ function completeReturnFilesReceipt(summary) {
     tab: "today",
     targetId: ""
   });
-  finishReturnFileImport(`Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`);
+  finishReturnFileImport(langText(
+    `Return files: ${summary.processedFiles} processed, ${summary.failedFiles} failed`,
+    `返回文件：${summary.processedFiles} 个已处理，${summary.failedFiles} 个失败`
+  ));
 }
 
 function cloneReturnFilesReceipt(summary) {
@@ -691,12 +699,15 @@ function importPortableData(imported, options = {}) {
       lastImportReceipt = response.receipt;
       dismissedReturnNudgeKey = "";
       setActivity(getActiveSession(workspace), {
-        title: "Mobile inbox imported",
+        title: importReceiptTitle(response.receipt),
         detail: formatInboxReceipt(response.receipt),
         tab: "today",
         targetId: ""
       });
-      finishReturnFileImport(`Inbox import: ${response.receipt.added} added`);
+      finishReturnFileImport(langText(
+        `Inbox import: ${response.receipt.added} added`,
+        `收件箱导入：${response.receipt.added} 条新增`
+      ));
     }
     return response;
   }
@@ -708,12 +719,15 @@ function importPortableData(imported, options = {}) {
       lastImportReceipt = result.receipt;
       dismissedReturnNudgeKey = "";
       setActivity(getActiveSession(workspace), {
-        title: "Review progress imported",
+        title: importReceiptTitle(result.receipt),
         detail: formatImportReceipt(result.receipt),
         tab: "today",
         targetId: ""
       });
-      finishReturnFileImport(`Review import: ${result.receipt.applied} applied`);
+      finishReturnFileImport(langText(
+        `Review import: ${result.receipt.applied} applied`,
+        `复习导入：${result.receipt.applied} 条已应用`
+      ));
     }
     return {
       ok: true,
@@ -1102,7 +1116,11 @@ function isChineseUi() {
 }
 
 function langText(en, zh) {
-  return isChineseUi() ? zh : en;
+  return languageText(currentLanguage(), en, zh);
+}
+
+function languageText(language, en, zh) {
+  return normalizeUiLanguage(language) === "zh" ? zh : en;
 }
 
 function sessionCountText(count) {
@@ -3795,70 +3813,76 @@ function renderImportReceipt() {
   }
 }
 
-function importReceiptTitle(receipt) {
-  if (receipt?.schema === "learning-companion.return-files-receipt.v1") return "Return files imported";
-  if (receipt?.schema === "learning-companion.review-progress-receipt.v1") return "Review progress imported";
-  if (receipt?.schema === "learning-companion.import-error-receipt.v1") return "Import issue";
-  return "Mobile inbox imported";
-}
-
-function formatImportReceipt(receipt) {
-  if (receipt?.schema === "learning-companion.import-error-receipt.v1") {
-    return formatImportErrorReceipt(receipt);
-  }
+function importReceiptTitle(receipt, language = currentLanguage()) {
   if (receipt?.schema === "learning-companion.return-files-receipt.v1") {
-    return formatReturnFilesReceipt(receipt);
+    return languageText(language, "Return files imported", "返回文件已导入");
   }
   if (receipt?.schema === "learning-companion.review-progress-receipt.v1") {
-    return formatReviewProgressReceipt(receipt);
+    return languageText(language, "Review progress imported", "复习进度已导入");
   }
-  return formatInboxReceipt(receipt);
+  if (receipt?.schema === "learning-companion.import-error-receipt.v1") {
+    return languageText(language, "Import issue", "导入问题");
+  }
+  return languageText(language, "Mobile inbox imported", "移动收件箱已导入");
 }
 
-function importReceiptAction(receipt) {
+function formatImportReceipt(receipt, language = currentLanguage()) {
+  if (receipt?.schema === "learning-companion.import-error-receipt.v1") {
+    return formatImportErrorReceipt(receipt, language);
+  }
+  if (receipt?.schema === "learning-companion.return-files-receipt.v1") {
+    return formatReturnFilesReceipt(receipt, language);
+  }
+  if (receipt?.schema === "learning-companion.review-progress-receipt.v1") {
+    return formatReviewProgressReceipt(receipt, language);
+  }
+  return formatInboxReceipt(receipt, language);
+}
+
+function importReceiptAction(receipt, language = currentLanguage()) {
   if (!receipt) return null;
   if (receipt.schema === "learning-companion.import-error-receipt.v1") {
     return {
       kind: "return-files",
-      label: "Open Return Files",
-      ariaLabel: "Open Return Files to inspect the import issue",
+      label: languageText(language, "Open Return Files", "打开返回文件"),
+      ariaLabel: languageText(language, "Open Return Files to inspect the import issue", "打开返回文件以检查导入问题"),
       run: openReturnFilesFromReceipt
     };
   }
   const work = returnReceiptNewWork(receipt);
   if (work.inboxAdded) {
     const hasReviewUpdate = Boolean(work.reviewApplied);
-    const answerFollowup = returnedAnswerFollowup(work);
+    const answerFollowup = returnedAnswerFollowup(work, language);
     const closedQuestionTarget = returnRejoinTarget(receipt, "closed_question");
     const captureTarget = returnRejoinTarget(receipt, "capture");
     if (answerFollowup && !hasReviewUpdate) {
       return {
         kind: "returned-answer",
         label: answerFollowup.label,
-        ariaLabel: `${answerFollowup.label} from the returned file`,
+        ariaLabel: languageText(language, `${answerFollowup.label} from the returned file`, `打开返回文件中的${answerFollowup.label}`),
         run: closedQuestionTarget ? () => openReturnRejoinTarget(closedQuestionTarget, "closed_questions") : answerFollowup.run
       };
     }
     return {
       kind: "returned-capture",
-      label: captureTarget ? "View latest capture" : "View captures",
-      ariaLabel: "Open captures returned from phone or Windows",
+      label: languageText(language, captureTarget ? "View latest capture" : "View captures", captureTarget ? "查看最新摘录" : "查看摘录"),
+      ariaLabel: languageText(language, "Open captures returned from phone or Windows", "打开手机或 Windows 返回的摘录"),
       run: captureTarget ? () => openReturnRejoinTarget(captureTarget, "recent_captures") : () => jumpToTodaySection("recent_captures")
     };
   }
   if (work.reviewApplied) {
     return {
       kind: "returned-review",
-      label: "Review status",
-      ariaLabel: "Open review status from the returned file",
+      label: languageText(language, "Review status", "查看复习状态"),
+      ariaLabel: languageText(language, "Open review status from the returned file", "打开返回文件中的复习状态"),
       run: () => openReturnedReviewStatus(work)
     };
   }
   if (receipt.schema === "learning-companion.return-files-receipt.v1" && receipt.failedFiles) {
     return {
       kind: "return-files",
-      label: "Open Return Files",
-      ariaLabel: "Open Return Files to inspect failed files",
+      label: languageText(language, "Open Return Files", "打开返回文件"),
+      ariaLabel: languageText(language, "Open Return Files to inspect failed files", "打开返回文件以检查失败文件"),
       run: openReturnFilesFromReceipt
     };
   }
@@ -4018,117 +4042,163 @@ function recordImportFailure(message, fileName = "") {
   if (activeTab === "today") renderToday();
 }
 
-function formatImportErrorReceipt(receipt) {
+function formatImportErrorReceipt(receipt, language = currentLanguage()) {
   if (!receipt) return "";
   const source = receipt.fileName ? `${receipt.fileName}: ` : "";
-  return `${source}${receipt.message}`;
+  return `${source}${receipt.message || languageText(language, "Import failed", "导入失败")}`;
 }
 
-function formatInboxReceipt(receipt) {
+function formatInboxReceipt(receipt, language = currentLanguage()) {
   if (!receipt) return "";
   const resolution = {
-    "id-match": "topic id matched",
-    "title-match": "title matched",
-    "active-fallback": `fell back to active topic`,
-    "duplicate-patch": "duplicate patch skipped"
+    "id-match": languageText(language, "topic id matched", "主题 ID 匹配"),
+    "title-match": languageText(language, "title matched", "标题匹配"),
+    "active-fallback": languageText(language, "fell back to active topic", "回退到当前主题"),
+    "duplicate-patch": languageText(language, "duplicate patch skipped", "重复 patch 已跳过")
   }[receipt.targetResolution] || receipt.targetResolution;
   const sanitized = receipt.sanitizedSourceUrls
-    ? ` · ${receipt.sanitizedSourceUrls} source ${receipt.sanitizedSourceUrls === 1 ? "link" : "links"} stripped`
+    ? languageText(language,
+      ` · ${receipt.sanitizedSourceUrls} source ${receipt.sanitizedSourceUrls === 1 ? "link" : "links"} stripped`,
+      ` · 已移除 ${receipt.sanitizedSourceUrls} 个来源链接`)
     : "";
   const answered = receipt.answeredQuestions
-    ? ` · ${receipt.answeredQuestions} ${receipt.answeredQuestions === 1 ? "question" : "questions"} resolved`
+    ? languageText(language,
+      ` · ${receipt.answeredQuestions} ${receipt.answeredQuestions === 1 ? "question" : "questions"} resolved`,
+      ` · ${receipt.answeredQuestions} 个问题已解决`)
     : "";
   const refreshable = receipt.refreshableReviewCards
-    ? ` · ${receipt.refreshableReviewCards} ${receipt.refreshableReviewCards === 1 ? "card" : "cards"} ready to refresh`
+    ? languageText(language,
+      ` · ${receipt.refreshableReviewCards} ${receipt.refreshableReviewCards === 1 ? "card" : "cards"} ready to refresh`,
+      ` · ${receipt.refreshableReviewCards} 张卡片可刷新`)
     : "";
   const answerSkipped = receipt.skippedAnswerTargets
-    ? ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips)}`
+    ? languageText(language,
+      ` · ${receipt.skippedAnswerTargets} answer ${receipt.skippedAnswerTargets === 1 ? "target" : "targets"} skipped${formatAnswerTargetSkips(receipt.answerTargetSkips, language)}`,
+      ` · 已跳过 ${receipt.skippedAnswerTargets} 个回答目标${formatAnswerTargetSkips(receipt.answerTargetSkips, language)}`)
     : "";
-  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed - export updated mirror before next device pass" : "";
-  const legacyBasis = formatLegacyBasisNote(receipt);
-  return `${receipt.added} added, ${receipt.skippedDuplicate} skipped${sanitized}${answered}${refreshable}${answerSkipped}${baseChanged}${legacyBasis} · ${resolution} · ${receipt.targetSessionTitle}`;
+  const baseChanged = receipt.sourceFingerprintMatches === false
+    ? languageText(language, " · mirror base changed - export updated mirror before next device pass", " · 镜像基线已变化 - 下次设备处理前请导出更新镜像")
+    : "";
+  const legacyBasis = formatLegacyBasisNote(receipt, language);
+  const summary = languageText(language,
+    `${receipt.added} added, ${receipt.skippedDuplicate} skipped`,
+    `${receipt.added} 条新增，${receipt.skippedDuplicate} 条跳过`);
+  return `${summary}${sanitized}${answered}${refreshable}${answerSkipped}${baseChanged}${legacyBasis} · ${resolution} · ${receipt.targetSessionTitle}`;
 }
 
-function formatAnswerTargetSkips(skips = {}) {
-  const labels = {
-    invalid: "invalid",
-    selfReference: "self",
-    patchReference: "same patch",
-    missing: "missing",
-    nonQuestion: "not question",
-    alreadyClosed: "already closed"
-  };
+function formatAnswerTargetSkips(skips = {}, language = currentLanguage()) {
+  const labels = normalizeUiLanguage(language) === "zh"
+    ? {
+      invalid: "无效",
+      selfReference: "自引用",
+      patchReference: "同一 patch",
+      missing: "缺失",
+      nonQuestion: "不是问题",
+      alreadyClosed: "已关闭"
+    }
+    : {
+      invalid: "invalid",
+      selfReference: "self",
+      patchReference: "same patch",
+      missing: "missing",
+      nonQuestion: "not question",
+      alreadyClosed: "already closed"
+    };
   const parts = Object.entries(labels)
     .map(([key, label]) => {
       const count = Number(skips[key]) || 0;
       return count ? `${label}: ${count}` : "";
     })
     .filter(Boolean);
-  return parts.length ? ` (${parts.join(", ")})` : "";
+  return parts.length
+    ? languageText(language, ` (${parts.join(", ")})`, `（${parts.join("，")}）`)
+    : "";
 }
 
-function formatReviewProgressReceipt(receipt) {
+function formatReviewProgressReceipt(receipt, language = currentLanguage()) {
   if (!receipt) return "";
-  const duplicate = receipt.skippedDuplicate ? `, ${receipt.skippedDuplicate} duplicate` : "";
-  const missing = receipt.skippedMissing ? `, ${receipt.skippedMissing} missing` : "";
-  const conflict = receipt.skippedConflict ? `, ${receipt.skippedConflict} stale` : "";
-  const invalid = receipt.skippedInvalid ? `, ${receipt.skippedInvalid} invalid` : "";
-  const baseChanged = receipt.sourceFingerprintMatches === false ? " · mirror base changed - export updated mirror before next device pass" : "";
-  const legacyBasis = formatLegacyBasisNote(receipt);
-  return `${receipt.applied} applied${duplicate}${missing}${conflict}${invalid} · ${receipt.totalEvents} events${baseChanged}${legacyBasis}`;
+  const duplicate = receipt.skippedDuplicate ? languageText(language, `, ${receipt.skippedDuplicate} duplicate`, `，${receipt.skippedDuplicate} 条重复`) : "";
+  const missing = receipt.skippedMissing ? languageText(language, `, ${receipt.skippedMissing} missing`, `，${receipt.skippedMissing} 条缺失`) : "";
+  const conflict = receipt.skippedConflict ? languageText(language, `, ${receipt.skippedConflict} stale`, `，${receipt.skippedConflict} 条过期`) : "";
+  const invalid = receipt.skippedInvalid ? languageText(language, `, ${receipt.skippedInvalid} invalid`, `，${receipt.skippedInvalid} 条无效`) : "";
+  const baseChanged = receipt.sourceFingerprintMatches === false
+    ? languageText(language, " · mirror base changed - export updated mirror before next device pass", " · 镜像基线已变化 - 下次设备处理前请导出更新镜像")
+    : "";
+  const legacyBasis = formatLegacyBasisNote(receipt, language);
+  const applied = languageText(language, `${receipt.applied} applied`, `${receipt.applied} 条已应用`);
+  const events = languageText(language, `${receipt.totalEvents} events`, `${receipt.totalEvents} 个事件`);
+  return `${applied}${duplicate}${missing}${conflict}${invalid} · ${events}${baseChanged}${legacyBasis}`;
 }
 
-function formatReturnFilesReceipt(receipt) {
+function formatReturnFilesReceipt(receipt, language = currentLanguage()) {
   if (!receipt) return "";
-  const parts = [`${receipt.processedFiles}/${receipt.fileCount} files processed`];
+  const parts = [languageText(language, `${receipt.processedFiles}/${receipt.fileCount} files processed`, `${receipt.processedFiles}/${receipt.fileCount} 个文件已处理`)];
   if (receipt.baseChangedFiles) {
-    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames)} - export updated mirror before next device pass`);
+    parts.push(languageText(language,
+      `${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed${formatBaseChangedFileNames(receipt.baseChangedFileNames, language)} - export updated mirror before next device pass`,
+      `${receipt.baseChangedFiles} 个镜像基线已变化${formatBaseChangedFileNames(receipt.baseChangedFileNames, language)} - 下次设备处理前请导出更新镜像`));
   }
   if (receipt.legacyBasisFiles) {
-    parts.push(`${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames)} - older return ${receipt.legacyBasisFiles === 1 ? "file" : "files"} from previous mirror export, export updated mirror before next device pass`);
+    parts.push(languageText(language,
+      `${receipt.legacyBasisFiles} legacy mirror ${receipt.legacyBasisFiles === 1 ? "check" : "checks"}${formatBaseChangedFileNames(receipt.legacyBasisFileNames, language)} - older return ${receipt.legacyBasisFiles === 1 ? "file" : "files"} from previous mirror export, export updated mirror before next device pass`,
+      `${receipt.legacyBasisFiles} 个旧镜像检查${formatBaseChangedFileNames(receipt.legacyBasisFileNames, language)} - 较早返回文件来自上一版镜像导出，下次设备处理前请导出更新镜像`));
   }
   if (receipt.inbox?.files) {
-    const answered = receipt.inbox.answeredQuestions ? `, ${receipt.inbox.answeredQuestions} questions resolved` : "";
-    const refreshable = receipt.inbox.refreshableReviewCards ? `, ${receipt.inbox.refreshableReviewCards} cards ready` : "";
-    const answerSkipped = receipt.inbox.skippedAnswerTargets ? `, ${receipt.inbox.skippedAnswerTargets} answer targets skipped` : "";
-    parts.push(`inbox: ${receipt.inbox.added} added, ${receipt.inbox.skippedDuplicate} skipped${answered}${refreshable}${answerSkipped}`);
+    const answered = receipt.inbox.answeredQuestions
+      ? languageText(language, `, ${receipt.inbox.answeredQuestions} questions resolved`, `，${receipt.inbox.answeredQuestions} 个问题已解决`)
+      : "";
+    const refreshable = receipt.inbox.refreshableReviewCards
+      ? languageText(language, `, ${receipt.inbox.refreshableReviewCards} cards ready`, `，${receipt.inbox.refreshableReviewCards} 张卡片可刷新`)
+      : "";
+    const answerSkipped = receipt.inbox.skippedAnswerTargets
+      ? languageText(language, `, ${receipt.inbox.skippedAnswerTargets} answer targets skipped`, `，已跳过 ${receipt.inbox.skippedAnswerTargets} 个回答目标`)
+      : "";
+    parts.push(languageText(language,
+      `inbox: ${receipt.inbox.added} added, ${receipt.inbox.skippedDuplicate} skipped${answered}${refreshable}${answerSkipped}`,
+      `收件箱：${receipt.inbox.added} 条新增，${receipt.inbox.skippedDuplicate} 条跳过${answered}${refreshable}${answerSkipped}`));
   }
   if (receipt.review?.files) {
-    const duplicate = receipt.review.skippedDuplicate ? `, ${receipt.review.skippedDuplicate} duplicate` : "";
-    const missing = receipt.review.skippedMissing ? `, ${receipt.review.skippedMissing} missing` : "";
-    const conflict = receipt.review.skippedConflict ? `, ${receipt.review.skippedConflict} stale` : "";
-    const invalid = receipt.review.skippedInvalid ? `, ${receipt.review.skippedInvalid} invalid` : "";
-    parts.push(`review: ${receipt.review.applied} applied${duplicate}${missing}${conflict}${invalid}`);
+    const duplicate = receipt.review.skippedDuplicate ? languageText(language, `, ${receipt.review.skippedDuplicate} duplicate`, `，${receipt.review.skippedDuplicate} 条重复`) : "";
+    const missing = receipt.review.skippedMissing ? languageText(language, `, ${receipt.review.skippedMissing} missing`, `，${receipt.review.skippedMissing} 条缺失`) : "";
+    const conflict = receipt.review.skippedConflict ? languageText(language, `, ${receipt.review.skippedConflict} stale`, `，${receipt.review.skippedConflict} 条过期`) : "";
+    const invalid = receipt.review.skippedInvalid ? languageText(language, `, ${receipt.review.skippedInvalid} invalid`, `，${receipt.review.skippedInvalid} 条无效`) : "";
+    parts.push(languageText(language,
+      `review: ${receipt.review.applied} applied${duplicate}${missing}${conflict}${invalid}`,
+      `复习：${receipt.review.applied} 条已应用${duplicate}${missing}${conflict}${invalid}`));
   }
   if (receipt.failedFiles) {
     const first = receipt.errors?.[0];
     const detail = first ? ` (${first.fileName ? `${first.fileName}: ` : ""}${first.message})` : "";
-    parts.push(`${receipt.failedFiles} failed${detail}`);
+    parts.push(languageText(language, `${receipt.failedFiles} failed${detail}`, `${receipt.failedFiles} 个失败${detail}`));
   }
   return parts.join(" · ");
 }
 
-function formatLegacyBasisNote(receipt) {
+function formatLegacyBasisNote(receipt, language = currentLanguage()) {
   return receipt?.sourceFingerprintBasis === "workspace"
-    ? " · legacy mirror check (older return file from previous mirror export; export updated mirror before next device pass)"
+    ? languageText(language,
+      " · legacy mirror check (older return file from previous mirror export; export updated mirror before next device pass)",
+      " · 旧镜像检查（较早返回文件来自上一版镜像导出；下次设备处理前请导出更新镜像）")
     : "";
 }
 
-function formatBaseChangedFileNames(fileNames = []) {
+function formatBaseChangedFileNames(fileNames = [], language = currentLanguage()) {
   const names = fileNames
     .map((name) => String(name || "").trim())
     .filter(Boolean)
     .slice(0, 3);
   if (!names.length) return "";
   const hidden = Math.max(0, fileNames.length - names.length);
-  return ` (${names.join(", ")}${hidden ? `, +${hidden} more` : ""})`;
+  return ` (${names.join(", ")}${hidden ? languageText(language, `, +${hidden} more`, `，另 ${hidden} 个`) : ""})`;
 }
 
-function returnFilesActivityTitle(receipt) {
+function returnFilesActivityTitle(receipt, language = currentLanguage()) {
   const inbox = Number(receipt?.inbox?.files) || 0;
   const review = Number(receipt?.review?.files) || 0;
-  if (!inbox && !review) return "Return file import issue";
-  return `Return files imported (${inbox} inbox, ${review} review)`;
+  if (!inbox && !review) return languageText(language, "Return file import issue", "返回文件导入问题");
+  return languageText(language,
+    `Return files imported (${inbox} inbox, ${review} review)`,
+    `返回文件已导入（${inbox} 个收件箱，${review} 个复习）`);
 }
 
 function renderMetrics() {
@@ -5262,52 +5332,59 @@ function returnedWorkNudge(pack) {
   if (dismissedReturnNudgeKey === nudgeKey) return null;
   const work = returnReceiptNewWork(receipt);
   if (!work.newItems) return null;
-  const fileDetail = returnedFileDetail(receipt);
-  const failedDetail = returnedFailedDetail(receipt);
-  const captureDetail = work.inboxAdded ? `${work.inboxAdded} returned ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
-  const answerDetail = returnedAnswerDetail(work);
-  const reviewDetail = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"} applied` : "";
-  const basisDetail = returnedBasisDetail(receipt);
+  const language = currentLanguage();
+  const fileDetail = returnedFileDetail(receipt, language);
+  const failedDetail = returnedFailedDetail(receipt, language);
+  const captureDetail = work.inboxAdded
+    ? languageText(language, `${work.inboxAdded} returned ${work.inboxAdded === 1 ? "capture" : "captures"}`, `${work.inboxAdded} 条返回摘录`)
+    : "";
+  const answerDetail = returnedAnswerDetail(work, language);
+  const reviewDetail = work.reviewApplied
+    ? languageText(language, `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"} applied`, `${work.reviewApplied} 条复习更新已应用`)
+    : "";
+  const basisDetail = returnedBasisDetail(receipt, language);
   const detail = [fileDetail, captureDetail, answerDetail, reviewDetail, basisDetail, failedDetail].filter(Boolean).join(" · ");
   if (work.inboxAdded) {
     const hasReviewUpdate = Boolean(work.reviewApplied);
-    const answerFollowup = returnedAnswerFollowup(work);
+    const answerFollowup = returnedAnswerFollowup(work, language);
     const closedQuestionTarget = returnRejoinTarget(receipt, "closed_question");
     const captureTarget = returnRejoinTarget(receipt, "capture");
     if (answerFollowup && !hasReviewUpdate) {
       return {
         kind: "inbox",
-        title: returnedWorkTitle(work),
+        title: returnedWorkTitle(work, language),
         detail,
         actionLabel: answerFollowup.label,
         run: closedQuestionTarget ? () => openReturnRejoinTarget(closedQuestionTarget, "closed_questions") : answerFollowup.run,
-        secondaryLabel: "View captures",
+        secondaryLabel: languageText(language, "View captures", "查看摘录"),
         secondaryRun: captureTarget ? () => openReturnRejoinTarget(captureTarget, "recent_captures") : () => jumpToTodaySection("recent_captures"),
-        tertiaryLabel: "Import details",
+        tertiaryLabel: languageText(language, "Import details", "导入详情"),
         tertiaryRun: openLastReturnReceipt
       };
     }
     return {
       kind: "inbox",
-      title: returnedWorkTitle(work),
+      title: returnedWorkTitle(work, language),
       detail,
-      actionLabel: captureTarget ? "View latest capture" : "View captures",
+      actionLabel: languageText(language, captureTarget ? "View latest capture" : "View captures", captureTarget ? "查看最新摘录" : "查看摘录"),
       run: captureTarget ? () => openReturnRejoinTarget(captureTarget, "recent_captures") : () => jumpToTodaySection("recent_captures"),
-      secondaryLabel: hasReviewUpdate ? "Review status" : answerFollowup?.label || "Import details",
+      secondaryLabel: hasReviewUpdate
+        ? languageText(language, "Review status", "查看复习状态")
+        : answerFollowup?.label || languageText(language, "Import details", "导入详情"),
       secondaryRun: hasReviewUpdate
         ? () => openReturnedReviewStatus(work)
         : closedQuestionTarget ? () => openReturnRejoinTarget(closedQuestionTarget, "closed_questions") : answerFollowup?.run || openLastReturnReceipt,
-      tertiaryLabel: hasReviewUpdate || answerFollowup ? "Import details" : "",
+      tertiaryLabel: hasReviewUpdate || answerFollowup ? languageText(language, "Import details", "导入详情") : "",
       tertiaryRun: hasReviewUpdate || answerFollowup ? openLastReturnReceipt : null
     };
   }
   return {
     kind: "review",
-    title: returnedWorkTitle(work),
+    title: returnedWorkTitle(work, language),
     detail,
-    actionLabel: "Review status",
+    actionLabel: languageText(language, "Review status", "查看复习状态"),
     run: () => openReturnedReviewStatus(work),
-    secondaryLabel: "Import details",
+    secondaryLabel: languageText(language, "Import details", "导入详情"),
     secondaryRun: openLastReturnReceipt
   };
 }
@@ -5315,14 +5392,15 @@ function returnedWorkNudge(pack) {
 function openReturnedReviewStatus(work = returnReceiptNewWork(lastImportReceipt)) {
   const applied = Number(work.reviewApplied) || 0;
   const due = getDueReviewItems(workspace).length;
+  const language = currentLanguage();
   setActivity(getActiveSession(workspace), {
-    title: applied ? "Review return applied" : "Review status",
+    title: applied ? languageText(language, "Review return applied", "复习返回已应用") : languageText(language, "Review status", "查看复习状态"),
     detail: due
-      ? `${due} due ${due === 1 ? "card" : "cards"} after the returned review file.`
-      : `${applied} returned review ${applied === 1 ? "update" : "updates"} applied; no cards are due right now.`,
+      ? languageText(language, `${due} due ${due === 1 ? "card" : "cards"} after the returned review file.`, `返回复习文件后有 ${due} 张待复习卡片。`)
+      : languageText(language, `${applied} returned review ${applied === 1 ? "update" : "updates"} applied; no cards are due right now.`, `${applied} 条返回复习更新已应用；当前没有到期卡片。`),
     tab: "today",
     targetSection: "due_review",
-    actionLabel: "Review status"
+    actionLabel: languageText(language, "Review status", "查看复习状态")
   });
   renderActivity(getActiveSession(workspace));
   jumpToTodaySection("due_review");
@@ -5342,11 +5420,18 @@ function returnReceiptNewWork(receipt) {
   };
 }
 
-function returnedWorkTitle(work) {
-  const captures = work.inboxAdded ? `${work.inboxAdded} new ${work.inboxAdded === 1 ? "capture" : "captures"}` : "";
-  const answers = work.answeredQuestions ? `${work.answeredQuestions} ${work.answeredQuestions === 1 ? "question" : "questions"} resolved` : "";
-  const reviews = work.reviewApplied ? `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"}` : "";
-  return `${[captures, answers, reviews].filter(Boolean).join(" · ")} from phone or Windows`;
+function returnedWorkTitle(work, language = currentLanguage()) {
+  const captures = work.inboxAdded
+    ? languageText(language, `${work.inboxAdded} new ${work.inboxAdded === 1 ? "capture" : "captures"}`, `${work.inboxAdded} 条新摘录`)
+    : "";
+  const answers = work.answeredQuestions
+    ? languageText(language, `${work.answeredQuestions} ${work.answeredQuestions === 1 ? "question" : "questions"} resolved`, `${work.answeredQuestions} 个问题已解决`)
+    : "";
+  const reviews = work.reviewApplied
+    ? languageText(language, `${work.reviewApplied} review ${work.reviewApplied === 1 ? "update" : "updates"}`, `${work.reviewApplied} 条复习更新`)
+    : "";
+  const source = languageText(language, "from phone or Windows", "来自手机或 Windows");
+  return `${[captures, answers, reviews].filter(Boolean).join(" · ")} ${source}`;
 }
 
 function returnedInboxAdded(receipt) {
@@ -5373,27 +5458,27 @@ function returnedInboxRefreshableReviewCards(receipt) {
   return 0;
 }
 
-function returnedAnswerDetail(work) {
+function returnedAnswerDetail(work, language = currentLanguage()) {
   const resolved = work.answeredQuestions
-    ? `${work.answeredQuestions} ${work.answeredQuestions === 1 ? "question" : "questions"} resolved`
+    ? languageText(language, `${work.answeredQuestions} ${work.answeredQuestions === 1 ? "question" : "questions"} resolved`, `${work.answeredQuestions} 个问题已解决`)
     : "";
   const refreshable = work.refreshableReviewCards
-    ? `${work.refreshableReviewCards} ${work.refreshableReviewCards === 1 ? "card" : "cards"} ready to refresh`
+    ? languageText(language, `${work.refreshableReviewCards} ${work.refreshableReviewCards === 1 ? "card" : "cards"} ready to refresh`, `${work.refreshableReviewCards} 张卡片可刷新`)
     : "";
   return [resolved, refreshable].filter(Boolean).join(" · ");
 }
 
-function returnedAnswerFollowup(work) {
+function returnedAnswerFollowup(work, language = currentLanguage()) {
   // Returned review-progress events stay higher priority; this helper only fills the inbox-only answer follow-up slot.
   if (work.refreshableReviewCards) {
     return {
-      label: "Refresh cards",
+      label: languageText(language, "Refresh cards", "刷新卡片"),
       run: () => jumpToTodaySection("closed_questions")
     };
   }
   if (work.answeredQuestions) {
     return {
-      label: "View closed questions",
+      label: languageText(language, "View closed questions", "查看已关闭问题"),
       run: () => jumpToTodaySection("closed_questions")
     };
   }
@@ -5439,49 +5524,63 @@ function openReturnedTodayTarget(target, sectionName) {
   const node = findCaptureNode(target.targetId, document.querySelector("#todayList"));
   const scrollTarget = node || section;
   setActivity(getActiveSession(workspace), {
-    title: "Returned work opened",
-    detail: target.label || "Returned item from phone or Windows",
+    title: langText("Returned work opened", "已打开返回内容"),
+    detail: target.label || langText("Returned item from phone or Windows", "来自手机或 Windows 的返回内容"),
     tab: "today",
     targetSection: sectionName,
-    actionLabel: "Returned work"
+    actionLabel: langText("Returned work", "返回内容")
   });
   renderActivity(getActiveSession(workspace));
   scrollTarget?.scrollIntoView({ behavior: "smooth", block: "center" });
   if (scrollTarget) pulseNode(scrollTarget);
 }
 
-function returnedFileDetail(receipt) {
+function returnedFileDetail(receipt, language = currentLanguage()) {
   if (receipt?.schema === "learning-companion.return-files-receipt.v1") {
     const succeeded = Number(receipt.processedFiles) || 0;
-    return `${receipt.fileCount} return ${receipt.fileCount === 1 ? "file" : "files"} checked · ${succeeded} succeeded`;
+    return languageText(language,
+      `${receipt.fileCount} return ${receipt.fileCount === 1 ? "file" : "files"} checked · ${succeeded} succeeded`,
+      `${receipt.fileCount} 个返回文件已检查 · ${succeeded} 个成功`);
   }
-  return "1 return file";
+  return languageText(language, "1 return file", "1 个返回文件");
 }
 
-function returnedFailedDetail(receipt) {
+function returnedFailedDetail(receipt, language = currentLanguage()) {
   if (receipt?.schema !== "learning-companion.return-files-receipt.v1" || !receipt.failedFiles) return "";
-  return `${receipt.failedFiles} failed - open Import details`;
+  return languageText(language, `${receipt.failedFiles} failed - open Import details`, `${receipt.failedFiles} 个失败 - 打开导入详情`);
 }
 
-function returnedBasisDetail(receipt) {
+function returnedBasisDetail(receipt, language = currentLanguage()) {
   if (receipt?.schema !== "learning-companion.return-files-receipt.v1") {
-    if (receipt?.sourceFingerprintBasis === "workspace") return "older return file from previous mirror export - export updated mirror before next device pass";
-    if (receipt?.sourceFingerprintMatches === false) return "mirror base changed - export updated mirror before next device pass";
+    if (receipt?.sourceFingerprintBasis === "workspace") {
+      return languageText(language,
+        "older return file from previous mirror export - export updated mirror before next device pass",
+        "较早返回文件来自上一版镜像导出 - 下次设备处理前请导出更新镜像");
+    }
+    if (receipt?.sourceFingerprintMatches === false) {
+      return languageText(language,
+        "mirror base changed - export updated mirror before next device pass",
+        "镜像基线已变化 - 下次设备处理前请导出更新镜像");
+    }
     return "";
   }
   const parts = [];
   if (receipt.legacyBasisFiles) {
-    parts.push(`${oldReturnFileCountLabel(receipt.legacyBasisFiles)} from previous mirror export - export updated mirror before next device pass`);
+    parts.push(languageText(language,
+      `${oldReturnFileCountLabel(receipt.legacyBasisFiles, language)} from previous mirror export - export updated mirror before next device pass`,
+      `${oldReturnFileCountLabel(receipt.legacyBasisFiles, language)}来自上一版镜像导出 - 下次设备处理前请导出更新镜像`));
   }
   if (receipt.baseChangedFiles) {
-    parts.push(`${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed - export updated mirror before next device pass`);
+    parts.push(languageText(language,
+      `${receipt.baseChangedFiles} mirror ${receipt.baseChangedFiles === 1 ? "base" : "bases"} changed - export updated mirror before next device pass`,
+      `${receipt.baseChangedFiles} 个镜像基线已变化 - 下次设备处理前请导出更新镜像`));
   }
   return parts.join(" · ");
 }
 
-function oldReturnFileCountLabel(count) {
+function oldReturnFileCountLabel(count, language = currentLanguage()) {
   const value = Number(count) || 0;
-  return `${value} older return ${value === 1 ? "file" : "files"}`;
+  return languageText(language, `${value} older return ${value === 1 ? "file" : "files"}`, `${value} 个较早返回文件`);
 }
 
 function returnNudgeKey(receipt) {
@@ -6156,7 +6255,7 @@ function renderReturnFilesPanel() {
     "handoff-detail",
     pendingReturnFilePreview
       ? langText("Return file parsed; confirm before applying changes to this Mac workspace.", "返回文件已解析；应用到这台 Mac 工作区前请确认。")
-      : lastImportReceipt ? langText(`Last import: ${formatImportReceipt(lastImportReceipt)}`, `上次导入：${formatImportReceipt(lastImportReceipt)}`) : langText("Export a mirror, use it on phone or Windows, then bring return files back.", "导出镜像，在手机或 Windows 上使用，然后把返回文件带回来。")
+      : lastImportReceipt ? langText(`Last import: ${formatImportReceipt(lastImportReceipt, "en")}`, `上次导入：${formatImportReceipt(lastImportReceipt, "zh")}`) : langText("Export a mirror, use it on phone or Windows, then bring return files back.", "导出镜像，在手机或 Windows 上使用，然后把返回文件带回来。")
   );
   const handoffState = renderMirrorHandoffStatus();
   const steps = document.createElement("ol");
@@ -6541,7 +6640,7 @@ function mirrorReturnImportDetail(importState) {
   ];
   if (importState.baseChangedFiles) parts.push(`${importState.baseChangedFiles} changed base`);
   if (importState.legacyBasisFiles) {
-    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles)} from previous mirror export - export updated mirror before next device pass`);
+    parts.push(`${oldReturnFileCountLabel(importState.legacyBasisFiles, "en")} from previous mirror export - export updated mirror before next device pass`);
   }
   return parts.join(" · ");
 }

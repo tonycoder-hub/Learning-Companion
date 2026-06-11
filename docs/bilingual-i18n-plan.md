@@ -67,7 +67,16 @@ The sixth implementation slice starts generated Markdown pack coverage:
 - English source-of-truth labels preserved for compatibility, with adjacent Chinese aliases/notes,
 - smoke assertions proving Chinese generated-pack anchors are emitted.
 
-This slice still does not cover per-session Markdown, mirror `README.md`, synthesis drafts, import receipts, QA receipt templates, native shells, Windows/HarmonyOS surfaces, document exports, or browser-executed DOM switching proof.
+This slice still does not cover per-session Markdown, mirror `README.md`, synthesis drafts, QA receipt templates, native shells, Windows/HarmonyOS surfaces, document exports, or browser-executed DOM switching proof.
+
+The seventh implementation slice covers import/return receipt display:
+
+- bilingual display formatters for mobile inbox, review-progress, return-files, and import-error receipts,
+- bilingual Device Flow `Last import` summaries,
+- bilingual Returned Work nudge titles, details, action labels, failed-file warnings, and review-status activity copy,
+- source-level smoke assertions for explicit language formatter calls and Chinese/English receipt anchors.
+
+This slice does not translate receipt schema keys, stable `kind` values, file names, patch IDs, or user-authored capture/session/source text. It also does not replace browser-executed DOM switching proof.
 
 ## External Source Visual Validation
 
@@ -86,4 +95,4 @@ Do not use authenticated/private pages, cookies, or sensitive content. A screens
 
 ## Continuation TODO
 
-Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index, Review/Inbox static and runtime return-loop copy, and the generated `TODAY.md` / review-pack shell copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then receipt/display formatters and platform-specific surfaces.
+Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index, Review/Inbox static and runtime return-loop copy, generated `TODAY.md` / review-pack shell copy, and import/return receipt display copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then the remaining generated artifacts, QA receipt templates, and platform-specific surfaces.

@@ -19,20 +19,26 @@ The first generated Markdown pack bilingual slice is locally verified:
 - `apps/companion-web/src/model.js`: generated `TODAY.md` and `Learning Companion Review Pack` keep English source-of-truth labels while adding adjacent Chinese aliases/notes for titles, meta labels, sections, empty states, source/tag/reason/answer labels, overflow rows, export artifacts, stage wording, and promotion guidance.
 - `scripts/smoke-web.mjs`: generated-pack assertions cover Chinese anchors for `TODAY.md`, Review Pack, source jump lines, answer/closed-question rows, and overflow rows.
 
+The import/return receipt display bilingual slice is locally verified:
+
+- `apps/companion-web/src/app.js`: import receipt banners, return-file batch receipt details, Device Flow `Last import` summaries, and Returned Work nudges now render English or Chinese display copy without changing receipt schema keys, stable action `kind` values, file names, patch IDs, or user-authored text.
+- `scripts/smoke-web.mjs`: source-level contract assertions cover explicit receipt language formatter calls, English compatibility copy, Chinese receipt/nudge anchors, and stable schema/action constants.
+
 Verification commands:
 
 ```bash
 /Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check apps/companion-web/src/model.js
+/Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check apps/companion-web/src/app.js
 /Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check scripts/smoke-web.mjs
 git diff --check
 /Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/smoke-web.mjs
 ```
 
-All four commands passed on 2026-06-11. Browser smoke and local dev server were not run.
+All five commands passed on 2026-06-11. Browser smoke and local dev server were not run.
 
 ## Next Entry Point
 
-Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy and generated `TODAY.md` / Review Pack shell copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
+Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy, generated `TODAY.md` / Review Pack shell copy, and import/return receipt display copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
 
 ## User Priorities
 
@@ -42,9 +48,8 @@ Continue with external source validation and the remaining bilingual surfaces. R
 ## Immediate TODO
 
 - Capture one approved reading-source screenshot run and one approved video-source screenshot run using [docs/external-source-validation.md](../external-source-validation.md) once URLs and browser/server authorization are available.
-- Add bilingual display formatters for import/return receipts without translating stable receipt schema keys.
 - Extend bilingual coverage beyond static pages and the first generated packs to per-session Markdown, mirror `README.md`, synthesis drafts, QA receipt templates, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
-- Add browser-executed DOM switching checks for representative Review/Inbox runtime branches once browser/server authorization is available.
+- Add browser-executed DOM switching checks for representative app runtime branches, including Review/Inbox runtime copy, import receipts, and Returned Work nudges, once browser/server authorization is available.
 - Keep the coverage boundary honest: do not claim full bilingual support until the remaining generated artifacts, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
 - External validation evidence should record:
   - approved source URL and title,

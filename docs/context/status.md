@@ -33,7 +33,16 @@ The first generated Markdown pack slice is locally verified. It now emits Englis
 - generated `TODAY.md` title, meta labels, resume section, section aliases, empty states, source/tag/reason/answer labels, overflow lines, and final notes,
 - `Learning Companion Review Pack` title, scope boundary, workspace/export/stage sections, command gates, and promotion-gate guidance.
 
-This generated-pack slice preserves user-authored capture/session text and English source-of-truth labels. Per-session Markdown, mirror `README.md`, synthesis drafts, import receipts, QA receipt templates, browser-executed DOM checks, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports remain outside the completed boundary.
+This generated-pack slice preserves user-authored capture/session text and English source-of-truth labels. Per-session Markdown, mirror `README.md`, synthesis drafts, QA receipt templates, browser-executed DOM checks, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports remain outside the completed boundary.
+
+The import/return receipt display slice is locally verified. It now emits English and Chinese display copy for:
+
+- import receipt titles and action buttons for mobile inbox, review-progress, return-files, and import-error receipts,
+- receipt details for mobile inbox, review-progress, and return-files receipts, while import-error details preserve the raw failure message,
+- Device Flow `Last import` summaries with explicit English/Chinese formatter calls,
+- Returned Work nudge titles, details, action labels, failed-file/basis warnings, and review-status activity copy.
+
+This slice preserves receipt schema names, stable `kind` values, file names, patch IDs, and user-authored session/capture text. Browser-executed DOM language switching, QA receipt templates, and external reading/video validation remain outside this completed boundary.
 
 Subagent review follow-up:
 
@@ -43,12 +52,14 @@ Subagent review follow-up:
 - `BLOCKED`: final subagent review found active Inbox answer-context title/help still used English-only `textContent`. Fixed with `setI18nHtml(...)` and smoke assertions for the active title/help calls.
 - `PASS`: Review/Inbox runtime i18n scans found English-only status sinks, return-file hints, after-save/follow-up copy, manual-copy errors, and Inbox empty/source hints. Fixed with pair-aware runtime helpers and smoke assertions guarding against `textContent = message` / object-string regressions.
 - `PASS`: generated-artifact scan identified `TODAY.md` as the best next target, with Review Pack as a small adjacent pack. Fixed the generated Markdown shell copy and added smoke anchors for Chinese output while leaving per-session Markdown, mirror `README.md`, and receipts for later slices.
+- `PASS_WITH_NOTES`: import receipt display scan recommended render-time localization and no receipt schema changes. Fixed import receipt formatters, return-nudge copy, and Device Flow latest-import formatting; browser DOM switching proof remains pending.
 
 ## Verification
 
 PASS:
 
 - `/Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check apps/companion-web/src/model.js`
+- `/Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check apps/companion-web/src/app.js`
 - `/Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --check scripts/smoke-web.mjs`
 - `git diff --check`
 - `/Users/bytedance/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node scripts/smoke-web.mjs` -> `smoke_web_ok`
@@ -63,5 +74,5 @@ PASS:
 ## Next Best Action
 
 1. With approved URLs and current-turn authorization, run one reading-source and one video-source validation side by side with the app using [docs/external-source-validation.md](../external-source-validation.md).
-2. Add bilingual display formatters for import/return receipts without translating receipt schema keys.
-3. Continue bilingual coverage into per-session Markdown, mirror `README.md`, QA receipt templates, and platform-specific surfaces before claiming full bilingual support.
+2. Continue bilingual coverage into per-session Markdown, mirror `README.md`, synthesis drafts, QA receipt templates, and platform-specific surfaces before claiming full bilingual support.
+3. Add browser-executed DOM switching checks for representative app runtime branches, including import receipts and Returned Work nudges, once browser/server authorization is available.
