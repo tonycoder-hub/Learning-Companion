@@ -53,6 +53,7 @@ Goal paused note on 2026-06-11:
 - No subagents are left running from the latest generated-artifact slice.
 - Resume by choosing either: add bilingual QA receipt templates/document exports, or run browser/external-source validation after current-turn authorization and approved non-private reading/video URLs.
 - Do not claim full bilingual support until QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
+- For `.21` / Mew continuation, use [Mew Handoff](../mew-handoff.md) as the sync and entry-point checklist.
 
 ## User Priorities
 
