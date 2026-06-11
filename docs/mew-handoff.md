@@ -13,6 +13,19 @@ This repository is being prepared for continuation on `.21` with Mew. The Mac co
 - Current local code checkpoint before this handoff document: `bf178d7 docs: record paused goal state`
 - The synced checkout must preserve `.git` history and verify that target `git rev-parse HEAD` matches the Mac source HEAD used for the sync.
 
+## Mew Personal Space
+
+- Server: `https://mew.bytedance.net`
+- Workspace: `jinzheng.architect's Space`
+- Workspace ID: `07c4dced-30dd-4f8c-947b-f0eae3c9d798`
+- Tracking issue: `Learning Companion / Go 继续迭代`
+- Issue ID: `b51a1223-bbf1-43ae-8e95-2e1785064935`
+- Issue status after creation: `todo`
+- Future run source type: `issue`
+- Future run workdir: `/data00/home/jinzheng.architect/mew-projects/learning-companion`
+
+No Mew run, chat, automation, service restart, or daemon change was started for this project handoff. The issue is a continuation container only.
+
 ## What To Sync
 
 Sync the project source, docs, scripts, apps, and git history. Exclude local generated artifacts and transient evidence:
