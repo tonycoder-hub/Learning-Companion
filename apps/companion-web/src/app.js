@@ -325,6 +325,7 @@ dom.languageSelect?.addEventListener("change", () => {
     ...uiPrefs,
     language: normalizeUiLanguage(dom.languageSelect.value)
   };
+  lastActivity = null;
   saveUiPrefs();
   render();
   showToast(langText("Language set to English", "已切换为中文"));
@@ -2953,10 +2954,10 @@ function renderActivity(session) {
   const captureUndoSeconds = pendingUndoMatchesSession ? pendingCaptureUndoRemainingSeconds() : 0;
   const canUndoCaptureDelete = pendingUndoMatchesSession && captureUndoSeconds > 0;
   const baseAction = activity.actionLabel || (activity.tab === "review"
-    ? "Review"
-    : activity.tab === "export" ? "Export" : activity.tab === "today" ? "Today" : "Details");
+    ? langText("Review", "复习")
+    : activity.tab === "export" ? langText("Export", "导出") : activity.tab === "today" ? langText("Today", "今日") : langText("Details", "详情"));
   const staysInSidecar = activityStaysInSidecar(activity);
-  const actionText = uiPrefs.sidecarLayout && !staysInSidecar ? `Exit + ${baseAction}` : baseAction;
+  const actionText = uiPrefs.sidecarLayout && !staysInSidecar ? langText(`Exit + ${baseAction}`, `退出 + ${baseAction}`) : baseAction;
   const actionLabel = activityActionLabel(activity, baseAction, staysInSidecar);
   dom.activityTitle.textContent = activity.title;
   dom.activityDetail.textContent = activity.detail;
@@ -3067,19 +3068,19 @@ function activityTargetsHighlightAnnotation(activity) {
 }
 
 function activityActionLabel(activity, baseAction, staysInSidecar) {
-  if (activityTargetsSource(activity)) return "Focus Source URL";
-  if (activityTargetsSourceResume(activity) || activityTargetsReviewCardSourceResume(activity)) return `${baseAction} in a new tab; Quick Capture stays ready`;
-  if (activityTargetsHighlightAnnotation(activity)) return "Add thought to saved highlight";
-  if (activityTargetsQuickCapture(activity) && /^focus\s+field$/i.test(baseAction)) return "Focus Quick Capture";
-  if (staysInSidecar && activityTargetsQuickCapture(activity)) return "Focus Quick Capture";
+  if (activityTargetsSource(activity)) return langText("Focus Source URL", "聚焦来源 URL");
+  if (activityTargetsSourceResume(activity) || activityTargetsReviewCardSourceResume(activity)) return langText(`${baseAction} in a new tab; Quick Capture stays ready`, `在新标签页${baseAction}；快速摘录保持可用`);
+  if (activityTargetsHighlightAnnotation(activity)) return langText("Add thought to saved highlight", "给已保存高亮添加想法");
+  if (activityTargetsQuickCapture(activity) && /^focus\s+field$/i.test(baseAction)) return langText("Focus Quick Capture", "聚焦快速摘录");
+  if (staysInSidecar && activityTargetsQuickCapture(activity)) return langText("Focus Quick Capture", "聚焦快速摘录");
   if (/^view\s+/i.test(baseAction)) {
     return uiPrefs.sidecarLayout && !staysInSidecar
-      ? `${baseAction} and exit sidecar layout`
+      ? langText(`${baseAction} and exit sidecar layout`, `${baseAction}并退出侧栏布局`)
       : baseAction;
   }
   return uiPrefs.sidecarLayout && !staysInSidecar
-    ? `Open ${baseAction.toLowerCase()} and exit sidecar layout`
-    : `Open ${baseAction.toLowerCase()}`;
+    ? langText(`Open ${baseAction.toLowerCase()} and exit sidecar layout`, `打开${baseAction}并退出侧栏布局`)
+    : langText(`Open ${baseAction.toLowerCase()}`, `打开${baseAction}`);
 }
 
 function renderSidecarRail(session) {
@@ -3436,19 +3437,19 @@ function getActivity(session) {
   const draft = getCaptureDraft(session.id);
   if (hasCaptureTextDraft(draft)) {
     return {
-      title: "Capture draft waiting",
+      title: langText("Capture draft waiting", "摘录草稿待继续"),
       detail: summarizeCaptureDraft(draft),
       tab: "captures",
       targetId: "",
       targetPane: "quickCapture",
-      actionLabel: "Resume"
+      actionLabel: langText("Resume", "继续")
     };
   }
   const due = getDueReviewItems(workspace).length;
   if (session.focusMode === "review" && due) {
     return {
-      title: "Review queue ready",
-      detail: `${due} due ${due === 1 ? "card" : "cards"} across the workspace.`,
+      title: langText("Review queue ready", "复习队列已准备好"),
+      detail: langText(`${due} due ${due === 1 ? "card" : "cards"} across the workspace.`, `工作区中有 ${due} 张待复习卡。`),
       tab: "review",
       targetId: ""
     };
@@ -3456,7 +3457,7 @@ function getActivity(session) {
   const [latest] = session.captures;
   if (latest) {
     return {
-      title: "Latest capture",
+      title: langText("Latest capture", "最新摘录"),
       detail: summarizeCapture(latest),
       tab: "captures",
       targetId: latest.id
@@ -5514,7 +5515,7 @@ function renderTodayPrimaryAction(pack, draftItems = []) {
   const card = document.createElement("article");
   card.className = `item-card today-path-card is-${move.kind}`;
   card.append(
-    textEl("div", "item-meta", "Next Move"),
+    textEl("div", "item-meta", langText("Next Move", "下一步")),
     textEl("p", "card-prompt", move.title),
     textEl("p", "item-meta", move.detail)
   );
@@ -5539,13 +5540,13 @@ function renderStartHereInline() {
   const sourceStep = resolveSourceSessionState();
   const needsSource = sourceStep.needsSource === true;
   card.append(
-    textEl("div", "item-meta", "First Note"),
+    textEl("div", "item-meta", langText("First Note", "第一条笔记")),
     textEl("p", "card-prompt", needsSource
-      ? "Start by anchoring this study block to the browser source."
-      : "Choose the first thing to bring back from this source.")
+      ? langText("Start by anchoring this study block to the browser source.", "先把这次学习锚定到浏览器来源。")
+      : langText("Choose the first thing to bring back from this source.", "从这个来源里选择第一件要带回来的内容。"))
   );
   if (needsSource) {
-    card.append(textEl("p", "start-here-route", "Anchor the source first, then capture, then close the loop."));
+    card.append(textEl("p", "start-here-route", langText("Anchor the source first, then capture, then close the loop.", "先锚定来源，再摘录，然后闭环。")));
   }
   card.append(startHereActions(sourceStep));
   if (!shouldShowReturnFilesPanel(true)) card.append(renderStartHereDeviceRoute());
@@ -5558,10 +5559,10 @@ function todayPrimaryMove(pack, draftItems = []) {
     const dueItem = priority.item;
     return {
       kind: "review",
-      title: `Review ${pack.stats.due} due ${pack.stats.due === 1 ? "card" : "cards"}`,
+      title: langText(`Review ${pack.stats.due} due ${pack.stats.due === 1 ? "card" : "cards"}`, `复习 ${pack.stats.due} 张到期卡`),
       detail: `${dueItem.sessionTitle} · ${dueItem.card.prompt.slice(0, 120)}`,
-      actionLabel: "Review",
-      inspectLabel: "Due",
+      actionLabel: langText("Review", "复习"),
+      inspectLabel: langText("Due", "到期"),
       targetSection: "due_review",
       run: () => startReviewAtItem(dueItem)
     };
@@ -5571,10 +5572,10 @@ function todayPrimaryMove(pack, draftItems = []) {
     const questionItem = priority.item;
     return {
       kind: "question",
-      title: `Answer ${pack.stats.questions} open ${pack.stats.questions === 1 ? "question" : "questions"}`,
+      title: langText(`Answer ${pack.stats.questions} open ${pack.stats.questions === 1 ? "question" : "questions"}`, `回答 ${pack.stats.questions} 个开放问题`),
       detail: `${questionItem.sessionTitle} · ${summarizeCapture(questionItem.capture)}`,
-      actionLabel: "Answer",
-      inspectLabel: "Questions",
+      actionLabel: langText("Answer", "回答"),
+      inspectLabel: langText("Questions", "问题"),
       targetSection: "open_questions",
       run: () => answerQuestionFromToday(questionItem.capture.id, questionItem.sessionId)
     };
@@ -5584,10 +5585,10 @@ function todayPrimaryMove(pack, draftItems = []) {
     const draftItem = priority.item;
     return {
       kind: "draft",
-      title: "Resume capture draft",
+      title: langText("Resume capture draft", "继续摘录草稿"),
       detail: `${draftItem.session.title} · ${summarizeCaptureDraft(draftItem.draft)}`,
-      actionLabel: "Resume",
-      inspectLabel: "Drafts",
+      actionLabel: langText("Resume", "继续"),
+      inspectLabel: langText("Drafts", "草稿"),
       targetSection: "capture_drafts",
       run: () => resumeCaptureDraft(draftItem.session.id)
     };
@@ -5597,10 +5598,10 @@ function todayPrimaryMove(pack, draftItems = []) {
     const parkedItem = priority.item;
     return {
       kind: "parked",
-      title: `Resume ${pack.stats.parkedQuestions} saved ${pack.stats.parkedQuestions === 1 ? "question" : "questions"}`,
+      title: langText(`Resume ${pack.stats.parkedQuestions} saved ${pack.stats.parkedQuestions === 1 ? "question" : "questions"}`, `继续 ${pack.stats.parkedQuestions} 个暂存问题`),
       detail: `${parkedItem.sessionTitle} · ${summarizeCapture(parkedItem.capture)}`,
-      actionLabel: "Resume",
-      inspectLabel: "Saved",
+      actionLabel: langText("Resume", "继续"),
+      inspectLabel: langText("Saved", "暂存"),
       targetSection: "parked_questions",
       run: () => setQuestionParked(parkedItem.capture.id, parkedItem.sessionId, false)
     };
@@ -5610,10 +5611,10 @@ function todayPrimaryMove(pack, draftItems = []) {
     const decisionItem = priority.item;
     return {
       kind: "recent",
-      title: "Choose latest capture's next step",
-      detail: `${decisionItem.sessionTitle} · choose Notes or Review if it should become durable`,
-      actionLabel: "Choose next",
-      inspectLabel: "Recent",
+      title: langText("Choose latest capture's next step", "选择最新摘录的下一步"),
+      detail: langText(`${decisionItem.sessionTitle} · choose Notes or Review if it should become durable`, `${decisionItem.sessionTitle} · 如果需要沉淀，选择进入笔记或复习`),
+      actionLabel: langText("Choose next", "选择下一步"),
+      inspectLabel: langText("Recent", "最近"),
       targetSection: "recent_captures",
       run: () => openCaptureFromToday(decisionItem.sessionId, decisionItem.capture)
     };
@@ -5623,10 +5624,10 @@ function todayPrimaryMove(pack, draftItems = []) {
   if (recentItem) {
     return {
       kind: "recent",
-      title: "Continue latest capture",
+      title: langText("Continue latest capture", "继续最新摘录"),
       detail: `${recentItem.sessionTitle} · ${summarizeCapture(recentItem.capture)}`,
-      actionLabel: "View",
-      inspectLabel: "Recent",
+      actionLabel: langText("View", "查看"),
+      inspectLabel: langText("Recent", "最近"),
       targetSection: "recent_captures",
       run: () => openCaptureFromToday(recentItem.sessionId, recentItem.capture)
     };
@@ -5634,10 +5635,10 @@ function todayPrimaryMove(pack, draftItems = []) {
 
   return {
     kind: "capture",
-    title: "Capture next point",
-    detail: `${getActiveSession(workspace).title} · ready for a quote, thought, or question`,
-    actionLabel: "Capture",
-    inspectLabel: "Recent",
+    title: langText("Capture next point", "摘录下一个要点"),
+    detail: langText(`${getActiveSession(workspace).title} · ready for a quote, thought, or question`, `${getActiveSession(workspace).title} · 可以记录原文、想法或问题`),
+    actionLabel: langText("Capture", "摘录"),
+    inspectLabel: langText("Recent", "最近"),
     targetSection: "recent_captures",
     run: focusQuickCaptureFromStart
   };
@@ -5652,26 +5653,26 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
     const source = textEl("button", "mini-button primary", sourceStep.actionLabel);
     source.type = "button";
     source.dataset.startAction = "source";
-    source.setAttribute("aria-label", sourceStep.actionAriaLabel || "Paste source URL from clipboard for this learning flow");
+    source.setAttribute("aria-label", sourceStep.actionAriaLabel || langText("Paste source URL from clipboard for this learning flow", "从剪贴板粘贴本次学习流的来源 URL"));
     source.addEventListener("click", sourceStep.action);
     actions.push(source);
-    const manualSource = textEl("button", "mini-button tertiary", "Set source manually");
+    const manualSource = textEl("button", "mini-button tertiary", langText("Set source manually", "手动设置来源"));
     manualSource.type = "button";
     manualSource.dataset.startAction = "source-manual";
-    manualSource.setAttribute("aria-label", "Set source URL manually for this learning flow");
+    manualSource.setAttribute("aria-label", langText("Set source URL manually for this learning flow", "手动设置本次学习流的来源 URL"));
     manualSource.addEventListener("click", () => promptForSource(getActiveSession(workspace)));
     actions.push(manualSource);
   }
-  const capture = textEl("button", needsSource ? "mini-button" : "mini-button primary", needsSource ? "Jot loose thought" : "Capture this thought");
+  const capture = textEl("button", needsSource ? "mini-button" : "mini-button primary", needsSource ? langText("Jot loose thought", "先记想法") : langText("Capture this thought", "摘录这个想法"));
   capture.type = "button";
   capture.dataset.startAction = "capture";
-  if (needsSource) capture.setAttribute("aria-label", "Jot a loose thought without a source; source resume will not be available");
+  if (needsSource) capture.setAttribute("aria-label", langText("Jot a loose thought without a source; source resume will not be available", "先记录没有来源的想法；之后不能回到来源"));
   capture.addEventListener("click", focusQuickCaptureFromStart);
-  const question = textEl("button", "mini-button", "Ask about this");
+  const question = textEl("button", "mini-button", langText("Ask about this", "提出问题"));
   question.type = "button";
   question.dataset.startAction = "question";
   question.addEventListener("click", seedFirstQuestionDraft);
-  const clipper = textEl("button", "mini-button", "Set up page clipper");
+  const clipper = textEl("button", "mini-button", langText("Set up page clipper", "设置页面 clipper"));
   clipper.type = "button";
   clipper.dataset.startAction = "clipper";
   clipper.addEventListener("click", openBookmarkletHandoff);
@@ -5682,21 +5683,21 @@ function startHereActions(sourceStep = resolveSourceSessionState()) {
 function renderStartHereDeviceRoute() {
   const route = document.createElement("details");
   route.className = "start-here-device-route";
-  route.setAttribute("aria-label", "Other devices: manual phone and Windows route, no live sync");
+  route.setAttribute("aria-label", langText("Other devices: manual phone and Windows route, no live sync", "其他设备：手动手机和 Windows 路线，无实时同步"));
   const summary = document.createElement("summary");
   summary.className = "start-here-device-summary";
   summary.append(
-    textEl("span", "learning-flow-step-label", "Other devices later"),
-    textEl("span", "start-here-device-summary-copy", "Use phone or Windows later - Manual, no live sync")
+    textEl("span", "learning-flow-step-label", langText("Other devices later", "稍后使用其他设备")),
+    textEl("span", "start-here-device-summary-copy", langText("Use phone or Windows later - Manual, no live sync", "稍后使用手机或 Windows - 手动，无实时同步"))
   );
   const heading = document.createElement("div");
   heading.className = "start-here-device-heading";
-  heading.append(textEl("strong", "", "Use phone or Windows later"));
+  heading.append(textEl("strong", "", langText("Use phone or Windows later", "稍后使用手机或 Windows")));
   const badges = document.createElement("span");
   badges.className = "device-flow-badges";
   badges.append(
-    textEl("span", "manual-transfer-badge", "Manual"),
-    textEl("span", "manual-transfer-badge is-muted", "No live sync")
+    textEl("span", "manual-transfer-badge", langText("Manual", "手动")),
+    textEl("span", "manual-transfer-badge is-muted", langText("No live sync", "无实时同步"))
   );
   heading.append(badges);
 
@@ -5705,15 +5706,15 @@ function renderStartHereDeviceRoute() {
   const steps = document.createElement("div");
   steps.className = "start-here-device-steps";
   steps.append(
-    textEl("span", "", "1. Export mirror after first capture"),
-    textEl("span", "", "2. Bring return files back to this Mac")
+    textEl("span", "", langText("1. Export mirror after first capture", "1. 第一条摘录后导出镜像")),
+    textEl("span", "", langText("2. Bring return files back to this Mac", "2. 把返回文件带回这台 Mac"))
   );
   copy.append(heading, steps);
   const deviceFlow = textEl("button", "mini-button", "Phone/Windows");
   deviceFlow.type = "button";
   deviceFlow.dataset.startAction = "device-flow";
-  deviceFlow.title = "Open manual phone and Windows transfer route";
-  deviceFlow.setAttribute("aria-label", "Open manual phone and Windows transfer route");
+  deviceFlow.title = langText("Open manual phone and Windows transfer route", "打开手动手机和 Windows 传输路线");
+  deviceFlow.setAttribute("aria-label", langText("Open manual phone and Windows transfer route", "打开手动手机和 Windows 传输路线"));
   deviceFlow.addEventListener("click", revealDeviceFlowFromFirstNote);
   route.append(summary, copy, deviceFlow);
   return route;
@@ -5723,8 +5724,8 @@ function revealDeviceFlowFromFirstNote() {
   firstNoteDeviceFlowRevealed = true;
   activeTab = "today";
   setActivity(getActiveSession(workspace), {
-    title: "Device Flow opened",
-    detail: "Manual phone/Windows transfer stays available after the first capture or an exported mirror.",
+    title: langText("Device Flow opened", "设备流程已打开"),
+    detail: langText("Manual phone/Windows transfer stays available after the first capture or an exported mirror.", "第一条摘录或导出镜像后，手动手机/Windows 传输仍可使用。"),
     tab: "today",
     targetId: "",
     actionLabel: "Device Flow"
@@ -5753,8 +5754,8 @@ function focusQuickCaptureFromStart() {
   workspace = updateSession(workspace, session.id, { focusMode: "capture" });
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
-    title: "Ready to capture",
-    detail: "Thought waiting in Quick Capture.",
+    title: langText("Ready to capture", "准备摘录"),
+    detail: langText("Thought waiting in Quick Capture.", "想法已在快速摘录中等待。"),
     tab: "captures",
     targetId: ""
   });
@@ -5769,12 +5770,12 @@ function focusFirstCaptureFromLoopPreview() {
   workspace = updateSession(workspace, session.id, { focusMode: "capture" });
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
-    title: "First capture ready",
-    detail: "Type a quote or thought, then Save to unlock Notes, Review, and return files.",
+    title: langText("First capture ready", "第一条摘录已准备好"),
+    detail: langText("Type a quote or thought, then Save to unlock Notes, Review, and return files.", "输入原文或想法，然后保存以解锁笔记、复习和返回文件。"),
     tab: "captures",
     targetId: "",
     targetPane: "quickCapture",
-    actionLabel: "Capture"
+    actionLabel: langText("Capture", "摘录")
   });
   persistAndRender();
   dom.thoughtInput.focus();
@@ -5795,14 +5796,14 @@ function seedFirstQuestionDraft() {
   });
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
-    title: "Question draft started",
+    title: langText("Question draft started", "问题草稿已开始"),
     detail: hasSourceSnapshot(sourceSnapshot)
-      ? `Question ready in Quick Capture for ${sourceSnapshotLabel(sourceSnapshot)}.`
-      : "Question waiting in Quick Capture; link a source later to anchor it.",
+      ? langText(`Question ready in Quick Capture for ${sourceSnapshotLabel(sourceSnapshot)}.`, `${sourceSnapshotLabel(sourceSnapshot)} 的问题已在快速摘录中准备好。`)
+      : langText("Question waiting in Quick Capture; link a source later to anchor it.", "问题已在快速摘录中等待；稍后可绑定来源来锚定。"),
     tab: "captures",
     targetId: "",
     targetPane: "quickCapture",
-    actionLabel: "Capture"
+    actionLabel: langText("Capture", "摘录")
   });
   persistAndRender();
   dom.thoughtInput.focus();
@@ -5814,8 +5815,8 @@ function openBookmarkletHandoff() {
   const session = getActiveSession(workspace);
   activeTab = "export";
   setActivity(session, {
-    title: "Current page clipper ready",
-    detail: "Copy Clip, add it as a browser bookmark, then click it on the source page.",
+    title: langText("Current page clipper ready", "当前页面 clipper 已准备好"),
+    detail: langText("Copy Clip, add it as a browser bookmark, then click it on the source page.", "复制 Clip，把它加入浏览器书签，然后在来源页面点击。"),
     tab: "export",
     targetId: ""
   });

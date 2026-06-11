@@ -16,13 +16,20 @@ Make Learning Companion usable in English and Chinese without claiming full i18n
 
 ## First Slice Boundary
 
-This first implementation slice covers only:
+The first implementation slice covers only:
 
 - local UI preference persistence,
 - a visible English / Chinese selector,
 - Learning Flow labels and actions,
 - Quick Capture context, source state, guidance placeholders, and starter controls,
 - a focused browser smoke proving Chinese mode can render and persist before switching back to English.
+
+The second implementation slice extends the same boundary to:
+
+- default Activity strip states and action labels for source/Quick Capture entry,
+- Today `Next Move` card labels and actions,
+- the first-run `First Note` card and its primary buttons,
+- the collapsed first-run `Other devices later` route copy.
 
 It does not cover static mirrors, generated receipts, QA runbooks, native Mac shell copy, Windows/HarmonyOS surfaces, or full document export language.
 

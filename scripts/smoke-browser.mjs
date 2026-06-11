@@ -234,10 +234,34 @@ try {
       selectValue: select.value,
       label: document.querySelector("#languageLabel")?.textContent || "",
       panelText: linkedPanel?.textContent || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
       quickHeading: document.querySelector("#capturePane .panel-heading h2")?.textContent || "",
       starterLabel: document.querySelector("#captureStarterLabel")?.textContent || "",
       starterTexts: [...document.querySelectorAll("[data-capture-starter]")].map((button) => button.textContent),
       prefsLanguage: JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}").language || ""
+    };
+    const recentWorkspace = JSON.parse(originalWorkspaceJson);
+    const recentSession = recentWorkspace.sessions.find((session) => session.id === recentWorkspace.activeSessionId) || recentWorkspace.sessions[0];
+    recentSession.captures = [{
+      id: "zh_recent_capture",
+      quote: "中文模式下的最近摘录。",
+      thought: "This confirms Today Next Move uses the selected language.",
+      timestamp: "",
+      tags: [],
+      capturedAt: "2026-06-11T09:00:00.000Z",
+      createdAt: "2026-06-11T09:00:00.000Z",
+      updatedAt: "2026-06-11T09:00:00.000Z"
+    }];
+    recentSession.reviewCards = [];
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify(recentWorkspace));
+    document.querySelector('[data-tab="today"]').click();
+    const recentState = {
+      nextMoveText: document.querySelector(".today-path-card")?.textContent || "",
+      nextMoveAction: document.querySelector("[data-today-path-action]")?.textContent || "",
+      inspectAction: document.querySelector("[data-today-path-target]")?.textContent || "",
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || ""
     };
     const noSourceWorkspace = JSON.parse(originalWorkspaceJson);
     const activeSession = noSourceWorkspace.sessions.find((session) => session.id === noSourceWorkspace.activeSessionId) || noSourceWorkspace.sessions[0];
@@ -255,6 +279,16 @@ try {
     const noSourcePanel = document.querySelector(".learning-flow-panel");
     const noSourceState = {
       panelText: noSourcePanel?.textContent || "",
+      startHereText: noSourcePanel?.querySelector(".start-here-inline")?.textContent || "",
+      startButtons: [...(noSourcePanel?.querySelectorAll(".start-here-inline .item-footer [data-start-action]") || [])].map((button) => ({
+        action: button.dataset.startAction,
+        text: button.textContent,
+        aria: button.getAttribute("aria-label") || ""
+      })),
+      activityTitle: document.querySelector("#activityTitle")?.textContent || "",
+      activityDetail: document.querySelector("#activityDetail")?.textContent || "",
+      activityAction: document.querySelector("#activityDetailsBtn")?.textContent || "",
+      activityAria: document.querySelector("#activityDetailsBtn")?.getAttribute("aria-label") || "",
       contextIntent: document.querySelector("#captureContextIntent")?.textContent || "",
       contextDraft: document.querySelector("#captureContextDraft")?.textContent || "",
       contextSource: document.querySelector("#captureContextSource")?.textContent || "",
@@ -271,6 +305,7 @@ try {
     const restoredPanel = document.querySelector(".learning-flow-panel");
     return {
       linkedState,
+      recentState,
       noSourceState,
       restored: {
         htmlLang: document.documentElement.lang,
@@ -291,11 +326,34 @@ try {
   assert.match(bilingualProbe.linkedState.panelText, /学习流/);
   assert.match(bilingualProbe.linkedState.panelText, /阅读来源/);
   assert.match(bilingualProbe.linkedState.panelText, /在 Mac 上摘录/);
+  assert.match(bilingualProbe.linkedState.panelText, /第一条笔记/);
+  assert.match(bilingualProbe.linkedState.panelText, /稍后使用其他设备/);
+  assert.equal(bilingualProbe.linkedState.activityTitle, "准备摘录");
+  assert.equal(bilingualProbe.linkedState.activityAction, "摘录");
   assert.equal(bilingualProbe.linkedState.quickHeading, "快速摘录");
   assert.equal(bilingualProbe.linkedState.starterLabel, "写成");
   assert.deepEqual(bilingualProbe.linkedState.starterTexts, ["问题", "回答", "收获"]);
+  assert.match(bilingualProbe.recentState.nextMoveText, /下一步/);
+  assert.match(bilingualProbe.recentState.nextMoveText, /选择最新摘录的下一步/);
+  assert.equal(bilingualProbe.recentState.nextMoveAction, "选择下一步");
+  assert.equal(bilingualProbe.recentState.inspectAction, "最近");
+  assert.equal(bilingualProbe.recentState.activityTitle, "最新摘录");
+  assert.equal(bilingualProbe.recentState.activityAction, "详情");
   assert.match(bilingualProbe.noSourceState.panelText, /需要来源/);
   assert.match(bilingualProbe.noSourceState.panelText, /先设置来源/);
+  assert.match(bilingualProbe.noSourceState.startHereText, /第一条笔记/);
+  assert.match(bilingualProbe.noSourceState.startHereText, /先把这次学习锚定到浏览器来源/);
+  assert.deepEqual(bilingualProbe.noSourceState.startButtons.map((button) => [button.action, button.text]), [
+    ["source", "粘贴来源"],
+    ["source-manual", "手动设置来源"],
+    ["capture", "先记想法"],
+    ["question", "提出问题"],
+    ["clipper", "设置页面 clipper"]
+  ]);
+  assert.equal(bilingualProbe.noSourceState.activityTitle, "绑定来源或先记想法");
+  assert.match(bilingualProbe.noSourceState.activityDetail, /先粘贴浏览器 URL/);
+  assert.equal(bilingualProbe.noSourceState.activityAction, "设置来源");
+  assert.equal(bilingualProbe.noSourceState.activityAria, "聚焦来源 URL");
   assert.equal(bilingualProbe.noSourceState.contextIntent, "无来源");
   assert.match(bilingualProbe.noSourceState.contextDraft, /还没有可继续的来源/);
   assert.equal(bilingualProbe.noSourceState.contextSource, "无来源");
