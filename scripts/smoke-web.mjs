@@ -935,16 +935,45 @@ assert.throws(() => applyMobileInboxPatch(workspace, {
 
 const markdown = generateMarkdown(session);
 assert.match(markdown, /Rust ownership course/);
+assert.match(markdown, /_中文：主题笔记_/);
 assert.match(markdown, /08:12/);
 assert.match(markdown, /RustConf ownership talk/);
+assert.match(markdown, /来源：RustConf ownership talk/);
 assert.match(markdown, /t=492s/);
+assert.match(markdown, /链接：https:\/\/www\.youtube\.com\/watch\?v=rust123/);
+assert.match(markdown, /类型：video/);
+assert.match(markdown, /_中文：笔记_/);
+assert.match(markdown, /_中文：摘录_/);
 assert.match(markdown, /Review Cards/);
+assert.match(markdown, /_中文：复习卡片_/);
+assert.match(markdown, /问：/);
+assert.match(markdown, /答：/);
+const emptySessionMarkdown = generateMarkdown(createSession({ title: "Empty export topic" }, workspace.clientId));
+assert.match(emptySessionMarkdown, /_No notes yet\._/);
+assert.match(emptySessionMarkdown, /_还没有笔记。_/);
+assert.match(emptySessionMarkdown, /_No captures yet\._/);
+assert.match(emptySessionMarkdown, /_还没有摘录。_/);
+const taggedSessionMarkdown = generateMarkdown(createSession({ title: "Tagged export topic", tags: ["rust", "memory"] }, workspace.clientId));
+assert.match(taggedSessionMarkdown, /Tags: #rust #memory/);
+assert.match(taggedSessionMarkdown, /标签：#rust #memory/);
 
 const synthesis = generateSynthesisDraft(session);
 assert.match(synthesis, /Synthesis - Rust ownership course/);
+assert.match(synthesis, /综合草稿 - Rust ownership course/);
 assert.match(synthesis, /Generated from 1 capture \/ 0 questions \/ 1 card/);
+assert.match(synthesis, /生成自 1 条摘录 \/ 0 个问题 \/ 1 张卡片。/);
+assert.match(synthesis, /链接：https:\/\/www\.youtube\.com\/watch\?v=rust123/);
 assert.match(synthesis, /compile-time lifetime checks/);
+assert.match(synthesis, /_中文：关键收获_/);
+assert.match(synthesis, /证据：/);
 assert.match(synthesis, /Review Targets/);
+assert.match(synthesis, /_中文：复习目标_/);
+const emptySynthesisDraft = generateSynthesisDraft(createSession({ title: "Empty synthesis topic" }, workspace.clientId));
+assert.match(emptySynthesisDraft, /_中文：开放问题_/);
+assert.match(emptySynthesisDraft, /不看资料时，我应该能回忆什么？/);
+assert.match(emptySynthesisDraft, /哪个想法会改变我解决真实问题的方式？/);
+assert.match(emptySynthesisDraft, /_中文：复习目标_/);
+assert.match(emptySynthesisDraft, /把最有价值的摘录提升为复习卡片。/);
 
 const focusNow = new Date("2026-05-29T00:20:00.000Z");
 const questionSession = createSession({
@@ -2813,6 +2842,21 @@ assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role
 assert.equal(mirror.files.some((file) => file.path === "inbox.html" && file.role === "mobile-inbox" && file.content.includes("Learning Companion Inbox")), true);
 assert.equal(mirror.files.some((file) => file.path === "TODAY.md" && /Due Review/.test(file.content)), true);
 assert.equal(mirror.files.some((file) => file.path.endsWith(".md") && /Rust ownership course/.test(file.content)), true);
+const mirrorReadme = mirror.files.find((file) => file.path === "README.md")?.content || "";
+assert.match(mirrorReadme, /Learning Companion Mirror/);
+assert.match(mirrorReadme, /This bundle is an experimental full snapshot/);
+assert.match(mirrorReadme, /## Restore/);
+assert.match(mirrorReadme, /Keep `workspace\.json` as the canonical restore payload/);
+assert.match(mirrorReadme, /## Files/);
+assert.match(mirrorReadme, /File paths, schema names, role strings, and byte counts stay unchanged for sync\./);
+assert.match(mirrorReadme, /学习伴侣镜像/);
+assert.match(mirrorReadme, /导出主题数：/);
+assert.match(mirrorReadme, /工作区 schema：/);
+assert.match(mirrorReadme, /_中文：恢复_/);
+assert.match(mirrorReadme, /把 `workspace\.json` 作为权威恢复载荷保留/);
+assert.match(mirrorReadme, /_中文：文件_/);
+assert.match(mirrorReadme, /文件路径、schema 名称、role 字符串和字节数为同步保持不变。/);
+assert.match(mirrorReadme, /中文：镜像首页/);
 const mirrorHome = mirror.files.find((file) => file.path === "index.html")?.content || "";
 const mirrorDeviceHref = mirrorHome.match(/class="device-next-link" href="([^"]+)"/)?.[1]?.replace(/&amp;/g, "&") || "";
 assert.equal(mirror.files.some((file) => file.path === mirrorDeviceHref.split("?")[0]), true);

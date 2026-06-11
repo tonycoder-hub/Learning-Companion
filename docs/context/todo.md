@@ -24,6 +24,11 @@ The import/return receipt display bilingual slice is locally verified:
 - `apps/companion-web/src/app.js`: import receipt banners, return-file batch receipt details, Device Flow `Last import` summaries, and Returned Work nudges now render English or Chinese display copy without changing receipt schema keys, stable action `kind` values, file names, patch IDs, or user-authored text.
 - `scripts/smoke-web.mjs`: source-level contract assertions cover explicit receipt language formatter calls, English compatibility copy, Chinese receipt/nudge anchors, and stable schema/action constants.
 
+The second generated artifact bilingual slice is locally verified:
+
+- `apps/companion-web/src/model.js`: per-session Markdown, synthesis drafts, and mirror `README.md` keep English source-of-truth labels while adding adjacent Chinese aliases/notes for metadata, sections, empty states, capture source labels, review-card Q/A labels, synthesis prompts, restore guidance, and fixed mirror file descriptions.
+- `scripts/smoke-web.mjs`: generated-artifact assertions cover Chinese anchors for per-session Markdown, synthesis drafts, and mirror `README.md` while keeping file paths, schema names, role strings, source URLs, and user-authored text unchanged.
+
 Verification commands:
 
 ```bash
@@ -38,15 +43,8 @@ All five commands passed on 2026-06-11. Browser smoke and local dev server were 
 
 ## Next Entry Point
 
-Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy, generated `TODAY.md` / Review Pack shell copy, and import/return receipt display copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
-
-Pause note on 2026-06-11:
-
-- Latest committed checkpoint is `a634585 feat: localize import receipt display`.
-- Worktree was clean except the pre-existing untracked `?? {` before this pause note was written; do not touch that file unless the user explicitly asks.
-- Next bilingual implementation target was selected but not started: generated per-session Markdown (`generateMarkdown`), synthesis drafts (`generateSynthesisDraft`), and mirror `README.md` (`generateMirrorReadme`) in `apps/companion-web/src/model.js`.
-- Two read-only scan subagents were started for that target and then shut down before producing findings because the user asked to stop: `019eb555-ce82-7a50-a6c4-9db764fad962` and `019eb555-ced2-79d0-ba3f-1ab5f30ca0fc`.
-- When resuming, start by rereading `apps/companion-web/src/model.js` around `generateMarkdown`, `generateSynthesisDraft`, and `generateMirrorReadme`, then add smoke anchors in `scripts/smoke-web.mjs` and update this handoff after verification.
+Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy, generated `TODAY.md` / Review Pack shell copy, per-session Markdown, synthesis drafts, mirror `README.md`, and import/return receipt display copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
+The next generated-artifact gap is QA receipt templates and document exports; the next runtime evidence gap is browser-executed DOM switching plus approved external source screenshot validation.
 
 ## User Priorities
 
@@ -56,7 +54,7 @@ Pause note on 2026-06-11:
 ## Immediate TODO
 
 - Capture one approved reading-source screenshot run and one approved video-source screenshot run using [docs/external-source-validation.md](../external-source-validation.md) once URLs and browser/server authorization are available.
-- Extend bilingual coverage beyond static pages and the first generated packs to per-session Markdown, mirror `README.md`, synthesis drafts, QA receipt templates, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
+- Extend bilingual coverage beyond static pages and generated Markdown artifacts to QA receipt templates, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
 - Add browser-executed DOM switching checks for representative app runtime branches, including Review/Inbox runtime copy, import receipts, and Returned Work nudges, once browser/server authorization is available.
 - Keep the coverage boundary honest: do not claim full bilingual support until the remaining generated artifacts, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
 - External validation evidence should record:

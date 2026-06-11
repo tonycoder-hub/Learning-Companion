@@ -2012,29 +2012,43 @@ export function searchWorkspace(workspace, query, limit = 8) {
 }
 
 export function generateMarkdown(session) {
+  const sourceTitle = session.sourceTitle || "Untitled";
+  const tagLine = session.tags.length ? session.tags.map((tag) => `#${tag}`).join(" ") : "";
   const lines = [
     `# ${session.title}`,
     "",
-    `Source: ${session.sourceTitle || "Untitled"}`,
+    "_中文：主题笔记_",
+    "",
+    `Source: ${sourceTitle}`,
+    `来源：${sourceTitle}`,
     session.sourceUrl ? `URL: ${session.sourceUrl}` : "",
+    session.sourceUrl ? `链接：${session.sourceUrl}` : "",
     `Type: ${session.materialType}`,
-    session.tags.length ? `Tags: ${session.tags.map((tag) => `#${tag}`).join(" ")}` : "",
+    `类型：${session.materialType}`,
+    tagLine ? `Tags: ${tagLine}` : "",
+    tagLine ? `标签：${tagLine}` : "",
     "",
     "## Notes",
+    "_中文：笔记_",
     "",
     session.notesMarkdown || "_No notes yet._",
+    session.notesMarkdown ? "" : "_还没有笔记。_",
     "",
     "## Captures",
+    "_中文：摘录_",
     ""
   ].filter((line) => line !== "");
 
   if (!session.captures.length) {
     lines.push("_No captures yet._");
+    lines.push("_还没有摘录。_");
   } else {
     session.captures.forEach((capture) => {
       lines.push(`### ${formatDate(capture.createdAt)}${capture.timestamp ? ` @ ${capture.timestamp}` : ""}`);
       const captureSource = formatCaptureSource(capture, session);
+      const captureSourceZh = formatCaptureSource(capture, session, "zh");
       if (captureSource) lines.push("", captureSource);
+      if (captureSourceZh) lines.push(captureSourceZh);
       if (capture.quote) lines.push("", `> ${capture.quote.replace(/\n/g, "\n> ")}`);
       if (capture.thought) lines.push("", capture.thought);
       if (capture.tags.length) lines.push("", capture.tags.map((tag) => `#${tag}`).join(" "));
@@ -2043,10 +2057,12 @@ export function generateMarkdown(session) {
   }
 
   if (session.reviewCards.length) {
-    lines.push("", "## Review Cards", "");
+    lines.push("", "## Review Cards", "_中文：复习卡片_", "");
     session.reviewCards.forEach((card) => {
       lines.push(`- Q: ${card.prompt}`);
+      lines.push(`  问：${card.prompt}`);
       lines.push(`  A: ${card.answer.replace(/\n/g, " ")}`);
+      lines.push(`  答：${card.answer.replace(/\n/g, " ")}`);
     });
   }
 
@@ -2060,28 +2076,35 @@ export function generateSynthesisDraft(session) {
   const stats = getSynthesisStats(session);
   const lines = [
     `## Synthesis - ${title}`,
+    `_中文：综合草稿 - ${title}_`,
     "",
     session.sourceTitle ? `Source: ${cleanText(session.sourceTitle, MAX_TITLE_LENGTH)}` : "",
+    session.sourceTitle ? `来源：${cleanText(session.sourceTitle, MAX_TITLE_LENGTH)}` : "",
     session.sourceUrl ? `URL: ${cleanUrl(session.sourceUrl)}` : "",
+    session.sourceUrl ? `链接：${cleanUrl(session.sourceUrl)}` : "",
     `Generated from ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "question")} / ${formatCount(stats.cards, "card")}.`,
+    `生成自 ${formatCountZh(stats.captures, "条摘录")} / ${formatCountZh(stats.questions, "个问题")} / ${formatCountZh(stats.cards, "张卡片")}。`,
     "",
     "### Key Takeaways",
+    "_中文：关键收获_",
     ""
   ].filter((line) => line !== "");
 
   if (!captures.length) {
     lines.push("- No captures yet. Add quotes or thoughts first.");
+    lines.push("- 还没有摘录。先添加原文或想法。");
   } else {
     captures.slice(0, 8).forEach((capture) => {
       const point = cleanText(capture.thought || capture.quote, MAX_CAPTURE_TEXT_LENGTH);
       lines.push(`- ${point.replace(/\n+/g, " ").slice(0, 240)}`);
       if (capture.quote && capture.thought) {
         lines.push(`  - Evidence: ${cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH).replace(/\n+/g, " ").slice(0, 180)}`);
+        lines.push(`  - 证据：${cleanText(capture.quote, MAX_CAPTURE_TEXT_LENGTH).replace(/\n+/g, " ").slice(0, 180)}`);
       }
     });
   }
 
-  lines.push("", "### Open Questions", "");
+  lines.push("", "### Open Questions", "_中文：开放问题_", "");
   const questions = captures
     .filter((capture) => captureHasOpenQuestion(capture))
     .map((capture) => cleanText(capture.thought, MAX_CAPTURE_TEXT_LENGTH));
@@ -2089,14 +2112,17 @@ export function generateSynthesisDraft(session) {
     questions.slice(0, 5).forEach((question) => lines.push(`- ${question}`));
   } else {
     lines.push("- What should I be able to recall without looking?");
+    lines.push("- 不看资料时，我应该能回忆什么？");
     lines.push("- Which idea changes how I would solve a real problem?");
+    lines.push("- 哪个想法会改变我解决真实问题的方式？");
   }
 
-  lines.push("", "### Review Targets", "");
+  lines.push("", "### Review Targets", "_中文：复习目标_", "");
   if (reviewCards.length) {
     reviewCards.slice(0, 6).forEach((card) => lines.push(`- ${cleanText(card.prompt, MAX_CAPTURE_TEXT_LENGTH)}`));
   } else {
     lines.push("- Promote the strongest captures into review cards.");
+    lines.push("- 把最有价值的摘录提升为复习卡片。");
   }
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
@@ -4318,6 +4344,10 @@ function formatCount(count, singular) {
   return `${count} ${singular}${count === 1 ? "" : "s"}`;
 }
 
+function formatCountZh(count, unit) {
+  return `${count} ${unit}`;
+}
+
 function markdownInline(value) {
   return cleanText(value, MAX_CAPTURE_TEXT_LENGTH)
     .replace(/\s+/g, " ")
@@ -4362,10 +4392,14 @@ function isSafeMirrorSessionPath(path) {
   return /^sessions\/[A-Za-z0-9._-]+\.md$/.test(String(path || "")) && normalizeMirrorPath(path) === path;
 }
 
-function formatCaptureSource(capture, session) {
+function formatCaptureSource(capture, session, language = "en") {
   const sourceTitle = cleanText(capture.sourceTitle || session.sourceTitle, MAX_TITLE_LENGTH);
   const sourceUrl = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
   if (!sourceTitle && !sourceUrl) return "";
+  if (language === "zh") {
+    if (sourceUrl) return `来源：[${sourceTitle || "打开来源"}](${sourceUrl})`;
+    return `来源：${sourceTitle}`;
+  }
   if (sourceUrl) return `Source: [${sourceTitle || "Open source"}](${sourceUrl})`;
   return `Source: ${sourceTitle}`;
 }
@@ -4373,29 +4407,48 @@ function formatCaptureSource(capture, session) {
 function generateMirrorReadme(workspace, sessionFiles) {
   const lines = [
     "# Learning Companion Mirror",
+    "_中文：学习伴侣镜像_",
     "",
     "This bundle is an experimental full snapshot for export/restore. It is not the final Feishu Drive folder layout.",
+    "中文：这是用于导出/恢复的实验性完整快照，还不是最终的飞书云文档文件夹布局。",
     "",
     `Exported sessions: ${workspace.sessions.length}`,
+    `导出主题数：${workspace.sessions.length}`,
     `Workspace schema: ${workspace.schema} v${workspace.schemaVersion}`,
+    `工作区 schema：${workspace.schema} v${workspace.schemaVersion}`,
     "",
     "## Restore",
+    "_中文：恢复_",
     "",
     "- Keep `workspace.json` as the canonical restore payload.",
+    "  - 中文：把 `workspace.json` 作为权威恢复载荷保留。",
     "- Open `TODAY.md` first for a portable due-review and recent-capture study pack.",
+    "  - 中文：先打开 `TODAY.md`，它是可携带的到期复习和最近摘录学习包。",
     "- Use `sessions/*.md` as readable Feishu Drive/Docs material.",
+    "  - 中文：把 `sessions/*.md` 当作可阅读的飞书云文档/文档材料。",
     "- Keep `sessions/*.feishu.json` beside Markdown files for future round-trip sync.",
+    "  - 中文：把 `sessions/*.feishu.json` 与 Markdown 文件放在一起，供未来往返同步使用。",
     "- A future uploader should translate this bundle into Drive files instead of uploading this JSON as the final layout.",
+    "  - 中文：未来上传器应把这个 bundle 转换成云文档文件，而不是把这些 JSON 当作最终布局直接上传。",
     "",
     "## Files",
+    "_中文：文件_",
+    "File paths, schema names, role strings, and byte counts stay unchanged for sync.",
+    "中文：文件路径、schema 名称、role 字符串和字节数为同步保持不变。",
     ""
   ];
   lines.push("- `README.md` (mirror-index)");
+  lines.push("  - 中文：镜像说明");
   lines.push("- `index.html` (mirror-home)");
+  lines.push("  - 中文：镜像首页");
   lines.push("- `TODAY.md` (study-pack)");
+  lines.push("  - 中文：今日学习包");
   lines.push("- `review.html` (portable-review)");
+  lines.push("  - 中文：可携带复习页");
   lines.push("- `inbox.html` (mobile-inbox)");
+  lines.push("  - 中文：移动收件箱");
   lines.push("- `workspace.json` (workspace-restore)");
+  lines.push("  - 中文：工作区恢复载荷");
   sessionFiles.forEach((file) => {
     lines.push(`- \`${file.path}\` (${file.role}, ${file.bytes} B)`);
   });

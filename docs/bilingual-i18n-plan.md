@@ -78,6 +78,16 @@ The seventh implementation slice covers import/return receipt display:
 
 This slice does not translate receipt schema keys, stable `kind` values, file names, patch IDs, or user-authored capture/session/source text. It also does not replace browser-executed DOM switching proof.
 
+The eighth implementation slice covers the remaining generated Markdown bundle shell:
+
+- bilingual shell copy for generated per-session Markdown,
+- bilingual shell copy for generated synthesis drafts,
+- bilingual shell copy for mirror `README.md`,
+- English source-of-truth labels preserved for compatibility, with adjacent Chinese aliases/notes,
+- source-level smoke assertions proving Chinese anchors and English compatibility anchors are emitted.
+
+This slice does not translate user-authored notes, captures, questions, review-card prompts/answers, source URLs, mirror file paths, schema names, role strings, or byte counts. It still does not cover QA receipt templates, native shells, Windows/HarmonyOS surfaces, document exports, or browser-executed DOM switching proof.
+
 ## External Source Visual Validation
 
 Future study-loop validation should include public or user-approved non-private reading/video material and store screenshots under project-local `.codex-tmp/`.
@@ -95,4 +105,4 @@ Do not use authenticated/private pages, cookies, or sensitive content. A screens
 
 ## Continuation TODO
 
-Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index, Review/Inbox static and runtime return-loop copy, generated `TODAY.md` / review-pack shell copy, and import/return receipt display copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then the remaining generated artifacts, QA receipt templates, and platform-specific surfaces.
+Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index, Review/Inbox static and runtime return-loop copy, generated `TODAY.md` / review-pack shell copy, per-session Markdown, synthesis drafts, mirror `README.md`, and import/return receipt display copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then QA receipt templates, native shell copy, Windows/HarmonyOS surfaces, and document exports.
