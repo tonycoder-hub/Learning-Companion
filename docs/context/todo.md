@@ -31,8 +31,7 @@ Continue with external source validation and the remaining bilingual surfaces.
 
 ## Immediate TODO
 
-- Add a validation checklist and harness for approved external document/video study loops.
-- Capture one approved reading-source screenshot run and one approved video-source screenshot run once URLs and browser/server authorization are available.
+- Capture one approved reading-source screenshot run and one approved video-source screenshot run using [docs/external-source-validation.md](../external-source-validation.md) once URLs and browser/server authorization are available.
 - Extend bilingual coverage beyond the static mirror index to static Review/Inbox pages, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
 - Keep the coverage boundary honest: do not claim full bilingual support until static Review/Inbox pages, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are covered or explicitly marked out of scope.
 - External validation evidence should record:

@@ -36,6 +36,5 @@ PASS:
 
 ## Next Best Action
 
-1. Add a small external-source validation checklist/harness that saves run notes and screenshots under `.codex-tmp/external-source-validation/`.
-2. With approved URLs and current-turn authorization, run one reading-source and one video-source validation side by side with the app.
-3. Continue bilingual coverage into static Review/Inbox and generated artifacts before claiming full bilingual support.
+1. With approved URLs and current-turn authorization, run one reading-source and one video-source validation side by side with the app using [docs/external-source-validation.md](../external-source-validation.md).
+2. Continue bilingual coverage into static Review/Inbox and generated artifacts before claiming full bilingual support.
