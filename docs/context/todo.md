@@ -40,6 +40,14 @@ All five commands passed on 2026-06-11. Browser smoke and local dev server were 
 
 Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy, generated `TODAY.md` / Review Pack shell copy, and import/return receipt display copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
 
+Pause note on 2026-06-11:
+
+- Latest committed checkpoint is `a634585 feat: localize import receipt display`.
+- Worktree was clean except the pre-existing untracked `?? {` before this pause note was written; do not touch that file unless the user explicitly asks.
+- Next bilingual implementation target was selected but not started: generated per-session Markdown (`generateMarkdown`), synthesis drafts (`generateSynthesisDraft`), and mirror `README.md` (`generateMirrorReadme`) in `apps/companion-web/src/model.js`.
+- Two read-only scan subagents were started for that target and then shut down before producing findings because the user asked to stop: `019eb555-ce82-7a50-a6c4-9db764fad962` and `019eb555-ced2-79d0-ba3f-1ab5f30ca0fc`.
+- When resuming, start by rereading `apps/companion-web/src/model.js` around `generateMarkdown`, `generateSynthesisDraft`, and `generateMirrorReadme`, then add smoke anchors in `scripts/smoke-web.mjs` and update this handoff after verification.
+
 ## User Priorities
 
 1. Make the product bilingual at minimum: English and Chinese should be first-class surfaces, not a partial demo label swap.
