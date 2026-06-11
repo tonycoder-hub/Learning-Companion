@@ -408,11 +408,19 @@ assert.equal(workspace.version, WORKSPACE_SCHEMA_VERSION);
 
 const reviewPackMarkdown = generateReviewPackMarkdown(workspace);
 assert.match(reviewPackMarkdown, /Learning Companion Review Pack/);
+assert.match(reviewPackMarkdown, /学习伴侣复习包/);
 assert.match(reviewPackMarkdown, /Next action: Capture next point/);
+assert.match(reviewPackMarkdown, /下一步：摘录下一个要点/);
 assert.match(reviewPackMarkdown, /Why: The source is available and the session has gone quiet\./);
+assert.match(reviewPackMarkdown, /原因：来源可用，但这个主题已经安静了一段时间。/);
 assert.match(reviewPackMarkdown, /Offline headline gate/);
+assert.match(reviewPackMarkdown, /离线 headline gate/);
 assert.match(reviewPackMarkdown, /Separate permissioned gates/);
+assert.match(reviewPackMarkdown, /需要单独授权的 gate/);
 assert.match(reviewPackMarkdown, /npm run check:morning:browser/);
+assert.match(reviewPackMarkdown, /中文范围：本地 MVP fixture/);
+assert.match(reviewPackMarkdown, /导出产物/);
+assert.match(reviewPackMarkdown, /HarmonyOS：schema reader 原型/);
 
 const normalizedDraft = normalizeCaptureDraft({
   quote: "  Draft quote\n",
@@ -1197,13 +1205,20 @@ assert.equal(getAnswerCaptureItems(answerInboxResult.workspace, 10, {
 }).length, 1);
 const answeredTodayMarkdown = generateTodayMarkdown(answerInboxResult.workspace, new Date("2026-05-29T00:32:30.000Z"));
 assert.match(answeredTodayMarkdown, /Closed Today/);
+assert.match(answeredTodayMarkdown, /今日关闭/);
 assert.match(answeredTodayMarkdown, /Answers Today/);
+assert.match(answeredTodayMarkdown, /今日回答/);
 assert.match(answeredTodayMarkdown, /answers today/);
+assert.match(answeredTodayMarkdown, /今日回答/);
 assert.match(answeredTodayMarkdown, /1 closed today/);
+assert.match(answeredTodayMarkdown, /1 个今日关闭/);
 assert.match(answeredTodayMarkdown, /Why does ownership make aliasing safe/);
 assert.match(answeredTodayMarkdown, /Answer: the compiler rejects overlapping mutable aliases before runtime/);
+assert.match(answeredTodayMarkdown, /回答：the compiler rejects overlapping mutable aliases before runtime/);
 assert.match(answeredTodayMarkdown, /Reason: linked-question/);
+assert.match(answeredTodayMarkdown, /原因：linked-question/);
 assert.match(answeredTodayMarkdown, /Answers: Why does ownership make aliasing safe/);
+assert.match(answeredTodayMarkdown, /回答问题：Why does ownership make aliasing safe/);
 assert.match(answeredTodayMarkdown, /## Answers Today[\s\S]+## Closed Today/);
 assert.doesNotMatch(answeredTodayMarkdown, /Answer: Answer:/);
 const reopenedAfterAnswerWorkspace = setCaptureQuestionResolved(
@@ -1604,6 +1619,7 @@ assert.equal(buildResumeSource(session).href, "https://www.youtube.com/watch?v=r
 assert.equal(buildResumeSource(session, "09:00").href, "https://www.youtube.com/watch?v=rust123&t=540s");
 assert.equal(buildResumeSource(session, "not a timestamp").href, "https://www.youtube.com/watch?v=rust123&t=492s");
 assert.match(generateTodayMarkdown(workspace, focusNow), /Source: \[RustConf ownership talk\]\(https:\/\/www\.youtube\.com\/watch\?v=rust123&t=492s\)/);
+assert.match(generateTodayMarkdown(workspace, focusNow), /来源：\[RustConf ownership talk\]\(https:\/\/www\.youtube\.com\/watch\?v=rust123&t=492s\)/);
 const noCaptureSession = createSession({
   title: "Source without captures",
   sourceTitle: "Readable source",
@@ -1865,25 +1881,44 @@ const todayMarkdown = generateTodayMarkdown(multiReviewWorkspace, frozenToday);
 assert.equal(todayMarkdown, generateTodayMarkdown(multiReviewWorkspace, frozenToday));
 assert.match(todayMarkdown, /Generated from workspace\.json/);
 assert.match(todayMarkdown, /Today Study Pack/);
+assert.match(todayMarkdown, /今日学习包/);
 assert.match(todayMarkdown, /Local day window: \[/);
+assert.match(todayMarkdown, /本地日期窗口：\[/);
 assert.match(todayMarkdown, /Due rule: review cards with dueAt <= generatedAt/);
+assert.match(todayMarkdown, /到期规则：review cards with dueAt <= generatedAt/);
+assert.match(todayMarkdown, /工作区：3 个主题 \/ 2 条摘录 \/ 0 个开放问题/);
 assert.match(todayMarkdown, /Resume Here/);
+assert.match(todayMarkdown, /从这里继续/);
 assert.match(todayMarkdown, /Next: Review/);
+assert.match(todayMarkdown, /下一步：复习 1 张到期卡片/);
+assert.match(todayMarkdown, /原因：当前主题有现在到期的复习。|原因：工作区复习债务优先于添加新材料。/);
 assert.match(todayMarkdown, /\]\(sessions\/.+\.md\)/);
 assert.match(todayMarkdown, /Due Review/);
+assert.match(todayMarkdown, /到期复习/);
 assert.match(todayMarkdown, /Question Queue Health/);
+assert.match(todayMarkdown, /问题队列健康度/);
 assert.match(todayMarkdown, /Question queue clear/);
 assert.match(todayMarkdown, /Question Loop/);
+assert.match(todayMarkdown, /问题闭环/);
 assert.match(todayMarkdown, /Question loop quiet/);
 assert.match(todayMarkdown, /Today metrics use the local day window/);
+assert.match(todayMarkdown, /今日指标使用本地日期窗口/);
 assert.match(todayMarkdown, /Open Questions/);
+assert.match(todayMarkdown, /开放问题/);
 assert.match(todayMarkdown, /No open questions captured yet/);
+assert.match(todayMarkdown, /还没有捕获开放问题/);
 assert.match(todayMarkdown, /Parked Questions/);
+assert.match(todayMarkdown, /暂存问题/);
 assert.match(todayMarkdown, /No parked questions/);
+assert.match(todayMarkdown, /没有暂存问题/);
 assert.match(todayMarkdown, /Closed Today/);
+assert.match(todayMarkdown, /今日关闭/);
 assert.match(todayMarkdown, /No questions closed today/);
+assert.match(todayMarkdown, /今天还没有关闭问题/);
 assert.match(todayMarkdown, /Recent Captures/);
+assert.match(todayMarkdown, /最近摘录/);
 assert.match(todayMarkdown, /Recall why greedy selection works/);
+assert.match(todayMarkdown, /`workspace\.json` 仍然是规范恢复载荷/);
 const boundaryNow = new Date("2099-01-02T23:59:30");
 const boundaryWindow = resolveTodayWindow(boundaryNow);
 const boundaryPack = buildTodayPack(multiReviewWorkspace, boundaryNow);
@@ -1914,14 +1949,21 @@ assert.match(questionTodayPack.questionItems[0].sessionPath, /^sessions\/.+\.md$
 assert.equal(questionTodayPack.questionOverflow, 0);
 const questionTodayMarkdown = generateTodayMarkdown(questionTodayWorkspace, frozenToday);
 assert.match(questionTodayMarkdown, /Open question rule: latest 6 open question captures by capturedAt/);
+assert.match(questionTodayMarkdown, /开放问题规则：latest 6 open question captures by capturedAt/);
 assert.match(questionTodayMarkdown, /Parked question rule: latest 6 parked question captures by parkedAt/);
+assert.match(questionTodayMarkdown, /暂存问题规则：latest 6 parked question captures by parkedAt/);
 assert.match(questionTodayMarkdown, /Closed today rule: latest 4 question captures resolved in 2099-01-02 local/);
+assert.match(questionTodayMarkdown, /今日关闭规则：latest 4 question captures resolved in 2099-01-02 local/);
 assert.match(questionTodayMarkdown, /Answer rule: latest 4 answer captures in 2099-01-02 local/);
+assert.match(questionTodayMarkdown, /回答规则：latest 4 answer captures in 2099-01-02 local/);
 assert.match(questionTodayMarkdown, /Workspace: 3 sessions \/ 3 captures \/ 1 open question \/ 0 parked questions \/ 0 closed today \/ 0 answers today \/ 2 cards \/ 2 due cards/);
+assert.match(questionTodayMarkdown, /工作区：3 个主题 \/ 3 条摘录 \/ 1 个开放问题 \/ 0 个暂存问题 \/ 0 个今日关闭 \/ 0 个今日回答 \/ 2 张卡片 \/ 2 张到期卡/);
 assert.match(questionTodayMarkdown, /Questions can also appear under Recent Captures/);
+assert.match(questionTodayMarkdown, /问题也可能出现在最近摘录里/);
 assert.match(questionTodayMarkdown, /Question Loop/);
 assert.match(questionTodayMarkdown, /Question loop has active work/);
 assert.match(questionTodayMarkdown, /Backlog: 1 unresolved question/);
+assert.match(questionTodayMarkdown, /积压：1 个开放问题 · 0 个暂存问题/);
 const mixedMirrorIndexHtml = generateMirrorIndexHtml(questionTodayWorkspace, frozenToday);
 assert.match(mixedMirrorIndexHtml, /Next from this export/);
 assert.match(mixedMirrorIndexHtml, /本次导出的下一步/);
@@ -1993,6 +2035,7 @@ assert.equal(overflowResolvedPack.resolvedQuestionItems.length, 2);
 assert.equal(overflowResolvedPack.resolvedQuestionItems[0].capture.thought, "Resolved overflow question 5?");
 assert.equal(overflowResolvedPack.resolvedQuestionOverflow, 4);
 assert.match(generateTodayMarkdown(overflowResolvedWorkspace, frozenToday), /\+2 more questions closed today in workspace\.json/);
+assert.match(generateTodayMarkdown(overflowResolvedWorkspace, frozenToday), /workspace\.json 中还有 2 个今日关闭问题/);
 const overflowAnswerWorkspace = workspaceFromPortableData({
   schema: WORKSPACE_SCHEMA,
   schemaVersion: WORKSPACE_SCHEMA_VERSION,
@@ -2018,6 +2061,7 @@ assert.equal(overflowAnswerPack.answerItems.length, 2);
 assert.equal(overflowAnswerPack.answerItems[0].answerReason, "tagged-answer");
 assert.equal(overflowAnswerPack.answerOverflow, 4);
 assert.match(generateTodayMarkdown(overflowAnswerWorkspace, frozenToday), /\+2 more answers captured today in workspace\.json/);
+assert.match(generateTodayMarkdown(overflowAnswerWorkspace, frozenToday), /workspace\.json 中还有 2 个今日回答/);
 const priorSessionAnswerWorkspace = workspaceFromPortableData({
   schema: WORKSPACE_SCHEMA,
   schemaVersion: WORKSPACE_SCHEMA_VERSION,

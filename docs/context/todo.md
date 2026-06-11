@@ -14,6 +14,11 @@ The static Review/Inbox chrome bilingual slice is locally verified:
 - `apps/companion-web/src/model.js`: `review.html` and `inbox.html` emit the same static language switch and bilingual static chrome for headings, return guidance, initial controls, form labels, and return-file preview guidance. Startup-overwritten save-mode controls, Inbox answer-mode labels/placeholders, active answer-context title/help, runtime status, return-file hints, manual-copy errors, after-save guidance, follow-up links, and Inbox empty/source hints use runtime i18n helpers.
 - `scripts/smoke-web.mjs`: Review/Inbox assertions cover English and Chinese output, startup-overwritten i18n helper usage, active answer-context i18n helper usage, runtime return-loop i18n helper usage, object-string regression guards, and return-file schema/fingerprint/safety checks.
 
+The first generated Markdown pack bilingual slice is locally verified:
+
+- `apps/companion-web/src/model.js`: generated `TODAY.md` and `Learning Companion Review Pack` keep English source-of-truth labels while adding adjacent Chinese aliases/notes for titles, meta labels, sections, empty states, source/tag/reason/answer labels, overflow rows, export artifacts, stage wording, and promotion guidance.
+- `scripts/smoke-web.mjs`: generated-pack assertions cover Chinese anchors for `TODAY.md`, Review Pack, source jump lines, answer/closed-question rows, and overflow rows.
+
 Verification commands:
 
 ```bash
@@ -27,7 +32,7 @@ All four commands passed on 2026-06-11. Browser smoke and local dev server were 
 
 ## Next Entry Point
 
-Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy has string-level smoke coverage, but browser-executed DOM switching proof is still pending.
+Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy and generated `TODAY.md` / Review Pack shell copy have string-level smoke coverage, but browser-executed DOM switching proof is still pending.
 
 ## User Priorities
 
@@ -37,9 +42,10 @@ Continue with external source validation and the remaining bilingual surfaces. R
 ## Immediate TODO
 
 - Capture one approved reading-source screenshot run and one approved video-source screenshot run using [docs/external-source-validation.md](../external-source-validation.md) once URLs and browser/server authorization are available.
-- Extend bilingual coverage beyond static pages to generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
+- Add bilingual display formatters for import/return receipts without translating stable receipt schema keys.
+- Extend bilingual coverage beyond static pages and the first generated packs to per-session Markdown, mirror `README.md`, synthesis drafts, QA receipt templates, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
 - Add browser-executed DOM switching checks for representative Review/Inbox runtime branches once browser/server authorization is available.
-- Keep the coverage boundary honest: do not claim full bilingual support until generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
+- Keep the coverage boundary honest: do not claim full bilingual support until the remaining generated artifacts, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
 - External validation evidence should record:
   - approved source URL and title,
   - source type: reading or video,

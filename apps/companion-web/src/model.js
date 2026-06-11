@@ -2106,89 +2106,132 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
   const pack = buildTodayPack(workspace, now);
   const { stats } = pack;
   const brief = pack.focusBrief;
+  const nextAction = translateMirrorFocusNextAction(brief.nextAction);
   const lines = [
     "<!-- Generated from workspace.json. Edits will be overwritten. Source of truth: workspace.json -->",
     "",
     "# Today Study Pack",
+    "_中文：今日学习包_",
     "",
     `Generated at: ${pack.generatedAt}`,
+    `生成时间：${pack.generatedAt}`,
     `Local day window: [${pack.localDayWindow.start}, ${pack.localDayWindow.end})`,
+    `本地日期窗口：[${pack.localDayWindow.start}, ${pack.localDayWindow.end})`,
     `Due rule: ${pack.dueDefinition}`,
+    `到期规则：${pack.dueDefinition}`,
     `Open question rule: ${pack.questionDefinition}`,
+    `开放问题规则：${pack.questionDefinition}`,
     `Parked question rule: ${pack.parkedQuestionDefinition}`,
+    `暂存问题规则：${pack.parkedQuestionDefinition}`,
     `Closed today rule: ${pack.resolvedQuestionDefinition}`,
+    `今日关闭规则：${pack.resolvedQuestionDefinition}`,
     `Answer rule: ${pack.answerDefinition}`,
+    `回答规则：${pack.answerDefinition}`,
     `Recent rule: ${pack.recentDefinition}`,
+    `最近摘录规则：${pack.recentDefinition}`,
     `Workspace: ${formatCount(stats.sessions, "session")} / ${formatCount(stats.captures, "capture")} / ${formatCount(stats.questions, "open question")} / ${formatCount(stats.parkedQuestions || 0, "parked question")} / ${stats.resolvedQuestionsToday || 0} closed today / ${stats.answerCapturesToday || 0} answers today / ${formatCount(stats.cards, "card")} / ${formatCount(stats.due, "due card")}`,
+    `工作区：${stats.sessions} 个主题 / ${stats.captures} 条摘录 / ${stats.questions} 个开放问题 / ${stats.parkedQuestions || 0} 个暂存问题 / ${stats.resolvedQuestionsToday || 0} 个今日关闭 / ${stats.answerCapturesToday || 0} 个今日回答 / ${stats.cards} 张卡片 / ${stats.due} 张到期卡`,
     "",
     "## Resume Here",
+    "_中文：从这里继续_",
     "",
     `- Session: ${markdownRelativeLink(brief.sessionTitle, brief.sessionPath)}`,
+    `- 主题：${markdownRelativeLink(brief.sessionTitle, brief.sessionPath)}`,
     `- Next: ${markdownInline(brief.nextAction.label)} - ${markdownInline(brief.nextAction.detail)}`,
+    `- 下一步：${markdownInline(nextAction.labelZh)} - ${markdownInline(nextAction.detailZh)}`,
     `- Why: ${markdownInline(brief.nextAction.reason)}`,
+    `- 原因：${markdownInline(nextAction.reasonZh || brief.nextAction.reason)}`,
     brief.source.href
       ? `- Source: [${markdownInline(brief.source.title || "Open source")}](${brief.source.href})`
       : "- Source: _Add a source URL before the next export._",
+    brief.source.href
+      ? `- 来源：[${markdownInline(brief.source.title || "打开来源")}](${brief.source.href})`
+      : "- 来源：_下次导出前请添加来源 URL。_",
     brief.latestCapture
       ? `- Latest capture: ${markdownInline(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` @ ${markdownInline(brief.latestCapture.timestamp)}` : ""}`
       : "- Latest capture: _No captures yet._",
+    brief.latestCapture
+      ? `- 最新摘录：${markdownInline(brief.latestCapture.summary)}${brief.latestCapture.timestamp ? ` @ ${markdownInline(brief.latestCapture.timestamp)}` : ""}`
+      : "- 最新摘录：_还没有摘录。_",
     "",
     "### Resume Signals",
+    "_中文：继续信号_",
     ""
   ];
 
   if (brief.warnings.length) {
-    brief.warnings.forEach((warning) => lines.push(`- ${markdownInline(warning.label)} - ${markdownInline(warning.detail)}`));
+    brief.warnings.forEach((warning) => {
+      const translated = translateMirrorFocusWarning(warning);
+      lines.push(`- ${markdownInline(warning.label)} - ${markdownInline(warning.detail)}`);
+      lines.push(`  - 中文：${markdownInline(translated.labelZh)} - ${markdownInline(translated.detailZh)}`);
+    });
   } else {
     lines.push("- Session is ready to continue.");
+    lines.push("- 主题已准备好继续。");
   }
 
   lines.push(
     "",
     "## Due Review",
+    "_中文：到期复习_",
     ""
   );
 
   if (!pack.dueItems.length) {
     lines.push("_No cards are due right now._");
+    lines.push("_现在没有到期卡片。_");
   } else {
     pack.dueItems.forEach(({ sessionTitle, sessionPath, card }) => {
       lines.push(`- ${markdownInline(card.prompt)} - ${markdownRelativeLink(sessionTitle, sessionPath)}`);
       lines.push(`  - Due: ${formatDate(card.dueAt)} · strength ${card.strength}`);
+      lines.push(`  - 到期：${formatDate(card.dueAt)} · 强度 ${card.strength}`);
     });
-    if (pack.dueOverflow) lines.push(`- +${pack.dueOverflow} more due cards in workspace.json`);
+    if (pack.dueOverflow) {
+      lines.push(`- +${pack.dueOverflow} more due cards in workspace.json`);
+      lines.push(`- workspace.json 中还有 ${pack.dueOverflow} 张到期卡`);
+    }
   }
 
   lines.push(
     "",
     "## Question Queue Health",
+    "_中文：问题队列健康度_",
     "",
     `- ${markdownInline(pack.questionHealth.label)} - ${markdownInline(pack.questionHealth.detail)}`,
     `- Active: ${pack.questionHealth.activeQuestions} · Parked: ${pack.questionHealth.parkedQuestions} · Unresolved: ${pack.questionHealth.unresolvedQuestions}`,
+    `- 活跃：${pack.questionHealth.activeQuestions} · 暂存：${pack.questionHealth.parkedQuestions} · 未解决：${pack.questionHealth.unresolvedQuestions}`,
     ""
   );
 
   lines.push(
     "",
     "## Question Loop",
+    "_中文：问题闭环_",
     "",
     "_Today metrics use the local day window; lifetime card totals span the workspace history._",
+    "_今日指标使用本地日期窗口；生命周期卡片总数覆盖整个工作区历史。_",
     `- ${markdownInline(pack.questionLoop.label)}`,
     `- Today: ${markdownInline(pack.questionLoop.todayDetail)}`,
+    `- 今日：${stats.resolvedQuestionsToday || 0} 个问题已关闭 · ${stats.answerCapturesToday || 0} 个回答已捕获`,
     `- Backlog: ${markdownInline(pack.questionLoop.backlogDetail)}`,
+    `- 积压：${stats.questions} 个开放问题 · ${stats.parkedQuestions || 0} 个暂存问题`,
     `- Lifetime: ${markdownInline(pack.questionLoop.lifetimeDetail)}`,
+    `- 全部历史：${stats.cards} 张复习卡`,
     ""
   );
 
   lines.push(
     "",
     "## Open Questions",
+    "_中文：开放问题_",
     "",
     "_Questions can also appear under Recent Captures; this section keeps unresolved study questions easy to scan._",
+    "_问题也可能出现在最近摘录里；本节让未解决的学习问题更容易扫描。_",
     ""
   );
   if (!pack.questionItems.length) {
     lines.push("_No open questions captured yet._");
+    lines.push("_还没有捕获开放问题。_");
   } else {
     pack.questionItems.forEach(({ sessionTitle, sessionPath, capture }) => {
       const question = markdownInline(capture.thought || capture.quote || "Untitled question");
@@ -2196,84 +2239,115 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
       const source = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
       if (source) {
         lines.push(`  - Source: [${markdownInline(capture.sourceTitle || "Open source")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
+        lines.push(`  - 来源：[${markdownInline(capture.sourceTitle || "打开来源")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
       } else if (capture.sourceTitle) {
         lines.push(`  - Source: ${markdownInline(capture.sourceTitle)}`);
+        lines.push(`  - 来源：${markdownInline(capture.sourceTitle)}`);
       }
       if (capture.tags.length) {
         lines.push(`  - Tags: ${capture.tags.map((tag) => `#${markdownInline(tag)}`).join(" ")}`);
+        lines.push(`  - 标签：${capture.tags.map((tag) => `#${markdownInline(tag)}`).join(" ")}`);
       }
     });
-    if (pack.questionOverflow) lines.push(`- +${pack.questionOverflow} more open questions in workspace.json`);
+    if (pack.questionOverflow) {
+      lines.push(`- +${pack.questionOverflow} more open questions in workspace.json`);
+      lines.push(`- workspace.json 中还有 ${pack.questionOverflow} 个开放问题`);
+    }
   }
 
   lines.push(
     "",
     "## Parked Questions",
+    "_中文：暂存问题_",
     "",
     "_Parked questions are unresolved, but they are intentionally out of the active focus queue._",
+    "_暂存问题尚未解决，但已被有意移出当前焦点队列。_",
     ""
   );
   if (!pack.parkedQuestionItems.length) {
     lines.push("_No parked questions._");
+    lines.push("_没有暂存问题。_");
   } else {
     pack.parkedQuestionItems.forEach(({ sessionTitle, sessionPath, capture }) => {
       const question = markdownInline(capture.thought || capture.quote || "Untitled question");
       const parkedAt = capture.questionParkedAt ? ` · parked ${formatDate(capture.questionParkedAt)}` : "";
       lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}${parkedAt}`);
+      if (capture.questionParkedAt) lines.push(`  - 暂存：${formatDate(capture.questionParkedAt)}`);
     });
-    if (pack.parkedQuestionOverflow) lines.push(`- +${pack.parkedQuestionOverflow} more parked questions in workspace.json`);
+    if (pack.parkedQuestionOverflow) {
+      lines.push(`- +${pack.parkedQuestionOverflow} more parked questions in workspace.json`);
+      lines.push(`- workspace.json 中还有 ${pack.parkedQuestionOverflow} 个暂存问题`);
+    }
   }
 
   lines.push(
     "",
     "## Answers Today",
+    "_中文：今日回答_",
     "",
     "_Answer captures stay visible here even when they are not linked to a closed question._",
+    "_即使回答摘录没有关联到已关闭问题，也会在这里保持可见。_",
     ""
   );
   if (!pack.answerItems.length) {
     lines.push("_No answers captured today._");
+    lines.push("_今天还没有捕获回答。_");
   } else {
     pack.answerItems.forEach(({ sessionTitle, sessionPath, capture, questionCapture, answerReason }) => {
       lines.push(`- ${markdownInline(answerCaptureText(capture) || capture.quote || "Untitled answer")} - ${markdownRelativeLink(sessionTitle, sessionPath)}`);
       if (answerReason) {
         lines.push(`  - Reason: ${markdownInline(answerReason)}`);
+        lines.push(`  - 原因：${markdownInline(answerReason)}`);
       }
       if (questionCapture) {
         lines.push(`  - Answers: ${markdownInline(reviewQuestionText(questionCapture) || "linked question")}`);
+        lines.push(`  - 回答问题：${markdownInline(reviewQuestionText(questionCapture) || "关联问题")}`);
       }
       const source = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
       if (source) {
         lines.push(`  - Source: [${markdownInline(capture.sourceTitle || "Open source")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
+        lines.push(`  - 来源：[${markdownInline(capture.sourceTitle || "打开来源")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
       }
     });
-    if (pack.answerOverflow) lines.push(`- +${pack.answerOverflow} more answers captured today in workspace.json`);
+    if (pack.answerOverflow) {
+      lines.push(`- +${pack.answerOverflow} more answers captured today in workspace.json`);
+      lines.push(`- workspace.json 中还有 ${pack.answerOverflow} 个今日回答`);
+    }
   }
 
   lines.push(
     "",
     "## Closed Today",
+    "_中文：今日关闭_",
     "",
     `_Questions resolved in ${markdownInline(pack.localDayWindow.label)} stay visible here as a closure trail._`,
+    `_在 ${markdownInline(pack.localDayWindow.label)} 解决的问题会留在这里，作为闭环轨迹。_`,
     ""
   );
   if (!pack.resolvedQuestionItems.length) {
     lines.push("_No questions closed today._");
+    lines.push("_今天还没有关闭问题。_");
   } else {
     pack.resolvedQuestionItems.forEach(({ sessionTitle, sessionPath, capture, answerCapture }) => {
       const question = markdownInline(capture.thought || capture.quote || "Untitled question");
       const closedAt = capture.questionResolvedAt ? ` · closed ${formatDate(capture.questionResolvedAt)}` : "";
       lines.push(`- ${question} - ${markdownRelativeLink(sessionTitle, sessionPath)}${closedAt}`);
+      if (capture.questionResolvedAt) lines.push(`  - 关闭：${formatDate(capture.questionResolvedAt)}`);
       if (answerCapture) {
         lines.push(`  - Answer: ${markdownInline(answerCaptureText(answerCapture) || "Linked answer capture")}`);
+        lines.push(`  - 回答：${markdownInline(answerCaptureText(answerCapture) || "关联回答摘录")}`);
       }
     });
-    if (pack.resolvedQuestionOverflow) lines.push(`- +${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`);
+    if (pack.resolvedQuestionOverflow) {
+      lines.push(`- +${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`);
+      lines.push(`- workspace.json 中还有 ${pack.resolvedQuestionOverflow} 个今日关闭问题`);
+    }
   }
 
-  lines.push("", "## Recent Captures", "");
+  lines.push("", "## Recent Captures", "_中文：最近摘录_", "");
   if (!pack.recentCaptures.length) {
     lines.push("_No captures yet._");
+    lines.push("_还没有摘录。_");
   } else {
     pack.recentCaptures.forEach(({ sessionTitle, sessionPath, capture }) => {
       const summary = markdownInline(capture.thought || capture.quote || "Untitled capture");
@@ -2281,22 +2355,31 @@ export function generateTodayMarkdown(workspace, now = new Date()) {
       const source = buildSourceJumpUrl(capture.sourceUrl, capture.timestamp);
       if (source) {
         lines.push(`  - Source: [${markdownInline(capture.sourceTitle || "Open source")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
+        lines.push(`  - 来源：[${markdownInline(capture.sourceTitle || "打开来源")}](${source})${capture.timestamp ? ` @ ${markdownInline(capture.timestamp)}` : ""}`);
       } else if (capture.sourceTitle) {
         lines.push(`  - Source: ${markdownInline(capture.sourceTitle)}`);
+        lines.push(`  - 来源：${markdownInline(capture.sourceTitle)}`);
       }
       if (capture.tags.length) {
         lines.push(`  - Tags: ${capture.tags.map((tag) => `#${markdownInline(tag)}`).join(" ")}`);
+        lines.push(`  - 标签：${capture.tags.map((tag) => `#${markdownInline(tag)}`).join(" ")}`);
       }
     });
-    if (pack.recentOverflow) lines.push(`- +${pack.recentOverflow} more captures in workspace.json`);
+    if (pack.recentOverflow) {
+      lines.push(`- +${pack.recentOverflow} more captures in workspace.json`);
+      lines.push(`- workspace.json 中还有 ${pack.recentOverflow} 条摘录`);
+    }
   }
 
   lines.push(
     "",
     "## Notes",
+    "_中文：说明_",
     "",
     "- `workspace.json` remains the canonical restore payload.",
-    "- This file is a readable derived study index for Feishu Drive, Windows, and mobile review."
+    "- `workspace.json` 仍然是规范恢复载荷。",
+    "- This file is a readable derived study index for Feishu Drive, Windows, and mobile review.",
+    "- 此文件是供飞书云文档、Windows 和移动端复习阅读的派生学习索引。"
   );
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
@@ -2310,39 +2393,62 @@ export function generateReviewPackMarkdown(workspaceData) {
   const captures = safeWorkspace.sessions.reduce((sum, session) => sum + session.captures.length, 0);
   const cards = safeWorkspace.sessions.reduce((sum, session) => sum + session.reviewCards.length, 0);
   const focusBrief = buildFocusBrief(active, safeWorkspace);
+  const focusAction = translateMirrorFocusNextAction(focusBrief.nextAction);
   const focusReason = focusBrief.nextAction.reason || "No focus reason available.";
   return [
     "# Learning Companion Review Pack",
+    "_中文：学习伴侣复习包_",
     "",
     "> Scope: local MVP fixture/internal build. This does not prove live Feishu sync, HarmonyOS device behavior, or signed Mac packaging.",
+    "> 中文范围：本地 MVP fixture / 内部构建。它不能证明飞书实时同步、HarmonyOS 真机行为或已签名 Mac 包。",
     "",
     "## Workspace",
+    "_中文：工作区_",
     "",
     `- Sessions: ${safeWorkspace.sessions.length}`,
+    `- 主题数：${safeWorkspace.sessions.length}`,
     `- Captures: ${captures}`,
+    `- 摘录数：${captures}`,
     `- Review cards: ${cards}`,
+    `- 复习卡片：${cards}`,
     `- Due now: ${due.length}`,
+    `- 当前到期：${due.length}`,
     `- Active topic: ${active.title}`,
+    `- 当前主题：${active.title}`,
     `- Next action: ${focusBrief.nextAction.label}`,
+    `- 下一步：${focusAction.labelZh}`,
     `- Why: ${focusReason}`,
+    `- 原因：${focusAction.reasonZh || focusReason}`,
     "",
     "## Export Artifacts",
+    "_中文：导出产物_",
     "",
     `- Workspace restore: \`learning-companion-workspace.json\` (${safeWorkspace.sessions.length} sessions)`,
+    `- 工作区恢复：\`learning-companion-workspace.json\`（${safeWorkspace.sessions.length} 个主题）`,
     `- Mirror bundle: \`learning-companion-mirror.json\` (${mirror.manifest.fileCount} files, ${mirror.manifest.bundleFingerprint})`,
+    `- 镜像包：\`learning-companion-mirror.json\`（${mirror.manifest.fileCount} 个文件，${mirror.manifest.bundleFingerprint}）`,
     "- Mirror ZIP: `learning-companion-mirror.zip` (manual folder package)",
+    "- 镜像 ZIP：`learning-companion-mirror.zip`（手动文件夹包）",
     "- Today pack: `TODAY.md`",
+    "- 今日学习包：`TODAY.md`",
     "- Current session Markdown and `.feishu.json` sidecar",
+    "- 当前主题 Markdown 和 `.feishu.json` sidecar",
     "",
     "## Stage Wording",
+    "_中文：阶段措辞_",
     "",
     "- Mac: internal WKWebView shell, not signed production app.",
+    "- Mac：内部 WKWebView shell，不是已签名生产应用。",
     "- Feishu: local mirror bundle plus upload plan/dry-run boundary, not live sync.",
+    "- 飞书：本地镜像包加上传计划 / dry-run 边界，不是实时同步。",
     "- HarmonyOS: schema reader prototype, not device-verified app.",
+    "- HarmonyOS：schema reader 原型，不是真机验证应用。",
     "",
     "## Morning Commands",
+    "_中文：Morning 命令_",
     "",
     "Offline headline gate:",
+    "离线 headline gate：",
     "",
     "```bash",
     "npm run check:morning",
@@ -2350,6 +2456,7 @@ export function generateReviewPackMarkdown(workspaceData) {
     "```",
     "",
     "Separate permissioned gates:",
+    "需要单独授权的 gate：",
     "",
     "```bash",
     "npm run check:morning:native",
@@ -2357,10 +2464,14 @@ export function generateReviewPackMarkdown(workspaceData) {
     "```",
     "",
     "## Promotion Gates",
+    "_中文：推广 gate_",
     "",
     "- Mac dogfood: run sidecar, clipboard capture, selected-text capture, browser context, import/export, and relaunch manual QA.",
+    "- Mac dogfood：运行 sidecar、剪贴板摘录、选中文本摘录、浏览器上下文、导入/导出和重启手动 QA。",
     "- Feishu live writer: configure credentials explicitly, set Drive folder target, then compare upload report against dry-run report.",
+    "- 飞书 live writer：显式配置凭证，设置云文档文件夹目标，然后将上传报告与 dry-run 报告对比。",
     "- HarmonyOS app: import workspace or mirror bundle on device, render reader view, export append-only inbox/review patches.",
+    "- HarmonyOS 应用：在设备上导入工作区或镜像包，渲染 reader view，并导出 append-only 收件箱/复习 patch。",
     ""
   ].join("\n");
 }

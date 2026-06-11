@@ -60,6 +60,15 @@ The fifth implementation slice starts static Review/Inbox coverage:
 
 This slice still does not cover generated receipts, native shells, Windows/HarmonyOS surfaces, document exports, or browser-executed DOM switching proof for every runtime branch.
 
+The sixth implementation slice starts generated Markdown pack coverage:
+
+- bilingual shell copy for generated `TODAY.md`,
+- bilingual shell copy for `Learning Companion Review Pack`,
+- English source-of-truth labels preserved for compatibility, with adjacent Chinese aliases/notes,
+- smoke assertions proving Chinese generated-pack anchors are emitted.
+
+This slice still does not cover per-session Markdown, mirror `README.md`, synthesis drafts, import receipts, QA receipt templates, native shells, Windows/HarmonyOS surfaces, document exports, or browser-executed DOM switching proof.
+
 ## External Source Visual Validation
 
 Future study-loop validation should include public or user-approved non-private reading/video material and store screenshots under project-local `.codex-tmp/`.
@@ -77,4 +86,4 @@ Do not use authenticated/private pages, cookies, or sensitive content. A screens
 
 ## Continuation TODO
 
-Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index plus Review/Inbox static and runtime return-loop copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then generated artifacts and platform-specific surfaces.
+Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index, Review/Inbox static and runtime return-loop copy, and the generated `TODAY.md` / review-pack shell copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then receipt/display formatters and platform-specific surfaces.

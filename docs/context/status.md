@@ -26,7 +26,14 @@ The static Review/Inbox chrome bilingual slice is also locally verified. It now 
 - startup-safe Review/Inbox save-mode button/help and Inbox answer-mode labels/placeholders plus active answer-context title/help that JS overwrites on load,
 - Review/Inbox runtime return-loop status, return-file hints, manual-copy errors, after-save guidance, follow-up links, and Inbox empty/source hints.
 
-This is not full bilingual coverage. Browser-executed DOM switching proof for every runtime branch, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are still outside the completed boundary.
+This is not full bilingual coverage. Browser-executed DOM switching proof for every runtime branch, the rest of the generated artifact set, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are still outside the completed boundary.
+
+The first generated Markdown pack slice is locally verified. It now emits English and Chinese shell copy for:
+
+- generated `TODAY.md` title, meta labels, resume section, section aliases, empty states, source/tag/reason/answer labels, overflow lines, and final notes,
+- `Learning Companion Review Pack` title, scope boundary, workspace/export/stage sections, command gates, and promotion-gate guidance.
+
+This generated-pack slice preserves user-authored capture/session text and English source-of-truth labels. Per-session Markdown, mirror `README.md`, synthesis drafts, import receipts, QA receipt templates, browser-executed DOM checks, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports remain outside the completed boundary.
 
 Subagent review follow-up:
 
@@ -35,6 +42,7 @@ Subagent review follow-up:
 - `PASS_WITH_NOTES`: Review/Inbox static page reviewers recommended dynamic runtime i18n too. Static chrome plus startup-overwritten save-mode and answer-mode controls were implemented first; runtime status, after-save, follow-up, and return-loop copy are now covered by the latest slice.
 - `BLOCKED`: final subagent review found active Inbox answer-context title/help still used English-only `textContent`. Fixed with `setI18nHtml(...)` and smoke assertions for the active title/help calls.
 - `PASS`: Review/Inbox runtime i18n scans found English-only status sinks, return-file hints, after-save/follow-up copy, manual-copy errors, and Inbox empty/source hints. Fixed with pair-aware runtime helpers and smoke assertions guarding against `textContent = message` / object-string regressions.
+- `PASS`: generated-artifact scan identified `TODAY.md` as the best next target, with Review Pack as a small adjacent pack. Fixed the generated Markdown shell copy and added smoke anchors for Chinese output while leaving per-session Markdown, mirror `README.md`, and receipts for later slices.
 
 ## Verification
 
@@ -55,5 +63,5 @@ PASS:
 ## Next Best Action
 
 1. With approved URLs and current-turn authorization, run one reading-source and one video-source validation side by side with the app using [docs/external-source-validation.md](../external-source-validation.md).
-2. Continue bilingual coverage into generated artifacts, QA receipts, and platform-specific surfaces before claiming full bilingual support.
-3. Add browser-executed DOM switching checks for representative Review/Inbox runtime branches when local browser/server authorization is available.
+2. Add bilingual display formatters for import/return receipts without translating receipt schema keys.
+3. Continue bilingual coverage into per-session Markdown, mirror `README.md`, QA receipt templates, and platform-specific surfaces before claiming full bilingual support.
