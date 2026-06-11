@@ -11,8 +11,8 @@ The static mirror index bilingual slice is locally verified:
 
 The static Review/Inbox chrome bilingual slice is locally verified:
 
-- `apps/companion-web/src/model.js`: `review.html` and `inbox.html` emit the same static language switch and bilingual static chrome for headings, return guidance, initial controls, form labels, and return-file preview guidance. Startup-overwritten save-mode controls plus Inbox answer-mode labels/placeholders and active answer-context title/help also use runtime i18n helpers.
-- `scripts/smoke-web.mjs`: Review/Inbox assertions cover English and Chinese output, startup-overwritten i18n helper usage, active answer-context i18n helper usage, and return-file schema/fingerprint/safety checks.
+- `apps/companion-web/src/model.js`: `review.html` and `inbox.html` emit the same static language switch and bilingual static chrome for headings, return guidance, initial controls, form labels, and return-file preview guidance. Startup-overwritten save-mode controls, Inbox answer-mode labels/placeholders, active answer-context title/help, runtime status, return-file hints, manual-copy errors, after-save guidance, follow-up links, and Inbox empty/source hints use runtime i18n helpers.
+- `scripts/smoke-web.mjs`: Review/Inbox assertions cover English and Chinese output, startup-overwritten i18n helper usage, active answer-context i18n helper usage, runtime return-loop i18n helper usage, object-string regression guards, and return-file schema/fingerprint/safety checks.
 
 Verification commands:
 
@@ -27,7 +27,7 @@ All four commands passed on 2026-06-11. Browser smoke and local dev server were 
 
 ## Next Entry Point
 
-Continue with the remaining Review/Inbox JavaScript runtime i18n, then external source validation and the remaining bilingual surfaces.
+Continue with external source validation and the remaining bilingual surfaces. Review/Inbox runtime return-loop copy has string-level smoke coverage, but browser-executed DOM switching proof is still pending.
 
 ## User Priorities
 
@@ -36,10 +36,10 @@ Continue with the remaining Review/Inbox JavaScript runtime i18n, then external 
 
 ## Immediate TODO
 
-- Add the remaining Review/Inbox JavaScript runtime i18n for status messages, after-save guidance, and follow-up link copy.
 - Capture one approved reading-source screenshot run and one approved video-source screenshot run using [docs/external-source-validation.md](../external-source-validation.md) once URLs and browser/server authorization are available.
 - Extend bilingual coverage beyond static pages to generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports.
-- Keep the coverage boundary honest: do not claim full bilingual support until Review/Inbox runtime strings, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are covered or explicitly marked out of scope.
+- Add browser-executed DOM switching checks for representative Review/Inbox runtime branches once browser/server authorization is available.
+- Keep the coverage boundary honest: do not claim full bilingual support until generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, document exports, and browser-executed runtime language checks are covered or explicitly marked out of scope.
 - External validation evidence should record:
   - approved source URL and title,
   - source type: reading or video,

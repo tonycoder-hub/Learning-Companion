@@ -55,9 +55,10 @@ The fifth implementation slice starts static Review/Inbox coverage:
 - bilingual return-ready badge and return-to-Mac guidance,
 - bilingual initial form labels, initial action buttons, card control labels, and return-file preview guidance,
 - bilingual startup-safe save-mode button/help, Inbox answer-mode labels/placeholders, and active answer-context title/help,
+- bilingual Review/Inbox runtime return-loop status, after-save guidance, follow-up links, manual-copy errors, and source/empty hints,
 - static smoke assertions proving both English and Chinese copy are emitted while return-file schema/fingerprint behavior remains stable.
 
-This slice still does not cover most JavaScript runtime status strings after user interaction, after-save/follow-up copy, generated receipts, native shells, Windows/HarmonyOS surfaces, or document exports.
+This slice still does not cover generated receipts, native shells, Windows/HarmonyOS surfaces, document exports, or browser-executed DOM switching proof for every runtime branch.
 
 ## External Source Visual Validation
 
@@ -76,4 +77,4 @@ Do not use authenticated/private pages, cookies, or sensitive content. A screens
 
 ## Continuation TODO
 
-Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index and the static Review/Inbox chrome are locally verified; startup-safe Review/Inbox save-mode and answer-context controls are partially covered. The next step is to add the remaining Review/Inbox JavaScript runtime i18n, then external document/video screenshot validation with approved non-private sources.
+Use [docs/context/todo.md](context/todo.md) as the local handoff for the next iteration. The static mirror index plus Review/Inbox static and runtime return-loop copy are locally verified with string-level smoke coverage. The next step is external document/video screenshot validation with approved non-private sources, then generated artifacts and platform-specific surfaces.
