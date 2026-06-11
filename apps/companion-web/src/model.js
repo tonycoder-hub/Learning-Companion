@@ -2401,11 +2401,17 @@ function i18nText(en, zh) {
   return `<span class="i18n-en">${htmlText(en)}</span><span class="i18n-zh" lang="zh-CN">${htmlText(zh)}</span>`;
 }
 
-function returnReadyBadgeHtml() {
+function returnReadyBadgeHtml({ bilingual = false } = {}) {
+  const title = bilingual
+    ? i18nText("Return-ready mirror", "可返回的镜像")
+    : htmlText("Return-ready mirror");
+  const detail = bilingual
+    ? i18nText("Review and Inbox return files from this mirror include the Mac return-base check via source.returnBaseFingerprint. Static mirror only; no live sync.", "这个镜像中的复习和收件箱返回文件会包含 Mac 返回基线检查 source.returnBaseFingerprint。仅静态镜像；无实时同步。")
+    : htmlText("Review and Inbox return files from this mirror include the Mac return-base check via source.returnBaseFingerprint. Static mirror only; no live sync.");
   return [
     "    <section class=\"return-ready-badge\" aria-label=\"Return-ready mirror\">",
-    `      <strong>${i18nText("Return-ready mirror", "可返回的镜像")}</strong>`,
-    `      <span>${i18nText("Review and Inbox return files from this mirror include the Mac return-base check via source.returnBaseFingerprint. Static mirror only; no live sync.", "这个镜像中的复习和收件箱返回文件会包含 Mac 返回基线检查 source.returnBaseFingerprint。仅静态镜像；无实时同步。")}</span>`,
+    `      <strong>${title}</strong>`,
+    `      <span>${detail}</span>`,
     "    </section>"
   ];
 }
@@ -2419,6 +2425,98 @@ function staticNoScriptHtml() {
     "      </section>",
     "    </noscript>"
   ];
+}
+
+function mirrorFirstNumber(value) {
+  return cleanText(value, MAX_TITLE_LENGTH).match(/\d+/)?.[0] || "";
+}
+
+function translateMirrorFocusNextAction(action = {}) {
+  const count = mirrorFirstNumber(action.label) || mirrorFirstNumber(action.detail);
+  switch (action.kind) {
+    case "review": {
+      const workspace = cleanText(action.label, MAX_TITLE_LENGTH).includes("workspace");
+      return {
+        ...action,
+        labelZh: count ? `复习 ${count} 张${workspace ? "工作区" : ""}到期卡片` : "复习到期卡片",
+        detailZh: workspace
+          ? "其他主题也有到期卡；队列会按最早到期和主题标题排序。"
+          : "先揭示并评分，再加入更多材料。",
+        reasonZh: workspace ? "工作区复习债务优先于添加新材料。" : "当前主题有现在到期的复习。"
+      };
+    }
+    case "synthesize":
+      return {
+        ...action,
+        labelZh: "构建综合",
+        detailZh: count ? `${count} 条摘录可以压缩进笔记。` : "摘录可以压缩进笔记。",
+        reasonZh: "未综合摘录已达到压缩阈值。"
+      };
+    case "capture":
+      return {
+        ...action,
+        labelZh: "摘录下一个要点",
+        detailZh: `最近 ${FOCUS_BRIEF_CAPTURE_IDLE_MINUTES} 分钟没有新增摘录。`,
+        reasonZh: "来源可用，但这个主题已经安静了一段时间。"
+      };
+    case "continue":
+      return {
+        ...action,
+        labelZh: "继续阅读",
+        detailZh: "来源已打开；摘录下一个能改变你理解的想法。",
+        reasonZh: "已有最近摘录，所以现在最适合继续阅读。"
+      };
+    case "open_source":
+      return {
+        ...action,
+        labelZh: "添加来源",
+        detailZh: "继续摘录前先粘贴浏览器 URL。",
+        reasonZh: "缺少来源上下文，之后很难回到材料。"
+      };
+    default:
+      return {
+        ...action,
+        labelZh: action.label || "",
+        detailZh: action.detail || "",
+        reasonZh: action.reason || ""
+      };
+  }
+}
+
+function translateMirrorFocusWarning(warning = {}) {
+  const count = mirrorFirstNumber(warning.label) || mirrorFirstNumber(warning.detail);
+  switch (warning.kind) {
+    case "missing_source":
+      return {
+        ...warning,
+        labelZh: "缺少来源",
+        detailZh: "添加浏览器 URL，摘录才能跳回材料。"
+      };
+    case "notes_empty":
+      return {
+        ...warning,
+        labelZh: "笔记为空",
+        detailZh: "结束主题前，至少把一条摘录整理进笔记。"
+      };
+    case "open_questions":
+      return {
+        ...warning,
+        labelZh: count ? `${count} 个开放问题` : "开放问题",
+        detailZh: "已捕获的问题会先停在综合或复习队列里，之后再闭环。"
+      };
+    case "needs_synthesis":
+      return {
+        ...warning,
+        labelZh: "需要综合",
+        detailZh: count ? `${count} 条摘录正在等待综合块。` : "摘录正在等待综合块。"
+      };
+    default:
+      return {
+        ...warning,
+        labelZh: warning.label || "",
+        detailZh: warning.detail || ""
+      };
+  }
 }
 
 function returnAfterSaveCss() {
@@ -3282,8 +3380,12 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
   const recentList = pack.recentCaptures.length
     ? pack.recentCaptures.map(({ sessionTitle, capture }) => `<li>${htmlText(capture.thought || capture.quote || "Untitled capture")} <span>${htmlText(sessionTitle)}</span></li>`).join("\n")
     : `<li>${i18nText("No captures yet.", "还没有摘录。")}</li>`;
+  const mirrorNextAction = translateMirrorFocusNextAction(brief.nextAction);
   const signalList = brief.warnings.length
-    ? brief.warnings.map((warning) => `<li>${htmlText(warning.label)} <span>${htmlText(warning.detail)}</span></li>`).join("\n")
+    ? brief.warnings.map((warning) => {
+        const translated = translateMirrorFocusWarning(warning);
+        return `<li>${i18nText(warning.label, translated.labelZh)} <span>${i18nText(warning.detail, translated.detailZh)}</span></li>`;
+      }).join("\n")
     : `<li>${i18nText("Session is ready to continue.", "这个主题可以继续学习。")}</li>`;
   const sourceLine = brief.source.href
     ? `<a href="${htmlAttribute(brief.source.href)}">${htmlText(brief.source.title || "Open source")}</a>`
@@ -3300,7 +3402,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     '  <meta charset="utf-8">',
     '  <meta name="viewport" content="width=device-width, initial-scale=1">',
     '  <meta name="referrer" content="no-referrer">',
-    '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'">',
+    '  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'none\'">',
     `  <meta name="learning-companion-source" content="workspace.json">`,
     `  <meta name="learning-companion-workspace-fingerprint" content="${htmlAttribute(workspaceFingerprint)}">`,
     `  <meta name="learning-companion-return-base-fingerprint" content="${htmlAttribute(returnBaseFingerprint)}">`,
@@ -3349,7 +3451,7 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     `      <h1>${i18nText("Learning Companion Mirror", "学习伴侣镜像")}</h1>`,
     `      <p class="summary">${i18nText(`Generated at ${pack.generatedAt} · ${formatCount(pack.stats.sessions, "session")} · ${formatCount(pack.stats.questions, "open question")} · ${formatCount(pack.stats.due, "due card")} · source of truth: workspace.json`, `生成于 ${pack.generatedAt} · ${pack.stats.sessions} 个主题 · ${pack.stats.questions} 个开放问题 · ${pack.stats.due} 张到期卡 · 事实来源：workspace.json`)}</p>`,
     "    </header>",
-    ...returnReadyBadgeHtml(),
+    ...returnReadyBadgeHtml({ bilingual: true }),
     "    <section class=\"panel device-next-panel\" aria-label=\"Next from this export\">",
     `      <h2>${i18nText("Next from this export", "本次导出的下一步")}</h2>`,
     `      <a class="device-next-link" href="${htmlAttribute(mirrorDeviceAction.href)}"${mirrorDeviceAction.external ? ' target="_blank" rel="noreferrer noopener"' : ""}><strong>${i18nText(mirrorDeviceAction.label, mirrorDeviceAction.labelZh)}</strong><span>${i18nText(mirrorDeviceAction.detail, mirrorDeviceAction.detailZh)}</span><small>${i18nText(`${mirrorDeviceAction.meta} · As of ${pack.generatedAt} · Static mirror. Save a return file when done.`, `${mirrorDeviceAction.metaZh} · 截至 ${pack.generatedAt} · 静态镜像。完成后保存返回文件。`)}</small></a>`,
@@ -3374,8 +3476,8 @@ export function generateMirrorIndexHtml(workspace, now = new Date()) {
     "    </section>",
     "    <section class=\"panel\">",
     `      <h2>${i18nText("Resume Here", "从这里继续")}</h2>`,
-    `      <p><strong>${htmlText(brief.nextAction.label)}</strong> <span>${htmlText(brief.nextAction.detail)}</span></p>`,
-    `      <p class="why">${i18nText(`Why: ${brief.nextAction.reason}`, `原因：${brief.nextAction.reason}`)}</p>`,
+    `      <p><strong>${i18nText(mirrorNextAction.label, mirrorNextAction.labelZh)}</strong> <span>${i18nText(mirrorNextAction.detail, mirrorNextAction.detailZh)}</span></p>`,
+    `      <p class="why">${i18nText(`Why: ${mirrorNextAction.reason}`, `原因：${mirrorNextAction.reasonZh}`)}</p>`,
     `      <p>${i18nText("Session:", "主题：")} <a href="${htmlAttribute(brief.sessionPath)}">${htmlText(brief.sessionTitle)}</a></p>`,
     `      <p>${i18nText("Source:", "来源：")} ${sourceLine}</p>`,
     `      <p>${i18nText("Latest:", "最新：")} ${latestLine}</p>`,

@@ -6,8 +6,8 @@ Updated: 2026-06-11
 
 The static mirror index bilingual slice is locally verified:
 
-- `apps/companion-web/src/model.js`: static mirror index emits English / Chinese switchable copy for the entry point, next action, manual return, resume labels, summary labels, and empty states.
-- `scripts/smoke-web.mjs`: static mirror smoke assertions cover English and Chinese output plus the mirror language switch.
+- `apps/companion-web/src/model.js`: static mirror index emits English / Chinese switchable copy for the entry point, next action, manual return, common resume actions/warnings, resume labels, summary labels, and empty states.
+- `scripts/smoke-web.mjs`: static mirror smoke assertions cover English and Chinese output, the mirror language switch, Review/Inbox badge leakage guardrails, and static index CSP.
 
 Verification commands:
 
@@ -40,7 +40,9 @@ Continue with external source validation and the remaining bilingual surfaces.
   - video timestamp when relevant,
   - viewport and sidecar/full-desk state,
   - screenshot showing source beside the app during capture,
-  - screenshot showing resume context after saving.
+  - screenshot showing resume context after saving,
+  - source approval recorded,
+  - privacy review PASS/FAIL.
 - Store future validation screenshots under `.codex-tmp/external-source-validation/` and keep private/authenticated content out of screenshots.
 
 ## Acceptance Direction

@@ -4,6 +4,8 @@ The first browser integration is a local bookmarklet. It does not require an ext
 
 ## Local Sidecar URL
 
+Start the local app only when the current turn authorizes local dev server use.
+
 Run the app:
 
 ```bash

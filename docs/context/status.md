@@ -14,9 +14,15 @@ The static mirror index bilingual slice is locally verified. It now emits Englis
 - next action panel,
 - manual return steps,
 - resume/source/session/latest labels,
+- common resume action and warning copy,
 - due/open/recent/session preview headings and empty states.
 
 This is not full bilingual coverage. Static Review/Inbox pages, generated packs, QA receipts, native Mac shell copy, Windows/HarmonyOS surfaces, and document exports are still outside the completed boundary.
+
+Subagent review follow-up:
+
+- `PASS_WITH_NOTES`: external-source validation runbook needed stricter approval, privacy, app revision, and timestamp evidence fields. Fixed in `docs/external-source-validation.md`.
+- `PASS_WITH_NOTES`: static mirror bilingual review found Review/Inbox badge language leakage, English-only dynamic Resume copy, and permissive script CSP. Fixed in `apps/companion-web/src/model.js` and `scripts/smoke-web.mjs`.
 
 ## Verification
 
