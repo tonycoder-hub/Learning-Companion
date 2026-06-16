@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const chromePath = resolveChromePath();
 const smokeBase = resolve(".codex-tmp/text-fragment-browser-smoke");
 const smokeRoot = join(smokeBase, `text-fragment-${Date.now()}`);
 const profile = join(smokeRoot, "profile");
@@ -47,6 +47,7 @@ const chrome = spawn(chromePath, [
   "--disable-extensions",
   "--disable-sync",
   "--no-first-run",
+  "--no-sandbox",
   `--user-data-dir=${profile}`,
   `--remote-debugging-port=${debuggingPort}`,
   pageUrl
@@ -79,6 +80,20 @@ try {
 } finally {
   chrome.kill("SIGTERM");
   await waitForProcessExit(chrome, 3000);
+}
+
+function resolveChromePath() {
+  const candidates = [
+    process.env.CHROME_PATH || "",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  ].filter(Boolean);
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) throw new Error("No Chrome/Chromium binary found. Set CHROME_PATH to run this smoke.");
+  return found;
 }
 
 async function waitForTarget(port) {

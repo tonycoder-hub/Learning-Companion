@@ -54,7 +54,7 @@ const receipt = {
   },
   summary: {
     ok: true,
-    staticMirrorHomeContract: indexState.heading === "Learning Companion Mirror",
+    staticMirrorHomeContract: indexState.headingIncludesEnglish && indexState.headingIncludesChinese,
     sourceFirstDeviceRoute: sourceFirstRoute.ok,
     reviewReturnBuilt: review.patch.schema === "learning-companion.review-progress-patch.v1",
     inboxReturnBuilt: inbox.patch.schema === "learning-companion.mobile-inbox-patch.v1",
@@ -127,9 +127,12 @@ function assertStaticInputs() {
 }
 
 function inspectMirrorHome(html) {
+  const heading = extractTagText(html, "h1");
   const state = {
     title: extractTagText(html, "title"),
-    heading: extractTagText(html, "h1"),
+    heading,
+    headingIncludesEnglish: heading.includes("Learning Companion Mirror"),
+    headingIncludesChinese: heading.includes("学习伴侣镜像"),
     hasManualReturn: /Manual Return/.test(html),
     hasStaticBoundary: /Static mirror/.test(html),
     reviewHref: extractHref(html, "review.html"),
@@ -140,7 +143,8 @@ function inspectMirrorHome(html) {
     hasExternalStylesheet: /<link[^>]+rel=["']stylesheet/i.test(html)
   };
   assert.equal(state.title, "Learning Companion Mirror");
-  assert.equal(state.heading, "Learning Companion Mirror");
+  assert.equal(state.headingIncludesEnglish, true);
+  assert.equal(state.headingIncludesChinese, true);
   assert.equal(state.hasManualReturn, true);
   assert.equal(state.hasStaticBoundary, true);
   assert.equal(state.reviewHref, "review.html");
@@ -161,8 +165,8 @@ function inspectSourceFirstDeviceRoute() {
     materialType: "other"
   });
   const noSourceHtml = generateMirrorIndexHtml(noSourceWorkspace, new Date("2099-01-02T08:00:00+08:00"));
-  assert.match(noSourceHtml, /<strong>Capture on this device<\/strong>/);
-  assert.doesNotMatch(noSourceHtml, /Read source on this device|Resume source on this device/);
+  assertHtmlTextIncludes(noSourceHtml, "Capture on this device");
+  assertHtmlTextExcludes(noSourceHtml, /Read source on this device|Resume source on this device/);
 
   const sourceBase = createDefaultWorkspace();
   const sourceSession = getActiveSession(sourceBase);
@@ -172,11 +176,11 @@ function inspectSourceFirstDeviceRoute() {
     materialType: "article"
   });
   const sourceHtml = generateMirrorIndexHtml(sourceWorkspace, new Date("2099-01-02T08:00:00+08:00"));
-  assert.match(sourceHtml, /<strong>Read source on this device<\/strong>/);
+  assertHtmlTextIncludes(sourceHtml, "Read source on this device");
   assert.match(sourceHtml, /href="https:\/\/example\.com\/static-source-route" target="_blank" rel="noreferrer noopener"/);
   assert.match(sourceHtml, /come back to this mirror tab for return JSON/);
-  assert.match(sourceHtml, /class="device-next-secondary" href="inbox\.html">Then capture in Inbox\.<\/a>/);
-  assert.doesNotMatch(sourceHtml, /<strong>Capture on this device<\/strong>/);
+  assert.match(sourceHtml, /class="device-next-secondary" href="inbox\.html">[\s\S]*Then capture in Inbox\.[\s\S]*<\/a>/);
+  assertHtmlTextExcludes(sourceHtml, /Capture on this device/);
 
   const resumeBase = createDefaultWorkspace();
   const resumeBaseSession = getActiveSession(resumeBase);
@@ -192,7 +196,7 @@ function inspectSourceFirstDeviceRoute() {
     timestamp: "01:35"
   }, { now: "2099-01-02T00:45:00.000Z" });
   const resumeHtml = generateMirrorIndexHtml(resumeWorkspace, new Date("2099-01-02T08:00:00+08:00"));
-  assert.match(resumeHtml, /<strong>Resume source on this device<\/strong>/);
+  assertHtmlTextIncludes(resumeHtml, "Resume source on this device");
   assert.match(resumeHtml, /href="https:\/\/www\.youtube\.com\/watch\?v=static123&amp;t=95s" target="_blank" rel="noreferrer noopener"/);
 
   const unsafeWorkspace = updateSession(noSourceBase, noSourceSession.id, {
@@ -201,8 +205,10 @@ function inspectSourceFirstDeviceRoute() {
     materialType: "article"
   });
   const unsafeHtml = generateMirrorIndexHtml(unsafeWorkspace, new Date("2099-01-02T08:00:00+08:00"));
-  assert.match(unsafeHtml, /<strong>Capture on this device<\/strong>/);
-  assert.doesNotMatch(unsafeHtml, /Read source on this device|Resume source on this device|javascript:alert/);
+  assertHtmlTextIncludes(unsafeHtml, "Capture on this device");
+  assertHtmlTextExcludes(unsafeHtml, /Read source on this device|Resume source on this device/);
+  assert.doesNotMatch(unsafeHtml, /javascript:alert/i);
+  assert.doesNotMatch(unsafeHtml, /href=["']javascript:/i);
 
   const questionWorkspace = addCapture(sourceWorkspace, sourceSession.id, {
     quote: "Static source question.",
@@ -210,17 +216,17 @@ function inspectSourceFirstDeviceRoute() {
     tags: "question"
   }, { now: "2099-01-02T00:46:00.000Z" });
   const questionHtml = generateMirrorIndexHtml(questionWorkspace, new Date("2099-01-02T08:00:00+08:00"));
-  assert.match(questionHtml, /<strong>Answer next question<\/strong>/);
-  assert.doesNotMatch(questionHtml, /Read source on this device|Resume source on this device/);
+  assertHtmlTextIncludes(questionHtml, "Answer next question");
+  assertHtmlTextExcludes(questionHtml, /Read source on this device|Resume source on this device/);
 
   return {
     ok: true,
-    noSourceFallsBackToInbox: /<strong>Capture on this device<\/strong>/.test(noSourceHtml),
-    sourceOnlyReadsFirst: /<strong>Read source on this device<\/strong>/.test(sourceHtml),
+    noSourceFallsBackToInbox: htmlTextIncludes(noSourceHtml, "Capture on this device"),
+    sourceOnlyReadsFirst: htmlTextIncludes(sourceHtml, "Read source on this device"),
     sourceOpensInNewTab: /target="_blank" rel="noreferrer noopener"/.test(sourceHtml),
     resumeSourceUsesTimestamp: /t=95s/.test(resumeHtml),
-    unsafeSourceFallsBackToInbox: /<strong>Capture on this device<\/strong>/.test(unsafeHtml),
-    openQuestionBeatsSource: /<strong>Answer next question<\/strong>/.test(questionHtml)
+    unsafeSourceFallsBackToInbox: htmlTextIncludes(unsafeHtml, "Capture on this device"),
+    openQuestionBeatsSource: htmlTextIncludes(questionHtml, "Answer next question")
   };
 }
 
@@ -230,6 +236,7 @@ function buildReviewReturnFromStaticContract(html, workspace) {
   const followup = assertReviewFollowup(seed, workspace);
   assertStaticReturnContract(html, {
     heading: "Learning Companion Review Pack",
+    headingZh: "学习伴侣复习包",
     schema: "learning-companion.review-progress-patch.v1",
     copyButtonId: "copyProgressBtn",
     saveButtonId: "downloadProgressBtn",
@@ -289,6 +296,7 @@ function buildInboxReturnFromStaticContract(html, workspace) {
   const followup = assertInboxFollowup(seed);
   assertStaticReturnContract(html, {
     heading: "Learning Companion Inbox",
+    headingZh: "学习伴侣收件箱",
     schema: "learning-companion.mobile-inbox-patch.v1",
     copyButtonId: "copyPatchBtn",
     saveButtonId: "downloadPatchBtn",
@@ -397,6 +405,7 @@ function assertInboxFollowup(seed) {
 
 function assertStaticReturnContract(html, {
   heading,
+  headingZh = "",
   schema,
   copyButtonId,
   saveButtonId,
@@ -405,7 +414,9 @@ function assertStaticReturnContract(html, {
   previewId,
   returnNamePrefix
 }) {
-  assert.equal(extractTagText(html, "h1"), heading);
+  const headingText = extractTagText(html, "h1");
+  assert.equal(headingText.includes(heading), true);
+  if (headingZh) assert.equal(headingText.includes(headingZh), true);
   assert.match(html, new RegExp(escapeRegExp(schema)));
   [copyButtonId, saveButtonId, selectButtonId, clearButtonId, previewId].forEach((id) => {
     assert.match(html, new RegExp(`id=["']${escapeRegExp(id)}["']`));
@@ -512,6 +523,18 @@ function extractDeviceNextHref(html) {
 
 function stripTags(value) {
   return String(value || "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ");
+}
+
+function htmlTextIncludes(html, text) {
+  return stripTags(html).includes(text);
+}
+
+function assertHtmlTextIncludes(html, text) {
+  assert.equal(htmlTextIncludes(html, text), true, `Expected generated HTML text to include: ${text}`);
+}
+
+function assertHtmlTextExcludes(html, pattern) {
+  assert.doesNotMatch(stripTags(html), pattern);
 }
 
 function escapeRegExp(value) {

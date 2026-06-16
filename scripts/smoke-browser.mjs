@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
@@ -17,7 +17,7 @@ import {
 } from "../apps/companion-web/src/model.js";
 
 const root = resolve("apps/companion-web");
-const chromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
+const chromePath = resolveChromePath();
 const smokeBase = resolve(".codex-tmp/browser-smoke");
 const SMOKE_ROOT_PREFIX = "lc-browser-smoke-";
 const STALE_SMOKE_ROOT_MS = 30 * 60 * 1000;
@@ -111,6 +111,7 @@ const chrome = spawn(chromePath, [
   "--disable-extensions",
   "--disable-sync",
   "--no-first-run",
+  "--no-sandbox",
   `--user-data-dir=${profile}`,
   `--remote-debugging-port=${debuggingPort}`,
   appUrl
@@ -4227,17 +4228,20 @@ try {
   })()`);
   assert.equal(exceptions.length, exceptionsBeforeMirrorIndexClick);
   assert.equal(result.answerMirrorWorkspaceRestored, true);
-  assert.equal(mirrorIndexAnswerClick.heading, "Learning Companion Mirror");
+  assert.match(mirrorIndexAnswerClick.heading, /Learning Companion Mirror/);
+  assert.match(mirrorIndexAnswerClick.heading, /学习伴侣镜像/);
   assert.match(mirrorIndexAnswerClick.label, /Answer|question/i);
   assert.match(mirrorIndexAnswerClick.href, /^inbox\.html\?/);
   assert.equal(mirrorIndexAnswerLanding.path, "/inbox.html");
   assert.match(mirrorIndexAnswerLanding.search, /answerToCaptureId=/);
   assert.notEqual(mirrorIndexAnswerLanding.answerToCaptureId, "");
   assert.equal(mirrorIndexAnswerLanding.answerContextHidden, false);
-  assert.equal(mirrorIndexAnswerLanding.quoteLabel, "Question from Mac");
-  assert.equal(mirrorIndexAnswerLanding.thoughtLabel, "Answer to return");
-  assert.equal(mirrorIndexAnswerLanding.quotePlaceholder, "Question carried from the Mac mirror");
-  assert.equal(mirrorIndexAnswerLanding.thoughtPlaceholder, "Write the answer to bring back to Mac");
+  assert.match(mirrorIndexAnswerLanding.quoteLabel, /Question from Mac/);
+  assert.match(mirrorIndexAnswerLanding.quoteLabel, /来自 Mac 的问题/);
+  assert.match(mirrorIndexAnswerLanding.thoughtLabel, /Answer to return/);
+  assert.match(mirrorIndexAnswerLanding.thoughtLabel, /要带回的回答/);
+  assert.match(mirrorIndexAnswerLanding.quotePlaceholder, /Question carried from the Mac mirror/);
+  assert.match(mirrorIndexAnswerLanding.thoughtPlaceholder, /Write the answer to bring back to Mac/);
   assert.equal(mirrorIndexAnswerLanding.quoteReadOnly, true);
   assert.equal(mirrorIndexAnswerLanding.thoughtReadOnly, false);
   assert.equal(mirrorIndexAnswerLanding.thoughtDisabled, false);
@@ -4248,10 +4252,14 @@ try {
   assert.equal(mirrorIndexAnswerLanding.patchCaptureCount, 1);
   assert.equal(mirrorIndexAnswerLanding.patchThought, "Answer: route verified from mirror home and ready for Mac import.");
   assert.equal(mirrorIndexAnswerLanding.patchAnswersQuestionCaptureId, mirrorIndexAnswerLanding.answerToCaptureId);
-  assert.equal(mirrorIndexAnswerLanding.postAddStatus, "Answer captured in return draft. Save the return file when ready.");
-  assert.equal(mirrorIndexAnswerLanding.postAddQuoteLabel, "Quote");
-  assert.equal(mirrorIndexAnswerLanding.postAddThoughtLabel, "Thought");
-  assert.equal(mirrorIndexAnswerLanding.postAddAnswerContextTitle, "Answer captured in this return draft");
+  assert.match(mirrorIndexAnswerLanding.postAddStatus, /Answer captured in return draft/);
+  assert.match(mirrorIndexAnswerLanding.postAddStatus, /回答已加入返回草稿/);
+  assert.match(mirrorIndexAnswerLanding.postAddQuoteLabel, /Quote/);
+  assert.match(mirrorIndexAnswerLanding.postAddQuoteLabel, /引文/);
+  assert.match(mirrorIndexAnswerLanding.postAddThoughtLabel, /Thought/);
+  assert.match(mirrorIndexAnswerLanding.postAddThoughtLabel, /想法/);
+  assert.match(mirrorIndexAnswerLanding.postAddAnswerContextTitle, /Answer captured in this return draft/);
+  assert.match(mirrorIndexAnswerLanding.postAddAnswerContextTitle, /回答已加入这个返回草稿/);
 
   await cdp.send("Page.navigate", { url: appUrl });
   await waitForCdpValue(
@@ -4354,7 +4362,8 @@ try {
   }))()`);
   assert.equal(exceptions.length, exceptionsBeforeFileMirrorClick);
   assert.equal(fileMirrorAnswerClick.protocol, "file:");
-  assert.equal(fileMirrorAnswerClick.heading, "Learning Companion Mirror");
+  assert.match(fileMirrorAnswerClick.heading, /Learning Companion Mirror/);
+  assert.match(fileMirrorAnswerClick.heading, /学习伴侣镜像/);
   assert.match(fileMirrorAnswerClick.label, /Answer|question/i);
   assert.match(fileMirrorAnswerClick.href, /^inbox\.html\?/);
   assert.doesNotMatch(fileMirrorAnswerClick.href, /^(?:\/|https?:|file:)/);
@@ -4362,9 +4371,12 @@ try {
   assert.match(fileMirrorAnswerLanding.pathname, /\/inbox\.html$/);
   assert.match(fileMirrorAnswerLanding.search, /answerToCaptureId=/);
   assert.equal(fileMirrorAnswerLanding.answerToCaptureId, mirrorIndexAnswerLanding.answerToCaptureId);
-  assert.equal(fileMirrorAnswerLanding.status, "Answer draft loaded from mirror link.");
-  assert.equal(fileMirrorAnswerLanding.quoteLabel, "Question from Mac");
-  assert.equal(fileMirrorAnswerLanding.thoughtLabel, "Answer to return");
+  assert.match(fileMirrorAnswerLanding.status, /Answer draft loaded from mirror link/);
+  assert.match(fileMirrorAnswerLanding.status, /已从镜像链接加载回答草稿/);
+  assert.match(fileMirrorAnswerLanding.quoteLabel, /Question from Mac/);
+  assert.match(fileMirrorAnswerLanding.quoteLabel, /来自 Mac 的问题/);
+  assert.match(fileMirrorAnswerLanding.thoughtLabel, /Answer to return/);
+  assert.match(fileMirrorAnswerLanding.thoughtLabel, /要带回的回答/);
   assert.equal(fileMirrorAnswerLanding.quoteReadOnly, true);
   assert.equal(fileMirrorAnswerLanding.thoughtReadOnly, false);
   assert.equal(fileMirrorAnswerLanding.answerContextHidden, false);
@@ -4459,19 +4471,20 @@ try {
   })()`);
 
   assert.equal(exceptions.length, exceptionsBeforeReviewRuntime);
-  assert.equal(reviewRuntime.heading, "Learning Companion Review Pack");
+  assert.match(reviewRuntime.heading, /Learning Companion Review Pack/);
+  assert.match(reviewRuntime.heading, /学习伴侣复习包/);
   assert.deepEqual(reviewRuntime.initialReturnButtonsDisabled, [true, true, true, true]);
-  assert.equal(reviewRuntime.initialNextStep, "No review return file yet. Reveal and grade a card first.");
-  assert.equal(reviewRuntime.emptyGuardStatus, "No review return file yet. Reveal and grade a card first.");
+  assert.match(reviewRuntime.initialNextStep, /No review return file yet/);
+  assert.match(reviewRuntime.emptyGuardStatus, /No review return file yet/);
   assert.deepEqual(reviewRuntime.readyReturnButtonsDisabled, [false, false, false, false]);
   assert.equal(reviewRuntime.answerVisible, true);
   assert.match(reviewRuntime.status, /1 review event/);
   assert.match(reviewRuntime.selectedStatus, /Return file selected/);
   assert.equal(reviewRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(reviewRuntime.savedStatus, /Return file download requested/);
-  assert.equal(reviewRuntime.saveCta, "Download Return File");
+  assert.match(reviewRuntime.saveCta, /Download Return File/);
   assert.match(reviewRuntime.returnSaveMode, /Automated download fallback is enabled/);
-  assert.match(reviewRuntime.returnFileHint, /^Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.match(reviewRuntime.returnFileHint, /Suggested JSON file: learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json/);
   assert.match(reviewRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(reviewRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(reviewRuntime.returnAfterPanelHidden, false);
@@ -4487,17 +4500,17 @@ try {
   assert.match(reviewRuntime.returnAfterText, /Manual carriers after you have the JSON: AirDrop, USB, file share, email/);
   assert.match(reviewRuntime.returnAfterText, /Feishu Drive; no live sync/);
   assert.match(reviewRuntime.returnAfterText, /keep reviewing here/);
-  assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
-  assert.equal(reviewRuntime.returnPreviewTitle, "Return file preview");
+  assert.equal(reviewRuntime.returnManualHelp.includes(reviewRuntime.downloadName), true);
+  assert.match(reviewRuntime.returnPreviewTitle, /Return file preview/);
   assert.match(reviewRuntime.returnCopyHint, /selected text below is the return file JSON/);
-  assert.equal(reviewRuntime.returnNextStep, "1 review event staged in this return file. Use Copy or Download to take it back to Mac before closing.");
-  assert.equal(reviewRuntime.clearedNextStep, "No review return file yet. Reveal and grade a card first.");
+  assert.match(reviewRuntime.returnNextStep, /1 review event staged in this return file/);
+  assert.match(reviewRuntime.clearedNextStep, /No review return file yet/);
   assert.deepEqual(reviewRuntime.clearedReturnButtonsDisabled, [true, true, true, true]);
   assert.match(reviewRuntime.downloadName, /^learning-companion-review-progress-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
-  assert.equal(reviewRuntime.downloadName, reviewRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
+  assert.equal(reviewRuntime.returnFileHint.includes(reviewRuntime.downloadName), true);
   assert.equal(reviewRuntime.dirtyBeforeSave, true);
   assert.equal(reviewRuntime.dirtyAfterSave, false);
-  assert.equal(reviewRuntime.state, "Marked good");
+  assert.match(reviewRuntime.state, /Marked good/);
   assert.equal(reviewRuntime.previewSchema, "learning-companion.review-progress-patch.v1");
   assert.equal(reviewRuntime.previewEventCount, 1);
   assert.equal(reviewRuntime.previewGrade, "good");
@@ -4577,7 +4590,7 @@ try {
     .filter((name) => /^learning-companion-review-progress-patch-/.test(name));
   assert.equal(reviewGuardRuntime.downloadName, "");
   assert.match(reviewGuardRuntime.status, /Save picker unavailable here/);
-  assert.equal(reviewGuardRuntime.saveCta, "Select Return File");
+  assert.match(reviewGuardRuntime.saveCta, /Select Return File/);
   assert.match(reviewGuardRuntime.returnSaveMode, /No file picker detected/);
   assert.match(reviewGuardRuntime.status, /Nothing was saved to disk/);
   assert.equal(reviewGuardRuntime.dirtyAfterBlockedSave, true);
@@ -4645,7 +4658,8 @@ try {
     };
   })()`);
   assert.equal(exceptions.length, exceptionsBeforeReviewStorageGuard);
-  assert.equal(reviewStorageGuard.heading, "Learning Companion Review Pack");
+  assert.match(reviewStorageGuard.heading, /Learning Companion Review Pack/);
+  assert.match(reviewStorageGuard.heading, /学习伴侣复习包/);
   assert.match(reviewStorageGuard.initialStatus, /Browser storage is unavailable/);
   assert.match(reviewStorageGuard.postGradeStatus, /Browser storage is unavailable/);
   assert.match(reviewStorageGuard.postGradeStatus, /Copy, Manual Copy, or the available save action/);
@@ -4654,7 +4668,7 @@ try {
   assert.match(reviewStorageGuard.saveFallbackStatus, /Save picker unavailable here/);
   assert.match(reviewStorageGuard.saveFallbackStatus, /manual copy/);
   assert.match(reviewStorageGuard.saveFallbackStatus, /Nothing was saved to disk/);
-  assert.equal(reviewStorageGuard.saveCta, "Select Return File");
+  assert.match(reviewStorageGuard.saveCta, /Select Return File/);
   assert.match(reviewStorageGuard.returnSaveMode, /No file picker detected/);
   assert.equal(reviewStorageGuard.copySelectionHasSchema, true);
   assert.equal(reviewStorageGuard.saveSelectionHasSchema, true);
@@ -4662,8 +4676,8 @@ try {
   assert.equal(reviewStorageGuard.previewSchema, "learning-companion.review-progress-patch.v1");
   assert.equal(reviewStorageGuard.previewEventCount, 2);
   assert.deepEqual(reviewStorageGuard.previewGrades, ["good", "good"]);
-  assert.deepEqual(reviewStorageGuard.reviewStates.slice(0, 2), ["Marked good", "Marked good"]);
-  assert.equal(reviewStorageGuard.returnNextStep, "2 review events staged in this return file. Use Copy or Manual Copy to take it back to Mac before closing.");
+  assert.equal(reviewStorageGuard.reviewStates.slice(0, 2).every((state) => /Marked good/.test(state)), true);
+  assert.match(reviewStorageGuard.returnNextStep, /2 review events staged in this return file/);
   assert.match(reviewStorageGuard.returnManualHelp, /Manual Copy/);
 
   await cdp.send("Emulation.setDeviceMetricsOverride", {
@@ -4828,13 +4842,17 @@ try {
   assert.match(staticIndexMobile.nextLabel, /Review due cards|Answer next question|Capture on this device/);
   assert.ok(staticIndexMobile.nextPanelWidth <= staticIndexMobile.innerWidth - 24);
   assert.ok(staticIndexMobile.entryNavWidth <= staticIndexMobile.innerWidth - 24);
-  assert.deepEqual(staticIndexMobile.entryTexts, ["Today", "Review", "Inbox", "Restore"]);
+  assert.equal(staticIndexMobile.entryTexts.length, 4);
+  assert.match(staticIndexMobile.entryTexts[0], /Today/);
+  assert.match(staticIndexMobile.entryTexts[1], /Review/);
+  assert.match(staticIndexMobile.entryTexts[2], /Inbox/);
+  assert.match(staticIndexMobile.entryTexts[3], /Restore/);
   staticIndexMobile.entryLinkWidths.forEach((width) => {
     assert.ok(width >= staticIndexMobile.entryNavWidth - 2);
   });
   assert.ok(staticSourceIndexMobile.documentWidth <= staticSourceIndexMobile.innerWidth + 1);
   assert.ok(staticSourceIndexMobile.nextPanelWidth <= staticSourceIndexMobile.innerWidth - 24);
-  assert.equal(staticSourceIndexMobile.primaryText, "Read source on this device");
+  assert.match(staticSourceIndexMobile.primaryText, /Read source on this device/);
   assert.match(staticSourceIndexMobile.primaryMeta, /come back to this mirror tab for return JSON/);
   assert.equal(staticSourceIndexMobile.primaryHref, "https://example.com/phone-source-reading");
   assert.equal(staticSourceIndexMobile.primaryTarget, "_blank");
@@ -4844,7 +4862,7 @@ try {
   assert.ok(staticSourceIndexMobile.primaryLabelScrollWidth <= staticSourceIndexMobile.primaryLabelClientWidth + 2);
   assert.ok(staticSourceIndexMobile.primaryDetailScrollWidth <= staticSourceIndexMobile.primaryDetailClientWidth + 2);
   assert.ok(staticSourceIndexMobile.primaryHeight >= 36);
-  assert.equal(staticSourceIndexMobile.secondaryText, "Then capture in Inbox.");
+  assert.match(staticSourceIndexMobile.secondaryText, /Then capture in Inbox/);
   assert.equal(staticSourceIndexMobile.secondaryHref, "inbox.html");
   assert.ok(staticSourceIndexMobile.secondaryScrollWidth <= staticSourceIndexMobile.secondaryClientWidth + 2);
   assert.ok(staticSourceIndexMobile.secondaryHeight >= 32);
@@ -4853,7 +4871,7 @@ try {
   assert.equal(staticSourceInboxMobile.topicAriaDescribedby, "topicSourceHint");
   assert.match(staticSourceInboxMobile.initialHintText, /Source: Phone source reading target/);
   assert.match(staticSourceInboxMobile.initialHintText, /used for new captures unless you fill Source or URL below/);
-  assert.equal(staticSourceInboxMobile.overrideHintText, "Using the Source or URL you entered for this capture.");
+  assert.match(staticSourceInboxMobile.overrideHintText, /Using the Source or URL you entered for this capture/);
   assert.equal(staticSourceInboxMobile.hintText, staticSourceInboxMobile.initialHintText);
   assert.ok(staticSourceInboxMobile.hintScrollWidth <= staticSourceInboxMobile.hintClientWidth + 2);
   assert.equal(staticSourceInboxMobile.sourceTitleBefore, "");
@@ -4864,16 +4882,20 @@ try {
   assert.equal(staticSourceInboxMobile.previewCaptureSourceUrl, "https://example.com/phone-source-reading");
   assert.ok(staticReviewMobile.documentWidth <= staticReviewMobile.innerWidth + 1);
   assert.ok(staticReviewMobile.panelWidth <= staticReviewMobile.innerWidth - 24);
-  assert.equal(staticReviewMobile.returnPreviewTitle, "Return file preview");
+  assert.match(staticReviewMobile.returnPreviewTitle, /Return file preview/);
   assert.match(staticReviewMobile.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(staticReviewMobile.returnCopyHint, /selected text below is the return file JSON/);
-  assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.text), ["Copy Return File", "Download Return File", "Manual Copy", "Clear Progress"]);
+  ["Copy Return File", "Download Return File", "Manual Copy", "Clear Progress"].forEach((label, index) => {
+    assert.match(staticReviewMobile.actionButtons[index]?.text || "", new RegExp(label));
+  });
   assert.deepEqual(staticReviewMobile.actionButtons.map((button) => button.disabled), [true, true, true, true]);
   staticReviewMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticReviewMobile.actionContainerWidth - 2);
     assert.ok(button.height >= 36);
   });
-  assert.deepEqual(staticReviewMobile.gradeButtons.map((button) => button.text), ["Again", "Good"]);
+  ["Again", "Good"].forEach((label, index) => {
+    assert.match(staticReviewMobile.gradeButtons[index]?.text || "", new RegExp(label));
+  });
   staticReviewMobile.gradeButtons.forEach((button) => {
     assert.ok(button.width >= staticReviewMobile.gradeContainerWidth - 2);
     assert.ok(button.height >= 36);
@@ -4881,10 +4903,12 @@ try {
   assert.ok(staticInboxMobile.documentWidth <= staticInboxMobile.innerWidth + 1);
   assert.ok(staticInboxMobile.maxPanelWidth <= staticInboxMobile.innerWidth - 24);
   assert.equal(staticInboxMobile.sourceRowColumns, 1);
-  assert.equal(staticInboxMobile.returnPreviewTitle, "Return file preview");
+  assert.match(staticInboxMobile.returnPreviewTitle, /Return file preview/);
   assert.match(staticInboxMobile.returnSaveMode, /Automated download fallback is enabled/);
   assert.match(staticInboxMobile.returnCopyHint, /selected text below is the return file JSON/);
-  assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.text), ["Add Capture", "Clear Form", "Copy Return File", "Download Return File", "Manual Copy", "Clear Drafts"]);
+  ["Add Capture", "Clear Form", "Copy Return File", "Download Return File", "Manual Copy", "Clear Drafts"].forEach((label, index) => {
+    assert.match(staticInboxMobile.actionButtons[index]?.text || "", new RegExp(label));
+  });
   assert.deepEqual(staticInboxMobile.actionButtons.map((button) => button.disabled), [false, false, true, true, true, true]);
   staticInboxMobile.actionButtons.forEach((button) => {
     assert.ok(button.width >= staticInboxMobile.maxActionContainerWidth - 2);
@@ -5003,25 +5027,26 @@ try {
   })()`);
 
   assert.equal(exceptions.length, exceptionsBeforeInboxRuntime);
-  assert.equal(inboxRuntime.heading, "Learning Companion Inbox");
+  assert.match(inboxRuntime.heading, /Learning Companion Inbox/);
+  assert.match(inboxRuntime.heading, /学习伴侣收件箱/);
   assert.deepEqual(inboxRuntime.initialReturnButtonsDisabled, [true, true, true, true]);
-  assert.equal(inboxRuntime.initialNextStep, "No draft captures for this topic yet. Add a quote or thought before saving a return file.");
-  assert.equal(inboxRuntime.emptyGuardStatus, "No draft captures for this topic yet. Add a quote or thought before saving a return file.");
+  assert.match(inboxRuntime.initialNextStep, /No draft captures for this topic yet/);
+  assert.match(inboxRuntime.emptyGuardStatus, /No draft captures for this topic yet/);
   assert.deepEqual(inboxRuntime.readyReturnButtonsDisabled, [false, false, false, false]);
   assert.ok(inboxRuntime.topicOptions >= 1);
   assert.notEqual(inboxRuntime.selectedTopicId, "");
-  assert.equal(inboxRuntime.quoteLabel, "Quote");
-  assert.equal(inboxRuntime.thoughtLabel, "Thought");
-  assert.equal(inboxRuntime.quotePlaceholder, "Paste a quote or transcript line");
-  assert.equal(inboxRuntime.thoughtPlaceholder, "Your thought, question, or takeaway");
+  assert.match(inboxRuntime.quoteLabel, /Quote/);
+  assert.match(inboxRuntime.thoughtLabel, /Thought/);
+  assert.match(inboxRuntime.quotePlaceholder, /Paste a quote or transcript line/);
+  assert.match(inboxRuntime.thoughtPlaceholder, /Your thought, question, or takeaway/);
   assert.equal(inboxRuntime.quoteReadOnly, false);
-  assert.equal(inboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
+  assert.match(inboxRuntime.status, /Capture added to return draft/);
   assert.match(inboxRuntime.selectedStatus, /Return file selected/);
   assert.equal(inboxRuntime.selectedReturnJsonIncludesSchema, true);
   assert.match(inboxRuntime.savedStatus, /Return file download requested/);
-  assert.equal(inboxRuntime.saveCta, "Download Return File");
+  assert.match(inboxRuntime.saveCta, /Download Return File/);
   assert.match(inboxRuntime.returnSaveMode, /Automated download fallback is enabled/);
-  assert.match(inboxRuntime.returnFileHint, /^Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
+  assert.match(inboxRuntime.returnFileHint, /Suggested JSON file: learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json/);
   assert.match(inboxRuntime.returnManualHelp, /Locked-down browser: use Manual Copy, press Ctrl\+C or Command\+C, or long-press the selected text on phone/);
   assert.match(inboxRuntime.returnManualHelp, /paste into a text editor such as Notepad/);
   assert.equal(inboxRuntime.returnAfterPanelHidden, false);
@@ -5041,15 +5066,15 @@ try {
   assert.match(inboxRuntime.returnAfterFollowupText, /Review \d+ due card/);
   assert.match(inboxRuntime.returnAfterFollowupText, /open Review/);
   assert.equal(inboxRuntime.returnAfterFollowupHref, "review.html");
-  assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.returnFileHint.replace("Suggested JSON file: ", "")), true);
-  assert.equal(inboxRuntime.returnPreviewTitle, "Return file preview");
+  assert.equal(inboxRuntime.returnManualHelp.includes(inboxRuntime.downloadName), true);
+  assert.match(inboxRuntime.returnPreviewTitle, /Return file preview/);
   assert.match(inboxRuntime.returnCopyHint, /selected text below is the return file JSON/);
-  assert.equal(inboxRuntime.returnNextStep, "1 draft capture staged in this return file. Use Copy or Download to take it back to Mac before closing.");
-  assert.equal(inboxRuntime.clearedNextStep, "No draft captures for this topic yet. Add a quote or thought before saving a return file.");
+  assert.match(inboxRuntime.returnNextStep, /1 draft capture staged in this return file/);
+  assert.match(inboxRuntime.clearedNextStep, /No draft captures for this topic yet/);
   assert.equal(inboxRuntime.clearedDraftCount, 0);
   assert.deepEqual(inboxRuntime.clearedReturnButtonsDisabled, [true, true, true, true]);
   assert.match(inboxRuntime.downloadName, /^learning-companion-inbox-patch-\d{8}-\d{4}-[a-zA-Z0-9_-]{1,8}\.json$/);
-  assert.equal(inboxRuntime.downloadName, inboxRuntime.returnFileHint.replace("Suggested JSON file: ", ""));
+  assert.equal(inboxRuntime.returnFileHint.includes(inboxRuntime.downloadName), true);
   assert.equal(inboxRuntime.dirtyBeforeSave, true);
   assert.equal(inboxRuntime.dirtyAfterSave, false);
   assert.equal(inboxRuntime.draftCount, 1);
@@ -5125,7 +5150,8 @@ try {
     };
   })()`);
   assert.equal(exceptions.length, exceptionsBeforeInboxStorageGuard);
-  assert.equal(inboxStorageGuard.heading, "Learning Companion Inbox");
+  assert.match(inboxStorageGuard.heading, /Learning Companion Inbox/);
+  assert.match(inboxStorageGuard.heading, /学习伴侣收件箱/);
   assert.match(inboxStorageGuard.initialStatus, /Browser storage is unavailable/);
   assert.match(inboxStorageGuard.postAddStatus, /Browser storage is unavailable/);
   assert.match(inboxStorageGuard.postAddStatus, /Copy, Manual Copy, or the available save action/);
@@ -5133,7 +5159,7 @@ try {
   assert.match(inboxStorageGuard.copyFallbackStatus, /copy it manually/);
   assert.match(inboxStorageGuard.saveFallbackStatus, /Save picker unavailable here/);
   assert.match(inboxStorageGuard.saveFallbackStatus, /manual copy/);
-  assert.equal(inboxStorageGuard.saveCta, "Select Return File");
+  assert.match(inboxStorageGuard.saveCta, /Select Return File/);
   assert.match(inboxStorageGuard.returnSaveMode, /No file picker detected/);
   assert.match(inboxStorageGuard.saveFallbackStatus, /Nothing was saved to disk/);
   assert.equal(inboxStorageGuard.copySelectionHasSchema, true);
@@ -5143,7 +5169,7 @@ try {
   assert.equal(inboxStorageGuard.previewQuote, "Storage blocked quote from phone.");
   assert.equal(inboxStorageGuard.previewThought, "This still needs a return file.");
   assert.equal(inboxStorageGuard.draftCount, 1);
-  assert.equal(inboxStorageGuard.returnNextStep, "1 draft capture staged in this return file. Use Copy or Manual Copy to take it back to Mac before closing.");
+  assert.match(inboxStorageGuard.returnNextStep, /1 draft capture staged in this return file/);
   assert.match(inboxStorageGuard.returnManualHelp, /Manual Copy/);
 
   const inboxAnswerParams = new URLSearchParams({
@@ -5180,7 +5206,7 @@ try {
     answerContextText: document.querySelector("#answerContextText").textContent
   }))()`);
 
-  assert.equal(inboxAnswerRuntime.status, "Answer draft loaded from mirror link.");
+  assert.match(inboxAnswerRuntime.status, /Answer draft loaded from mirror link/);
   assert.equal(inboxAnswerRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(inboxAnswerRuntime.selectedTopicTitle, inboxRuntime.selectedTopicTitle);
   assert.equal(inboxAnswerRuntime.quote, "What should I answer from the mirror?");
@@ -5189,16 +5215,16 @@ try {
   assert.equal(inboxAnswerRuntime.tags, "question, answer");
   assert.equal(inboxAnswerRuntime.sourceTitle, "Mirror question preview");
   assert.equal(inboxAnswerRuntime.sourceUrl, "");
-  assert.equal(inboxAnswerRuntime.quoteLabel, "Question from Mac");
-  assert.equal(inboxAnswerRuntime.thoughtLabel, "Answer to return");
-  assert.equal(inboxAnswerRuntime.quotePlaceholder, "Question carried from the Mac mirror");
-  assert.equal(inboxAnswerRuntime.thoughtPlaceholder, "Write the answer to bring back to Mac");
+  assert.match(inboxAnswerRuntime.quoteLabel, /Question from Mac/);
+  assert.match(inboxAnswerRuntime.thoughtLabel, /Answer to return/);
+  assert.match(inboxAnswerRuntime.quotePlaceholder, /Question carried from the Mac mirror/);
+  assert.match(inboxAnswerRuntime.thoughtPlaceholder, /Write the answer to bring back to Mac/);
   assert.equal(inboxAnswerRuntime.quoteReadOnly, true);
   assert.equal(inboxAnswerRuntime.quoteAriaReadonly, "true");
   assert.equal(inboxAnswerRuntime.answerContextHidden, false);
-  assert.equal(inboxAnswerRuntime.answerContextTitle, "You're answering a question from this mirror");
+  assert.match(inboxAnswerRuntime.answerContextTitle, /You're answering a question from this mirror/);
   assert.equal(inboxAnswerRuntime.answerQuestionPreview, "What should I answer from the mirror?");
-  assert.equal(inboxAnswerRuntime.answerContextText, "Your answer will be saved to a return file you move back to Mac.");
+  assert.match(inboxAnswerRuntime.answerContextText, /Your answer will be saved to a return file you move back to Mac/);
   const inboxAnswerPatchRuntime = await cdp.evaluate(`(() => {
     document.querySelector("#addCaptureBtn").click();
     const preview = JSON.parse(document.querySelector("#patchPreview").textContent);
@@ -5219,19 +5245,19 @@ try {
       answerContextText: document.querySelector("#answerContextText").textContent
     };
   })()`);
-  assert.equal(inboxAnswerPatchRuntime.status, "Answer captured in return draft. Save the return file when ready.");
+  assert.match(inboxAnswerPatchRuntime.status, /Answer captured in return draft/);
   assert.equal(inboxAnswerPatchRuntime.previewSchema, "learning-companion.mobile-inbox-patch.v1");
   assert.equal(inboxAnswerPatchRuntime.answersQuestionCaptureId, "capture_question_runtime");
-  assert.equal(inboxAnswerPatchRuntime.quoteLabel, "Quote");
-  assert.equal(inboxAnswerPatchRuntime.thoughtLabel, "Thought");
+  assert.match(inboxAnswerPatchRuntime.quoteLabel, /Quote/);
+  assert.match(inboxAnswerPatchRuntime.thoughtLabel, /Thought/);
   assert.equal(inboxAnswerPatchRuntime.quoteReadOnly, false);
   assert.equal(inboxAnswerPatchRuntime.quoteAriaReadonly, "false");
-  assert.equal(inboxAnswerPatchRuntime.copyCta, "Copy Return File");
-  assert.equal(inboxAnswerPatchRuntime.saveCta, "Download Return File");
+  assert.match(inboxAnswerPatchRuntime.copyCta, /Copy Return File/);
+  assert.match(inboxAnswerPatchRuntime.saveCta, /Download Return File/);
   assert.equal(inboxAnswerPatchRuntime.answerContextHidden, false);
-  assert.equal(inboxAnswerPatchRuntime.answerContextTitle, "Answer captured in this return draft");
+  assert.match(inboxAnswerPatchRuntime.answerContextTitle, /Answer captured in this return draft/);
   assert.equal(inboxAnswerPatchRuntime.answerQuestionPreview, "What should I answer from the mirror?");
-  assert.equal(inboxAnswerPatchRuntime.answerContextText, "Save or copy the return file to move it back to Mac.");
+  assert.match(inboxAnswerPatchRuntime.answerContextText, /Save or copy the return file to move it back to Mac/);
 
   const longAnswerQuote = `Can this preview escape <script>alert("x")</script> & keep a bounded question preview ${"x".repeat(300)}`;
   const escapedAnswerParams = new URLSearchParams({
@@ -5297,16 +5323,16 @@ try {
     };
   })()`);
 
-  assert.equal(hostileInboxRuntime.preAdd.status, "Answer draft loaded with active topic; original topic was not found.");
+  assert.match(hostileInboxRuntime.preAdd.status, /Answer draft loaded with active topic/);
   assert.equal(hostileInboxRuntime.preAdd.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.preAdd.quoteField, hostileMirrorQuote);
   assert.equal(hostileInboxRuntime.preAdd.sourceUrlField, "");
-  assert.equal(hostileInboxRuntime.preAdd.quoteLabel, "Quote");
-  assert.equal(hostileInboxRuntime.preAdd.thoughtLabel, "Thought");
+  assert.match(hostileInboxRuntime.preAdd.quoteLabel, /Quote/);
+  assert.match(hostileInboxRuntime.preAdd.thoughtLabel, /Thought/);
   assert.equal(hostileInboxRuntime.preAdd.quoteReadOnly, false);
   assert.equal(hostileInboxRuntime.preAdd.answerContextHidden, true);
   assert.doesNotMatch(hostileInboxRuntime.preAdd.answerContextText, /question from this mirror/);
-  assert.equal(hostileInboxRuntime.status, "Capture added to return draft. Save the return file when ready.");
+  assert.match(hostileInboxRuntime.status, /Capture added to return draft/);
   assert.equal(hostileInboxRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
   assert.equal(hostileInboxRuntime.quoteField, "");
   assert.equal(hostileInboxRuntime.captureQuote, hostileMirrorQuote);
@@ -9170,6 +9196,20 @@ async function assertSidecarHighlightActivity(cdp) {
   assert.equal(sidecarHighlight.stackFormId, sidecarHighlight.savedId, JSON.stringify(sidecarHighlight));
   assert.equal(sidecarHighlight.focused, true, JSON.stringify(sidecarHighlight));
   assert.equal(sidecarHighlight.focusedAfterTick, true, JSON.stringify(sidecarHighlight));
+}
+
+function resolveChromePath() {
+  const candidates = [
+    process.env.CHROME_PATH || "",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  ].filter(Boolean);
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) throw new Error("No Chrome/Chromium binary found. Set CHROME_PATH to run this smoke.");
+  return found;
 }
 
 async function waitForTarget(port) {

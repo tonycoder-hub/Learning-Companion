@@ -1,5 +1,5 @@
 import router from '@ohos.router';
-import { summarizeReaderView } from '../model/harmonyReaderView';
+import { harmonyScaffoldLabel, harmonyScaffoldText, summarizeReaderView } from '../model/harmonyReaderView';
 import { describeReturnToMacContract } from '../services/exportPatch';
 import { ReaderSessionState, createScaffoldReaderSession, createScaffoldSampleReaderView, summarizeReaderSessionState } from '../services/readerSessionState';
 
@@ -17,7 +17,7 @@ struct Index {
       Text('Learning Companion')
         .fontSize(28)
         .fontWeight(FontWeight.Bold)
-      Text('Phone Next')
+      Text(harmonyScaffoldLabel('Phone Next', '手机下一步'))
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
       Text(readerNext.label)
@@ -27,7 +27,10 @@ struct Index {
       Text(readerNext.detail)
         .fontSize(14)
         .fontColor('#5f4b20')
-      Text(`${readerNext.meta} · As of ${readerNext.generatedAt}`)
+      Text(harmonyScaffoldText(
+        `${readerNext.meta} · As of ${readerNext.generatedAt}`,
+        `${readerNext.meta} · 截至 ${readerNext.generatedAt}`
+      ))
         .fontSize(12)
         .fontColor('#666154')
       if (readerNext.secondary.length > 0) {
@@ -45,7 +48,7 @@ struct Index {
         Button(secondaryAction.routeLabel)
           .onClick(() => router.pushUrl({ url: secondaryAction.route, params: secondaryParams }))
       }
-      Text('Resume Here')
+      Text(harmonyScaffoldLabel('Resume Here', '从这里继续'))
         .fontSize(18)
         .fontWeight(FontWeight.Medium)
       Text(summarizeReaderView(readerView))
@@ -58,15 +61,21 @@ struct Index {
         .fontSize(12)
         .fontColor('#426254')
 
-      Button('Import Workspace or Mirror JSON')
+      Button(harmonyScaffoldLabel('Import Workspace or Mirror JSON', '导入工作区或镜像 JSON'))
         .enabled(false)
-      Text('Import reader / Return to Mac')
+      Text(harmonyScaffoldLabel('Import reader / Return to Mac', '导入 reader / 返回 Mac'))
         .fontSize(18)
         .fontWeight(FontWeight.Medium)
-      Text('JSON <= 5 MB; workspace or mirror bundle only; show ImportReceipt for success or rejection.')
+      Text(harmonyScaffoldText(
+        'JSON <= 5 MB; workspace or mirror bundle only; show ImportReceipt for success or rejection.',
+        'JSON 不超过 5 MB；仅接受工作区或镜像包；成功或拒绝都显示 ImportReceipt。'
+      ))
         .fontSize(12)
         .fontColor('#666154')
-      Text('Return patches are Mac-bound only; this phone reader rejects them and keeps the current reader view.')
+      Text(harmonyScaffoldText(
+        'Return patches are Mac-bound only; this phone reader rejects them and keeps the current reader view.',
+        '返回补丁只带回 Mac；手机 reader 会拒绝它们并保留当前 reader view。'
+      ))
         .fontSize(12)
         .fontColor('#7a5f2b')
       Text(returnToMac[0])
@@ -76,14 +85,17 @@ struct Index {
         .fontSize(12)
         .fontColor('#426254')
 
-      Button('Review Queue')
+      Button(harmonyScaffoldLabel('Review Queue', '复习队列'))
         .onClick(() => router.pushUrl({ url: 'pages/ReviewQueue' }))
 
       if (readerView.answersToday.length > 0) {
-        Text('Answers Today')
+        Text(harmonyScaffoldLabel('Answers Today', '今日回答'))
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-        Text(`Showing ${Math.min(readerView.answersToday.length, 3)} of ${readerView.workspace.answerCaptureCountToday} · ${readerView.localDayWindow.label}`)
+        Text(harmonyScaffoldText(
+          `Showing ${Math.min(readerView.answersToday.length, 3)} of ${readerView.workspace.answerCaptureCountToday} · ${readerView.localDayWindow.label}`,
+          `显示 ${Math.min(readerView.answersToday.length, 3)} / ${readerView.workspace.answerCaptureCountToday} · ${readerView.localDayWindow.label}`
+        ))
           .fontSize(12)
           .fontColor('#666154')
         ForEach(readerView.answersToday.slice(0, 3), (answer) => {
@@ -94,10 +106,13 @@ struct Index {
       }
 
       if (readerView.openQuestions.length > 0) {
-        Text('Open Questions')
+        Text(harmonyScaffoldLabel('Open Questions', '未解决问题'))
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-        Text(`Showing ${Math.min(readerView.openQuestions.length, 3)} of ${readerView.workspace.openQuestionCount}`)
+        Text(harmonyScaffoldText(
+          `Showing ${Math.min(readerView.openQuestions.length, 3)} of ${readerView.workspace.openQuestionCount}`,
+          `显示 ${Math.min(readerView.openQuestions.length, 3)} / ${readerView.workspace.openQuestionCount}`
+        ))
           .fontSize(12)
           .fontColor('#666154')
         ForEach(readerView.openQuestions.slice(0, 3), (question) => {
@@ -108,10 +123,13 @@ struct Index {
       }
 
       if (readerView.parkedQuestions.length > 0) {
-        Text('Parked Questions')
+        Text(harmonyScaffoldLabel('Parked Questions', '暂存问题'))
           .fontSize(18)
           .fontWeight(FontWeight.Medium)
-        Text(`Showing ${Math.min(readerView.parkedQuestions.length, 3)} of ${readerView.workspace.parkedQuestionCount}`)
+        Text(harmonyScaffoldText(
+          `Showing ${Math.min(readerView.parkedQuestions.length, 3)} of ${readerView.workspace.parkedQuestionCount}`,
+          `显示 ${Math.min(readerView.parkedQuestions.length, 3)} / ${readerView.workspace.parkedQuestionCount}`
+        ))
           .fontSize(12)
           .fontColor('#666154')
         ForEach(readerView.parkedQuestions.slice(0, 3), (question) => {
@@ -125,7 +143,10 @@ struct Index {
         Row() {
           Column() {
             Text(topic.title).fontSize(16).fontWeight(FontWeight.Medium)
-            Text(`${topic.captureCount} captures · ${topic.openQuestionCount} questions · ${topic.dueReviewCount} due · ${topic.nextAction.kind}`)
+            Text(harmonyScaffoldText(
+              `${topic.captureCount} captures · ${topic.openQuestionCount} questions · ${topic.dueReviewCount} due · ${topic.nextAction.kind}`,
+              `${topic.captureCount} 条摘录 · ${topic.openQuestionCount} 个问题 · ${topic.dueReviewCount} 张到期卡片 · ${topic.nextAction.kind}`
+            ))
               .fontSize(12)
               .fontColor('#666154')
           }

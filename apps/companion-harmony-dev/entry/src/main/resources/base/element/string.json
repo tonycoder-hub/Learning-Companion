@@ -6,11 +6,11 @@
     },
     {
       "name": "module_desc",
-      "value": "Learning Companion HarmonyOS scaffold"
+      "value": "Learning Companion HarmonyOS scaffold / Learning Companion HarmonyOS 脚手架"
     },
     {
       "name": "entry_desc",
-      "value": "Read-only learning mirror and patch handoff"
+      "value": "Read-only learning mirror and patch handoff / 只读学习镜像与补丁交接"
     }
   ]
 }

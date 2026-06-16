@@ -6,6 +6,7 @@ import {
   ReviewGrade,
   ReviewProgressPatch
 } from '../model/workspace';
+import { harmonyScaffoldText } from '../model/harmonyReaderView';
 
 export interface PatchBuildOptions {
   patchId: string;
@@ -18,9 +19,9 @@ export interface PatchBuildOptions {
 
 export function describeReturnToMacContract(): string[] {
   return [
-    'Phone work exports append-only return JSON; it does not mutate Mac state.',
-    'Move the return file back by USB, AirDrop, email, file share, or manual Feishu Drive.',
-    'Import on Mac from Today > Return Files, then export a fresh mirror for the next phone pass.'
+    harmonyScaffoldText('Phone work exports append-only return JSON; it does not mutate Mac state.', '手机侧工作会导出 append-only return JSON，不直接修改 Mac 状态。'),
+    harmonyScaffoldText('Move the return file back by USB, AirDrop, email, file share, or manual Feishu Drive.', '通过 USB、AirDrop、邮件、文件共享或手动飞书云文档把 return file 带回。'),
+    harmonyScaffoldText('Import on Mac from Today > Return Files, then export a fresh mirror for the next phone pass.', '在 Mac 的 Today > Return Files 导入，然后为下一轮手机使用导出新的镜像。')
   ];
 }
 
