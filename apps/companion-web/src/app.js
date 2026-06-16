@@ -71,10 +71,13 @@ import {
   workspaceFromPortableData
 } from "./model.js";
 import { renderMarkdown } from "./markdown.js";
+import { SEED_WORKSPACES } from "./seed-workspaces.js";
+import { renderViewer } from "./viewer.js";
+import { createVoiceInput, isVoiceSupported } from "./voice.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
-const UI_PREFS_SCHEMA_VERSION = 4;
+const UI_PREFS_SCHEMA_VERSION = 5;
 const UI_LANGUAGES = new Set(["en", "zh"]);
 const CAPTURE_DELETE_UNDO_MS = 10000;
 const CAPTURE_NODE_ATTR = "data-capture-id";
@@ -109,6 +112,8 @@ const dom = {
   importReceiptDismissBtn: document.querySelector("#importReceiptDismissBtn"),
   languageLabel: document.querySelector("#languageLabel"),
   languageSelect: document.querySelector("#languageSelect"),
+  loadCaseStudyBtn: document.querySelector("#loadCaseStudyBtn"),
+  caseStudyLabel: document.querySelector("#caseStudyLabel"),
   sessionList: document.querySelector("#sessionList"),
   sessionTitle: document.querySelector("#sessionTitle"),
   sourceTitle: document.querySelector("#sourceTitle"),
@@ -158,6 +163,8 @@ const dom = {
   captureBtn: document.querySelector("#captureBtn"),
   captureCardBtn: document.querySelector("#captureCardBtn"),
   captureClozeBtn: document.querySelector("#captureClozeBtn"),
+  voiceBtn: document.querySelector("#voiceBtn"),
+  voiceStatus: document.querySelector("#voiceStatus"),
   synthesisPane: document.querySelector("#synthesisPane"),
   synthesisDraft: document.querySelector("#synthesisDraft"),
   buildSynthesisBtn: document.querySelector("#buildSynthesisBtn"),
@@ -189,6 +196,14 @@ const dom = {
   markdownExport: document.querySelector("#markdownExport"),
   payloadExport: document.querySelector("#payloadExport"),
   todayExport: document.querySelector("#todayExport"),
+  workspaceExportSection: document.querySelector("#workspaceExportSection"),
+  workspaceExportNote: document.querySelector("#workspaceExportNote"),
+  workspaceExportJsonSummary: document.querySelector("#workspaceExportJsonSummary"),
+  reviewPackExportSection: document.querySelector("#reviewPackExportSection"),
+  currentSessionExportSection: document.querySelector("#currentSessionExportSection"),
+  mirrorExportSection: document.querySelector("#mirrorExportSection"),
+  browserCaptureExportSection: document.querySelector("#browserCaptureExportSection"),
+  browserCaptureExportNote: document.querySelector("#browserCaptureExportNote"),
   copyWorkspaceBtn: document.querySelector("#copyWorkspaceBtn"),
   copyReviewPackBtn: document.querySelector("#copyReviewPackBtn"),
   copyMarkdownBtn: document.querySelector("#copyMarkdownBtn"),
@@ -205,7 +220,9 @@ const dom = {
   mirrorExport: document.querySelector("#mirrorExport"),
   copyBookmarkletBtn: document.querySelector("#copyBookmarkletBtn"),
   bookmarkletExport: document.querySelector("#bookmarkletExport"),
-  toast: document.querySelector("#toast")
+  toast: document.querySelector("#toast"),
+  viewerPane: document.querySelector("#viewerPane"),
+  desk: document.querySelector(".desk")
 };
 
 // Temporary bridge for stale cached shells that can load newer app.js before newer HTML.
@@ -218,12 +235,12 @@ function installShellCompatibilityNodes() {
     notice.hidden = true;
     const text = document.createElement("span");
     text.id = "updateNoticeText";
-    text.textContent = "App update ready";
+    text.textContent = langText("App update ready", "应用更新已就绪");
     const button = document.createElement("button");
     button.id = "updateReloadBtn";
     button.className = "mini-button";
     button.type = "button";
-    button.textContent = "Reload";
+    button.textContent = langText("Reload", "重新加载");
     notice.append(text, button);
     dom.storageNotice.insertAdjacentElement("afterend", notice);
     dom.updateNotice = notice;
@@ -236,7 +253,7 @@ function installShellCompatibilityNodes() {
       const rail = document.createElement("nav");
       rail.id = "sidecarRail";
       rail.className = "sidecar-rail";
-      rail.setAttribute("aria-label", "Sidecar study rail");
+      rail.setAttribute("aria-label", langText("Sidecar study rail", "侧栏学习导航"));
       rail.setAttribute("aria-live", "off");
       rail.hidden = true;
       activityStrip.append(rail);
@@ -289,6 +306,7 @@ let pendingCaptureUndoTimer = null;
 let activeHighlightAnnotation = null;
 const revealedReviewCards = new Set();
 const highlightThoughtHintKeys = new Set();
+const pulseTimers = new WeakMap();
 let returnFilesPickerArmed = false;
 let firstNoteDeviceFlowRevealed = false;
 
@@ -300,8 +318,8 @@ registerServiceWorker();
 installNativeBridge();
 
 dom.newSessionBtn.addEventListener("click", () => {
-  workspace = addSession(workspace, "New learning session");
-  persistAndRender("Session created");
+  workspace = addSession(workspace, defaultNewSessionTitle());
+  persistAndRender(langText("Session created", "主题已创建"));
   dom.sessionTitle.focus();
   dom.sessionTitle.select();
 });
@@ -316,7 +334,7 @@ if (dom.updateReloadBtn) {
     if (updateReloadRequested) return;
     updateReloadRequested = true;
     dom.updateReloadBtn.disabled = true;
-    dom.updateReloadBtn.textContent = "Reloading";
+    dom.updateReloadBtn.textContent = langText("Reloading", "正在重新加载");
     window.location.reload();
   });
 }
@@ -329,6 +347,9 @@ dom.languageSelect?.addEventListener("change", () => {
   saveUiPrefs();
   render();
   showToast(langText("Language set to English", "已切换为中文"));
+});
+dom.loadCaseStudyBtn?.addEventListener("click", () => {
+  loadSeedWorkspace(SEED_WORKSPACES[0]);
 });
 dom.importReceiptDismissBtn.addEventListener("click", () => {
   dismissedReturnNudgeKey = returnNudgeKey(lastImportReceipt);
@@ -407,7 +428,7 @@ async function pasteReturnFileFromClipboard() {
   if (!navigator.clipboard?.readText) {
     const message = "Clipboard is unavailable. Use Import Return Files or Manual Copy.";
     recordImportFailure(message, "clipboard");
-    showToast("Clipboard unavailable");
+    showToast(langText("Clipboard unavailable", "剪贴板不可用"));
     focusReturnFilesPanel();
     return;
   }
@@ -497,7 +518,7 @@ function stageReturnFilesFromParsed(files = [], parseSummary = emptyReturnFilesR
   dismissedReturnNudgeKey = "";
   activeTab = "today";
   setActivity(getActiveSession(workspace), {
-    title: "Return file ready",
+    title: langText("Return file ready", "返回文件已就绪"),
     detail: formatPendingReturnFilePreview(pendingReturnFilePreview),
     tab: "today",
     targetId: ""
@@ -505,7 +526,7 @@ function stageReturnFilesFromParsed(files = [], parseSummary = emptyReturnFilesR
   render();
   renderImportReceipt();
   focusReturnFilesPanel();
-  showToast("Return file ready");
+  showToast(langText("Return file ready", "返回文件已就绪"));
 }
 
 function previewReturnFiles(files = [], parseSummary = emptyReturnFilesReceipt(files.length)) {
@@ -570,8 +591,8 @@ function applyPendingReturnFilePreview() {
       workspaceFingerprint: currentFingerprint
     };
     setActivity(getActiveSession(workspace), {
-      title: "Return file preview refreshed",
-      detail: "The workspace changed after preview; review the updated counts before applying.",
+      title: langText("Return file preview refreshed", "返回文件预览已刷新"),
+      detail: langText("The workspace changed after preview; review the updated counts before applying.", "预览后工作区发生变化；应用前请检查更新后的数量。"),
       tab: "today",
       targetId: ""
     });
@@ -592,8 +613,8 @@ function discardPendingReturnFilePreview() {
   if (!pendingReturnFilePreview) return;
   pendingReturnFilePreview = null;
   setActivity(getActiveSession(workspace), {
-    title: "Return file discarded",
-    detail: "No workspace changes were applied.",
+    title: langText("Return file discarded", "返回文件已丢弃"),
+    detail: langText("No workspace changes were applied.", "没有应用任何工作区变更。"),
     tab: "today",
     targetId: ""
   });
@@ -744,7 +765,7 @@ function importPortableData(imported, options = {}) {
     throw new Error("Unsupported review progress patch schema.");
   }
   if (isMirrorBundle(imported) && hasUserWorkspace(workspace) && !confirmBundleImport(imported)) {
-    showToast("Import canceled");
+    showToast(langText("Import canceled", "导入已取消"));
     return {
       ok: false,
       canceled: true
@@ -755,7 +776,7 @@ function importPortableData(imported, options = {}) {
   activeReviewKey = "";
   lastImportReceipt = null;
   revealedReviewCards.clear();
-  persistAndRender("Workspace imported");
+  persistAndRender(langText("Workspace imported", "工作区已导入"));
   return {
     ok: true,
     kind: isMirrorBundle(imported) ? "mirror-bundle" : "workspace",
@@ -838,7 +859,7 @@ dom.notesPreviewBtn.addEventListener("click", () => {
   renderNotesMode();
 });
 
-dom.openSourceBtn.addEventListener("click", resumeCurrentSource);
+dom.openSourceBtn.addEventListener("click", toggleViewerPane);
 dom.pasteSourceBtn.addEventListener("click", pasteSourceFromClipboard);
 dom.captureContextTarget.addEventListener("click", showCaptureDestination);
 dom.captureContextSource.addEventListener("click", showCaptureSource);
@@ -860,6 +881,68 @@ document.addEventListener("visibilitychange", () => {
 dom.captureBtn.addEventListener("click", () => capture(false));
 dom.captureCardBtn.addEventListener("click", () => capture(true));
 dom.captureClozeBtn.addEventListener("click", () => capture("cloze"));
+
+if (isVoiceSupported() && dom.voiceBtn) dom.voiceBtn.hidden = false;
+let voiceRecognition = null;
+let voiceListening = false;
+dom.voiceBtn?.addEventListener("click", () => {
+  if (voiceListening) {
+    voiceRecognition && voiceRecognition.stop();
+    voiceListening = false;
+    dom.voiceBtn.classList.remove("recording");
+    dom.voiceBtn.textContent = "🎤";
+    if (dom.voiceStatus) dom.voiceStatus.hidden = true;
+    return;
+  }
+  const lang = document.body.dataset.uiLanguage === "zh" ? "zh-CN" : "en-US";
+  voiceRecognition = createVoiceInput({
+    lang,
+    onInterim: (text) => {
+      if (dom.voiceStatus) {
+        dom.voiceStatus.hidden = false;
+        dom.voiceStatus.textContent = text;
+      }
+    },
+    onFinal: (text) => {
+      voiceListening = false;
+      dom.voiceBtn.classList.remove("recording");
+      dom.voiceBtn.textContent = "🎤";
+      if (dom.voiceStatus) dom.voiceStatus.hidden = true;
+      const cur = dom.thoughtInput.value;
+      dom.thoughtInput.value = cur
+        ? (cur.endsWith(" ") || cur.endsWith("\n") ? cur : cur + " ") + text
+        : text;
+      dom.thoughtInput.focus();
+    },
+    onError: (msg) => {
+      voiceListening = false;
+      dom.voiceBtn.classList.remove("recording");
+      dom.voiceBtn.textContent = "🎤";
+      if (dom.voiceStatus) {
+        dom.voiceStatus.hidden = false;
+        dom.voiceStatus.textContent = "Voice error: " + msg;
+        setTimeout(() => { dom.voiceStatus.hidden = true; }, 3000);
+      }
+    }
+  });
+  voiceRecognition.start();
+  voiceListening = true;
+  dom.voiceBtn.classList.add("recording");
+  dom.voiceBtn.textContent = "⏹";
+});
+
+document.addEventListener("lc:quote-capture", (e) => {
+  const text = (e.detail && (e.detail.text || e.detail)) || "";
+  if (typeof text === "string") {
+    dom.quoteInput.value = text;
+  }
+  if (dom.capturePane) {
+    dom.capturePane.classList.add("capture-pane-flash");
+    setTimeout(() => dom.capturePane.classList.remove("capture-pane-flash"), 500);
+  }
+  dom.thoughtInput.focus();
+});
+
 document.querySelectorAll("[data-capture-starter]").forEach((button) => {
   button.addEventListener("click", () => applyCaptureStarter(button.dataset.captureStarter));
 });
@@ -884,31 +967,31 @@ dom.buildSynthesisBtn.addEventListener("click", () => {
   if (!confirmSynthesisOverwrite()) return;
   fillSynthesisDraft(true);
   renderSynthesisStatus();
-  showToast("Synthesis draft built");
+  showToast(langText("Synthesis draft built", "综合草稿已生成"));
 });
 dom.insertSynthesisBtn.addEventListener("click", () => {
   const draft = dom.synthesisDraft.value.trim();
   if (!draft) {
-    showToast("Build a draft first");
+    showToast(langText("Build a draft first", "请先生成草稿"));
     return;
   }
   const session = getActiveSession(workspace);
   const nextNotes = upsertSynthesisBlock(session.notesMarkdown, draft, getSynthesisSourceStamp(session));
   workspace = updateSession(workspace, session.id, { notesMarkdown: nextNotes });
   setActivity(getActiveSession(workspace), {
-    title: "Synthesis inserted",
-    detail: "Notes preview now includes the current synthesis block.",
+    title: langText("Synthesis inserted", "综合已插入"),
+    detail: langText("Notes preview now includes the current synthesis block.", "笔记预览现在包含当前综合块。"),
     tab: "captures",
     targetId: ""
   });
   notesMode = "preview";
-  persistAndRender("Synthesis inserted");
+  persistAndRender(langText("Synthesis inserted", "综合已插入"));
 });
 dom.reviewNextBtn.addEventListener("click", () => {
   activeTab = "review";
   const [next] = getDueReviewItems(workspace);
   if (!next) {
-    showToast("No due cards");
+    showToast(langText("No due cards", "没有到期卡片"));
     renderInspector();
     return;
   }
@@ -950,7 +1033,7 @@ document.addEventListener("keydown", (event) => {
   }
   if (isMod && event.key.toLowerCase() === "s") {
     event.preventDefault();
-    persistAndRender("Saved");
+    persistAndRender(langText("Saved", "已保存"));
     return;
   }
   if (isMod && event.key.toLowerCase() === "k") {
@@ -1004,46 +1087,46 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
   });
 });
 
-dom.copyWorkspaceBtn.addEventListener("click", () => copyText(dom.workspaceExport.value, "Workspace copied"));
-dom.copyReviewPackBtn.addEventListener("click", () => copyText(dom.reviewPackExport.value, "Review pack copied"));
-dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, "Markdown copied"));
-dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, "JSON copied"));
-dom.copyTodayBtn.addEventListener("click", () => copyText(dom.todayExport.value, "Today study pack copied"));
-dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, "Mirror bundle copied"));
-dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, "Capture bookmarklet copied"));
+dom.copyWorkspaceBtn.addEventListener("click", () => copyText(dom.workspaceExport.value, exportToastCopy("workspaceCopied")));
+dom.copyReviewPackBtn.addEventListener("click", () => copyText(dom.reviewPackExport.value, exportToastCopy("reviewPackCopied")));
+dom.copyMarkdownBtn.addEventListener("click", () => copyText(dom.markdownExport.value, exportToastCopy("markdownCopied")));
+dom.copyPayloadBtn.addEventListener("click", () => copyText(dom.payloadExport.value, exportToastCopy("jsonCopied")));
+dom.copyTodayBtn.addEventListener("click", () => copyText(dom.todayExport.value, exportToastCopy("todayCopied")));
+dom.copyMirrorBtn.addEventListener("click", () => copyText(dom.mirrorExport.value, exportToastCopy("mirrorCopied")));
+dom.copyBookmarkletBtn.addEventListener("click", () => copyText(dom.bookmarkletExport.value, exportToastCopy("bookmarkletCopied")));
 dom.downloadWorkspaceBtn.addEventListener("click", exportWorkspace);
 dom.downloadReviewPackBtn.addEventListener("click", async () => {
   if (await saveTextFile("LEARNING_COMPANION_REVIEW_PACK.md", dom.reviewPackExport.value, "text/markdown")) {
-    showToast(saveCompleteMessage("Review pack"));
+    showToast(saveCompleteMessage("reviewPack"));
   }
 });
 dom.downloadMarkdownBtn.addEventListener("click", async () => {
   const session = getActiveSession(workspace);
   if (await saveTextFile(`${slugify(session.title)}.md`, generateMarkdown(session), "text/markdown")) {
-    showToast(saveCompleteMessage("Markdown"));
+    showToast(saveCompleteMessage("markdown"));
   }
 });
 dom.downloadPayloadBtn.addEventListener("click", async () => {
   const session = getActiveSession(workspace);
   if (await saveTextFile(`${slugify(session.title)}.feishu.json`, JSON.stringify(buildFeishuPayload(session), null, 2), "application/json")) {
-    showToast(saveCompleteMessage("JSON"));
+    showToast(saveCompleteMessage("json"));
   }
 });
 dom.downloadTodayBtn.addEventListener("click", async () => {
   if (await saveTextFile("TODAY.md", dom.todayExport.value, "text/markdown")) {
-    showToast(saveCompleteMessage("Today"));
+    showToast(saveCompleteMessage("today"));
   }
 });
 dom.downloadMirrorBtn.addEventListener("click", async () => {
   if (await saveTextFile("learning-companion-mirror.json", dom.mirrorExport.value, "application/json")) {
-    showToast(saveCompleteMessage("Mirror"));
+    showToast(saveCompleteMessage("mirror"));
     recordReturnFileExportReceipt("Mirror JSON");
   }
 });
 dom.downloadMirrorZipBtn.addEventListener("click", async () => {
   const zip = buildMirrorZip(workspace);
   if (await saveBytesFile(zip.filename, zip.data, zip.mediaType)) {
-    showToast(saveCompleteMessage("Mirror ZIP"));
+    showToast(saveCompleteMessage("mirrorZip"));
     recordReturnFileExportReceipt("Mirror ZIP");
   }
 });
@@ -1092,9 +1175,11 @@ function saveUiPrefs() {
 }
 
 function defaultUiPrefs() {
+  const browserLang = (navigator.language || "en").toLowerCase();
+  const detected = browserLang.startsWith("zh") ? "zh" : "en";
   return {
     schemaVersion: UI_PREFS_SCHEMA_VERSION,
-    language: "en",
+    language: detected,
     sidecarLayout: false,
     captureDrafts: {},
     workspaceBackup: null,
@@ -1104,7 +1189,9 @@ function defaultUiPrefs() {
 
 function normalizeUiLanguage(value) {
   const language = String(value || "").trim();
-  return UI_LANGUAGES.has(language) ? language : "en";
+  if (UI_LANGUAGES.has(language)) return language;
+  const browserLang = (navigator.language || "en").toLowerCase();
+  return browserLang.startsWith("zh") ? "zh" : "en";
 }
 
 function currentLanguage() {
@@ -1121,6 +1208,10 @@ function langText(en, zh) {
 
 function languageText(language, en, zh) {
   return normalizeUiLanguage(language) === "zh" ? zh : en;
+}
+
+function defaultNewSessionTitle(language = currentLanguage()) {
+  return languageText(language, "New learning session", "新建学习主题");
 }
 
 function sessionCountText(count) {
@@ -1266,7 +1357,7 @@ function saveCurrentCaptureDraft() {
   const draft = getCaptureDraft(session.id);
   if (resolveCaptureDraftFocusOverride(null, draft).isFresh) {
     setActivity(session, {
-      title: "Capture draft waiting",
+      title: langText("Capture draft waiting", "摘录草稿待继续"),
       detail: summarizeCaptureDraft(draft),
       tab: "captures",
       targetId: ""
@@ -1305,8 +1396,8 @@ function reanchorCurrentCaptureDraft() {
     materialType: session.materialType
   });
   setActivity(session, {
-    title: "Draft source updated",
-    detail: `Draft now uses ${sourceSnapshotLabel(session)}.`,
+    title: langText("Draft source updated", "草稿来源已更新"),
+    detail: langText(`Draft now uses ${sourceSnapshotLabel(session)}.`, `草稿现在使用 ${sourceSnapshotLabel(session)}。`),
     tab: "captures",
     targetId: ""
   });
@@ -1327,16 +1418,19 @@ function renderCaptureDraft(session) {
 function renderCaptureDraftStatus(session, draft = getCaptureDraft(session.id)) {
   const hasDraft = hasCaptureDraft(draft);
   const sourceChanged = hasDraft && captureDraftSourceChanged(session, draft);
-  dom.captureDraftStatus.textContent = sourceChanged ? "Source changed" : captureDraftStatusText(draft);
+  dom.captureDraftStatus.textContent = sourceChanged ? langText("Source changed", "来源已变化") : captureDraftStatusText(draft);
   dom.captureDraftStatus.hidden = !hasDraft;
   dom.captureDraftStatus.classList.toggle("warn", sourceChanged);
   dom.captureDraftStatus.title = sourceChanged
-    ? `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`
+    ? langText(
+      `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`,
+      `草稿开始于 ${sourceSnapshotLabel(draft)}；当前来源是 ${sourceSnapshotLabel(session)}。`
+    )
     : "";
   if (dom.reanchorCaptureDraftBtn) {
     dom.reanchorCaptureDraftBtn.hidden = !sourceChanged;
-    dom.reanchorCaptureDraftBtn.title = sourceChanged ? "Use the current source for this local draft" : "";
-    dom.reanchorCaptureDraftBtn.setAttribute("aria-label", "Use current source for this draft");
+    dom.reanchorCaptureDraftBtn.title = sourceChanged ? langText("Use the current source for this local draft", "把当前来源用于这个本地草稿") : "";
+    dom.reanchorCaptureDraftBtn.setAttribute("aria-label", langText("Use current source for this draft", "把当前来源用于这个草稿"));
   }
   if (dom.clearCaptureDraftBtn) {
     dom.clearCaptureDraftBtn.hidden = !hasDraft;
@@ -1437,12 +1531,12 @@ function applyUrlCapture() {
     setCaptureDraft(target.session.id, {});
     const updated = getActiveSession(workspace);
     setActivity(updated, {
-      title: "Browser capture saved",
+      title: langText("Browser capture saved", "浏览器摘录已保存"),
       detail: `${summarizeCapture(updated.captures[0])} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`,
       tab: "captures",
       targetId: updated.captures[0]?.id
     });
-    showToast("Browser capture saved");
+    showToast(langText("Browser capture saved", "浏览器摘录已保存"));
   } else {
     setCaptureDraft(target.session.id, {
       quote: quote || "",
@@ -1452,12 +1546,12 @@ function applyUrlCapture() {
     renderCaptureDraft(getActiveSession(workspace));
     const updated = getActiveSession(workspace);
     setActivity(updated, {
-      title: quote || thought ? "Browser clip staged" : "Browser source updated",
-      detail: `${sourceTitle || updated.sourceTitle || "Source"}${timestamp ? ` @ ${timestamp}` : ""} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`,
+      title: quote || thought ? langText("Browser clip staged", "浏览器片段已暂存") : langText("Browser source updated", "浏览器来源已更新"),
+      detail: `${sourceTitle || updated.sourceTitle || langText("Source", "来源")}${timestamp ? ` @ ${timestamp}` : ""} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`,
       tab: "captures",
       targetId: ""
     });
-    showToast(quote || thought ? "Browser clip staged" : "Browser source updated");
+    showToast(quote || thought ? langText("Browser clip staged", "浏览器片段已暂存") : langText("Browser source updated", "浏览器来源已更新"));
   }
   history.replaceState({}, "", window.location.pathname);
   persist();
@@ -1559,11 +1653,11 @@ function isKnownVideoHost(hostname) {
 
 function formatInboundResolution(resolution, sourceUpdated = false) {
   return {
-    "active-source": "active source",
-    "matched-source-url": "matched existing source URL",
-    "matched-source-title": "matched existing source title",
-    "active-fallback": sourceUpdated ? "no matching topic; saved to current topic and updated source" : "current topic"
-  }[resolution] || "current topic";
+    "active-source": langText("active source", "当前来源"),
+    "matched-source-url": langText("matched existing source URL", "匹配已有来源 URL"),
+    "matched-source-title": langText("matched existing source title", "匹配已有来源标题"),
+    "active-fallback": sourceUpdated ? langText("no matching topic; saved to current topic and updated source", "没有匹配主题；已保存到当前主题并更新来源") : langText("current topic", "当前主题")
+  }[resolution] || langText("current topic", "当前主题");
 }
 
 function updateSessionFromFields(event) {
@@ -1609,8 +1703,8 @@ function updateSessionFromFields(event) {
   renderInspector();
   if (stagedSourceTimestamp) {
     setActivity(getActiveSession(workspace), {
-      title: "Source time staged",
-      detail: `Timestamp ${stagedSourceTimestamp} saved as a capture draft. Open source will include that time.`,
+      title: langText("Source time staged", "来源时间已暂存"),
+      detail: langText(`Timestamp ${stagedSourceTimestamp} saved as a capture draft. Open source will include that time.`, `时间戳 ${stagedSourceTimestamp} 已保存为摘录草稿。打开来源时会包含该时间。`),
       tab: "captures",
       targetId: ""
     });
@@ -1633,12 +1727,12 @@ function maybeAnchorUnsourcedCaptureDraft(session, event) {
     materialType: session.materialType
   });
   setActivity(session, {
-    title: "Draft source linked",
-    detail: `This local draft now uses ${sourceSnapshotLabel(session)}.`,
+    title: langText("Draft source linked", "草稿来源已关联"),
+    detail: langText(`This local draft now uses ${sourceSnapshotLabel(session)}.`, `这个本地草稿现在使用 ${sourceSnapshotLabel(session)}。`),
     tab: "captures",
     targetId: "",
     targetPane: "quickCapture",
-    actionLabel: "Capture"
+    actionLabel: langText("Capture", "摘录")
   });
   return true;
 }
@@ -1646,13 +1740,13 @@ function maybeAnchorUnsourcedCaptureDraft(session, event) {
 function capture(promoteToReview) {
   const session = getActiveSession(workspace);
   if (!dom.quoteInput.value.trim() && !dom.thoughtInput.value.trim()) {
-    showToast("Add quote or thought");
+    showToast(langText("Add quote or thought", "添加原文或想法"));
     dom.quoteInput.focus();
     return;
   }
   const cloze = promoteToReview === "cloze" ? buildCloze() : null;
   if (promoteToReview === "cloze" && !cloze) {
-    showToast("Select text in the quote");
+    showToast(langText("Select text in the quote", "请在原文中选择文本"));
     dom.quoteInput.focus();
     return;
   }
@@ -1704,32 +1798,32 @@ function capture(promoteToReview) {
 function captureSaveActivity(session, capture, options = {}) {
   if (options.isCloze) {
     return {
-      title: "Cloze card saved",
-      detail: `${summarizeCapture(capture)} · Review card is due now. Reveal it from Review when you are ready.`,
+      title: langText("Cloze card saved", "填空卡已保存"),
+      detail: langText(`${summarizeCapture(capture)} · Review card is due now. Reveal it from Review when you are ready.`, `${summarizeCapture(capture)} · 复习卡现在已到期。准备好后可在复习中显示答案。`),
       tab: "review",
       targetId: options.savedCard?.id || "",
-      actionLabel: "Review",
+      actionLabel: langText("Review", "复习"),
       nextHint: cardMadeNextHint(session, capture)
     };
   }
   if (options.promotedToReview) {
     return cardMadeActivity(session, capture, {
-      title: "Capture and card saved",
-      detail: `${summarizeCapture(capture)} · A review card was created, so the point can come back when it is due.`,
+      title: langText("Capture and card saved", "摘录和卡片已保存"),
+      detail: langText(`${summarizeCapture(capture)} · A review card was created, so the point can come back when it is due.`, `${summarizeCapture(capture)} · 已创建复习卡，这个要点会在到期时回来。`),
       savedCard: options.savedCard
     });
   }
   if (captureHasQuestion(capture)) {
     const hasSourceResume = Boolean(buildCaptureResumeSource(session, capture).href);
     return {
-      title: "Question saved",
+      title: langText("Question saved", "问题已保存"),
       detail: hasSourceResume
-        ? "Added to Open Questions. Resume the source while the question is fresh, or manage it from Today."
-        : "Added to Open Questions. Next: answer it, park it, save it for recall, or resolve it from Today.",
+        ? langText("Added to Open Questions. Resume the source while the question is fresh, or manage it from Today.", "已加入开放问题。趁问题还新鲜继续来源，或在今日中管理它。")
+        : langText("Added to Open Questions. Next: answer it, park it, save it for recall, or resolve it from Today.", "已加入开放问题。下一步：回答、暂存、保存到复习，或在今日中解决。"),
       tab: "today",
       targetId: capture?.id || "",
       targetSection: "open_questions",
-      actionLabel: "Questions",
+      actionLabel: langText("Questions", "问题"),
       nextHint: hasSourceResume ? activityNextHint("afterQuestionSavedSourceLinked") : null
     };
   }
@@ -1738,18 +1832,18 @@ function captureSaveActivity(session, capture, options = {}) {
     const canRefreshReviewCard = linked && linkedAnswerCanRefreshReviewCard(session, capture);
     const hasSourceResume = linked && !canRefreshReviewCard && Boolean(buildCaptureResumeSource(session, capture).href);
     return {
-      title: linked ? "Answer saved" : "Answer note saved",
+      title: linked ? langText("Answer saved", "回答已保存") : langText("Answer note saved", "回答笔记已保存"),
       detail: linked
         ? canRefreshReviewCard
-          ? "Closed the linked question and kept this answer as evidence. Refresh the review card while this answer is fresh."
+          ? langText("Closed the linked question and kept this answer as evidence. Refresh the review card while this answer is fresh.", "已关闭关联问题，并把这个回答保留为证据。趁回答还新鲜刷新复习卡。")
           : hasSourceResume
-          ? "Closed the linked question and kept this answer as evidence."
-          : "Closed the linked question and kept this answer as evidence in Answers Today."
-        : "Saved in Answers Today. It did not close a question because no question was linked.",
+          ? langText("Closed the linked question and kept this answer as evidence.", "已关闭关联问题，并把这个回答保留为证据。")
+          : langText("Closed the linked question and kept this answer as evidence in Answers Today.", "已关闭关联问题，并把这个回答作为证据保留在今日回答中。")
+        : langText("Saved in Answers Today. It did not close a question because no question was linked.", "已保存到今日回答。因为没有关联问题，所以没有关闭任何问题。"),
       tab: "today",
       targetId: capture?.id || "",
       targetSection: linked ? "closed_questions" : "answers_today",
-      actionLabel: linked ? "Closed" : "Answers",
+      actionLabel: linked ? langText("Closed", "已关闭") : langText("Answers", "回答"),
       nextHint: canRefreshReviewCard
         ? activityNextHint("afterLinkedAnswerCardRefreshNeeded")
         : hasSourceResume ? activityNextHint("afterLinkedAnswerSavedSourceLinked") : null
@@ -1757,51 +1851,51 @@ function captureSaveActivity(session, capture, options = {}) {
   }
   if (captureHasTakeawayPrefix(capture)) {
     return {
-      title: "Takeaway saved",
-      detail: "Kept as a takeaway. Save it for recall if needed, or build synthesis after a few captures.",
+      title: langText("Takeaway saved", "要点已保存"),
+      detail: langText("Kept as a takeaway. Save it for recall if needed, or build synthesis after a few captures.", "已保留为要点。需要记住时可保存到复习，或积累几条摘录后生成综合。"),
       tab: "captures",
       targetId: capture?.id || "",
-      actionLabel: "Capture"
+      actionLabel: langText("Capture", "摘录")
     };
   }
   if (captureIsQuoteOnly(capture)) {
     return {
-      title: "Highlight saved",
-      detail: `${summarizeCapture(capture)} · Saved locally as a highlight; the source page is unchanged. Add a thought or save it for recall when it matters.`,
+      title: langText("Highlight saved", "高亮已保存"),
+      detail: langText(`${summarizeCapture(capture)} · Saved locally as a highlight; the source page is unchanged. Add a thought or save it for recall when it matters.`, `${summarizeCapture(capture)} · 已作为高亮本地保存；来源页面未改变。重要时可添加想法或保存到复习。`),
       tab: "captures",
       targetId: capture?.id || "",
       targetPane: "highlightAnnotation",
-      actionLabel: "Add thought",
+      actionLabel: langText("Add thought", "添加想法"),
       nextHint: activityNextHint("afterQuoteSave")
     };
   }
   if (captureHasStarterPrefix(capture, "question")) {
     return {
-      title: "Question draft saved",
-      detail: "Saved as a capture because the Question draft still needs a body before entering Open Questions.",
+      title: langText("Question draft saved", "问题草稿已保存"),
+      detail: langText("Saved as a capture because the Question draft still needs a body before entering Open Questions.", "已保存为摘录，因为问题草稿还需要正文才能进入开放问题。"),
       tab: "captures",
       targetId: capture?.id || "",
-      actionLabel: "Capture"
+      actionLabel: langText("Capture", "摘录")
     };
   }
   const resume = buildCaptureResumeSource(session, capture);
   return {
-    title: "Capture saved",
-    detail: `${summarizeCapture(capture)} · Saved locally; add to notes, save it for recall, or build synthesis later.`,
+    title: langText("Capture saved", "摘录已保存"),
+    detail: langText(`${summarizeCapture(capture)} · Saved locally; add to notes, save it for recall, or build synthesis later.`, `${summarizeCapture(capture)} · 已本地保存；可加入笔记、保存到复习，或稍后生成综合。`),
     tab: "captures",
     targetId: capture?.id || "",
-    actionLabel: "View capture",
+    actionLabel: langText("View capture", "查看摘录"),
     nextHint: activityNextHint(captureSourceResumeHintKind(resume))
   };
 }
 
 function captureSaveToast(capture, options = {}) {
-  if (options.isCloze || options.promotedToReview) return "Capture + card saved";
-  if (captureHasQuestion(capture)) return "Question saved";
-  if (captureHasAnswer(capture)) return options.isLinkedAnswer ? "Answer saved" : "Answer note saved";
-  if (captureHasTakeawayPrefix(capture)) return "Takeaway saved";
-  if (captureIsQuoteOnly(capture)) return "Highlight saved";
-  return "Capture saved";
+  if (options.isCloze || options.promotedToReview) return langText("Capture + card saved", "摘录 + 卡片已保存");
+  if (captureHasQuestion(capture)) return langText("Question saved", "问题已保存");
+  if (captureHasAnswer(capture)) return options.isLinkedAnswer ? langText("Answer saved", "回答已保存") : langText("Answer note saved", "回答笔记已保存");
+  if (captureHasTakeawayPrefix(capture)) return langText("Takeaway saved", "要点已保存");
+  if (captureIsQuoteOnly(capture)) return langText("Highlight saved", "高亮已保存");
+  return langText("Capture saved", "摘录已保存");
 }
 
 function captureHasTakeawayPrefix(capture) {
@@ -1926,11 +2020,11 @@ function buildCloze() {
 
 function scheduleSave() {
   clearPendingCaptureUndo({ renderActivityStrip: true, reason: "save" });
-  dom.saveState.textContent = "Saving";
+  dom.saveState.textContent = langText("Saving", "保存中");
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     persist();
-    dom.saveState.textContent = "Saved";
+    dom.saveState.textContent = langText("Saved", "已保存");
   }, 250);
 }
 
@@ -1951,8 +2045,8 @@ function persist() {
     localStorage.setItem(STORAGE_KEY, serialized);
     storageWarning = workspaceStorageNotice(workspace, uiPrefs.workspaceBackup, bytes);
   } catch {
-    storageWarning = "Storage full. Export now.";
-    dom.saveState.textContent = "Export needed";
+    storageWarning = langText("Storage full. Export now.", "存储已满。请立即导出。");
+    dom.saveState.textContent = langText("Export needed", "需要导出");
   }
   renderStorageNotice();
 }
@@ -1970,6 +2064,7 @@ function render() {
   renderCaptureDraft(session);
   renderCaptureStack(session);
   renderOpenSourceButton(session);
+  renderViewerPane();
   renderCaptureContext(session);
   renderFocusMode(session.focusMode);
   renderShellMode();
@@ -1986,20 +2081,189 @@ function render() {
 
 function renderStaticBilingualShell() {
   const language = currentLanguage();
+  const setText = (selector, en, zh) => {
+    const node = document.querySelector(selector);
+    if (node) node.textContent = langText(en, zh);
+  };
+  const setAttr = (selector, name, en, zh) => {
+    const node = document.querySelector(selector);
+    if (node) node.setAttribute(name, langText(en, zh));
+  };
   document.documentElement.lang = language === "zh" ? "zh-CN" : "en";
   document.body.dataset.uiLanguage = language;
+  document.title = langText("Learning Companion", "Learning Companion | 学习伙伴");
   if (dom.languageSelect) {
     dom.languageSelect.value = language;
     dom.languageSelect.setAttribute("aria-label", langText("Language", "界面语言"));
     dom.languageSelect.title = langText("Choose interface language", "选择界面语言");
   }
   if (dom.languageLabel) dom.languageLabel.textContent = langText("Language", "语言");
+  if (dom.caseStudyLabel) dom.caseStudyLabel.textContent = langText("Case Study", "案例");
+  if (dom.loadCaseStudyBtn) {
+    dom.loadCaseStudyBtn.textContent = langText("📚 Course", "📚 课程");
+    dom.loadCaseStudyBtn.title = langText("Load E-commerce Psychology course as sample workspace", "加载电商心理学课程作为示例工作区");
+  }
+  if (dom.searchInput) {
+    dom.searchInput.placeholder = langText("Search sessions, notes, captures", "搜索主题、笔记、摘录");
+    dom.searchInput.setAttribute("aria-label", langText("Search sessions, notes, captures", "搜索主题、笔记、摘录"));
+  }
+  if (dom.newSessionBtn) {
+    dom.newSessionBtn.title = langText("New session", "新建主题");
+    dom.newSessionBtn.setAttribute("aria-label", langText("New session", "新建主题"));
+  }
+  if (dom.exportWorkspaceBtn) {
+    dom.exportWorkspaceBtn.title = langText("Export workspace", "导出工作区");
+    dom.exportWorkspaceBtn.setAttribute("aria-label", langText("Export workspace", "导出工作区"));
+  }
+  const importWorkspaceLabel = dom.importWorkspaceInput?.closest("label");
+  if (importWorkspaceLabel) {
+    importWorkspaceLabel.title = langText("Import workspace, mirror bundle, or patch", "导入工作区、镜像包或补丁");
+    importWorkspaceLabel.setAttribute("aria-label", langText("Import workspace, mirror bundle, or patch", "导入工作区、镜像包或补丁"));
+  }
+  if (dom.storageExportNowBtn) dom.storageExportNowBtn.textContent = langText("Export", "导出");
+  if (dom.updateNoticeText) dom.updateNoticeText.textContent = langText("App update ready", "应用更新已就绪");
+  if (dom.updateReloadBtn && !updateReloadRequested) dom.updateReloadBtn.textContent = langText("Reload", "重新加载");
+  if (dom.importReceiptDismissBtn) dom.importReceiptDismissBtn.textContent = langText("OK", "好的");
+  setText('label[for="sessionTitle"]', "Session", "主题");
+  setText('label[for="sourceTitle"]', "Source", "来源");
+  setText('label[for="sourceUrl"]', "URL", "链接");
+  setText('label[for="materialType"]', "Type", "类型");
+  setText('label[for="timestampInput"]', "Time", "时间");
+  setText('label[for="sessionTags"]', "Tags", "标签");
+  setText('[data-focus-mode="capture"]', "Capture", "摘录");
+  setText('[data-focus-mode="synthesize"]', "Synthesize", "综合");
+  setText('[data-focus-mode="review"]', "Review", "复习");
+  document.querySelector('.focus-row .segmented')?.setAttribute("aria-label", langText("Focus mode", "专注模式"));
+  document.querySelector(".sidebar")?.setAttribute("aria-label", langText("Learning sessions", "学习主题"));
+  document.querySelector("#sessionList")?.setAttribute("aria-label", langText("Session list", "主题列表"));
+  document.querySelector(".source-strip")?.setAttribute("aria-label", langText("Current source", "当前来源"));
+  document.querySelector(".focus-row")?.setAttribute("aria-label", langText("Focus mode", "专注模式"));
+  document.querySelector(".metrics-row")?.setAttribute("aria-label", langText("Learning metrics", "学习指标"));
+  document.querySelector(".activity-strip")?.setAttribute("aria-label", langText("Focus activity", "专注动态"));
+  document.querySelector(".focus-brief")?.setAttribute("aria-label", langText("Continue learning", "继续学习"));
+  document.querySelector("#capturePane")?.setAttribute("aria-label", langText("Quick capture", "快速摘录"));
+  document.querySelector("#synthesisPane")?.setAttribute("aria-label", langText("Synthesis", "综合"));
+  document.querySelector("#deskReviewPane")?.setAttribute("aria-label", langText("Focused review", "专注复习"));
+  document.querySelector(".editor-pane")?.setAttribute("aria-label", langText("Session notes", "主题笔记"));
+  document.querySelector(".inspector")?.setAttribute("aria-label", langText("Learning inspector", "学习检查器"));
+  document.querySelector(".inspector .tabs")?.setAttribute("aria-label", langText("Inspector views", "检查视图"));
+  document.querySelector("#todayTab")?.setAttribute("aria-label", langText("Today study pack", "今日学习包"));
+  document.querySelector("#capturesTab")?.setAttribute("aria-label", langText("Captures", "摘录"));
+  document.querySelector("#reviewTab")?.setAttribute("aria-label", langText("Review cards", "复习卡片"));
+  document.querySelector("#exportTab")?.setAttribute("aria-label", langText("Export", "导出"));
+  setText('[data-tab="today"]', "Today", "今日");
+  setText('[data-tab="captures"]', "Captures", "摘录");
+  setText('[data-tab="review"]', "Review", "复习");
+  setText('[data-tab="export"]', "Export", "导出");
+  setText("#pasteSourceBtn", "Paste", "粘贴");
+  setAttr("#pasteSourceBtn", "title", "Paste source URL from clipboard", "从剪贴板粘贴来源 URL");
+  setAttr("#pasteSourceBtn", "aria-label", "Paste source URL from clipboard", "从剪贴板粘贴来源 URL");
+  setAttr("#openSourceBtn", "title", "Open source", "打开来源");
+  setAttr("#openSourceBtn", "aria-label", "Open source", "打开来源");
+  [
+    ["article", "Article", "文章"],
+    ["video", "Video", "视频"],
+    ["doc", "Doc", "文档"],
+    ["course", "Course", "课程"],
+    ["book", "Book", "书籍"],
+    ["other", "Other", "其他"]
+  ].forEach(([value, en, zh]) => setText(`#materialType option[value="${value}"]`, en, zh));
+  [
+    ["#captureMetric", "captures", "摘录"],
+    ["#cardMetric", "cards", "卡片"],
+    ["#dueMetric", "due", "到期"],
+    ["#sizeMetric", "workspace", "工作区"]
+  ].forEach(([selector, en, zh]) => {
+    const label = document.querySelector(selector)?.nextElementSibling;
+    if (label) label.textContent = langText(en, zh);
+  });
   const captureHeading = document.querySelector("#capturePane .panel-heading h2");
   if (captureHeading) captureHeading.textContent = langText("Quick Capture", "快速摘录");
+  setText("#synthesisPane .panel-heading h2", "Synthesis", "综合");
+  setText("#buildSynthesisBtn", "Build", "生成");
+  setText("#insertSynthesisBtn", "Insert", "插入");
+  if (dom.synthesisDraft) {
+    dom.synthesisDraft.placeholder = langText(
+      "Build a draft from captures, then insert it into Notes",
+      "从摘录生成草稿，然后插入到笔记"
+    );
+    dom.synthesisDraft.setAttribute("aria-label", langText("Synthesis draft", "综合草稿"));
+  }
+  setText("#deskReviewPane .panel-heading h2", "Focused Review", "专注复习");
+  setText("#deskReviewNextBtn", "Next", "下一张");
+  setText("#deskReviewRevealBtn", "Reveal", "显示答案");
+  setText("#deskReviewAgainBtn", "Again", "再来");
+  setText("#deskReviewGoodBtn", "Good", "掌握");
+  setText(".editor-pane .panel-heading h2", "Notes", "笔记");
+  setText("#notesEditBtn", "Edit", "编辑");
+  setText("#notesPreviewBtn", "Preview", "预览");
+  if (dom.reviewNextBtn) dom.reviewNextBtn.textContent = langText("Review Next", "复习下一张");
   document.querySelector("#captureStarters")?.setAttribute("aria-label", langText("Capture starters", "摘录开头"));
   if (dom.captureStarterLabel) dom.captureStarterLabel.textContent = langText("Write as", "写成");
   renderCaptureStarterCopy();
   renderCaptureActionCopy();
+  renderExportShellCopy();
+}
+
+function renderExportShellCopy() {
+  const copy = exportShellCopy();
+  if (dom.workspaceExportSection) dom.workspaceExportSection.textContent = copy.workspaceTitle;
+  if (dom.workspaceExportNote) dom.workspaceExportNote.textContent = copy.workspaceNote;
+  if (dom.workspaceExportJsonSummary) dom.workspaceExportJsonSummary.textContent = copy.workspaceJsonSummary;
+  if (dom.reviewPackExportSection) dom.reviewPackExportSection.textContent = copy.reviewPackTitle;
+  if (dom.currentSessionExportSection) dom.currentSessionExportSection.textContent = copy.currentSessionTitle;
+  if (dom.mirrorExportSection) dom.mirrorExportSection.textContent = copy.mirrorTitle;
+  if (dom.browserCaptureExportSection) dom.browserCaptureExportSection.textContent = copy.browserCaptureTitle;
+  if (dom.browserCaptureExportNote) dom.browserCaptureExportNote.textContent = copy.browserCaptureNote;
+  setButtonCopy(dom.copyWorkspaceBtn, copy.copyWorkspace);
+  setButtonCopy(dom.downloadWorkspaceBtn, copy.saveWorkspace);
+  setButtonCopy(dom.copyReviewPackBtn, copy.copyPack);
+  setButtonCopy(dom.downloadReviewPackBtn, copy.savePack);
+  setButtonCopy(dom.copyMarkdownBtn, copy.copyMarkdown);
+  setButtonCopy(dom.downloadMarkdownBtn, copy.saveMarkdown);
+  setButtonCopy(dom.copyPayloadBtn, copy.copyJson);
+  setButtonCopy(dom.downloadPayloadBtn, copy.saveJson);
+  setButtonCopy(dom.copyTodayBtn, copy.copyToday);
+  setButtonCopy(dom.downloadTodayBtn, copy.saveToday);
+  setButtonCopy(dom.copyMirrorBtn, copy.copyMirror);
+  setButtonCopy(dom.downloadMirrorBtn, copy.saveMirror);
+  setButtonCopy(dom.downloadMirrorZipBtn, copy.saveZip);
+  setButtonCopy(dom.copyBookmarkletBtn, copy.copyClip);
+}
+
+function exportShellCopy() {
+  return {
+    workspaceTitle: langText("Full Workspace (all sessions)", "完整工作区（全部主题）"),
+    workspaceNote: langText("Local backup only. This is not cloud sync or Feishu upload.", "仅本地备份。这里不是云同步，也不是飞书上传。"),
+    workspaceJsonSummary: langText("Show workspace JSON", "显示工作区 JSON"),
+    reviewPackTitle: langText("Review Pack", "复习包"),
+    currentSessionTitle: langText("Current Session", "当前主题"),
+    mirrorTitle: langText("Mirror Folder", "镜像文件夹"),
+    browserCaptureTitle: langText("Browser Capture", "浏览器摘录"),
+    browserCaptureNote: langText(
+      "Copy Clip, add it as a browser bookmark, then click it on a source page to send selected text, title, URL, and video time back here.",
+      "复制 Clip，把它加入浏览器书签，然后在来源页面点击，把选中文本、标题、URL 和视频时间带回这里。"
+    ),
+    copyWorkspace: langText("Copy Workspace", "复制工作区"),
+    saveWorkspace: langText("Save Workspace", "保存工作区"),
+    copyPack: langText("Copy Pack", "复制复习包"),
+    savePack: langText("Save Pack", "保存复习包"),
+    copyMarkdown: langText("Copy MD", "复制 MD"),
+    saveMarkdown: langText("Save MD", "保存 MD"),
+    copyJson: langText("Copy JSON", "复制 JSON"),
+    saveJson: langText("Save JSON", "保存 JSON"),
+    copyToday: langText("Copy Today", "复制今日包"),
+    saveToday: langText("Save Today", "保存今日包"),
+    copyMirror: langText("Copy Mirror", "复制镜像"),
+    saveMirror: langText("Save Mirror", "保存镜像"),
+    saveZip: langText("Save ZIP Copy", "保存 ZIP 副本"),
+    copyClip: langText("Copy Clip", "复制 Clip")
+  };
+}
+
+function setButtonCopy(button, text) {
+  if (!button) return;
+  button.textContent = text;
 }
 
 function renderCaptureStarterCopy() {
@@ -2067,7 +2331,12 @@ function handleCaptureContextSourceAction() {
   const session = getActiveSession(workspace);
   const resume = buildResumeSource(session, dom.timestampInput.value);
   if (resume.href) {
-    resumeCurrentSource();
+    // Always ensure viewer is open (not toggle)
+    if (session.viewerOpen === false) {
+      workspace = updateSession(workspace, session.id, { viewerOpen: true });
+      persistWorkspace();
+      render();
+    }
     return;
   }
   promptForSource(session);
@@ -2092,7 +2361,7 @@ function promptForSource(session = getActiveSession(workspace)) {
 async function pasteSourceFromClipboard() {
   const session = getActiveSession(workspace);
   if (!navigator.clipboard?.readText) {
-    handlePasteSourceFailure(session, "Clipboard unavailable", "Paste the browser URL into the URL field.");
+    handlePasteSourceFailure(session, langText("Clipboard unavailable", "剪贴板不可用"), langText("Paste the browser URL into the URL field.", "请把浏览器 URL 粘贴到 URL 字段。"));
     return;
   }
   const previousLabel = dom.pasteSourceBtn.textContent;
@@ -2101,12 +2370,12 @@ async function pasteSourceFromClipboard() {
   try {
     const parsed = parseClipboardSource(await navigator.clipboard.readText());
     if (!parsed.url) {
-      handlePasteSourceFailure(session, "No source URL found", "Copy the browser URL, then use Paste Source or enter it manually.");
+      handlePasteSourceFailure(session, langText("No source URL found", "没有找到来源 URL"), langText("Copy the browser URL, then use Paste Source or enter it manually.", "复制浏览器 URL，然后使用粘贴来源或手动输入。"));
       return;
     }
     applyClipboardSource(parsed);
   } catch {
-    handlePasteSourceFailure(session, "Clipboard blocked", "Browser settings blocked clipboard access. Enter the source URL manually.");
+    handlePasteSourceFailure(session, langText("Clipboard blocked", "剪贴板被阻止"), langText("Browser settings blocked clipboard access. Enter the source URL manually.", "浏览器设置阻止了剪贴板访问。请手动输入来源 URL。"));
   } finally {
     dom.pasteSourceBtn.disabled = false;
     dom.pasteSourceBtn.textContent = previousLabel;
@@ -2132,7 +2401,7 @@ function applyClipboardSource(source) {
     focusMode: "capture"
   });
   activeTab = "captures";
-  persistAndRender("Source pasted");
+  persistAndRender(langText("Source pasted", "来源已粘贴"));
   if (timestamp && !dom.timestampInput.value.trim()) {
     dom.timestampInput.value = timestamp;
     setCaptureDraft(session.id, {
@@ -2146,12 +2415,15 @@ function applyClipboardSource(source) {
   }
   const updated = getActiveSession(workspace);
   setActivity(updated, {
-    title: "Source pasted",
-    detail: `${sourceTitle || readableSourceHost(sourceUrl) || "Source URL"}${timestamp ? ` @ ${timestamp}` : ""} is ready for captures.${typeGuarded ? ` Type kept as ${materialTypeLabel(session.materialType)} because this topic already has captures.` : ""}`,
+    title: langText("Source pasted", "来源已粘贴"),
+    detail: langText(
+      `${sourceTitle || readableSourceHost(sourceUrl) || "Source URL"}${timestamp ? ` @ ${timestamp}` : ""} is ready for captures.${typeGuarded ? ` Type kept as ${materialTypeLabel(session.materialType)} because this topic already has captures.` : ""}`,
+      `${sourceTitle || readableSourceHost(sourceUrl) || "来源 URL"}${timestamp ? ` @ ${timestamp}` : ""} 已可用于摘录。${typeGuarded ? `因为这个主题已有摘录，类型保留为 ${materialTypeLabel(session.materialType)}。` : ""}`
+    ),
     tab: "captures",
     targetId: "",
     targetPane: "quickCapture",
-    actionLabel: "Capture"
+    actionLabel: langText("Capture", "摘录")
   });
   renderActivity(updated);
   renderCaptureDraftStatus(updated);
@@ -2168,7 +2440,7 @@ function handlePasteSourceFailure(session, title, detail) {
     tab: "captures",
     targetId: "",
     targetPane: "source",
-    actionLabel: "Set source"
+    actionLabel: langText("Set source", "设置来源")
   });
   renderActivity(session);
   dom.sourceUrl.focus();
@@ -2239,7 +2511,13 @@ function titleCaseSource(value) {
 }
 
 function shouldRenameUntitledSession(title) {
-  return ["", "New learning session"].includes(String(title || "").trim());
+  return [
+    "",
+    "New learning session",
+    "新建学习主题",
+    "Untitled learning session",
+    "未命名学习主题"
+  ].includes(String(title || "").trim());
 }
 
 function shouldKeepExistingMaterialType(session, inferredMaterialType) {
@@ -2265,13 +2543,13 @@ function inferClipboardMaterialType(sourceUrl, timestamp, fallback) {
 
 function materialTypeLabel(value) {
   return {
-    article: "Article",
-    video: "Video",
-    doc: "Doc",
-    course: "Course",
-    book: "Book",
-    other: "Other"
-  }[value] || "current type";
+    article: langText("Article", "文章"),
+    video: langText("Video", "视频"),
+    doc: langText("Doc", "文档"),
+    course: langText("Course", "课程"),
+    book: langText("Book", "书籍"),
+    other: langText("Other", "其他")
+  }[value] || langText("current type", "当前类型");
 }
 
 function nudgeCaptureTime(deltaSeconds) {
@@ -2285,8 +2563,8 @@ function nudgeCaptureTime(deltaSeconds) {
   const nextTimestamp = secondsToTimestamp(nextSeconds);
   if (currentSeconds !== null && currentTimestamp === nextTimestamp && nextSeconds === currentSeconds) {
     setActivity(session, {
-      title: "Time unchanged",
-      detail: `Capture time is already ${nextTimestamp}.`,
+      title: langText("Time unchanged", "时间未变化"),
+      detail: langText(`Capture time is already ${nextTimestamp}.`, `摘录时间已经是 ${nextTimestamp}。`),
       tab: "captures",
       targetId: ""
     });
@@ -2297,8 +2575,8 @@ function nudgeCaptureTime(deltaSeconds) {
   dom.timestampInput.value = nextTimestamp;
   saveCurrentCaptureDraft();
   setActivity(session, {
-    title: "Time adjusted",
-    detail: `Capture time set to ${nextTimestamp}.`,
+    title: langText("Time adjusted", "时间已调整"),
+    detail: langText(`Capture time set to ${nextTimestamp}.`, `摘录时间已设为 ${nextTimestamp}。`),
     tab: "captures",
     targetId: ""
   });
@@ -2309,13 +2587,62 @@ function nudgeCaptureTime(deltaSeconds) {
 }
 
 function renderOpenSourceButton(session) {
-  const resume = buildResumeSource(session, dom.timestampInput.value);
-  dom.openSourceBtn.disabled = !resume.href;
-  const title = resume.timestamp
-    ? langText(`Open source at ${resume.timestamp}`, `打开来源到 ${resume.timestamp}`)
-    : langText("Open source", "打开来源");
+  const hasUrl = Boolean(session?.sourceUrl);
+  dom.openSourceBtn.disabled = !hasUrl;
+  const isOpen = session?.viewerOpen !== false;
+  dom.openSourceBtn.textContent = isOpen ? "⊠" : "↗";
+  const title = isOpen
+    ? langText("Hide material viewer", "隐藏材料预览")
+    : langText("Show material viewer", "显示材料预览");
   dom.openSourceBtn.title = title;
   dom.openSourceBtn.setAttribute("aria-label", title);
+}
+
+function toggleViewerPane() {
+  const session = getActiveSession(workspace);
+  if (!session?.sourceUrl) return;
+  const nextOpen = session.viewerOpen === false;
+  workspace = updateSession(workspace, session.id, { viewerOpen: nextOpen });
+  persistWorkspace();
+  render();
+}
+
+function renderViewerPane() {
+  const session = getActiveSession(workspace);
+  if (!dom.viewerPane) return;
+  if (!session?.sourceUrl) {
+    dom.viewerPane.innerHTML = "";
+    dom.viewerPane.hidden = true;
+    dom.desk?.classList.remove("viewer-collapsed");
+    return;
+  }
+  if (session.viewerOpen === false) {
+    // Clear iframe to stop playback when collapsed
+    dom.viewerPane.innerHTML = "";
+    dom.viewerPane.hidden = true;
+    dom.desk?.classList.add("viewer-collapsed");
+  } else {
+    dom.desk?.classList.remove("viewer-collapsed");
+    dom.viewerPane.hidden = false;
+    const startSec = timestampToSeconds(dom.timestampInput.value) || 0;
+    renderViewer(dom.viewerPane, session, {
+      startTimestamp: startSec,
+      onTimestampChange(sec) {
+        dom.timestampInput.value = secondsToTimestamp(Math.max(0, Math.floor(sec)));
+      },
+      onOpenExternal(url) {
+        window.open(buildSourceJumpUrl(url, dom.timestampInput.value), "_blank", "noopener,noreferrer");
+      },
+      onToggleCollapse() {
+        workspace = updateSession(workspace, session.id, { viewerOpen: false });
+        persistWorkspace();
+        render();
+      },
+      onQuoteCapture(text) {
+        document.dispatchEvent(new CustomEvent("lc:quote-capture", { detail: { text } }));
+      }
+    });
+  }
 }
 
 function renderCaptureContext(session) {
@@ -2325,7 +2652,7 @@ function renderCaptureContext(session) {
     ? langText(`Open source at ${resume.timestamp}`, `打开来源到 ${resume.timestamp}`)
     : langText("Open source", "打开来源");
   const openLabel = captureContextOpenLabel(resume);
-  const targetLabel = langText(`To ${session.title || "current topic"}`, `到 ${session.title || "当前主题"}`);
+  const targetLabel = langText(`To ${session.title || "current topic"}`, `到${session.title || "当前主题"}`);
   const hasSource = Boolean(resume.href);
   const hasTime = Boolean(resume.timestamp);
   const intent = captureDraftIntent(session);
@@ -2680,140 +3007,212 @@ const ACTIVITY_NEXT_HINTS = Object.freeze({
   afterQuoteSave: Object.freeze({
     kind: "afterQuoteSave",
     text: "Next: add a thought while the source is still fresh.",
+    zhText: "下一步：趁来源还新鲜，补上一条想法。",
     actionLabel: "Add thought",
-    ariaLabel: "Add a thought to this saved highlight"
+    zhActionLabel: "添加想法",
+    ariaLabel: "Add a thought to this saved highlight",
+    zhAriaLabel: "给这条已保存高亮添加想法"
   }),
   afterThoughtAdded: Object.freeze({
     kind: "afterThoughtAdded",
     text: "If this should come back later, save it for recall.",
+    zhText: "如果之后还要回忆它，就保存到复习。",
     actionLabel: "Save for recall",
-    ariaLabel: "Save this annotated highlight for recall"
+    zhActionLabel: "保存到复习",
+    ariaLabel: "Save this annotated highlight for recall",
+    zhAriaLabel: "把这条已标注高亮保存到复习"
   }),
   afterThoughtAddedSourceLinked: Object.freeze({
     kind: "afterThoughtAddedSourceLinked",
     text: "Next: resume the source. Add to Notes for synthesis, or save for recall practice.",
+    zhText: "下一步：继续来源。可加入笔记做综合，或保存到复习练习。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source for this annotated highlight"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source for this annotated highlight",
+    zhAriaLabel: "继续这条已标注高亮的来源"
   }),
   afterThoughtAddedTextSourceLinked: Object.freeze({
     kind: "afterThoughtAddedTextSourceLinked",
     text: "Next: open the source at this highlight. Add to Notes for synthesis, or save for recall practice.",
+    zhText: "下一步：打开来源并跳到这条高亮。可加入笔记做综合，或保存到复习练习。",
     actionLabel: "Open at quote",
-    ariaLabel: "Open the source; jump to this annotated highlight if supported"
+    zhActionLabel: "打开到原文",
+    ariaLabel: "Open the source; jump to this annotated highlight if supported",
+    zhAriaLabel: "打开来源；若支持则跳到这条已标注高亮"
   }),
   afterThoughtAddedCarded: Object.freeze({
     kind: "afterThoughtAddedCarded",
     text: "Next: review the card this highlight already feeds.",
+    zhText: "下一步：复习这条高亮已经生成的卡片。",
     actionLabel: "Review card",
-    ariaLabel: "Review the card made from this highlight"
+    zhActionLabel: "复习卡片",
+    ariaLabel: "Review the card made from this highlight",
+    zhAriaLabel: "复习由这条高亮生成的卡片"
   }),
   afterCaptureSavedSourceLinked: Object.freeze({
     kind: "afterCaptureSavedSourceLinked",
     text: "Next: open the source for the next point.",
+    zhText: "下一步：打开来源，继续下一个要点。",
     actionLabel: "Open source",
-    ariaLabel: "Open the source after saving this capture"
+    zhActionLabel: "打开来源",
+    ariaLabel: "Open the source after saving this capture",
+    zhAriaLabel: "保存这条摘录后打开来源"
   }),
   afterCaptureSavedTextSourceLinked: Object.freeze({
     kind: "afterCaptureSavedTextSourceLinked",
     text: "Next: open the source at this quote for the next point.",
+    zhText: "下一步：从这条原文位置打开来源，继续下一个要点。",
     actionLabel: "Open at quote",
-    ariaLabel: "Open the source; jump to this saved quote if supported"
+    zhActionLabel: "打开到原文",
+    ariaLabel: "Open the source; jump to this saved quote if supported",
+    zhAriaLabel: "打开来源；若支持则跳到这条已保存原文"
   }),
   afterCaptureSavedTimedSourceLinked: Object.freeze({
     kind: "afterCaptureSavedTimedSourceLinked",
     text: "Next: resume the saved source moment.",
+    zhText: "下一步：继续保存的来源时刻。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source moment after saving this capture"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source moment after saving this capture",
+    zhAriaLabel: "保存这条摘录后继续来源时刻"
   }),
   afterNoteAddedSourceLinked: Object.freeze({
     kind: "afterNoteAddedSourceLinked",
     text: "Saved to Notes. Open the source for the next point.",
+    zhText: "已保存到笔记。打开来源继续下一个要点。",
     actionLabel: "Open source",
-    ariaLabel: "Open the source after saving this capture to Notes"
+    zhActionLabel: "打开来源",
+    ariaLabel: "Open the source after saving this capture to Notes",
+    zhAriaLabel: "把这条摘录保存到笔记后打开来源"
   }),
   afterNoteAddedTextSourceLinked: Object.freeze({
     kind: "afterNoteAddedTextSourceLinked",
     text: "Saved to Notes. Open the source at this quote for the next point.",
+    zhText: "已保存到笔记。从这条原文位置打开来源，继续下一个要点。",
     actionLabel: "Open at quote",
-    ariaLabel: "Open the source; jump to this noted quote if supported"
+    zhActionLabel: "打开到原文",
+    ariaLabel: "Open the source; jump to this noted quote if supported",
+    zhAriaLabel: "打开来源；若支持则跳到这条已入笔记的原文"
   }),
   afterNoteAddedTimedSourceLinked: Object.freeze({
     kind: "afterNoteAddedTimedSourceLinked",
     text: "Saved to Notes. Resume the source moment for the next point.",
+    zhText: "已保存到笔记。继续来源时刻，推进下一个要点。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source moment after saving this capture to Notes"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source moment after saving this capture to Notes",
+    zhAriaLabel: "把这条摘录保存到笔记后继续来源时刻"
   }),
   afterNoteAddedViewNote: Object.freeze({
     kind: "afterNoteAddedViewNote",
     text: "Note saved. Inspect the generated block when needed.",
+    zhText: "笔记已保存。需要时查看生成的笔记块。",
     actionLabel: "View note",
-    ariaLabel: "View this capture in Notes"
+    zhActionLabel: "查看笔记",
+    ariaLabel: "View this capture in Notes",
+    zhAriaLabel: "在笔记中查看这条摘录"
   }),
   afterCardMade: Object.freeze({
     kind: "afterCardMade",
     text: "Saved for recall. Review when you want.",
+    zhText: "已保存到复习。需要时可以复习。",
     actionLabel: "Review card",
-    ariaLabel: "Open the new review card"
+    zhActionLabel: "复习卡片",
+    ariaLabel: "Open the new review card",
+    zhAriaLabel: "打开新复习卡片"
   }),
   afterCardMadeSourceLinked: Object.freeze({
     kind: "afterCardMadeSourceLinked",
     text: "Saved for recall. Jump back to the source; the card is here when you want to review.",
+    zhText: "已保存到复习。回到来源继续读；想复习时卡片还在这里。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source after saving this review card"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source after saving this review card",
+    zhAriaLabel: "保存这张复习卡后继续来源"
   }),
   afterCardMadeTextSourceLinked: Object.freeze({
     kind: "afterCardMadeTextSourceLinked",
     text: "Saved for recall. Open the source at this quote - the card stays here.",
+    zhText: "已保存到复习。从这条原文打开来源；卡片会留在这里。",
     actionLabel: "Open at quote",
-    ariaLabel: "Open the source; jump to this review-card quote if supported"
+    zhActionLabel: "打开到原文",
+    ariaLabel: "Open the source; jump to this review-card quote if supported",
+    zhAriaLabel: "打开来源；若支持则跳到这张复习卡的原文"
   }),
   afterQuestionSavedSourceLinked: Object.freeze({
     kind: "afterQuestionSavedSourceLinked",
     text: "Next: resume the source and look for evidence.",
+    zhText: "下一步：继续来源，寻找证据。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source for this saved question"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source for this saved question",
+    zhAriaLabel: "继续这条已保存问题的来源"
   }),
   afterQuestionSourceResumed: Object.freeze({
     kind: "afterQuestionSourceResumed",
     text: "When evidence is ready, start a linked answer draft.",
+    zhText: "证据准备好后，开始关联回答草稿。",
     actionLabel: "Answer question",
-    ariaLabel: "Start a linked answer draft for this question"
+    zhActionLabel: "回答问题",
+    ariaLabel: "Start a linked answer draft for this question",
+    zhAriaLabel: "为这个问题开始关联回答草稿"
   }),
   afterLinkedAnswerSavedSourceLinked: Object.freeze({
     kind: "afterLinkedAnswerSavedSourceLinked",
     text: "Question closed. Resume the source for the next point.",
+    zhText: "问题已关闭。继续来源，推进下一个要点。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source after saving this answer"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source after saving this answer",
+    zhAriaLabel: "保存这个回答后继续来源"
   }),
   afterLinkedAnswerCardRefreshNeeded: Object.freeze({
     kind: "afterLinkedAnswerCardRefreshNeeded",
     text: "Question closed. Refresh the review card with this answer.",
+    zhText: "问题已关闭。用这个回答刷新复习卡。",
     actionLabel: "Refresh card",
-    ariaLabel: "Refresh the review card with this linked answer"
+    zhActionLabel: "刷新卡片",
+    ariaLabel: "Refresh the review card with this linked answer",
+    zhAriaLabel: "用这个关联回答刷新复习卡"
   }),
   afterQuestionCardRefreshedSourceLinked: Object.freeze({
     kind: "afterQuestionCardRefreshedSourceLinked",
     text: "Card is current. Resume the source for the next point.",
+    zhText: "卡片已更新。继续来源，推进下一个要点。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source after refreshing this review card"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source after refreshing this review card",
+    zhAriaLabel: "刷新这张复习卡后继续来源"
   }),
   afterReviewQueueClearedSourceLinked: Object.freeze({
     kind: "afterReviewQueueClearedSourceLinked",
     text: "Reviews clear. Resume the source for the next point.",
+    zhText: "复习已清空。继续来源，推进下一个要点。",
     actionLabel: "Resume source",
-    ariaLabel: "Resume the source after clearing the review queue"
+    zhActionLabel: "继续来源",
+    ariaLabel: "Resume the source after clearing the review queue",
+    zhAriaLabel: "清空复习队列后继续来源"
   }),
   afterReviewQueueClearedTextSourceLinked: Object.freeze({
     kind: "afterReviewQueueClearedTextSourceLinked",
     text: "Reviews clear. Open the source at the last quote for the next point.",
+    zhText: "复习已清空。从上一条原文打开来源，推进下一个要点。",
     actionLabel: "Open at quote",
-    ariaLabel: "Open the source; jump to the last reviewed quote if supported"
+    zhActionLabel: "打开到原文",
+    ariaLabel: "Open the source; jump to the last reviewed quote if supported",
+    zhAriaLabel: "打开来源；若支持则跳到上一条已复习原文"
   })
 });
 
 function activityNextHint(kind) {
   const hint = ACTIVITY_NEXT_HINTS[kind];
-  return hint ? { ...hint } : null;
+  if (!hint) return null;
+  return {
+    kind: hint.kind,
+    text: langText(hint.text, hint.zhText || hint.text),
+    actionLabel: langText(hint.actionLabel, hint.zhActionLabel || hint.actionLabel),
+    ariaLabel: langText(hint.ariaLabel, hint.zhAriaLabel || hint.ariaLabel)
+  };
 }
 
 function captureSourceResumeHintKind(resume) {
@@ -2832,7 +3231,12 @@ function noteAddedSourceHintKind(resume) {
 
 function noteAddedSourceHint(resume, didUpdate = false) {
   const hint = activityNextHint(noteAddedSourceHintKind(resume));
-  if (hint && Boolean(didUpdate)) hint.text = hint.text.replace("Saved to Notes.", "Note updated.");
+  if (hint && Boolean(didUpdate)) {
+    hint.text = langText(
+      hint.text.replace("Saved to Notes.", "Note updated."),
+      hint.text.replace("已保存到笔记。", "笔记已更新。")
+    );
+  }
   return hint;
 }
 
@@ -2842,7 +3246,7 @@ function noteAddedSourceActionLabel(resume) {
 
 function noteAddedViewNoteHint(didUpdate = false) {
   const hint = activityNextHint("afterNoteAddedViewNote");
-  if (hint && Boolean(didUpdate)) hint.text = "Note updated. View the refreshed block when needed.";
+  if (hint && Boolean(didUpdate)) hint.text = langText("Note updated. View the refreshed block when needed.", "笔记已更新。需要时查看刷新的笔记块。");
   return hint;
 }
 
@@ -2955,7 +3359,7 @@ function renderShellMode() {
 function setActivity(session, activity) {
   lastActivity = {
     sessionId: session.id,
-    title: String(activity.title || "Ready"),
+    title: String(activity.title || langText("Ready", "准备就绪")),
     detail: String(activity.detail || ""),
     tab: activity.tab || "captures",
     targetId: activity.targetId || "",
@@ -2980,13 +3384,13 @@ function renderActivity(session) {
   dom.activityTitle.textContent = activity.title;
   dom.activityDetail.textContent = activity.detail;
   dom.activityUndoBtn.hidden = !canUndoCaptureDelete;
-  dom.activityUndoBtn.textContent = canUndoCaptureDelete ? `Undo delete (${captureUndoSeconds}s)` : "Undo";
+  dom.activityUndoBtn.textContent = canUndoCaptureDelete ? langText(`Undo delete (${captureUndoSeconds}s)`, `撤销删除（${captureUndoSeconds}s）`) : langText("Undo", "撤销");
   dom.activityUndoBtn.title = canUndoCaptureDelete
-    ? `Undo delete before this recovery window closes: ${pendingCaptureUndo.summary}`
+    ? langText(`Undo delete before this recovery window closes: ${pendingCaptureUndo.summary}`, `在恢复窗口关闭前撤销删除：${pendingCaptureUndo.summary}`)
     : "";
   dom.activityUndoBtn.setAttribute("aria-label", canUndoCaptureDelete
-    ? `Undo capture delete. ${captureUndoSeconds} seconds remaining. ${pendingCaptureUndo.summary}`
-    : "Undo capture delete");
+    ? langText(`Undo capture delete. ${captureUndoSeconds} seconds remaining. ${pendingCaptureUndo.summary}`, `撤销摘录删除。还剩 ${captureUndoSeconds} 秒。${pendingCaptureUndo.summary}`)
+    : langText("Undo capture delete", "撤销摘录删除"));
   dom.activityUndoBtn.dataset.undoRemainingSeconds = canUndoCaptureDelete ? String(captureUndoSeconds) : "";
   dom.activityDetailsBtn.textContent = actionText;
   dom.activityDetailsBtn.title = actionLabel;
@@ -3005,7 +3409,7 @@ function renderActivityHint(activity) {
     dom.activityHintText.textContent = "";
     dom.activityHintBtn.textContent = "";
     dom.activityHintBtn.title = "";
-    dom.activityHintBtn.setAttribute("aria-label", "No suggested next step");
+    dom.activityHintBtn.setAttribute("aria-label", langText("No suggested next step", "没有建议的下一步"));
     return;
   }
   dom.activityHint.hidden = false;
@@ -3113,21 +3517,21 @@ function resolveSidecarRailSteps(session = getActiveSession(workspace)) {
   const pack = buildTodayPack(workspace, new Date(), { dueLimit: 1, questionLimit: 1, parkedQuestionLimit: 1, resolvedQuestionLimit: 1, recentLimit: 1 });
   const draftItems = getCaptureDraftItems();
   return [
-    sidecarRailStep(resolveSourceSessionState(), "Source"),
+    sidecarRailStep(resolveSourceSessionState(), langText("Source", "来源")),
     resolveSidecarCaptureRailStep(pack, draftItems, session),
-    sidecarRailStep(resolveCloseLoopState(pack, draftItems), "Loop")
+    sidecarRailStep(resolveCloseLoopState(pack, draftItems), langText("Loop", "闭环"))
   ];
 }
 
 function sidecarRailStep(step, label) {
-  const clearLoop = step.kind === "loop" && step.status === "Clear";
+  const clearLoop = step.kind === "loop" && step.tone === "clear";
   return {
     ...step,
     label,
-    actionLabel: clearLoop ? "Open Today" : step.actionLabel,
-    actionAriaLabel: clearLoop ? "Open Today details and exit sidecar layout" : step.actionAriaLabel,
+    actionLabel: clearLoop ? langText("Open Today", "打开今日") : step.actionLabel,
+    actionAriaLabel: clearLoop ? langText("Open Today details and exit sidecar layout", "打开今日详情并退出侧栏布局") : step.actionAriaLabel,
     railDetail: step.status,
-    railAction: clearLoop ? "Today" : step.actionLabel
+    railAction: clearLoop ? langText("Today", "今日") : step.actionLabel
   };
 }
 
@@ -3137,13 +3541,13 @@ function resolveSidecarCaptureRailStep(pack, draftItems, session) {
   const captureCount = Number(pack.stats.captures) || 0;
   return {
     kind: "capture",
-    label: "Capture",
-    status: hasDraft ? "Draft waiting" : captureFlowStatus(pack, draftItems),
-    detail: hasDraft ? summarizeCaptureDraft(draft) : "Focus Quick Capture for the next quote or thought.",
-    railDetail: hasDraft ? "Draft waiting" : captureCount ? "Capture next point" : "Capture first point",
-    railAction: hasDraft ? "Resume" : "Focus field",
-    actionLabel: hasDraft ? "Resume capture" : "Focus capture",
-    actionAriaLabel: hasDraft ? "Resume the waiting Quick Capture draft" : "Focus Quick Capture in sidecar layout",
+    label: langText("Capture", "摘录"),
+    status: hasDraft ? langText("Draft waiting", "草稿待继续") : captureFlowStatus(pack, draftItems),
+    detail: hasDraft ? summarizeCaptureDraft(draft) : langText("Focus Quick Capture for the next quote or thought.", "聚焦快速摘录，记录下一条原文或想法。"),
+    railDetail: hasDraft ? langText("Draft waiting", "草稿待继续") : captureCount ? langText("Capture next point", "摘录下一点") : langText("Capture first point", "摘录第一点"),
+    railAction: hasDraft ? langText("Resume", "继续") : langText("Focus field", "聚焦输入"),
+    actionLabel: hasDraft ? langText("Resume capture", "继续摘录") : langText("Focus capture", "聚焦摘录"),
+    actionAriaLabel: hasDraft ? langText("Resume the waiting Quick Capture draft", "继续等待中的快速摘录草稿") : langText("Focus Quick Capture in sidecar layout", "在侧栏布局中聚焦快速摘录"),
     action: focusQuickCapture,
     tone: "capture"
   };
@@ -3162,7 +3566,7 @@ function renderSidecarRailButton(step) {
     textEl("small", "", step.railAction || step.actionLabel)
   );
   button.addEventListener("click", () => {
-    if (step.kind === "loop" && step.status === "Clear") {
+    if (step.kind === "loop" && step.tone === "clear") {
       openTodayFromSidecar();
       return;
     }
@@ -3194,28 +3598,28 @@ function renderFocusBrief() {
   }
   setFocusBriefCompressed(shouldCompressSidecarFocusBrief(brief, draft));
   const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
-    ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
-    : `${brief.stats.dueCards} due`;
-  dom.focusBriefKicker.textContent = `${brief.stats.captures} captures · ${dueCopy}`;
+    ? langText(`${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`, `${brief.stats.dueCards} 张本主题到期 · ${brief.stats.workspaceDueCards} 张工作区到期`)
+    : langText(`${brief.stats.dueCards} due`, `${brief.stats.dueCards} 张到期`);
+  dom.focusBriefKicker.textContent = langText(`${brief.stats.captures} captures · ${dueCopy}`, `${brief.stats.captures} 条摘录 · ${dueCopy}`);
   dom.focusBriefAction.textContent = brief.nextAction.label;
   dom.focusBriefDetail.textContent = brief.nextAction.detail;
   dom.focusBriefActionBtn.textContent = focusBriefButtonLabel(brief.nextAction.kind);
   dom.focusBriefActionBtn.title = brief.nextAction.detail;
   dom.focusBriefActionBtn.classList.toggle("primary", brief.nextAction.kind !== "capture");
   dom.focusBriefActionBtn.setAttribute("aria-label", brief.nextAction.kind === "capture"
-    ? "Start typing in Quick Capture"
+    ? langText("Start typing in Quick Capture", "开始在快速摘录中输入")
     : brief.nextAction.label);
   clearChildren(dom.focusBriefFacts);
   dom.focusBriefFacts.append(
-    focusBriefFact("Source", brief.source.title || (brief.source.available ? "Open source" : "No source")),
-    focusBriefFact("Latest", brief.latestCapture
+    focusBriefFact(langText("Source", "来源"), brief.source.title || (brief.source.available ? langText("Open source", "打开来源") : langText("No source", "无来源"))),
+    focusBriefFact(langText("Latest", "最新"), brief.latestCapture
       ? `${brief.latestCapture.summary}${brief.latestCapture.timestamp ? ` @ ${brief.latestCapture.timestamp}` : ""}`
-      : "No captures yet"),
-    focusBriefFact("Synthesis", brief.stats.capturesSinceLastSynthesis
-      ? `${brief.stats.capturesSinceLastSynthesis} waiting`
-      : "Current"),
-    focusBriefFact("Questions", brief.stats.questions ? `${brief.stats.questions} open` : "None"),
-    focusBriefFact("Why", brief.nextAction.reason)
+      : langText("No captures yet", "还没有摘录")),
+    focusBriefFact(langText("Synthesis", "综合"), brief.stats.capturesSinceLastSynthesis
+      ? langText(`${brief.stats.capturesSinceLastSynthesis} waiting`, `${brief.stats.capturesSinceLastSynthesis} 条待综合`)
+      : langText("Current", "已是最新")),
+    focusBriefFact(langText("Questions", "问题"), brief.stats.questions ? langText(`${brief.stats.questions} open`, `${brief.stats.questions} 个开放`) : langText("None", "无")),
+    focusBriefFact(langText("Why", "原因"), brief.nextAction.reason)
   );
   clearChildren(dom.focusBriefSignals);
   if (brief.warnings.length) {
@@ -3233,7 +3637,7 @@ function renderFocusBrief() {
       dom.focusBriefSignals.append(signal);
     });
   } else {
-    dom.focusBriefSignals.append(textEl("span", "focus-signal", "Ready"));
+    dom.focusBriefSignals.append(textEl("span", "focus-signal", langText("Ready", "准备就绪")));
   }
 }
 
@@ -3254,32 +3658,35 @@ function setFocusBriefCompressed(compressed) {
 function renderCaptureDraftFocusBrief(session, draft, brief) {
   const sourceChanged = captureDraftSourceChanged(session, draft);
   const dueCopy = brief.stats.workspaceDueCards !== brief.stats.dueCards
-    ? `${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`
-    : `${brief.stats.dueCards} due`;
-  dom.focusBriefKicker.textContent = `${session.captures.length} captures · ${dueCopy}`;
-  dom.focusBriefAction.textContent = "Resume capture draft";
+    ? langText(`${brief.stats.dueCards} topic due · ${brief.stats.workspaceDueCards} workspace due`, `${brief.stats.dueCards} 张本主题到期 · ${brief.stats.workspaceDueCards} 张工作区到期`)
+    : langText(`${brief.stats.dueCards} due`, `${brief.stats.dueCards} 张到期`);
+  dom.focusBriefKicker.textContent = langText(`${session.captures.length} captures · ${dueCopy}`, `${session.captures.length} 条摘录 · ${dueCopy}`);
+  dom.focusBriefAction.textContent = langText("Resume capture draft", "继续摘录草稿");
   dom.focusBriefDetail.textContent = summarizeCaptureDraft(draft);
-  dom.focusBriefActionBtn.textContent = "Resume";
+  dom.focusBriefActionBtn.textContent = langText("Resume", "继续");
   dom.focusBriefActionBtn.classList.add("primary");
-  dom.focusBriefActionBtn.title = "Continue the saved quote or thought";
-  dom.focusBriefActionBtn.setAttribute("aria-label", "Resume capture draft");
+  dom.focusBriefActionBtn.title = langText("Continue the saved quote or thought", "继续已保存的原文或想法");
+  dom.focusBriefActionBtn.setAttribute("aria-label", langText("Resume capture draft", "继续摘录草稿"));
   clearChildren(dom.focusBriefFacts);
   const facts = [
-    focusBriefFact("Source", session.sourceTitle || (session.sourceUrl ? "Open source" : "No source")),
-    ...(sourceChanged ? [focusBriefFact("Draft source", sourceSnapshotLabel(draft))] : []),
-    focusBriefFact("Draft", draft.timestamp ? `Saved @ ${draft.timestamp}` : "Saved locally"),
-    focusBriefFact("Sync", "Device-local"),
-    focusBriefFact("Why", "Fresh local draft and no due review is blocking it.")
+    focusBriefFact(langText("Source", "来源"), session.sourceTitle || (session.sourceUrl ? langText("Open source", "打开来源") : langText("No source", "无来源"))),
+    ...(sourceChanged ? [focusBriefFact(langText("Draft source", "草稿来源"), sourceSnapshotLabel(draft))] : []),
+    focusBriefFact(langText("Draft", "草稿"), draft.timestamp ? langText(`Saved @ ${draft.timestamp}`, `已保存 @ ${draft.timestamp}`) : langText("Saved locally", "已本地保存")),
+    focusBriefFact(langText("Sync", "同步"), langText("Device-local", "设备本地")),
+    focusBriefFact(langText("Why", "原因"), langText("Fresh local draft and no due review is blocking it.", "有新的本地草稿，且没有到期复习阻塞它。"))
   ];
   dom.focusBriefFacts.append(...facts);
   clearChildren(dom.focusBriefSignals);
-  const draftSignal = textEl("span", "focus-signal warn", "Draft waiting");
-  const sourceSignal = textEl("span", "focus-signal warn", "Source changed");
-  sourceSignal.title = `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`;
+  const draftSignal = textEl("span", "focus-signal warn", langText("Draft waiting", "草稿待继续"));
+  const sourceSignal = textEl("span", "focus-signal warn", langText("Source changed", "来源已变化"));
+  sourceSignal.title = langText(
+    `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`,
+    `草稿开始于 ${sourceSnapshotLabel(draft)}；当前来源是 ${sourceSnapshotLabel(session)}。`
+  );
   dom.focusBriefSignals.append(
     draftSignal,
     ...(sourceChanged ? [sourceSignal] : []),
-    textEl("span", "focus-signal", "Not exported")
+    textEl("span", "focus-signal", langText("Not exported", "未导出"))
   );
 }
 
@@ -3309,8 +3716,8 @@ function showCaptureDestination() {
   pulseNode(activeRow);
   activeRow?.focus();
   setActivity(session, {
-    title: "Capture destination shown",
-    detail: `Captures save to ${session.title}.`,
+    title: langText("Capture destination shown", "摘录目标已显示"),
+    detail: langText(`Captures save to ${session.title}.`, `摘录会保存到 ${session.title}。`),
     tab: "captures",
     targetId: ""
   });
@@ -3325,10 +3732,10 @@ function showCaptureSource() {
   focusTarget.select?.();
   pulseNode(document.querySelector(".source-strip"));
   setActivity(session, {
-    title: "Capture source shown",
+    title: langText("Capture source shown", "摘录来源已显示"),
     detail: session.sourceTitle || session.sourceUrl
-      ? `Captures use ${sourceSnapshotLabel(session)}.`
-      : "Add a source title or URL before capturing.",
+      ? langText(`Captures use ${sourceSnapshotLabel(session)}.`, `摘录会使用 ${sourceSnapshotLabel(session)}。`)
+      : langText("Add a source title or URL before capturing.", "摘录前先添加来源标题或 URL。"),
     tab: "captures",
     targetId: ""
   });
@@ -3337,12 +3744,12 @@ function showCaptureSource() {
 
 function focusBriefButtonLabel(kind) {
   return {
-    review: "Review",
-    synthesize: "Build",
-    capture: "Start typing",
-    continue: "Open",
-    open_source: "Source"
-  }[kind] || "Go";
+    review: langText("Review", "复习"),
+    synthesize: langText("Build", "生成"),
+    capture: langText("Start typing", "开始输入"),
+    continue: langText("Open", "打开"),
+    open_source: langText("Source", "来源")
+  }[kind] || langText("Go", "前往");
 }
 
 function openFocusBriefWarning(warning) {
@@ -3371,7 +3778,7 @@ function runFocusBriefAction() {
     workspace = updateSession(workspace, session.id, { focusMode: "capture" });
     activeTab = "captures";
     setActivity(session, {
-      title: "Capture draft resumed",
+      title: langText("Capture draft resumed", "摘录草稿已继续"),
       detail: summarizeCaptureDraft(draft),
       tab: "captures",
       targetId: ""
@@ -3408,7 +3815,7 @@ function focusQuickCapture() {
   const session = getActiveSession(workspace);
   const draft = getCaptureDraft(session.id);
   const hasDraft = hasCaptureDraft(draft);
-  const title = hasDraft ? "Capture draft ready" : "Quick Capture ready";
+  const title = hasDraft ? langText("Capture draft ready", "摘录草稿已准备好") : langText("Quick Capture ready", "快速摘录已准备好");
   const readyActivity = quickCaptureReadyActivity(session);
   // Do not redirect this entry to Source URL: rail/shortcut callers asked to focus
   // capture fields. The Activity action remains the source-anchoring escape hatch.
@@ -3420,7 +3827,7 @@ function focusQuickCapture() {
     tab: "captures",
     targetId: "",
     targetPane: hasDraft ? "quickCapture" : readyActivity.targetPane,
-    actionLabel: hasDraft ? "Resume" : readyActivity.actionLabel
+    actionLabel: hasDraft ? langText("Resume", "继续") : readyActivity.actionLabel
   });
   persistAndRender(title);
   const target = dom.quoteInput.value.trim() && !dom.thoughtInput.value.trim()
@@ -3485,8 +3892,18 @@ function getActivity(session) {
 }
 
 function clearCaptureDraftActivity(sessionId) {
+  const draftActivityTitles = new Set([
+    "Capture draft waiting",
+    "Capture draft resumed",
+    "Answer draft started",
+    "Answer draft resumed",
+    "摘录草稿待继续",
+    "摘录草稿已继续",
+    "回答草稿已开始",
+    "回答草稿已继续"
+  ]);
   if (lastActivity?.sessionId === sessionId
-    && ["Capture draft waiting", "Capture draft resumed", "Answer draft started", "Answer draft resumed"].includes(lastActivity.title)) {
+    && draftActivityTitles.has(lastActivity.title)) {
     lastActivity = null;
   }
 }
@@ -3544,7 +3961,7 @@ function runActivityHintAction() {
     const targetSession = workspace.sessions.find((session) => session.id === activity.sessionId);
     const targetCapture = targetSession?.captures.find((capture) => capture.id === activity.targetId);
     if (!targetSession || !targetCapture) {
-      showToast("Highlight no longer exists");
+      showToast(langText("Highlight no longer exists", "高亮已不存在"));
       return;
     }
     if (targetCapture.promotedToReview) {
@@ -3587,12 +4004,12 @@ function resumeActivityHintSource(activity) {
   const targetSession = workspace.sessions.find((session) => session.id === activity.sessionId);
   const targetCapture = targetSession?.captures.find((capture) => capture.id === activity.targetId);
   if (!targetSession || !targetCapture) {
-    showToast("Highlight no longer exists");
+    showToast(langText("Highlight no longer exists", "高亮已不存在"));
     return;
   }
   const resume = activityResumeSource(activity);
   if (!resume.href) {
-    showToast("Source no longer exists");
+    showToast(langText("Source no longer exists", "来源已不存在"));
     return;
   }
   window.open(resume.href, "_blank", "noopener,noreferrer");
@@ -3600,7 +4017,7 @@ function resumeActivityHintSource(activity) {
   renderInspector();
   dom.thoughtInput.focus();
   pulseNode(dom.capturePane);
-  const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || langText("Source", "来源");
   const resumedQuestion = activity.nextHint?.kind === "afterQuestionSavedSourceLinked";
   const resumedNote = activity.nextHint?.kind === "afterNoteAddedSourceLinked"
     || activity.nextHint?.kind === "afterNoteAddedTextSourceLinked"
@@ -3610,16 +4027,16 @@ function resumeActivityHintSource(activity) {
     ? normalizeActivityNextHint(activity.nextHint)
     : activityNextHint("afterNoteAddedViewNote");
   setActivity(targetSession, {
-    title: "Source resumed",
+    title: langText("Source resumed", "来源已继续"),
     detail: resumedQuestion
-      ? `${sourceLabel} reopened beside Quick Capture. Capture evidence here, then start a linked answer.`
+      ? langText(`${sourceLabel} reopened beside Quick Capture. Capture evidence here, then start a linked answer.`, `${sourceLabel} 已在快速摘录旁重新打开。在这里摘录证据，然后开始关联回答。`)
       : resumedNote
-      ? `${sourceLabel} reopened beside Quick Capture. The note is saved. Keep reading; capture the next point when it lands.`
-      : `${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`,
+      ? langText(`${sourceLabel} reopened beside Quick Capture. The note is saved. Keep reading; capture the next point when it lands.`, `${sourceLabel} 已在快速摘录旁重新打开。笔记已保存。继续阅读，遇到下一个要点时摘录。`)
+      : langText(`${sourceLabel} reopened beside Quick Capture. Continue from the saved point, or capture the next question.`, `${sourceLabel} 已在快速摘录旁重新打开。从已保存的位置继续，或摘录下一个问题。`),
     tab: "captures",
     targetId: targetCapture.id,
     targetPane: resumedNote ? "quickCapture" : "",
-    actionLabel: resumedNote ? "Focus field" : activity.nextHint?.kind === "afterThoughtAddedSourceLinked" || activity.nextHint?.kind === "afterThoughtAddedTextSourceLinked" ? "View highlight" : "View capture",
+    actionLabel: resumedNote ? langText("Focus field", "聚焦输入") : activity.nextHint?.kind === "afterThoughtAddedSourceLinked" || activity.nextHint?.kind === "afterThoughtAddedTextSourceLinked" ? langText("View highlight", "查看高亮") : langText("View capture", "查看摘录"),
     nextHint: resumedQuestion ? activityNextHint("afterQuestionSourceResumed") : resumedNote ? noteViewHint : null
   });
   renderActivity(getActiveSession(workspace));
@@ -3630,7 +4047,7 @@ function answerQuestionFromActivity(activity) {
   const sourceSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
   const capture = sourceSession?.captures.find((item) => item.id === activity?.targetId);
   if (!sourceSession || !capture) {
-    showToast("Question no longer exists");
+    showToast(langText("Question no longer exists", "问题已不存在"));
     return;
   }
   if (!captureHasOpenQuestion(capture)) {
@@ -3639,16 +4056,16 @@ function answerQuestionFromActivity(activity) {
     const resolved = Boolean(capture.questionResolvedAt);
     const parked = Boolean(capture.questionParkedAt);
     setActivity(getActiveSession(workspace), {
-      title: "Question already moved",
+      title: langText("Question already moved", "问题已移动"),
       detail: resolved
-        ? "This question is already closed. Inspect it from Today."
-        : parked ? "This question is parked. Resume it from Today before answering." : "This item is no longer an open question.",
+        ? langText("This question is already closed. Inspect it from Today.", "这个问题已经关闭。请在今日中查看。")
+        : parked ? langText("This question is parked. Resume it from Today before answering.", "这个问题已暂存。回答前先在今日中继续它。") : langText("This item is no longer an open question.", "这个条目已经不是开放问题。"),
       tab: "today",
       targetId: "",
       targetSection: resolved ? "closed_questions" : parked ? "parked_questions" : "open_questions",
-      actionLabel: "Today"
+      actionLabel: langText("Today", "今日")
     });
-    persistAndRender("Question already moved");
+    persistAndRender(langText("Question already moved", "问题已移动"));
     return;
   }
   answerQuestionFromToday(activity.targetId, activity.sessionId);
@@ -3659,11 +4076,11 @@ function refreshQuestionCardFromAnswerActivity(activity) {
   const answerCapture = sourceSession?.captures.find((item) => item.id === activity?.targetId);
   const questionId = answerCapture?.answersQuestionCaptureId || "";
   if (!sourceSession || !answerCapture || !questionId) {
-    showToast("Linked answer no longer exists");
+    showToast(langText("Linked answer no longer exists", "关联回答已不存在"));
     return;
   }
   if (!linkedAnswerCanRefreshReviewCard(sourceSession, answerCapture)) {
-    showToast("Review card no longer needs refresh");
+    showToast(langText("Review card no longer needs refresh", "复习卡不再需要刷新"));
     return;
   }
   refreshAnsweredQuestionCard(questionId, sourceSession.id);
@@ -3674,16 +4091,16 @@ function resumeReviewCardSourceFromActivity(activity) {
   const targetCard = targetSession?.reviewCards.find((card) => card.id === activity?.targetId);
   const sourceCapture = targetSession?.captures.find((capture) => capture.id === targetCard?.sourceCaptureId);
   if (!targetSession || !targetCard) {
-    showToast("Review card no longer exists");
+    showToast(langText("Review card no longer exists", "复习卡已不存在"));
     return;
   }
   if (!sourceCapture) {
-    showToast("Source no longer exists");
+    showToast(langText("Source no longer exists", "来源已不存在"));
     return;
   }
   const resume = activityReviewCardResumeSource(activity);
   if (!resume.href) {
-    showToast("Source no longer exists");
+    showToast(langText("Source no longer exists", "来源已不存在"));
     return;
   }
   window.open(resume.href, "_blank", "noopener,noreferrer");
@@ -3691,16 +4108,16 @@ function resumeReviewCardSourceFromActivity(activity) {
   renderInspector();
   dom.thoughtInput.focus();
   pulseNode(dom.capturePane);
-  const sourceLabel = resume.title || readableSourceHost(resume.url) || "Source";
+  const sourceLabel = resume.title || readableSourceHost(resume.url) || langText("Source", "来源");
   const detail = activityTargetsReviewCardSourceResume(activity) || activity?.nextHint?.kind === "afterCardMadeSourceLinked" || activity?.nextHint?.kind === "afterCardMadeTextSourceLinked"
-    ? `${sourceLabel} reopened beside Quick Capture. Continue reading; the saved card is here when you want to review.`
-    : `${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`;
+    ? langText(`${sourceLabel} reopened beside Quick Capture. Continue reading; the saved card is here when you want to review.`, `${sourceLabel} 已在快速摘录旁重新打开。继续阅读；想复习时保存的卡片还在这里。`)
+    : langText(`${sourceLabel} reopened beside Quick Capture. Continue from the refreshed question, or capture the next point.`, `${sourceLabel} 已在快速摘录旁重新打开。从已刷新的问题继续，或摘录下一个要点。`);
   setActivity(targetSession, {
-    title: "Source resumed",
+    title: langText("Source resumed", "来源已继续"),
     detail,
     tab: "captures",
     targetId: sourceCapture.id,
-    actionLabel: captureHasQuestion(sourceCapture) ? "Question" : "View capture"
+    actionLabel: captureHasQuestion(sourceCapture) ? langText("Question", "问题") : langText("View capture", "查看摘录")
   });
   renderActivity(getActiveSession(workspace));
   pulseNode(dom.captureContextSource);
@@ -3710,12 +4127,12 @@ function openActivityHighlightAnnotation(activity) {
   const targetSession = workspace.sessions.find((session) => session.id === activity.sessionId);
   const targetCapture = targetSession?.captures.find((capture) => capture.id === activity.targetId);
   if (!targetSession || !targetCapture) {
-    showToast("Highlight no longer exists");
+    showToast(langText("Highlight no longer exists", "高亮已不存在"));
     scrollActivityTarget(activity);
     return;
   }
   if (!captureIsQuoteOnly(targetCapture)) {
-    showToast("Highlight already has a thought");
+    showToast(langText("Highlight already has a thought", "高亮已经有想法"));
     scrollActivityTarget(activity);
     return;
   }
@@ -3771,10 +4188,16 @@ function markCaptureNode(node, captureId) {
 
 function pulseNode(target) {
   if (!target) return;
+  const existingTimer = pulseTimers.get(target);
+  if (existingTimer) clearTimeout(existingTimer);
   target.classList.remove("pulse");
   void target.offsetWidth;
   target.classList.add("pulse");
-  setTimeout(() => target?.classList.remove("pulse"), 900);
+  const timer = setTimeout(() => {
+    target?.classList.remove("pulse");
+    pulseTimers.delete(target);
+  }, 900);
+  pulseTimers.set(target, timer);
 }
 
 function isInSidePanel(node) {
@@ -4259,7 +4682,7 @@ function getActiveReviewItem() {
 function selectNextDeskReview() {
   const items = getReviewItemsForDisplay();
   if (!items.length) {
-    showToast("No review cards");
+    showToast(langText("No review cards", "没有复习卡片"));
     renderDeskReview();
     return;
   }
@@ -4275,10 +4698,10 @@ function renderDeskReview() {
   if (dom.deskReviewPane.hidden) return;
   const due = getDueReviewItems(workspace).length;
   const item = getActiveReviewItem();
-  dom.deskReviewMeta.textContent = `${due} due`;
+  dom.deskReviewMeta.textContent = langText(`${due} due`, `${due} 张到期`);
   if (!item) {
     dom.deskReviewSource.textContent = "";
-    dom.deskReviewPrompt.textContent = "No review cards yet.";
+    dom.deskReviewPrompt.textContent = langText("No review cards yet.", "还没有复习卡片。");
     dom.deskReviewAnswer.hidden = true;
     dom.deskReviewRevealBtn.hidden = true;
     dom.deskReviewAgainBtn.hidden = true;
@@ -4289,7 +4712,10 @@ function renderDeskReview() {
   activeReviewKey = key;
   const isRevealed = revealedReviewCards.has(key);
   dom.deskReviewCard.dataset.reviewKey = key;
-  dom.deskReviewSource.textContent = `${item.sessionTitle} · strength ${item.card.strength} · due ${new Date(item.card.dueAt).toLocaleDateString()}`;
+  dom.deskReviewSource.textContent = langText(
+    `${item.sessionTitle} · strength ${item.card.strength} · due ${new Date(item.card.dueAt).toLocaleDateString()}`,
+    `${item.sessionTitle} · 强度 ${item.card.strength} · ${new Date(item.card.dueAt).toLocaleDateString()} 到期`
+  );
   dom.deskReviewPrompt.textContent = item.card.prompt;
   dom.deskReviewAnswer.hidden = !isRevealed;
   dom.deskReviewRevealBtn.hidden = isRevealed;
@@ -4313,28 +4739,28 @@ function gradeActiveReview(grade) {
   if (!next && reviewedSession) {
     workspace = selectSession(workspace, reviewedSession.id);
   }
-  const gradeLabel = grade === "good" ? "Good" : "Again";
+  const gradeLabel = grade === "good" ? langText("Good", "掌握") : langText("Again", "再来");
   const nextDueLabel = new Date(reviewedCard?.dueAt || item.card.dueAt).toLocaleDateString();
   const reviewResume = buildCaptureResumeSource(reviewedSession, reviewedCapture);
   const sourceResumeHint = !next && reviewResume.href
     ? activityNextHint(reviewResume.hasTextFragment ? "afterReviewQueueClearedTextSourceLinked" : "afterReviewQueueClearedSourceLinked")
     : null;
   setActivity(getActiveSession(workspace), next ? {
-    title: "Review updated",
-    detail: `${gradeLabel} · ${item.sessionTitle} · next due ${nextDueLabel}. Next card is ready.`,
+    title: langText("Review updated", "复习已更新"),
+    detail: langText(`${gradeLabel} · ${item.sessionTitle} · next due ${nextDueLabel}. Next card is ready.`, `${gradeLabel} · ${item.sessionTitle} · 下次到期 ${nextDueLabel}。下一张卡片已准备好。`),
     tab: "review",
     targetId: next.card.id,
-    actionLabel: "Next card"
+    actionLabel: langText("Next card", "下一张卡")
   } : {
-    title: "Review queue clear",
-    detail: `${gradeLabel} · ${item.sessionTitle} · next due ${nextDueLabel}. No due cards left.`,
+    title: langText("Review queue clear", "复习队列已清空"),
+    detail: langText(`${gradeLabel} · ${item.sessionTitle} · next due ${nextDueLabel}. No due cards left.`, `${gradeLabel} · ${item.sessionTitle} · 下次到期 ${nextDueLabel}。没有剩余到期卡片。`),
     tab: "captures",
     targetId: reviewedCard?.id || "",
     targetPane: "quickCapture",
-    actionLabel: "Capture",
+    actionLabel: langText("Capture", "摘录"),
     nextHint: sourceResumeHint
   });
-  persistAndRender(next ? "Review updated" : "Review queue clear");
+  persistAndRender(next ? langText("Review updated", "复习已更新") : langText("Review queue clear", "复习队列已清空"));
 }
 
 function renderNotesMode() {
@@ -4383,7 +4809,10 @@ function fillSynthesisDraft(force = false) {
 
 function confirmSynthesisOverwrite() {
   if (dom.synthesisDraft.dataset.dirty !== "true" || !dom.synthesisDraft.value.trim()) return true;
-  return window.confirm("Replace your edited synthesis draft with a regenerated version?");
+  return window.confirm(langText(
+    "Replace your edited synthesis draft with a regenerated version?",
+    "用重新生成的版本替换已编辑的综合草稿？"
+  ));
 }
 
 function renderSynthesisStatus() {
@@ -4397,9 +4826,9 @@ function renderSynthesisStatus() {
   if (!hasDraft) {
     dom.synthesisStatus.textContent = "";
   } else if (sourceChanged) {
-    dom.synthesisStatus.textContent = "Source changed since last Build";
+    dom.synthesisStatus.textContent = langText("Source changed since last Build", "来源在上次生成后已变化");
   } else if (isDirty) {
-    dom.synthesisStatus.textContent = "Edited draft";
+    dom.synthesisStatus.textContent = langText("Edited draft", "草稿已编辑");
   } else {
     dom.synthesisStatus.textContent = `${stats.captures}/${stats.questions}/${stats.cards}`;
   }
@@ -4425,7 +4854,7 @@ function renderSessions() {
   const active = getActiveSession(workspace);
   clearChildren(dom.sessionList);
   if (!visible.length) {
-    dom.sessionList.append(emptyState("No matching sessions"));
+    dom.sessionList.append(emptyState(langText("No matching sessions", "没有匹配的主题")));
     return;
   }
   visible.forEach((session) => {
@@ -4435,7 +4864,10 @@ function renderSessions() {
     button.dataset.sessionId = session.id;
     button.append(
       textEl("span", "session-title", session.title),
-      textEl("span", "session-subtitle", `${session.sourceTitle || session.materialType} · ${session.captures.length} captures`)
+      textEl("span", "session-subtitle", langText(
+        `${session.sourceTitle || session.materialType} · ${session.captures.length} captures`,
+        `${session.sourceTitle || session.materialType} · ${session.captures.length} 条摘录`
+      ))
     );
     button.addEventListener("click", () => {
       workspace = selectSession(workspace, session.id);
@@ -4457,10 +4889,13 @@ function renderSearchResults() {
   activeSearchIndex = results.length ? Math.max(0, Math.min(activeSearchIndex, results.length - 1)) : -1;
   const heading = document.createElement("div");
   heading.className = "search-results-heading";
-  heading.append(textEl("strong", "", "Find"), textEl("span", "", results.length ? `${results.length} matches` : "No matches"));
+  heading.append(
+    textEl("strong", "", langText("Find", "查找")),
+    textEl("span", "", results.length ? langText(`${results.length} matches`, `${results.length} 个匹配`) : langText("No matches", "没有匹配"))
+  );
   dom.searchResults.append(heading);
   if (!results.length) {
-    dom.searchResults.append(textEl("p", "search-empty", "Try source titles, quote text, notes, tags, or card prompts."));
+    dom.searchResults.append(textEl("p", "search-empty", langText("Try source titles, quote text, notes, tags, or card prompts.", "试试来源标题、原文、笔记、标签或卡片提示。")));
     return;
   }
   results.forEach((result, index) => {
@@ -4494,17 +4929,17 @@ function openSearchResult(result) {
   if (!result) return;
   const targetSession = workspace.sessions.find((session) => session.id === result.sessionId);
   if (!targetSession) {
-    showToast("Search result no longer exists");
+    showToast(langText("Search result no longer exists", "搜索结果已不存在"));
     renderSearchResults();
     return;
   }
   if (result.type === "capture" && !targetSession.captures.some((capture) => capture.id === result.targetId)) {
-    showToast("Capture no longer exists");
+    showToast(langText("Capture no longer exists", "摘录已不存在"));
     renderSearchResults();
     return;
   }
   if (result.type === "review" && !targetSession.reviewCards.some((card) => card.id === result.targetId)) {
-    showToast("Review card no longer exists");
+    showToast(langText("Review card no longer exists", "复习卡已不存在"));
     renderSearchResults();
     return;
   }
@@ -4516,7 +4951,7 @@ function openSearchResult(result) {
     activeReviewKey = reviewKey(result.sessionId, result.targetId);
     revealedReviewCards.delete(activeReviewKey);
     setActivity(getActiveSession(workspace), {
-      title: "Search result opened",
+      title: langText("Search result opened", "搜索结果已打开"),
       detail: `${result.matchLabel} · ${result.title}`,
       tab: "review",
       targetId: result.targetId
@@ -4530,7 +4965,7 @@ function openSearchResult(result) {
     workspace = updateSession(workspace, session.id, { focusMode: "capture" });
     activeTab = "captures";
     setActivity(getActiveSession(workspace), {
-      title: "Search result opened",
+      title: langText("Search result opened", "搜索结果已打开"),
       detail: `${result.matchLabel} · ${result.title}`,
       tab: "captures",
       targetId: result.targetId
@@ -4554,11 +4989,11 @@ function openSearchResult(result) {
 
 function searchTypeLabel(type) {
   return {
-    session: "Source",
-    note: "Note",
-    capture: "Capture",
-    review: "Card"
-  }[type] || "Match";
+    session: langText("Source", "来源"),
+    note: langText("Note", "笔记"),
+    capture: langText("Capture", "摘录"),
+    review: langText("Card", "卡片")
+  }[type] || langText("Match", "匹配");
 }
 
 function renderInspector() {
@@ -4582,12 +5017,12 @@ function renderToday() {
   clearChildren(dom.todaySummary);
   clearChildren(dom.todayList);
   dom.todaySummary.append(
-    todayStat(String(stats.due), "due"),
-    todayStat(String(stats.questions), "questions"),
-    todayStat(String(stats.parkedQuestions || 0), "parked"),
-    todayStat(String(stats.resolvedQuestionsToday || 0), "closed"),
-    todayStat(String(stats.captures), "captures"),
-    todayStat(String(stats.cards), "cards")
+    todayStat(String(stats.due), langText("due", "到期")),
+    todayStat(String(stats.questions), langText("questions", "问题")),
+    todayStat(String(stats.parkedQuestions || 0), langText("parked", "暂存")),
+    todayStat(String(stats.resolvedQuestionsToday || 0), langText("closed", "已关闭")),
+    todayStat(String(stats.captures), langText("captures", "摘录")),
+    todayStat(String(stats.cards), langText("cards", "卡片"))
   );
 
   const showStartHere = shouldShowStartHere(pack, draftItems);
@@ -4596,9 +5031,9 @@ function renderToday() {
   dom.todayList.append(renderTodaySectionMap(pack, draftItems));
   renderTodayDrafts(draftItems);
 
-  dom.todayList.append(todaySectionTitle("Due Review", "due_review"));
+  dom.todayList.append(todaySectionTitle(langText("Due Review", "到期复习"), "due_review"));
   if (!pack.dueItems.length) {
-    dom.todayList.append(emptyState("No cards due right now"));
+    dom.todayList.append(emptyState(langText("No cards due right now", "当前没有到期卡片")));
   } else {
     pack.dueItems.forEach((item) => {
       const sourceSession = workspace.sessions.find((session) => session.id === item.sessionId);
@@ -4606,44 +5041,44 @@ function renderToday() {
       const card = document.createElement("article");
       card.className = "item-card due-card";
       card.append(
-        textEl("div", "item-meta", `${item.sessionTitle} · strength ${item.card.strength}`),
+        textEl("div", "item-meta", langText(`${item.sessionTitle} · strength ${item.card.strength}`, `${item.sessionTitle} · 强度 ${item.card.strength}`)),
         textEl("p", "card-prompt", item.card.prompt)
       );
       const footer = document.createElement("div");
       footer.className = "item-footer";
       const sourceHref = buildSourceJumpUrl(sourceCapture?.sourceUrl || sourceSession?.sourceUrl, sourceCapture?.timestamp || "");
       if (sourceHref) {
-        const open = textEl("button", "mini-button", sourceCapture?.timestamp ? `Open @ ${sourceCapture.timestamp}` : "Open source");
+        const open = textEl("button", "mini-button", sourceCapture?.timestamp ? langText(`Open @ ${sourceCapture.timestamp}`, `打开 @ ${sourceCapture.timestamp}`) : langText("Open source", "打开来源"));
         open.type = "button";
         open.addEventListener("click", () => {
           window.open(sourceHref, "_blank", "noopener,noreferrer");
         });
         footer.append(open);
       }
-      const review = textEl("button", "mini-button primary", "Review");
+      const review = textEl("button", "mini-button primary", langText("Review", "复习"));
       review.type = "button";
       review.addEventListener("click", () => startReviewAtItem(item));
       footer.append(review);
       card.append(footer);
       dom.todayList.append(card);
     });
-    if (pack.dueOverflow) dom.todayList.append(emptyState(`+${pack.dueOverflow} more due cards in workspace.json`));
+    if (pack.dueOverflow) dom.todayList.append(emptyState(langText(`+${pack.dueOverflow} more due cards in workspace.json`, `workspace.json 中还有 ${pack.dueOverflow} 张到期卡片`)));
   }
 
-  dom.todayList.append(todaySectionTitle("Question Queue Health", "question_health"));
+  dom.todayList.append(todaySectionTitle(langText("Question Queue Health", "问题队列健康度"), "question_health"));
   const health = document.createElement("article");
   health.className = "item-card question-health-card";
   health.append(
     textEl("div", "item-meta", [
-      `${pack.questionHealth.activeQuestions} active`,
-      `${pack.questionHealth.parkedQuestions} parked`,
-      `${pack.questionHealth.unresolvedQuestions} unresolved`
+      languageCount(pack.questionHealth.activeQuestions, "active", "active", "个活跃"),
+      languageCount(pack.questionHealth.parkedQuestions, "parked", "parked", "个暂存"),
+      languageCount(pack.questionHealth.unresolvedQuestions, "unresolved", "unresolved", "个未解决")
     ].join(" · ")),
-    textEl("p", "card-prompt", pack.questionHealth.label),
-    textEl("p", "item-meta", pack.questionHealth.detail)
+    textEl("p", "card-prompt", questionHealthDisplay(pack.questionHealth).label),
+    textEl("p", "item-meta", questionHealthDisplay(pack.questionHealth).detail)
   );
   if (pack.questionHealth.targetSection) {
-    const jump = textEl("button", "mini-button primary", pack.questionHealth.status === "active" ? "Work active" : "Inspect parked");
+    const jump = textEl("button", "mini-button primary", pack.questionHealth.status === "active" ? langText("Work active", "处理活跃问题") : langText("Inspect parked", "查看暂存问题"));
     jump.type = "button";
     jump.addEventListener("click", () => jumpToTodaySection(pack.questionHealth.targetSection));
     const footer = document.createElement("div");
@@ -4653,17 +5088,18 @@ function renderToday() {
   }
   dom.todayList.append(health);
 
-  dom.todayList.append(todaySectionTitle("Question Loop", "question_loop"));
+  dom.todayList.append(todaySectionTitle(langText("Question Loop", "问题闭环"), "question_loop"));
   const loop = document.createElement("article");
   loop.className = "item-card question-loop-card";
+  const loopDisplay = questionLoopDisplay(pack.questionLoop);
   loop.append(
-    textEl("p", "card-prompt", pack.questionLoop.label),
-    textEl("p", "item-meta", `Today: ${pack.questionLoop.todayDetail}`),
-    textEl("p", "item-meta", `Backlog: ${pack.questionLoop.backlogDetail}`),
-    textEl("p", "item-meta", `Lifetime: ${pack.questionLoop.lifetimeDetail}`)
+    textEl("p", "card-prompt", loopDisplay.label),
+    textEl("p", "item-meta", loopDisplay.today),
+    textEl("p", "item-meta", loopDisplay.backlog),
+    textEl("p", "item-meta", loopDisplay.lifetime)
   );
   if (pack.questionLoop.targetSection) {
-    const jump = textEl("button", "mini-button", "Inspect loop");
+    const jump = textEl("button", "mini-button", langText("Inspect loop", "查看闭环"));
     jump.type = "button";
     jump.addEventListener("click", () => jumpToTodaySection(pack.questionLoop.targetSection));
     const footer = document.createElement("div");
@@ -4679,10 +5115,10 @@ function renderToday() {
   archive.append(archiveList);
   dom.todayList.append(archive);
 
-  const openQuestionTitle = todaySectionTitle("Open Questions", "open_questions");
+  const openQuestionTitle = todaySectionTitle(langText("Open Questions", "开放问题"), "open_questions");
   archiveList.append(openQuestionTitle);
   if (!pack.questionItems.length) {
-    archiveList.append(emptyState("No open questions captured"));
+    archiveList.append(emptyState(langText("No open questions captured", "还没有开放问题")));
   } else {
     pack.questionItems.forEach(({ sessionId, sessionTitle, capture }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
@@ -4703,44 +5139,44 @@ function renderToday() {
       footer.append(textEl("span", "", formatCaptureTags(capture)));
       const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
       if (sourceHref) {
-        const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+        const open = textEl("button", "mini-button", capture.timestamp ? langText(`Open @ ${capture.timestamp}`, `打开 @ ${capture.timestamp}`) : langText("Open source", "打开来源"));
         open.type = "button";
         open.addEventListener("click", () => {
           window.open(sourceHref, "_blank", "noopener,noreferrer");
         });
         footer.append(open);
       }
-      const view = textEl("button", "mini-button", "View");
+      const view = textEl("button", "mini-button", langText("View", "查看"));
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
-      const answer = textEl("button", "mini-button", "Answer");
+      const answer = textEl("button", "mini-button", langText("Answer", "回答"));
       answer.type = "button";
       answer.addEventListener("click", () => answerQuestionFromToday(capture.id, sessionId));
       footer.append(answer);
-      const card = textEl("button", "mini-button", capture.promotedToReview ? "Card" : "Save for recall");
+      const card = textEl("button", "mini-button", capture.promotedToReview ? langText("Card", "卡片") : langText("Save for recall", "保存到复习"));
       card.type = "button";
       card.disabled = capture.promotedToReview;
       card.addEventListener("click", () => promoteCaptureToReview(capture.id, sessionId, { sourceFirst: false }));
       footer.append(card);
-      const park = textEl("button", "mini-button", "Park");
+      const park = textEl("button", "mini-button", langText("Park", "暂存"));
       park.type = "button";
       park.addEventListener("click", () => setQuestionParked(capture.id, sessionId, true));
       footer.append(park);
-      const resolve = textEl("button", "mini-button primary", "Resolve");
+      const resolve = textEl("button", "mini-button primary", langText("Resolve", "解决"));
       resolve.type = "button";
       resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
       footer.append(resolve);
       item.append(footer);
       archiveList.append(item);
     });
-    if (pack.questionOverflow) archiveList.append(emptyState(`+${pack.questionOverflow} more open questions in workspace.json`));
+    if (pack.questionOverflow) archiveList.append(emptyState(langText(`+${pack.questionOverflow} more open questions in workspace.json`, `workspace.json 中还有 ${pack.questionOverflow} 个开放问题`)));
   }
 
-  const parkedQuestionTitle = todaySectionTitle("Parked Questions", "parked_questions");
+  const parkedQuestionTitle = todaySectionTitle(langText("Parked Questions", "暂存问题"), "parked_questions");
   archiveList.append(parkedQuestionTitle);
   if (!pack.parkedQuestionItems.length) {
-    archiveList.append(emptyState("No parked questions"));
+    archiveList.append(emptyState(langText("No parked questions", "没有暂存问题")));
   } else {
     pack.parkedQuestionItems.forEach(({ sessionId, sessionTitle, capture }) => {
       const item = document.createElement("article");
@@ -4748,7 +5184,7 @@ function renderToday() {
       markCaptureNode(item, capture.id);
       item.append(textEl("div", "item-meta", [
         sessionTitle,
-        capture.questionParkedAt ? `Parked since ${new Date(capture.questionParkedAt).toLocaleString()}` : "",
+        capture.questionParkedAt ? langText(`Parked since ${new Date(capture.questionParkedAt).toLocaleString()}`, `暂存于 ${new Date(capture.questionParkedAt).toLocaleString()}`) : "",
         capture.timestamp || ""
       ].filter(Boolean).join(" · ")));
       const thought = document.createElement("div");
@@ -4758,32 +5194,32 @@ function renderToday() {
       const footer = document.createElement("div");
       footer.className = "item-footer";
       footer.append(textEl("span", "", formatCaptureTags(capture)));
-      const view = textEl("button", "mini-button", "View");
+      const view = textEl("button", "mini-button", langText("View", "查看"));
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
-      const answer = textEl("button", "mini-button", "Answer");
+      const answer = textEl("button", "mini-button", langText("Answer", "回答"));
       answer.type = "button";
       answer.addEventListener("click", () => answerQuestionFromToday(capture.id, sessionId));
       footer.append(answer);
-      const resume = textEl("button", "mini-button primary", "Resume");
+      const resume = textEl("button", "mini-button primary", langText("Resume", "继续"));
       resume.type = "button";
       resume.addEventListener("click", () => setQuestionParked(capture.id, sessionId, false));
       footer.append(resume);
-      const resolve = textEl("button", "mini-button", "Resolve");
+      const resolve = textEl("button", "mini-button", langText("Resolve", "解决"));
       resolve.type = "button";
       resolve.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, true));
       footer.append(resolve);
       item.append(footer);
       archiveList.append(item);
     });
-    if (pack.parkedQuestionOverflow) archiveList.append(emptyState(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`));
+    if (pack.parkedQuestionOverflow) archiveList.append(emptyState(langText(`+${pack.parkedQuestionOverflow} more parked questions in workspace.json`, `workspace.json 中还有 ${pack.parkedQuestionOverflow} 个暂存问题`)));
   }
 
-  archiveList.append(todaySectionTitle("Answers Today", "answers_today"));
-  archiveList.append(textEl("p", "item-meta", `Answer captures in ${pack.localDayWindow.label}`));
+  archiveList.append(todaySectionTitle(langText("Answers Today", "今日回答"), "answers_today"));
+  archiveList.append(textEl("p", "item-meta", langText(`Answer captures in ${pack.localDayWindow.label}`, `${pack.localDayWindow.label} 的回答摘录`)));
   if (!pack.answerItems.length) {
-    archiveList.append(emptyState("No answers captured today"));
+    archiveList.append(emptyState(langText("No answers captured today", "今天还没有回答摘录")));
   } else {
     pack.answerItems.forEach(({ sessionId, sessionTitle, capture, questionCapture, answerReason }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
@@ -4798,38 +5234,38 @@ function renderToday() {
       ].filter(Boolean).join(" · ")));
       const answer = document.createElement("div");
       answer.className = "capture-thought markdown-lite";
-      renderMarkdown(answer, `Answer: ${formatAnswerCaptureSummary(capture)}`);
+      renderMarkdown(answer, langText(`Answer: ${formatAnswerCaptureSummary(capture)}`, `回答：${formatAnswerCaptureSummary(capture)}`));
       item.append(answer);
       if (questionCapture) {
-        item.append(textEl("p", "item-meta", `Answers: ${questionCapture.thought || questionCapture.quote || "linked question"}`));
+        item.append(textEl("p", "item-meta", langText(`Answers: ${questionCapture.thought || questionCapture.quote || "linked question"}`, `回答：${questionCapture.thought || questionCapture.quote || "关联问题"}`)));
       }
       const footer = document.createElement("div");
       footer.className = "item-footer";
       footer.append(textEl("span", "", formatCaptureTags(capture)));
       const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
       if (sourceHref) {
-        const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+        const open = textEl("button", "mini-button", capture.timestamp ? langText(`Open @ ${capture.timestamp}`, `打开 @ ${capture.timestamp}`) : langText("Open source", "打开来源"));
         open.type = "button";
         open.addEventListener("click", () => {
           window.open(sourceHref, "_blank", "noopener,noreferrer");
         });
         footer.append(open);
       }
-      const view = textEl("button", "mini-button", "View");
+      const view = textEl("button", "mini-button", langText("View", "查看"));
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
       item.append(footer);
       archiveList.append(item);
     });
-    if (pack.answerOverflow) archiveList.append(emptyState(`+${pack.answerOverflow} more answers captured today in workspace.json`));
+    if (pack.answerOverflow) archiveList.append(emptyState(langText(`+${pack.answerOverflow} more answers captured today in workspace.json`, `workspace.json 中今天还有 ${pack.answerOverflow} 条回答摘录`)));
   }
 
-  const closedQuestionTitle = todaySectionTitle("Closed Today", "closed_questions");
+  const closedQuestionTitle = todaySectionTitle(langText("Closed Today", "今日已关闭"), "closed_questions");
   archiveList.append(closedQuestionTitle);
-  archiveList.append(textEl("p", "item-meta", `Local window: ${pack.localDayWindow.label}`));
+  archiveList.append(textEl("p", "item-meta", langText(`Local window: ${pack.localDayWindow.label}`, `本地时间窗口：${pack.localDayWindow.label}`)));
   if (!pack.resolvedQuestionItems.length) {
-    archiveList.append(emptyState("No questions closed today"));
+    archiveList.append(emptyState(langText("No questions closed today", "今天还没有关闭的问题")));
   } else {
     pack.resolvedQuestionItems.forEach(({ sessionId, sessionTitle, capture, answerCapture }) => {
       const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
@@ -4838,7 +5274,7 @@ function renderToday() {
       markCaptureNode(item, capture.id);
       item.append(textEl("div", "item-meta", [
         sessionTitle,
-        capture.questionResolvedAt ? `Closed ${new Date(capture.questionResolvedAt).toLocaleString()}` : "",
+        capture.questionResolvedAt ? langText(`Closed ${new Date(capture.questionResolvedAt).toLocaleString()}`, `关闭于 ${new Date(capture.questionResolvedAt).toLocaleString()}`) : "",
         capture.timestamp || ""
       ].filter(Boolean).join(" · ")));
       const thought = document.createElement("div");
@@ -4848,7 +5284,7 @@ function renderToday() {
       if (answerCapture) {
         const answer = document.createElement("div");
         answer.className = "capture-thought markdown-lite";
-        renderMarkdown(answer, `Answer: ${formatAnswerCaptureSummary(answerCapture)}`);
+        renderMarkdown(answer, langText(`Answer: ${formatAnswerCaptureSummary(answerCapture)}`, `回答：${formatAnswerCaptureSummary(answerCapture)}`));
         item.append(answer);
       }
       const footer = document.createElement("div");
@@ -4856,14 +5292,14 @@ function renderToday() {
       footer.append(textEl("span", "", formatCaptureTags(capture)));
       const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
       if (sourceHref) {
-        const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+        const open = textEl("button", "mini-button", capture.timestamp ? langText(`Open @ ${capture.timestamp}`, `打开 @ ${capture.timestamp}`) : langText("Open source", "打开来源"));
         open.type = "button";
         open.addEventListener("click", () => {
           window.open(sourceHref, "_blank", "noopener,noreferrer");
         });
         footer.append(open);
       }
-      const view = textEl("button", "mini-button", "View");
+      const view = textEl("button", "mini-button", langText("View", "查看"));
       view.type = "button";
       view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
       footer.append(view);
@@ -4878,19 +5314,19 @@ function renderToday() {
         promoteCaptureToReview(capture.id, sessionId, { sourceFirst: false });
       });
       footer.append(card);
-      const reopen = textEl("button", "mini-button primary", "Reopen");
+      const reopen = textEl("button", "mini-button primary", langText("Reopen", "重新打开"));
       reopen.type = "button";
       reopen.addEventListener("click", () => setQuestionResolved(capture.id, sessionId, false));
       footer.append(reopen);
       item.append(footer);
       archiveList.append(item);
     });
-    if (pack.resolvedQuestionOverflow) archiveList.append(emptyState(`+${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`));
+    if (pack.resolvedQuestionOverflow) archiveList.append(emptyState(langText(`+${pack.resolvedQuestionOverflow} more questions closed today in workspace.json`, `workspace.json 中今天还有 ${pack.resolvedQuestionOverflow} 个已关闭问题`)));
   }
 
-  archiveList.append(todaySectionTitle("Recent Captures", "recent_captures"));
+  archiveList.append(todaySectionTitle(langText("Recent Captures", "最近摘录"), "recent_captures"));
   if (!pack.recentCaptures.length) {
-    archiveList.append(emptyState("No captures yet"));
+    archiveList.append(emptyState(langText("No captures yet", "还没有摘录")));
     return;
   }
   pack.recentCaptures.forEach(({ sessionId, sessionTitle, capture }) => {
@@ -4914,21 +5350,21 @@ function renderToday() {
     footer.append(textEl("span", "", formatCaptureTags(capture)));
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || sourceSession?.sourceUrl, capture.timestamp);
     if (sourceHref) {
-      const open = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+      const open = textEl("button", "mini-button", capture.timestamp ? langText(`Open @ ${capture.timestamp}`, `打开 @ ${capture.timestamp}`) : langText("Open source", "打开来源"));
       open.type = "button";
       open.addEventListener("click", () => {
         window.open(sourceHref, "_blank", "noopener,noreferrer");
       });
       footer.append(open);
     }
-    const view = textEl("button", "mini-button", "View");
+    const view = textEl("button", "mini-button", langText("View", "查看"));
     view.type = "button";
     view.addEventListener("click", () => openCaptureFromToday(sessionId, capture));
     footer.append(view);
     item.append(footer);
     archiveList.append(item);
   });
-  if (pack.recentOverflow) archiveList.append(emptyState(`+${pack.recentOverflow} more captures in workspace.json`));
+  if (pack.recentOverflow) archiveList.append(emptyState(langText(`+${pack.recentOverflow} more captures in workspace.json`, `workspace.json 中还有 ${pack.recentOverflow} 条摘录`)));
 }
 
 function renderTodayDetailDrawer(pack) {
@@ -4949,19 +5385,22 @@ function renderTodayDetailDrawer(pack) {
   const badges = document.createElement("span");
   badges.className = "today-detail-badges";
   badges.append(
-    textEl("span", unresolvedQuestions ? "today-detail-badge is-attention" : "today-detail-badge", `${pack.stats.questions} open`),
-    textEl("span", pack.stats.parkedQuestions ? "today-detail-badge is-warm" : "today-detail-badge", `${pack.stats.parkedQuestions || 0} parked`),
-    textEl("span", totalRecent ? "today-detail-badge" : "today-detail-badge is-muted", `${totalRecent} recent`)
+    textEl("span", unresolvedQuestions ? "today-detail-badge is-attention" : "today-detail-badge", languageCount(pack.stats.questions, "open", "open", "个开放")),
+    textEl("span", pack.stats.parkedQuestions ? "today-detail-badge is-warm" : "today-detail-badge", languageCount(pack.stats.parkedQuestions || 0, "parked", "parked", "个暂存")),
+    textEl("span", totalRecent ? "today-detail-badge" : "today-detail-badge is-muted", languageCount(totalRecent, "recent", "recent", "条最近"))
   );
   summary.append(
-    textEl("strong", "", "Study Details"),
-    textEl("span", "item-meta", `${totalDetails} tracked`),
+    textEl("strong", "", langText("Study Details", "学习详情")),
+    textEl("span", "item-meta", langText(`${totalDetails} tracked`, `追踪 ${totalDetails} 项`)),
     badges
   );
   const hint = textEl(
     "p",
     "today-detail-hint",
-    "Open questions, parked follow-ups, answers, closed items, and recent captures stay here until you need the full ledger."
+    langText(
+      "Open questions, parked follow-ups, answers, closed items, and recent captures stay here until you need the full ledger.",
+      "开放问题、暂存跟进、回答、已关闭项目和最近摘录会留在这里，需要完整账本时再展开。"
+    )
   );
   drawer.append(summary, hint);
   return drawer;
@@ -4970,23 +5409,23 @@ function renderTodayDetailDrawer(pack) {
 function renderTodaySectionMap(pack, draftItems = []) {
   const totalRecent = pack.recentCaptures.length + pack.recentOverflow;
   const entries = [
-    { section: "due_review", label: "Due", value: pack.stats.due, tone: pack.stats.due ? "urgent" : "" },
-    ...(draftItems.length ? [{ section: "capture_drafts", label: "Drafts", value: draftItems.length, tone: "warm" }] : []),
-    { section: "open_questions", label: "Questions", value: pack.stats.questions, tone: pack.stats.questions ? "focus" : "" },
-    { section: "parked_questions", label: "Parked", value: pack.stats.parkedQuestions || 0, tone: pack.stats.parkedQuestions ? "warm" : "" },
-    { section: "answers_today", label: "Answers", value: pack.stats.answerCapturesToday || 0, tone: pack.stats.answerCapturesToday ? "green" : "" },
-    { section: "closed_questions", label: "Closed", value: pack.stats.resolvedQuestionsToday || 0, tone: pack.stats.resolvedQuestionsToday ? "green" : "" },
-    { section: "recent_captures", label: "Recent", value: totalRecent, tone: totalRecent ? "" : "muted" }
+    { section: "due_review", label: langText("Due", "到期"), value: pack.stats.due, tone: pack.stats.due ? "urgent" : "" },
+    ...(draftItems.length ? [{ section: "capture_drafts", label: langText("Drafts", "草稿"), value: draftItems.length, tone: "warm" }] : []),
+    { section: "open_questions", label: langText("Questions", "问题"), value: pack.stats.questions, tone: pack.stats.questions ? "focus" : "" },
+    { section: "parked_questions", label: langText("Parked", "暂存"), value: pack.stats.parkedQuestions || 0, tone: pack.stats.parkedQuestions ? "warm" : "" },
+    { section: "answers_today", label: langText("Answers", "回答"), value: pack.stats.answerCapturesToday || 0, tone: pack.stats.answerCapturesToday ? "green" : "" },
+    { section: "closed_questions", label: langText("Closed", "已关闭"), value: pack.stats.resolvedQuestionsToday || 0, tone: pack.stats.resolvedQuestionsToday ? "green" : "" },
+    { section: "recent_captures", label: langText("Recent", "最近"), value: totalRecent, tone: totalRecent ? "" : "muted" }
   ];
   const nav = document.createElement("nav");
   nav.className = "today-map";
-  nav.setAttribute("aria-label", "Today sections");
+  nav.setAttribute("aria-label", langText("Today sections", "今日分区"));
   entries.forEach((entry) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = ["today-map-button", entry.tone ? `is-${entry.tone}` : ""].filter(Boolean).join(" ");
     button.dataset.todayMapTarget = entry.section;
-    button.setAttribute("aria-label", `Jump to ${entry.label}: ${entry.value}`);
+    button.setAttribute("aria-label", langText(`Jump to ${entry.label}: ${entry.value}`, `跳到${entry.label}：${entry.value}`));
     button.append(
       textEl("strong", "", String(entry.value)),
       textEl("span", "", entry.label)
@@ -5291,7 +5730,7 @@ function renderReturnedWorkNudge(pack) {
   const card = document.createElement("article");
   card.className = `returned-work-card is-${nudge.kind}`;
   card.append(
-    textEl("div", "item-meta", "Returned from phone/Windows"),
+    textEl("div", "item-meta", langText("Returned from phone/Windows", "来自手机/Windows")),
     textEl("p", "card-prompt", nudge.title),
     textEl("p", "item-meta", nudge.detail)
   );
@@ -5316,7 +5755,7 @@ function renderReturnedWorkNudge(pack) {
     tertiary.addEventListener("click", nudge.tertiaryRun);
     footer.append(tertiary);
   }
-  const dismiss = textEl("button", "mini-button", "Dismiss");
+  const dismiss = textEl("button", "mini-button", langText("Dismiss", "隐藏"));
   dismiss.type = "button";
   dismiss.dataset.returnedWorkDismiss = "true";
   dismiss.addEventListener("click", dismissReturnedWorkNudge);
@@ -5809,7 +6248,7 @@ function renderStartHereDeviceRoute() {
     textEl("span", "", langText("2. Bring return files back to this Mac", "2. 把返回文件带回这台 Mac"))
   );
   copy.append(heading, steps);
-  const deviceFlow = textEl("button", "mini-button", "Phone/Windows");
+  const deviceFlow = textEl("button", "mini-button", langText("Phone/Windows", "手机/Windows"));
   deviceFlow.type = "button";
   deviceFlow.dataset.startAction = "device-flow";
   deviceFlow.title = langText("Open manual phone and Windows transfer route", "打开手动手机和 Windows 传输路线");
@@ -5832,6 +6271,71 @@ function revealDeviceFlowFromFirstNote() {
   renderActivity(getActiveSession(workspace));
   renderToday();
   focusReturnFilesPanel();
+}
+
+function languageCount(value, singular, plural, zhSuffix) {
+  const count = Number(value) || 0;
+  return isChineseUi()
+    ? `${count} ${zhSuffix}`
+    : `${count} ${count === 1 ? singular : plural}`;
+}
+
+function questionHealthDisplay(health) {
+  const active = Number(health?.activeQuestions) || 0;
+  const parked = Number(health?.parkedQuestions) || 0;
+  if (health?.status === "active") {
+    return {
+      label: langText(`${languageCount(active, "active question", "active questions", "个活跃问题")} need closure`, `${active} 个活跃问题需要闭环`),
+      detail: parked
+        ? langText(`${languageCount(parked, "parked question", "parked questions", "个暂存问题")} are waiting after the active queue.`, `${parked} 个暂存问题排在活跃队列之后。`)
+        : langText("No parked questions are waiting behind the active queue.", "活跃队列后面没有暂存问题。")
+    };
+  }
+  if (health?.status === "parked_only") {
+    return {
+      label: langText(`${languageCount(parked, "parked question", "parked questions", "个暂存问题")} waiting`, `${parked} 个暂存问题等待处理`),
+      detail: langText(
+        "No active questions are interrupting focus; inspect parked follow-up when attention returns.",
+        "没有活跃问题打断当前专注；注意力回来时再检查暂存跟进。"
+      )
+    };
+  }
+  return {
+    label: langText("Question queue clear", "问题队列已清空"),
+    detail: langText("No active or parked questions are waiting.", "没有活跃或暂存问题在等待。")
+  };
+}
+
+function questionLoopDisplay(loop) {
+  const active = Number(loop?.activeQuestions) || 0;
+  const parked = Number(loop?.parkedQuestions) || 0;
+  const unresolved = Number(loop?.unresolvedQuestions) || 0;
+  const closedToday = Number(loop?.resolvedQuestionsToday) || 0;
+  const answerLinked = Number(loop?.answerLinkedResolvedToday) || 0;
+  const cardsToday = Number(loop?.questionReviewCardsToday) || 0;
+  const totalCards = Number(loop?.questionReviewCards) || 0;
+  const label = active
+    ? langText("Question loop has active work", "问题闭环有活跃任务")
+    : parked
+      ? langText("Question loop has parked follow-up", "问题闭环有暂存跟进")
+      : closedToday || cardsToday
+        ? langText("Question loop moved today", "问题闭环今天有进展")
+        : langText("Question loop quiet", "问题闭环安静");
+  return {
+    label,
+    today: langText(
+      `Today: ${closedToday} closed today · ${languageCount(answerLinked, "answer-linked closure", "answer-linked closures", "个回答关联关闭")} · ${languageCount(cardsToday, "question card made today", "question cards made today", "张今日问题卡")}`,
+      `今日：关闭 ${closedToday} 个 · ${answerLinked} 个回答关联关闭 · ${cardsToday} 张今日问题卡`
+    ),
+    backlog: langText(
+      `Backlog: ${languageCount(unresolved, "unresolved question", "unresolved questions", "个未解决问题")} · ${active} active · ${parked} parked`,
+      `积压：${unresolved} 个未解决问题 · ${active} 个活跃 · ${parked} 个暂存`
+    ),
+    lifetime: langText(
+      `Lifetime: ${languageCount(totalCards, "total question review card", "total question review cards", "张问题复习卡")}`,
+      `累计：${totalCards} 张问题复习卡`
+    )
+  };
 }
 
 function todaySectionTitle(label, section) {
@@ -5927,7 +6431,7 @@ function openBookmarkletHandoff() {
 
 function renderTodayDrafts(drafts = getCaptureDraftItems()) {
   if (!drafts.length) return;
-  dom.todayList.append(todaySectionTitle("Capture Drafts", "capture_drafts"));
+  dom.todayList.append(todaySectionTitle(langText("Capture Drafts", "摘录草稿"), "capture_drafts"));
   drafts.forEach(({ session, draft }) => {
     const sourceChanged = captureDraftSourceChanged(session, draft);
     const item = document.createElement("article");
@@ -5937,16 +6441,16 @@ function renderTodayDrafts(drafts = getCaptureDraftItems()) {
       session.title,
       draft.timestamp ? `@ ${draft.timestamp}` : "",
       todayDraftSourceMeta(session, draft),
-      "device-local"
+      langText("device-local", "本设备")
     ].filter(Boolean).join(" · ")));
     const body = [draft.quote, draft.thought].filter(Boolean).join("\n").trim();
-    item.append(textEl("p", "card-prompt", body || `Time kept: ${draft.timestamp}`));
+    item.append(textEl("p", "card-prompt", body || langText(`Time kept: ${draft.timestamp}`, `已保留时间：${draft.timestamp}`)));
     const sourceDetail = todayDraftSourceDetail(session, draft);
     if (sourceDetail) item.append(textEl("p", sourceChanged ? "item-meta warn" : "item-meta", sourceDetail));
     const footer = document.createElement("div");
     footer.className = "item-footer";
-    footer.append(textEl("span", "", "Not exported"));
-    const resume = textEl("button", "mini-button primary", "Resume");
+    footer.append(textEl("span", "", langText("Not exported", "未导出")));
+    const resume = textEl("button", "mini-button primary", langText("Resume", "继续"));
     resume.type = "button";
     resume.addEventListener("click", () => resumeCaptureDraft(session.id));
     footer.append(resume);
@@ -5956,14 +6460,17 @@ function renderTodayDrafts(drafts = getCaptureDraftItems()) {
 }
 
 function todayDraftSourceMeta(session, draft) {
-  if (captureDraftSourceChanged(session, draft)) return "Source changed";
-  if (draft.sourceTitle || draft.sourceUrl) return `Draft source: ${sourceSnapshotLabel(draft)}`;
+  if (captureDraftSourceChanged(session, draft)) return langText("Source changed", "来源已变化");
+  if (draft.sourceTitle || draft.sourceUrl) return langText(`Draft source: ${sourceSnapshotLabel(draft)}`, `草稿来源：${sourceSnapshotLabel(draft)}`);
   return "";
 }
 
 function todayDraftSourceDetail(session, draft) {
   if (captureDraftSourceChanged(session, draft)) {
-    return `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`;
+    return langText(
+      `Draft began on ${sourceSnapshotLabel(draft)}; current source is ${sourceSnapshotLabel(session)}.`,
+      `草稿开始于 ${sourceSnapshotLabel(draft)}；当前来源是 ${sourceSnapshotLabel(session)}。`
+    );
   }
   return "";
 }
@@ -5974,12 +6481,12 @@ function renderCaptureStack(session) {
   const header = document.createElement("div");
   header.className = "capture-stack-header";
   header.append(
-    textEl("strong", "", "Recent Stack"),
+    textEl("strong", "", langText("Recent Stack", "最近堆栈")),
     textEl("span", "item-meta", session.captures.length
-      ? `${Math.min(3, session.captures.length)} shown · ${session.captures.length} total`
-      : "Sidecar memory")
+      ? langText(`${Math.min(3, session.captures.length)} shown · ${session.captures.length} total`, `显示 ${Math.min(3, session.captures.length)} 条 · 共 ${session.captures.length} 条`)
+      : langText("Sidecar memory", "侧栏记忆"))
   );
-  const showAll = textEl("button", "mini-button", "All");
+  const showAll = textEl("button", "mini-button", langText("All", "全部"));
   showAll.type = "button";
   showAll.disabled = !session.captures.length;
   showAll.addEventListener("click", () => {
@@ -5995,7 +6502,7 @@ function renderCaptureStack(session) {
   dom.captureStack.append(header);
 
   if (!session.captures.length) {
-    dom.captureStack.append(textEl("p", "capture-stack-empty", "Saved captures will stay visible here while you read."));
+    dom.captureStack.append(textEl("p", "capture-stack-empty", langText("Saved captures will stay visible here while you read.", "阅读时，已保存摘录会留在这里。")));
     return;
   }
 
@@ -6015,7 +6522,7 @@ function renderCaptureStack(session) {
     if (needsDurableDecision) row.classList.add("needs-durable-decision");
     row.append(
       textEl("div", "capture-stack-meta", [
-        capture.timestamp || "No time",
+        capture.timestamp || langText("No time", "无时间"),
         capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
         new Date(capture.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       ].filter(Boolean).join(" · ")),
@@ -6025,11 +6532,11 @@ function renderCaptureStack(session) {
       row.append(textEl(
         "span",
         isOpenQuestion ? "capture-stack-chip" : "capture-stack-chip resolved",
-        isOpenQuestion ? "Question" : isParkedQuestion ? "Parked" : "Answered"
+        isOpenQuestion ? langText("Question", "问题") : isParkedQuestion ? langText("Parked", "暂存") : langText("Answered", "已回答")
       ));
     }
     if (isInNotes) {
-      row.append(textEl("span", "capture-stack-chip note", "In Notes"));
+      row.append(textEl("span", "capture-stack-chip note", langText("In Notes", "在笔记中")));
     }
     const nextStep = captureStackNextStep(capture, { isInNotes });
     row.dataset.stackNextStep = nextStep.kind;
@@ -6038,7 +6545,7 @@ function renderCaptureStack(session) {
     actions.className = "capture-stack-actions";
     const sourceHref = buildSourceJumpUrl(capture.sourceUrl || session.sourceUrl, capture.timestamp);
     if (sourceHref) {
-      const openButton = textEl("button", "mini-button", capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source");
+      const openButton = textEl("button", "mini-button", capture.timestamp ? langText(`Open @ ${capture.timestamp}`, `打开 @ ${capture.timestamp}`) : langText("Open source", "打开来源"));
       openButton.type = "button";
       openButton.addEventListener("click", () => {
         window.open(sourceHref, "_blank", "noopener,noreferrer");
@@ -6046,7 +6553,7 @@ function renderCaptureStack(session) {
       actions.append(openButton);
     }
     if (captureIsQuoteOnly(capture)) {
-      const thoughtButton = textEl("button", "mini-button primary", "Add thought");
+      const thoughtButton = textEl("button", "mini-button primary", langText("Add thought", "添加想法"));
       thoughtButton.type = "button";
       thoughtButton.dataset.highlightAnnotationTrigger = capture.id;
       thoughtButton.dataset.highlightAnnotationContext = "stack";
@@ -6060,10 +6567,10 @@ function renderCaptureStack(session) {
     noteButton.setAttribute("aria-label", noteAction.ariaLabel);
     noteButton.addEventListener("click", () => addCaptureToNotes(capture.id));
     actions.append(noteButton);
-    const cardButton = textEl("button", needsDurableDecision ? "mini-button capture-decision-button" : "mini-button", capture.promotedToReview ? "Review" : "Save for recall");
+    const cardButton = textEl("button", needsDurableDecision ? "mini-button capture-decision-button" : "mini-button", capture.promotedToReview ? langText("Review", "复习") : langText("Save for recall", "保存到复习"));
     cardButton.type = "button";
-    cardButton.title = capture.promotedToReview ? "Open the review card made from this capture" : "Save this capture to recall later";
-    cardButton.setAttribute("aria-label", capture.promotedToReview ? "Open this capture's review card" : "Save this capture to recall later");
+    cardButton.title = capture.promotedToReview ? langText("Open the review card made from this capture", "打开由这条摘录生成的复习卡") : langText("Save this capture to recall later", "保存这条摘录以便之后回忆");
+    cardButton.setAttribute("aria-label", capture.promotedToReview ? langText("Open this capture's review card", "打开这条摘录的复习卡") : langText("Save this capture to recall later", "保存这条摘录以便之后回忆"));
     cardButton.addEventListener("click", () => {
       if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
       else promoteCaptureToReview(capture.id);
@@ -6082,27 +6589,27 @@ function renderCaptureStack(session) {
 function captureNoteActionMeta(noteState) {
   if (noteState === "current") {
     return {
-      label: "View in Notes",
-      title: "View this generated capture block in Notes",
-      ariaLabel: "View this capture in Notes"
+      label: langText("View in Notes", "在笔记中查看"),
+      title: langText("View this generated capture block in Notes", "在笔记中查看这条生成的摘录块"),
+      ariaLabel: langText("View this capture in Notes", "在笔记中查看这条摘录")
     };
   }
   if (noteState === "stale") {
     return {
-      label: "Update note",
-      title: "Update the generated Notes block from this capture",
-      ariaLabel: "Update this capture's generated Notes block"
+      label: langText("Update note", "更新笔记"),
+      title: langText("Update the generated Notes block from this capture", "用这条摘录更新生成的笔记块"),
+      ariaLabel: langText("Update this capture's generated Notes block", "更新这条摘录生成的笔记块")
     };
   }
   return {
-    label: "Add to notes",
-    title: "Add this capture to Notes for synthesis",
-    ariaLabel: "Add this capture to Notes"
+    label: langText("Add to notes", "加入笔记"),
+    title: langText("Add this capture to Notes for synthesis", "把这条摘录加入笔记用于综合"),
+    ariaLabel: langText("Add this capture to Notes", "把这条摘录加入笔记")
   };
 }
 
 function captureDecisionGuideEl() {
-  const guide = textEl("p", "capture-decision-guide", "Notes: connect ideas · Recall: remember later");
+  const guide = textEl("p", "capture-decision-guide", langText("Notes: connect ideas · Recall: remember later", "笔记：连接想法 · 复习：之后记住"));
   guide.dataset.captureDecisionGuide = "notes-recall";
   return guide;
 }
@@ -6111,54 +6618,54 @@ function captureStackNextStep(capture, options = {}) {
   if (captureIsQuoteOnly(capture)) {
     return {
       kind: "add-thought",
-      text: "Needs your why — or leave it as a quote."
+      text: langText("Needs your why — or leave it as a quote.", "需要补上你的原因，也可以只保留为原文。")
     };
   }
   if (captureHasQuestion(capture)) {
     if (captureHasOpenQuestion(capture)) {
       return {
         kind: "answer-question",
-        text: "Open question · keep reading for evidence."
+        text: langText("Open question · keep reading for evidence.", "开放问题 · 继续阅读寻找证据。")
       };
     }
     if (captureHasParkedQuestion(capture)) {
       return {
         kind: "parked-question",
-        text: "Parked · return when the source has more evidence."
+        text: langText("Parked · return when the source has more evidence.", "已暂存 · 来源中有更多证据时再回来。")
       };
     }
     return {
       kind: "answered-question",
-      text: "Answered · review only if it needs recall."
+      text: langText("Answered · review only if it needs recall.", "已回答 · 只有需要记住时才复习。")
     };
   }
   if (capture.promotedToReview) {
     return {
       kind: "review-ready",
-      text: "Card scheduled · keep reading."
+      text: langText("Card scheduled · keep reading.", "卡片已安排 · 继续阅读。")
     };
   }
   if (captureHasAnswer(capture)) {
     return {
       kind: "answer-evidence",
-      text: "Answer evidence · keep as support."
+      text: langText("Answer evidence · keep as support.", "回答证据 · 保留作为支撑。")
     };
   }
   if (captureHasTakeawayPrefix(capture)) {
     return {
       kind: "takeaway",
-      text: "Takeaway · synthesize after related points."
+      text: langText("Takeaway · synthesize after related points.", "要点 · 等相关内容积累后再综合。")
     };
   }
   if (options.isInNotes) {
     return {
       kind: "keep-reading",
-      text: "In Notes · keep reading, or save for recall practice."
+      text: langText("In Notes · keep reading, or save for recall practice.", "已在笔记中 · 继续阅读，或保存到复习练习。")
     };
   }
   return {
     kind: "keep-reading",
-    text: "Choose next: add to Notes for synthesis, or save for recall."
+    text: langText("Choose next: add to Notes for synthesis, or save for recall.", "选择下一步：加入笔记做综合，或保存到复习。")
   };
 }
 
@@ -6174,12 +6681,12 @@ function resumeCaptureDraft(sessionId) {
   workspace = updateSession(selected, session.id, { focusMode: "capture" });
   activeTab = "captures";
   setActivity(session, {
-    title: "Capture draft resumed",
+    title: langText("Capture draft resumed", "摘录草稿已继续"),
     detail: sourceDetail || summarizeCaptureDraft(draft),
     tab: "captures",
     targetId: "",
     targetPane: "quickCapture",
-    actionLabel: "Resume"
+    actionLabel: langText("Resume", "继续")
   });
   persistAndRender();
   focusCaptureDraftContinuation(draft);
@@ -6194,9 +6701,9 @@ function formatAnswerCaptureSummary(capture) {
 
 function formatAnswerReason(reason) {
   return {
-    "linked-question": "linked answer",
-    "tagged-answer": "tagged answer",
-    "answer-prefix": "answer draft"
+    "linked-question": langText("linked answer", "关联回答"),
+    "tagged-answer": langText("tagged answer", "带标签回答"),
+    "answer-prefix": langText("answer draft", "回答草稿")
   }[reason] || "";
 }
 
@@ -6213,7 +6720,10 @@ function questionConversionReceipt() {
     answerLimit: 1,
     recentLimit: 1
   }).questionLoop;
-  return `Loop: ${loop.activeQuestions} active · ${loop.parkedQuestions} parked · ${loop.resolvedQuestionsToday} closed today · ${loop.questionReviewCardsToday} ${loop.questionReviewCardsToday === 1 ? "card" : "cards"} today`;
+  return langText(
+    `Loop: ${loop.activeQuestions} active · ${loop.parkedQuestions} parked · ${loop.resolvedQuestionsToday} closed today · ${loop.questionReviewCardsToday} ${loop.questionReviewCardsToday === 1 ? "card" : "cards"} today`,
+    `闭环：${loop.activeQuestions} 个活跃 · ${loop.parkedQuestions} 个暂存 · 今天关闭 ${loop.resolvedQuestionsToday} 个 · 今天 ${loop.questionReviewCardsToday} 张卡片`
+  );
 }
 
 function formatCaptureTags(capture) {
@@ -6319,19 +6829,19 @@ function renderDeviceTransferGuide() {
   grid.className = "device-transfer-grid";
   [
     {
-      title: "Mac -> Windows",
+      title: langText("Mac -> Windows", "Mac -> Windows"),
       body: langText("Move the mirror ZIP or folder yourself. If it is a ZIP, extract it first, then open index.html in Edge or Chrome.", "自行移动镜像 ZIP 或文件夹。如果是 ZIP，先解压，再用 Edge 或 Chrome 打开 index.html。")
     },
     {
-      title: "Mac -> Harmony",
+      title: langText("Mac -> Harmony", "Mac -> Harmony"),
       body: langText("Use the extracted mirror or import workspace.json. Return patches move Mac-ward only; the phone reader does not import inbox/review return patches back into itself.", "使用已解压镜像或导入 workspace.json。返回补丁只向 Mac 移动；手机阅读器不会把收件箱/复习返回补丁再导回自身。")
     },
     {
-      title: "Device -> Mac",
+      title: langText("Device -> Mac", "设备 -> Mac"),
       body: langText("Review or Inbox creates return JSON named like learning-companion-inbox-patch-*.json or learning-companion-review-progress-patch-*.json. If the browser used a download fallback, check that device browser's download list, then bring the selected file back to this Mac.", "复习或收件箱会创建类似 learning-companion-inbox-patch-*.json 或 learning-companion-review-progress-patch-*.json 的返回 JSON。如果浏览器使用下载兜底，请检查该设备浏览器的下载列表，再把选中的文件带回这台 Mac。")
     },
     {
-      title: "Back on Mac",
+      title: langText("Back on Mac", "回到 Mac"),
       body: langText("Use Import Return Files or Paste Return File. This app will not auto-scan Downloads; after Apply, export a fresh mirror for the next device pass.", "使用导入返回文件或粘贴返回文件。本应用不会自动扫描下载目录；应用后，为下一次设备流程导出新镜像。")
     }
   ].forEach((item) => {
@@ -6350,17 +6860,17 @@ function renderPendingReturnFilePreview() {
   const card = document.createElement("article");
   card.className = "item-card return-file-preview-card";
   card.append(
-    textEl("div", "item-meta", "Ready to apply"),
+    textEl("div", "item-meta", langText("Ready to apply", "准备应用")),
     textEl("p", "card-prompt", returnFilePreviewTitle(preview)),
     textEl("p", "item-meta", formatPendingReturnFilePreview(preview))
   );
   const footer = document.createElement("div");
   footer.className = "item-footer";
-  const apply = textEl("button", "mini-button primary", "Apply Return File");
+  const apply = textEl("button", "mini-button primary", langText("Apply Return File", "应用返回文件"));
   apply.type = "button";
   apply.dataset.returnPreviewAction = "apply";
   apply.addEventListener("click", applyPendingReturnFilePreview);
-  const discard = textEl("button", "mini-button", "Discard");
+  const discard = textEl("button", "mini-button", langText("Discard", "丢弃"));
   discard.type = "button";
   discard.dataset.returnPreviewAction = "discard";
   discard.addEventListener("click", discardPendingReturnFilePreview);
@@ -6371,26 +6881,53 @@ function renderPendingReturnFilePreview() {
 
 function returnFilePreviewTitle(preview) {
   const summary = preview?.summary || {};
-  if (summary.failedFiles && !summary.processedFiles) return "This return file cannot be applied";
-  if (summary.inbox?.added) return `${summary.inbox.added} returned ${summary.inbox.added === 1 ? "capture" : "captures"} ready`;
-  if (summary.review?.applied) return `${summary.review.applied} review ${summary.review.applied === 1 ? "update" : "updates"} ready`;
-  return "Return file parsed";
+  if (summary.failedFiles && !summary.processedFiles) return langText("This return file cannot be applied", "这个返回文件无法应用");
+  if (summary.inbox?.added) {
+    return langText(
+      `${summary.inbox.added} returned ${summary.inbox.added === 1 ? "capture" : "captures"} ready`,
+      `${summary.inbox.added} 条返回摘录已准备好`
+    );
+  }
+  if (summary.review?.applied) {
+    return langText(
+      `${summary.review.applied} review ${summary.review.applied === 1 ? "update" : "updates"} ready`,
+      `${summary.review.applied} 条复习更新已准备好`
+    );
+  }
+  return langText("Return file parsed", "返回文件已解析");
 }
 
 function formatPendingReturnFilePreview(preview) {
   const summary = preview?.summary || {};
-  const parts = [`${summary.processedFiles || 0}/${summary.fileCount || 0} files parsed`];
+  const parts = [langText(
+    `${summary.processedFiles || 0}/${summary.fileCount || 0} files parsed`,
+    `${summary.processedFiles || 0}/${summary.fileCount || 0} 个文件已解析`
+  )];
   if (summary.inbox?.files) {
-    const answered = summary.inbox.answeredQuestions ? `, ${summary.inbox.answeredQuestions} questions resolved` : "";
-    const refreshable = summary.inbox.refreshableReviewCards ? `, ${summary.inbox.refreshableReviewCards} cards ready` : "";
-    parts.push(`inbox +${summary.inbox.added} ${summary.inbox.added === 1 ? "capture" : "captures"}, ${summary.inbox.skippedDuplicate} duplicates${answered}${refreshable}`);
+    const answered = summary.inbox.answeredQuestions
+      ? langText(`, ${summary.inbox.answeredQuestions} questions resolved`, `，${summary.inbox.answeredQuestions} 个问题已解决`)
+      : "";
+    const refreshable = summary.inbox.refreshableReviewCards
+      ? langText(`, ${summary.inbox.refreshableReviewCards} cards ready`, `，${summary.inbox.refreshableReviewCards} 张卡片可刷新`)
+      : "";
+    parts.push(langText(
+      `inbox +${summary.inbox.added} ${summary.inbox.added === 1 ? "capture" : "captures"}, ${summary.inbox.skippedDuplicate} duplicates${answered}${refreshable}`,
+      `收件箱 +${summary.inbox.added} 条摘录，${summary.inbox.skippedDuplicate} 条重复${answered}${refreshable}`
+    ));
   }
   if (summary.review?.files) {
     const skipped = summary.review.skippedDuplicate + summary.review.skippedMissing + summary.review.skippedConflict + summary.review.skippedInvalid;
-    parts.push(`review +${summary.review.applied} applied, ${skipped} skipped`);
+    parts.push(langText(
+      `review +${summary.review.applied} applied, ${skipped} skipped`,
+      `复习 +${summary.review.applied} 条已应用，${skipped} 条跳过`
+    ));
   }
-  if (summary.failedFiles) parts.push(`${summary.failedFiles} failed`);
-  parts.push(summary.workspaceChanged ? "would change workspace" : "no new workspace changes");
+  if (summary.failedFiles) {
+    parts.push(langText(`${summary.failedFiles} failed`, `${summary.failedFiles} 个失败`));
+  }
+  parts.push(summary.workspaceChanged
+    ? langText("would change workspace", "将更改工作区")
+    : langText("no new workspace changes", "没有新的工作区更改"));
   return parts.join(" · ");
 }
 
@@ -6686,7 +7223,7 @@ function startReviewAtItem(item) {
   activeReviewKey = reviewKey(item.sessionId, item.card.id);
   revealedReviewCards.delete(activeReviewKey);
   setActivity(getActiveSession(workspace), {
-    title: "Review queue ready",
+    title: langText("Review queue ready", "复习队列已准备好"),
     detail: `${item.sessionTitle} · ${item.card.prompt.slice(0, 120)}`,
     tab: "review",
     targetId: item.card.id
@@ -6701,7 +7238,7 @@ function openCaptureFromToday(sessionId, capture) {
   workspace = updateSession(workspace, session.id, { focusMode: "capture" });
   activeTab = "captures";
   setActivity(getActiveSession(workspace), {
-    title: "Capture selected",
+    title: langText("Capture selected", "摘录已选中"),
     detail: summarizeCapture(capture),
     tab: "captures",
     targetId: capture.id
@@ -6719,7 +7256,7 @@ function getActiveCapture(captureId) {
 function addCaptureToNotes(captureId) {
   const target = getActiveCapture(captureId);
   if (!target) {
-    showToast("Capture no longer exists");
+    showToast(langText("Capture no longer exists", "摘录已不存在"));
     return;
   }
   const { session, capture } = target;
@@ -6729,7 +7266,7 @@ function addCaptureToNotes(captureId) {
   const updatedNotes = upsertCaptureNoteBlock(session.notesMarkdown, capture);
   workspace = updateSession(workspace, session.id, { notesMarkdown: updatedNotes });
   notesMode = "preview";
-  const title = noteWasCurrent ? "Capture note opened" : hadNoteBlock ? "Capture note updated" : "Capture added to notes";
+  const title = noteWasCurrent ? langText("Capture note opened", "摘录笔记已打开") : hadNoteBlock ? langText("Capture note updated", "摘录笔记已更新") : langText("Capture added to notes", "摘录已加入笔记");
   const resume = buildCaptureResumeSource(session, capture);
   const sourceActionLabel = noteWasCurrent ? "" : noteAddedSourceActionLabel(resume);
   setActivity(getActiveSession(workspace), {
@@ -6738,7 +7275,7 @@ function addCaptureToNotes(captureId) {
     tab: "captures",
     targetId: capture.id,
     targetPane: sourceActionLabel ? "sourceResume" : "notes",
-    actionLabel: sourceActionLabel || "View note",
+    actionLabel: sourceActionLabel || langText("View note", "查看笔记"),
     nextHint: sourceActionLabel ? noteAddedViewNoteHint(hadNoteBlock) : null
   });
   persistAndRender(title);
@@ -6780,12 +7317,12 @@ function renderHighlightAnnotationForm(session, capture, context = "details") {
   form.className = `highlight-annotation-form ${context === "stack" ? "compact" : ""}`.trim();
   form.dataset.highlightAnnotationId = capture.id;
   form.dataset.highlightAnnotationContext = context;
-  form.append(textEl("div", "highlight-annotation-label", "Add why this highlight matters"));
+  form.append(textEl("div", "highlight-annotation-label", langText("Add why this highlight matters", "补充这条高亮为什么重要")));
   const input = document.createElement("textarea");
   input.className = "highlight-annotation-input";
   input.maxLength = MAX_CAPTURE_TEXT_LENGTH;
-  input.placeholder = "What does this help you understand, remember, or question?";
-  input.setAttribute("aria-label", "Thought for this saved highlight");
+  input.placeholder = langText("What does this help you understand, remember, or question?", "它帮你理解、记住或追问什么？");
+  input.setAttribute("aria-label", langText("Thought for this saved highlight", "这条已保存高亮的想法"));
   input.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;
     event.preventDefault();
@@ -6794,10 +7331,10 @@ function renderHighlightAnnotationForm(session, capture, context = "details") {
   form.append(input);
   const actions = document.createElement("div");
   actions.className = "highlight-annotation-actions";
-  const cancel = textEl("button", "mini-button", "Cancel");
+  const cancel = textEl("button", "mini-button", langText("Cancel", "取消"));
   cancel.type = "button";
   cancel.addEventListener("click", () => cancelHighlightAnnotation(capture.id, context));
-  const save = textEl("button", "mini-button primary", "Save thought");
+  const save = textEl("button", "mini-button primary", langText("Save thought", "保存想法"));
   save.type = "submit";
   actions.append(cancel, save);
   form.append(actions);
@@ -6811,7 +7348,7 @@ function renderHighlightAnnotationForm(session, capture, context = "details") {
 function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
   const text = String(thought || "").trim();
   if (!text) {
-    showToast("Add a thought before saving");
+    showToast(langText("Add a thought before saving", "保存前先添加想法"));
     const input = document.querySelector(`[data-highlight-annotation-id="${CSS.escape(captureId)}"] textarea`);
     input?.focus();
     return;
@@ -6820,7 +7357,7 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
   const sourceCapture = sourceSession?.captures.find((capture) => capture.id === captureId);
   if (!sourceSession || !sourceCapture) {
     activeHighlightAnnotation = null;
-    showToast("Highlight no longer exists");
+    showToast(langText("Highlight no longer exists", "高亮已不存在"));
     render();
     return;
   }
@@ -6828,7 +7365,7 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
   workspace = updateCaptureThought(workspace, sourceSession.id, sourceCapture.id, text);
   if (workspace === previousWorkspace) {
     activeHighlightAnnotation = null;
-    showToast("Thought already saved");
+    showToast(langText("Thought already saved", "想法已保存"));
     render();
     return;
   }
@@ -6852,14 +7389,17 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
   activeHighlightAnnotation = null;
   activeTab = "captures";
   setActivity(updatedSession, {
-    title: "Highlight annotated",
-    detail: `${summarizeCapture(updatedCapture)} · Thought added to the saved highlight${existingNoteBlockUpdated ? "; its generated note block was refreshed" : ""}; the source page is unchanged.`,
+    title: langText("Highlight annotated", "高亮已标注"),
+    detail: langText(
+      `${summarizeCapture(updatedCapture)} · Thought added to the saved highlight${existingNoteBlockUpdated ? "; its generated note block was refreshed" : ""}; the source page is unchanged.`,
+      `${summarizeCapture(updatedCapture)} · 想法已添加到已保存高亮${existingNoteBlockUpdated ? "；生成的笔记块已刷新" : ""}；来源页面未改变。`
+    ),
     tab: "captures",
     targetId: updatedCapture.id,
-    actionLabel: "View highlight",
+    actionLabel: langText("View highlight", "查看高亮"),
     nextHint
   });
-  persistAndRender("Highlight annotated");
+  persistAndRender(langText("Highlight annotated", "高亮已标注"));
   if (options.context === "stack") {
     focusCaptureDraftContinuation();
   } else {
@@ -6870,12 +7410,12 @@ function saveHighlightAnnotation(sessionId, captureId, thought, options = {}) {
 function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspace).id, options = {}) {
   const targetSession = workspace.sessions.find((session) => session.id === sessionId);
   if (!targetSession) {
-    showToast("Topic no longer exists");
+    showToast(langText("Topic no longer exists", "主题已不存在"));
     return;
   }
   const capture = targetSession.captures.find((item) => item.id === captureId);
   if (!capture) {
-    showToast("Capture no longer exists");
+    showToast(langText("Capture no longer exists", "摘录已不存在"));
     return;
   }
   if (capture.promotedToReview) return;
@@ -6883,21 +7423,21 @@ function promoteCaptureToReview(captureId, sessionId = getActiveSession(workspac
   workspace = promoteCapture(workspace, targetSession.id, capture.id);
   const promotedSession = getActiveSession(workspace);
   const activity = cardMadeActivity(promotedSession, capture, {
-    title: "Review card created",
+    title: langText("Review card created", "复习卡已创建"),
     detail: questionActionDetail(targetSession, capture),
     savedCard: promotedSession.reviewCards[0],
     sourceFirst: options.sourceFirst
   });
   activeTab = activity.targetPane === "reviewCardSourceResume" ? "captures" : "review";
   setActivity(promotedSession, activity);
-  persistAndRender("Review card created");
+  persistAndRender(langText("Review card created", "复习卡已创建"));
 }
 
 function openReviewCardFromCapture(captureId, sessionId = getActiveSession(workspace).id) {
   const targetSession = workspace.sessions.find((session) => session.id === sessionId);
   const card = targetSession?.reviewCards.find((item) => item.sourceCaptureId === captureId);
   if (!targetSession || !card) {
-    showToast("Review card no longer exists");
+    showToast(langText("Review card no longer exists", "复习卡已不存在"));
     return;
   }
   openReviewCard(targetSession, card);
@@ -6907,7 +7447,7 @@ function openReviewCardFromActivity(activity) {
   const targetSession = workspace.sessions.find((session) => session.id === activity?.sessionId);
   const card = targetSession?.reviewCards.find((item) => item.id === activity?.targetId);
   if (!targetSession || !card) {
-    showToast("Review card no longer exists");
+    showToast(langText("Review card no longer exists", "复习卡已不存在"));
     return;
   }
   openReviewCard(targetSession, card);
@@ -6920,12 +7460,12 @@ function openReviewCard(targetSession, card) {
   activeReviewKey = reviewKey(targetSession.id, card.id);
   revealedReviewCards.delete(activeReviewKey);
   setActivity(getActiveSession(workspace), {
-    title: "Review card opened",
+    title: langText("Review card opened", "复习卡已打开"),
     detail: `${targetSession.title} · ${card.prompt.slice(0, 120)}`,
     tab: "review",
     targetId: card.id
   });
-  persistAndRender("Review card opened");
+  persistAndRender(langText("Review card opened", "复习卡已打开"));
   scrollActivityTarget({ tab: "review", targetId: card.id });
 }
 
@@ -6933,7 +7473,7 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
   const targetSession = workspace.sessions.find((session) => session.id === sessionId);
   const capture = targetSession?.captures.find((item) => item.id === captureId);
   if (!targetSession || !capture) {
-    showToast("Question no longer exists");
+    showToast(langText("Question no longer exists", "问题已不存在"));
     return;
   }
   const before = targetSession.reviewCards.find((card) => card.sourceCaptureId === captureId);
@@ -6944,7 +7484,7 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
     after.prompt !== before.prompt || after.answer !== before.answer || after.updatedAt !== before.updatedAt
   );
   if (!changed) {
-    showToast("No linked answer is available for that card yet");
+    showToast(langText("No linked answer is available for that card yet", "这张卡还没有可用的关联回答"));
     return;
   }
   workspace = selectSession(workspace, targetSession.id);
@@ -6952,7 +7492,7 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
   activeReviewKey = reviewKey(targetSession.id, after.id);
   revealedReviewCards.delete(activeReviewKey);
   setActivity(getActiveSession(workspace), {
-    title: "Review card refreshed",
+    title: langText("Review card refreshed", "复习卡已刷新"),
     detail: questionActionDetail(targetSession, capture),
     tab: "review",
     targetId: after.id,
@@ -6960,7 +7500,7 @@ function refreshAnsweredQuestionCard(captureId, sessionId) {
       ? activityNextHint("afterQuestionCardRefreshedSourceLinked")
       : null
   });
-  persistAndRender("Review card refreshed");
+  persistAndRender(langText("Review card refreshed", "复习卡已刷新"));
 }
 
 function closedQuestionCardLabel(capture, answerCapture) {
@@ -6978,15 +7518,15 @@ function answerDraftGuardDetail(draft, capture) {
   const current = hasCaptureTextDraft(draft)
     ? summarizeCaptureDraft(draft)
     : draft?.timestamp?.trim()
-      ? `Time kept @ ${draft.timestamp.trim()}`
-      : "current draft";
+      ? langText(`Time kept @ ${draft.timestamp.trim()}`, `已保留时间 @ ${draft.timestamp.trim()}`)
+      : langText("current draft", "当前草稿");
   const question = trimActivityText(summarizeCapture(capture), 56);
-  return `Finish or clear current draft before answering "${question}": ${current}`;
+  return langText(`Finish or clear current draft before answering "${question}": ${current}`, `回答“${question}”前，请先完成或清空当前草稿：${current}`);
 }
 
 function trimActivityText(value, maxLength) {
   const text = String(value || "").replace(/\s+/g, " ").trim();
-  if (text.length <= maxLength) return text || "this question";
+  if (text.length <= maxLength) return text || langText("this question", "这个问题");
   return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
 }
 
@@ -6994,7 +7534,7 @@ function answerQuestionFromToday(captureId, sessionId) {
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const capture = sourceSession?.captures.find((item) => item.id === captureId);
   if (!sourceSession || !capture) {
-    showToast("Question no longer exists");
+    showToast(langText("Question no longer exists", "问题已不存在"));
     return;
   }
   const existingDraft = getCaptureDraft(sourceSession.id);
@@ -7004,14 +7544,14 @@ function answerQuestionFromToday(captureId, sessionId) {
     workspace = updateSession(workspace, sourceSession.id, { focusMode: "capture" });
     activeTab = "captures";
     setActivity(getActiveSession(workspace), {
-      title: "Capture draft waiting",
+      title: langText("Capture draft waiting", "摘录草稿待继续"),
       detail: answerDraftGuardDetail(existingDraft, capture),
       tab: "captures",
       targetId: "",
       targetPane: "quickCapture",
-      actionLabel: "Resume"
+      actionLabel: langText("Resume", "继续")
     });
-    persistAndRender("Finish current draft before answering");
+    persistAndRender(langText("Finish current draft before answering", "回答前先完成当前草稿"));
     focusCaptureDraftContinuation(existingDraft);
     return;
   }
@@ -7034,14 +7574,14 @@ function answerQuestionFromToday(captureId, sessionId) {
   }
   const resumedDraft = getCaptureDraft(sourceSession.id);
   setActivity(getActiveSession(workspace), {
-    title: draftAnswersThisQuestion ? "Answer draft resumed" : "Answer draft started",
+    title: draftAnswersThisQuestion ? langText("Answer draft resumed", "回答草稿已继续") : langText("Answer draft started", "回答草稿已开始"),
     detail: questionActionDetail(sourceSession, capture),
     tab: "captures",
     targetId: capture.id,
     targetPane: "quickCapture",
-    actionLabel: "Resume"
+    actionLabel: langText("Resume", "继续")
   });
-  persistAndRender(draftAnswersThisQuestion ? "Answer draft resumed" : "Answer draft started");
+  persistAndRender(draftAnswersThisQuestion ? langText("Answer draft resumed", "回答草稿已继续") : langText("Answer draft started", "回答草稿已开始"));
   focusCaptureDraftContinuation(resumedDraft);
 }
 
@@ -7049,7 +7589,7 @@ function setQuestionParked(captureId, sessionId = getActiveSession(workspace).id
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const capture = sourceSession?.captures.find((item) => item.id === captureId);
   if (!sourceSession || !capture) {
-    showToast("Capture no longer exists");
+    showToast(langText("Capture no longer exists", "摘录已不存在"));
     return;
   }
   if (!captureHasQuestion(capture) || capture.questionResolvedAt) return;
@@ -7057,19 +7597,19 @@ function setQuestionParked(captureId, sessionId = getActiveSession(workspace).id
   workspace = setCaptureQuestionParked(workspace, sourceSession.id, capture.id, parked);
   const targetIsActive = sourceSession.id === getActiveSession(workspace).id;
   setActivity(getActiveSession(workspace), {
-    title: parked ? "Question parked" : "Question resumed",
+    title: parked ? langText("Question parked", "问题已暂存") : langText("Question resumed", "问题已继续"),
     detail: questionActionDetail(sourceSession, capture),
     tab: targetIsActive ? "captures" : "today",
     targetId: targetIsActive ? capture.id : ""
   });
-  persistAndRender(parked ? "Question parked" : "Question resumed");
+  persistAndRender(parked ? langText("Question parked", "问题已暂存") : langText("Question resumed", "问题已继续"));
 }
 
 function setQuestionResolved(captureId, sessionId = getActiveSession(workspace).id, resolved = true) {
   const sourceSession = workspace.sessions.find((session) => session.id === sessionId);
   const capture = sourceSession?.captures.find((item) => item.id === captureId);
   if (!sourceSession || !capture) {
-    showToast("Capture no longer exists");
+    showToast(langText("Capture no longer exists", "摘录已不存在"));
     return;
   }
   if (!captureHasQuestion(capture)) return;
@@ -7077,19 +7617,19 @@ function setQuestionResolved(captureId, sessionId = getActiveSession(workspace).
   workspace = setCaptureQuestionResolved(workspace, sourceSession.id, capture.id, resolved);
   const targetIsActive = sourceSession.id === getActiveSession(workspace).id;
   setActivity(getActiveSession(workspace), {
-    title: resolved ? "Question resolved" : "Question reopened",
+    title: resolved ? langText("Question resolved", "问题已解决") : langText("Question reopened", "问题已重新打开"),
     detail: questionActionDetail(sourceSession, capture),
     tab: targetIsActive ? "captures" : "today",
     targetId: targetIsActive ? capture.id : ""
   });
-  persistAndRender(resolved ? "Question resolved" : "Question reopened");
+  persistAndRender(resolved ? langText("Question resolved", "问题已解决") : langText("Question reopened", "问题已重新打开"));
 }
 
 function renderCaptures() {
   const session = getActiveSession(workspace);
   clearChildren(dom.captureList);
   if (!session.captures.length) {
-    dom.captureList.append(emptyState("No captures yet"));
+    dom.captureList.append(emptyState(langText("No captures yet", "还没有摘录")));
     return;
   }
   session.captures.forEach((capture) => {
@@ -7101,7 +7641,7 @@ function renderCaptures() {
     const needsDurableDecision = captureNeedsDurableDecision(capture, noteState);
     if (needsDurableDecision) item.classList.add("needs-durable-decision");
     item.append(textEl("div", "item-meta", [
-      capture.timestamp || "No time",
+      capture.timestamp || langText("No time", "无时间"),
       capture.sourceTitle || session.sourceTitle || capture.materialType || session.materialType,
       new Date(capture.createdAt).toLocaleString()
     ].filter(Boolean).join(" · ")));
@@ -7113,7 +7653,7 @@ function renderCaptures() {
       item.append(thought);
     }
     if (isInNotes) {
-      item.append(textEl("span", "capture-note-chip", "In Notes"));
+      item.append(textEl("span", "capture-note-chip", langText("In Notes", "在笔记中")));
     }
     const nextStep = captureStackNextStep(capture, { isInNotes });
     item.dataset.captureNextStep = nextStep.kind;
@@ -7133,7 +7673,7 @@ function renderCaptures() {
       const openButton = document.createElement("button");
       openButton.className = "mini-button";
       openButton.type = "button";
-      openButton.textContent = capture.timestamp ? `Open @ ${capture.timestamp}` : "Open source";
+      openButton.textContent = capture.timestamp ? langText(`Open @ ${capture.timestamp}`, `打开 @ ${capture.timestamp}`) : langText("Open source", "打开来源");
       openButton.addEventListener("click", () => {
         window.open(sourceHref, "_blank", "noopener,noreferrer");
       });
@@ -7143,7 +7683,7 @@ function renderCaptures() {
       const thoughtButton = document.createElement("button");
       thoughtButton.className = "mini-button primary";
       thoughtButton.type = "button";
-      thoughtButton.textContent = "Add thought";
+      thoughtButton.textContent = langText("Add thought", "添加想法");
       thoughtButton.dataset.highlightAnnotationTrigger = capture.id;
       thoughtButton.dataset.highlightAnnotationContext = "details";
       thoughtButton.addEventListener("click", () => startHighlightAnnotation(session.id, capture.id, "details"));
@@ -7161,9 +7701,9 @@ function renderCaptures() {
     const promoteButton = document.createElement("button");
     promoteButton.className = needsDurableDecision ? "mini-button capture-decision-button" : "mini-button";
     promoteButton.type = "button";
-    promoteButton.textContent = capture.promotedToReview ? "Review" : "Save for recall";
-    promoteButton.title = capture.promotedToReview ? "Open the review card made from this capture" : "Save this capture to recall later";
-    promoteButton.setAttribute("aria-label", capture.promotedToReview ? "Open this capture's review card" : "Save this capture to recall later");
+    promoteButton.textContent = capture.promotedToReview ? langText("Review", "复习") : langText("Save for recall", "保存到复习");
+    promoteButton.title = capture.promotedToReview ? langText("Open the review card made from this capture", "打开由这条摘录生成的复习卡") : langText("Save this capture to recall later", "保存这条摘录以便之后回忆");
+    promoteButton.setAttribute("aria-label", capture.promotedToReview ? langText("Open this capture's review card", "打开这条摘录的复习卡") : langText("Save this capture to recall later", "保存这条摘录以便之后回忆"));
     promoteButton.addEventListener("click", () => {
       if (capture.promotedToReview) openReviewCardFromCapture(capture.id, session.id);
       else promoteCaptureToReview(capture.id);
@@ -7175,7 +7715,7 @@ function renderCaptures() {
       resolveButton.type = "button";
       const isOpenQuestion = captureHasOpenQuestion(capture);
       const isParkedQuestion = captureHasParkedQuestion(capture);
-      resolveButton.textContent = isOpenQuestion ? "Resolve" : isParkedQuestion ? "Resume" : "Reopen";
+      resolveButton.textContent = isOpenQuestion ? langText("Resolve", "解决") : isParkedQuestion ? langText("Resume", "继续") : langText("Reopen", "重新打开");
       resolveButton.addEventListener("click", () => {
         if (isParkedQuestion) setQuestionParked(capture.id, session.id, false);
         else setQuestionResolved(capture.id, session.id, isOpenQuestion);
@@ -7204,12 +7744,12 @@ function captureDeleteButton(session, capture, linkedReviewCount = 0) {
   deleteButton.className = "mini-button tertiary danger";
   deleteButton.type = "button";
   deleteButton.textContent = linkedReviewCount
-    ? `Delete + ${linkedReviewCount} card${linkedReviewCount === 1 ? "" : "s"}`
-    : "Delete";
+    ? langText(`Delete + ${linkedReviewCount} card${linkedReviewCount === 1 ? "" : "s"}`, `删除 + ${linkedReviewCount} 张卡片`)
+    : langText("Delete", "删除");
   const linkedCopy = linkedReviewCount
-    ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
+    ? langText(` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`, ` 和 ${linkedReviewCount} 张关联复习卡`)
     : "";
-  deleteButton.title = `Delete this capture${linkedCopy} after confirmation`;
+  deleteButton.title = langText(`Delete this capture${linkedCopy} after confirmation`, `确认后删除这条摘录${linkedCopy}`);
   deleteButton.setAttribute("aria-label", deleteButton.title);
   deleteButton.addEventListener("click", () => deleteCaptureWithConfirmation(session.id, capture.id));
   return deleteButton;
@@ -7219,26 +7759,29 @@ function deleteCaptureWithConfirmation(sessionId, captureId) {
   const session = workspace.sessions.find((item) => item.id === sessionId);
   const capture = session?.captures.find((item) => item.id === captureId);
   if (!session || !capture) {
-    showToast("Capture already deleted");
+    showToast(langText("Capture already deleted", "摘录已删除"));
     render();
     return;
   }
   const linkedCards = session.reviewCards.filter((card) => card.sourceCaptureId === capture.id);
   const linkedReviewCount = linkedCards.length;
   const linkedCopy = linkedReviewCount
-    ? ` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`
+    ? langText(` and ${linkedReviewCount} linked review card${linkedReviewCount === 1 ? "" : "s"}`, ` 和 ${linkedReviewCount} 张关联复习卡`)
     : "";
-  if (!window.confirm(`Delete this capture${linkedCopy}?\n\n${summarizeCapture(capture)}\n\nExisting note blocks will stay in Notes.`)) return;
+  if (!window.confirm(langText(
+    `Delete this capture${linkedCopy}?\n\n${summarizeCapture(capture)}\n\nExisting note blocks will stay in Notes.`,
+    `删除这条摘录${linkedCopy}？\n\n${summarizeCapture(capture)}\n\n已有笔记块会保留在笔记中。`
+  ))) return;
   stageCaptureDeleteUndo(session.id, capture.id, summarizeCapture(capture));
   clearReviewStateForDeletedCapture(session.id, linkedCards);
   workspace = deleteCapture(workspace, session.id, capture.id);
   setActivity(session, {
-    title: "Capture deleted",
+    title: langText("Capture deleted", "摘录已删除"),
     detail: summarizeCapture(capture),
     tab: "captures",
     targetId: ""
   });
-  persistAndRender("Capture deleted", { keepCaptureUndo: true });
+  persistAndRender(langText("Capture deleted", "摘录已删除"), { keepCaptureUndo: true });
 }
 
 function clearReviewStateForDeletedCapture(sessionId, linkedCards) {
@@ -7271,8 +7814,8 @@ function clearPendingCaptureUndo(options = {}) {
   if (clearedUndo && options.reason === "save") {
     const session = workspace.sessions.find((item) => item.id === clearedUndo.sessionId) || getActiveSession(workspace);
     setActivity(session, {
-      title: "Undo expired",
-      detail: "A new save replaced the capture-delete recovery point.",
+      title: langText("Undo expired", "撤销已过期"),
+      detail: langText("A new save replaced the capture-delete recovery point.", "新的保存已替换摘录删除恢复点。"),
       tab: "captures",
       targetId: ""
     });
@@ -7305,7 +7848,7 @@ function handlePendingCaptureUndoTick() {
 function restorePendingCaptureDelete() {
   if (!pendingCaptureUndo || pendingCaptureUndoRemainingSeconds() <= 0) {
     clearPendingCaptureUndo({ renderActivityStrip: true });
-    showToast("Undo expired");
+    showToast(langText("Undo expired", "撤销已过期"));
     renderActivity(getActiveSession(workspace));
     return;
   }
@@ -7317,22 +7860,22 @@ function restorePendingCaptureDelete() {
   undo.revealedReviewKeys.forEach((key) => revealedReviewCards.add(key));
   const session = workspace.sessions.find((item) => item.id === undo.sessionId) || getActiveSession(workspace);
   setActivity(session, {
-    title: "Capture delete undone",
+    title: langText("Capture delete undone", "摘录删除已撤销"),
     detail: undo.summary,
     tab: "captures",
     targetId: undo.captureId
   });
-  persistAndRender("Capture restored");
+  persistAndRender(langText("Capture restored", "摘录已恢复"));
 }
 
 function renderReviewCards() {
   const session = getActiveSession(workspace);
   const dueItems = getDueReviewItems(workspace);
-  dom.dueCount.textContent = `${dueItems.length} due`;
+  dom.dueCount.textContent = langText(`${dueItems.length} due`, `${dueItems.length} 张到期`);
   clearChildren(dom.reviewList);
   const reviewItems = getReviewItemsForDisplay();
   if (!reviewItems.length) {
-    dom.reviewList.append(emptyState("No review cards yet"));
+    dom.reviewList.append(emptyState(langText("No review cards yet", "还没有复习卡片")));
     return;
   }
   if (!reviewItems.some((item) => reviewKey(item.sessionId, item.card.id) === activeReviewKey)) {
@@ -7351,14 +7894,17 @@ function renderReviewCards() {
     item.dataset.cardId = card.id;
     item.dataset.reviewKey = key;
     item.append(
-      textEl("div", "item-meta", `${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · ${sessionTitle} · strength ${card.strength}`),
+      textEl("div", "item-meta", langText(
+        `${isDue ? "Due now" : `Due ${new Date(card.dueAt).toLocaleDateString()}`} · ${sessionTitle} · strength ${card.strength}`,
+        `${isDue ? "现在到期" : `${new Date(card.dueAt).toLocaleDateString()} 到期`} · ${sessionTitle} · 强度 ${card.strength}`
+      )),
       textEl("p", "card-prompt", card.prompt)
     );
 
     const footer = document.createElement("div");
     footer.className = "item-footer";
     if (isRevealed && evidenceCapture) {
-      const evidence = textEl("button", "mini-button", "Answer evidence");
+      const evidence = textEl("button", "mini-button", langText("Answer evidence", "回答证据"));
       evidence.type = "button";
       evidence.addEventListener("click", () => openCaptureFromToday(sessionId, evidenceCapture));
       footer.append(evidence);
@@ -7369,15 +7915,15 @@ function renderReviewCards() {
       renderMarkdown(answer, card.answer);
       item.append(answer);
 
-      const again = textEl("button", "mini-button", "Again");
+      const again = textEl("button", "mini-button", langText("Again", "再来"));
       again.type = "button";
       again.dataset.grade = "again";
-      const good = textEl("button", "mini-button", "Good");
+      const good = textEl("button", "mini-button", langText("Good", "掌握"));
       good.type = "button";
       good.dataset.grade = "good";
       footer.append(again, good);
     } else {
-      const reveal = textEl("button", "mini-button primary", "Reveal");
+      const reveal = textEl("button", "mini-button primary", langText("Reveal", "显示答案"));
       reveal.type = "button";
       reveal.dataset.revealCard = card.id;
       footer.append(reveal);
@@ -7396,20 +7942,20 @@ function renderReviewCards() {
         gradeActiveReview(button.dataset.grade);
       });
     });
-    const deleteButton = textEl("button", "mini-button danger", "Delete");
+    const deleteButton = textEl("button", "mini-button danger", langText("Delete", "删除"));
     deleteButton.type = "button";
     deleteButton.addEventListener("click", () => {
-      if (!window.confirm("Delete this review card? The original capture will remain and can be promoted again.")) return;
+      if (!window.confirm(langText("Delete this review card? The original capture will remain and can be promoted again.", "删除这张复习卡？原始摘录会保留，并且之后可再次转为卡片。"))) return;
       workspace = deleteReviewCard(workspace, sessionId, card.id);
       revealedReviewCards.delete(key);
       if (activeReviewKey === key) activeReviewKey = "";
       setActivity(getActiveSession(workspace), {
-        title: "Review card deleted",
+        title: langText("Review card deleted", "复习卡已删除"),
         detail: `${sessionTitle} · ${card.prompt.slice(0, 120)}`,
         tab: "review",
         targetId: ""
       });
-      persistAndRender("Review card deleted");
+      persistAndRender(langText("Review card deleted", "复习卡已删除"));
     });
     footer.append(deleteButton);
     dom.reviewList.append(item);
@@ -7446,8 +7992,8 @@ function markWorkspaceExported() {
   };
   saveUiPrefs();
   storageWarning = hasDirectedSaveDestination()
-    ? "Backup saved - verify the selected file"
-    : "Backup export requested - verify the exported file";
+    ? langText("Backup saved - verify the selected file", "备份已保存 - 请确认所选文件")
+    : langText("Backup export requested - verify the exported file", "已请求导出备份 - 请确认导出的文件");
   renderStorageNotice();
   showToast(storageWarning);
 }
@@ -7455,13 +8001,23 @@ function markWorkspaceExported() {
 function recordReturnFileExportReceipt(kind) {
   recordMirrorExport(kind);
   const session = getActiveSession(workspace);
+  const kindLabel = mirrorExportKindLabel(kind);
   setActivity(session, {
-    title: `${kind} handoff ready`,
-    detail: `Move the ${kind} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then open index.html on the device and follow its Next from this export route.`,
+    title: langText(`${kindLabel.en} handoff ready`, `${kindLabel.zh} 交接已准备好`),
+    detail: langText(
+      `Move the ${kindLabel.en} through USB, AirDrop, email, file share, or a manual Feishu Drive upload; then open index.html on the device and follow its Next from this export route.`,
+      `通过 USB、AirDrop、邮件、文件共享或手动飞书云文档上传移动 ${kindLabel.zh}；然后在设备上打开 index.html，并按本次导出的下一步执行。`
+    ),
     tab: "export",
     targetId: ""
   });
   renderActivity(session);
+}
+
+function mirrorExportKindLabel(kind) {
+  if (kind === "Mirror ZIP") return { en: "Mirror ZIP", zh: "镜像 ZIP" };
+  if (kind === "Mirror JSON") return { en: "Mirror JSON", zh: "镜像 JSON" };
+  return { en: String(kind || "Mirror export"), zh: "镜像导出" };
 }
 
 function recordMirrorExport(kind) {
@@ -7563,9 +8119,9 @@ function installNativeBridge() {
 async function copyText(text, message) {
   try {
     await navigator.clipboard.writeText(text);
-    showToast(message);
+    showToast(localizedMessage(message));
   } catch {
-    showToast("Copy failed");
+    showToast(langText("Copy failed", "复制失败"));
   }
 }
 
@@ -7595,13 +8151,13 @@ function saveBlobFile(filename, blob, type) {
       })
       .catch((error) => {
         if (error?.name !== "AbortError") {
-          showToast("Save failed");
+          showToast(langText("Save failed", "保存失败"));
         }
         return false;
       });
   }
   if (!shouldUseFallbackDownload()) {
-    showToast("Save picker unavailable here; use Copy or the Mac app export.");
+    showToast(langText("Save picker unavailable here; use Copy or the Mac app export.", "这里无法使用保存选择器；请使用复制，或通过 Mac 应用导出。"));
     return false;
   }
   downloadBlob(filename, blob);
@@ -7618,8 +8174,41 @@ function afterSave(result, callback) {
   if (result) callback();
 }
 
-function saveCompleteMessage(label) {
-  return hasDirectedSaveDestination() ? `${label} saved` : `${label} download requested`;
+function saveCompleteMessage(kind) {
+  const label = exportSaveLabel(kind);
+  return hasDirectedSaveDestination()
+    ? langText(`${label.en} saved`, `${label.zh}已保存`)
+    : langText(`${label.en} download requested`, `已请求下载${label.zh}`);
+}
+
+function exportSaveLabel(kind) {
+  return {
+    reviewPack: { en: "Review pack", zh: "复习包" },
+    markdown: { en: "Markdown", zh: "Markdown" },
+    json: { en: "JSON", zh: "JSON" },
+    today: { en: "Today", zh: "今日包" },
+    mirror: { en: "Mirror", zh: "镜像" },
+    mirrorZip: { en: "Mirror ZIP", zh: "镜像 ZIP" }
+  }[kind] || { en: "Export", zh: "导出文件" };
+}
+
+function exportToastCopy(kind) {
+  return {
+    workspaceCopied: { en: "Workspace copied", zh: "工作区已复制" },
+    reviewPackCopied: { en: "Review pack copied", zh: "复习包已复制" },
+    markdownCopied: { en: "Markdown copied", zh: "Markdown 已复制" },
+    jsonCopied: { en: "JSON copied", zh: "JSON 已复制" },
+    todayCopied: { en: "Today study pack copied", zh: "今日学习包已复制" },
+    mirrorCopied: { en: "Mirror bundle copied", zh: "镜像 bundle 已复制" },
+    bookmarkletCopied: { en: "Capture bookmarklet copied", zh: "摘录书签脚本已复制" }
+  }[kind] || { en: "Copied", zh: "已复制" };
+}
+
+function localizedMessage(message) {
+  if (message && typeof message === "object") {
+    return langText(message.en || "", message.zh || message.en || "");
+  }
+  return String(message || "");
 }
 
 function hasDirectedSaveDestination() {
@@ -7720,7 +8309,7 @@ function showUpdateNotice() {
   updateNoticeShown = true;
   dom.updateNotice.hidden = false;
   if (dom.updateNoticeText) {
-    dom.updateNoticeText.textContent = "App update ready - reload to use the newest Learning Flow.";
+    dom.updateNoticeText.textContent = langText("App update ready - reload to use the newest Learning Flow.", "应用更新已就绪 - 重新加载以使用最新学习流。");
   }
 }
 
@@ -7734,9 +8323,38 @@ function hasUserWorkspace(value) {
 }
 
 function confirmBundleImport(bundle) {
-  const exportedAt = bundle.exportedAt ? ` from ${new Date(bundle.exportedAt).toLocaleString()}` : "";
+  const exportedAt = bundle.exportedAt ? new Date(bundle.exportedAt).toLocaleString() : "";
   const count = bundle.workspace?.sessionCount ?? bundle.files?.length ?? 0;
-  return window.confirm(`Replace current workspace with mirror bundle${exportedAt}? (${count} sessions)`);
+  return window.confirm(langText(
+    `Replace current workspace with mirror bundle${exportedAt ? ` from ${exportedAt}` : ""}? (${count} ${count === 1 ? "session" : "sessions"})`,
+    `用镜像 bundle${exportedAt ? `（${exportedAt} 导出）` : ""}替换当前工作区？（${count} 个主题）`
+  ));
+}
+
+function confirmSeedWorkspaceLoad(seed) {
+  const label = normalizeUiLanguage(uiPrefs.language) === "zh" ? seed.labelZh : seed.labelEn;
+  return window.confirm(langText(
+    `Replace current workspace with "${label}"? Your current work will be replaced.`,
+    `用「${label}」替换当前工作区？当前内容将被替换。`
+  ));
+}
+
+async function loadSeedWorkspace(seed) {
+  if (!seed) return;
+  if (hasUserWorkspace(workspace) && !confirmSeedWorkspaceLoad(seed)) return;
+  try {
+    const seedData = await seed.getWorkspace();
+    if (!seedData) {
+      showToast(langText("Case study not built yet. Run npm run demo:case-study first.", "案例尚未构建，请先运行 npm run demo:case-study。"));
+      return;
+    }
+    workspace = workspaceFromPortableData(seedData);
+    lastActivity = null;
+    persistAndRender(langText("Case study loaded", "案例已加载"));
+  } catch (error) {
+    console.error("Failed to load seed workspace:", error);
+    showToast(langText("Failed to load case study", "案例加载失败"));
+  }
 }
 
 function showToast(message) {

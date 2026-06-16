@@ -1,4 +1,4 @@
-const CACHE_NAME = "learning-companion-static-v5";
+const CACHE_NAME = "learning-companion-static-v7";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -8,7 +8,10 @@ const STATIC_ASSETS = [
   "./assets/icon.svg",
   "./src/app.js",
   "./src/markdown.js",
-  "./src/model.js"
+  "./src/model.js",
+  "./src/viewer.js",
+  "./src/reader.js",
+  "./src/voice.js"
 ];
 
 self.addEventListener("install", (event) => {

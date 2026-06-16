@@ -1,5 +1,5 @@
 export const WORKSPACE_SCHEMA = "learning-companion.workspace.v1";
-export const WORKSPACE_SCHEMA_VERSION = 1;
+export const WORKSPACE_SCHEMA_VERSION = 2;
 export const MOBILE_INBOX_PATCH_SCHEMA = "learning-companion.mobile-inbox-patch.v1";
 export const REVIEW_PROGRESS_PATCH_SCHEMA = "learning-companion.review-progress-patch.v1";
 export const MAX_TITLE_LENGTH = 160;
@@ -279,15 +279,15 @@ function captureQuoteCanAnchorSource(capture) {
   return Boolean(capture?.quote) && !capture?.answersQuestionCaptureId;
 }
 
-function isYouTubeHost(hostname) {
+export function isYouTubeHost(hostname) {
   return /(^|\.)youtube\.com$/i.test(hostname) || /^youtu\.be$/i.test(hostname);
 }
 
-function isBilibiliHost(hostname) {
+export function isBilibiliHost(hostname) {
   return /(^|\.)bilibili\.com$/i.test(hostname);
 }
 
-function isVimeoHost(hostname) {
+export function isVimeoHost(hostname) {
   return /(^|\.)vimeo\.com$/i.test(hostname);
 }
 
@@ -434,6 +434,9 @@ export function createSession(overrides = {}, originClientId = overrides.originC
     materialType,
     tags: normalizeTags(overrides.tags || []),
     focusMode: FOCUS_MODES.has(overrides.focusMode) ? overrides.focusMode : "capture",
+    viewerOpen: overrides.viewerOpen !== false,
+    viewerMode: overrides.viewerMode || "auto",
+    viewerPosition: Number.isFinite(overrides.viewerPosition) ? overrides.viewerPosition : 0,
     notesMarkdown: cleanText(overrides.notesMarkdown || "", MAX_NOTE_LENGTH),
     captures: Array.isArray(overrides.captures)
       ? overrides.captures.map((capture) => normalizeCapture(capture, originClientId, {

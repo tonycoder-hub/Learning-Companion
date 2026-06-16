@@ -20,6 +20,11 @@ private enum AccessibilityStringAttribute {
   case unavailable
 }
 
+private func nativeText(_ en: String, _ zh: String) -> String {
+  let preferred = Locale.preferredLanguages.first?.lowercased() ?? ""
+  return preferred.hasPrefix("zh") ? zh : en
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
   private let maxWorkspaceImportBytes = 5_000_000
   private let maxNativeSaveBytes = 25_000_000
@@ -135,7 +140,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       }
       return
     case .emptySelection:
-      updateSelectedTextCaptureStatus("Selected Text: no selection detected")
+      updateSelectedTextCaptureStatus(nativeText("Selected Text: no selection detected", "选中文本：未检测到选区"))
       NSSound.beep()
       return
     case .unavailable:
@@ -143,7 +148,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
     updateSelectedTextCaptureStatus()
     guard let fallback = freshClipboardTextForSelectedFallback() else {
-      updateSelectedTextCaptureStatus("Selected Text: no selection/new clipboard")
+      updateSelectedTextCaptureStatus(nativeText("Selected Text: no selection/new clipboard", "选中文本：没有新选区/剪贴板"))
       NSSound.beep()
       return
     }
@@ -161,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     webView.evaluateJavaScript("window.learningCompanionNative?.exportWorkspaceJson?.() || ''") { [weak self] result, error in
       guard error == nil, let json = result as? String, !json.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-        self?.showError("Could not read the current workspace from the web view.")
+        self?.showError(nativeText("Could not read the current workspace from the web view.", "无法从 Web 视图读取当前工作区。"))
         return
       }
       self?.saveWorkspaceJson(json)
@@ -175,7 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     let panel = NSOpenPanel()
-    panel.title = "Import Learning Companion Workspace"
+    panel.title = nativeText("Import Learning Companion Workspace", "导入 Learning Companion 工作区")
     panel.allowedContentTypes = [.json]
     panel.allowsMultipleSelection = false
     panel.canChooseDirectories = false
@@ -187,26 +192,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     do {
       let data = try Data(contentsOf: url)
       guard data.count <= maxWorkspaceImportBytes else {
-        showError("The selected workspace file is too large.")
+        showError(nativeText("The selected workspace file is too large.", "所选工作区文件过大。"))
         return
       }
       guard let json = String(data: data, encoding: .utf8) else {
-        showError("The selected workspace file is not valid UTF-8 text.")
+        showError(nativeText("The selected workspace file is not valid UTF-8 text.", "所选工作区文件不是有效的 UTF-8 文本。"))
         return
       }
       importWorkspaceJson(json)
     } catch {
-      showError("Could not read the selected workspace file.")
+      showError(nativeText("Could not read the selected workspace file.", "无法读取所选工作区文件。"))
     }
   }
 
   @objc private func openMorningReviewPack(_ sender: Any?) {
     guard let reviewPack = morningReviewPackURL() else {
-      showError("Morning review pack is not generated yet. Run `npm run demo:morning`, then try again.")
+      showError(nativeText(
+        "Morning review pack is not generated yet. Run `npm run demo:morning`, then try again.",
+        "晨间复习包尚未生成。请先运行 `npm run demo:morning`，然后重试。"
+      ))
       return
     }
     if !NSWorkspace.shared.open(reviewPack) {
-      showError("Could not open the morning review pack.")
+      showError(nativeText("Could not open the morning review pack.", "无法打开晨间复习包。"))
     }
   }
 
@@ -331,21 +339,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     let mainMenu = NSMenu(title: "Learning Companion")
     let appItem = NSMenuItem()
     let appMenu = NSMenu(title: "Learning Companion")
-    appMenu.addItem(NSMenuItem(title: "Quit Learning Companion", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+    appMenu.addItem(NSMenuItem(title: nativeText("Quit Learning Companion", "退出 Learning Companion"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     appItem.submenu = appMenu
     mainMenu.addItem(appItem)
 
     let fileItem = NSMenuItem()
-    let fileMenu = NSMenu(title: "File")
+    let fileMenu = NSMenu(title: nativeText("File", "文件"))
     let importWorkspace = NSMenuItem(
-      title: "Import Workspace...",
+      title: nativeText("Import Workspace...", "导入工作区..."),
       action: #selector(importWorkspace(_:)),
       keyEquivalent: "o"
     )
     importWorkspace.target = self
     fileMenu.addItem(importWorkspace)
     let exportWorkspace = NSMenuItem(
-      title: "Export Workspace...",
+      title: nativeText("Export Workspace...", "导出工作区..."),
       action: #selector(exportWorkspace(_:)),
       keyEquivalent: "e"
     )
@@ -354,7 +362,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     fileMenu.addItem(exportWorkspace)
     fileMenu.addItem(NSMenuItem.separator())
     let openMorningReview = NSMenuItem(
-      title: "Open Morning Review Pack",
+      title: nativeText("Open Morning Review Pack", "打开晨间复习包"),
       action: #selector(openMorningReviewPack(_:)),
       keyEquivalent: ""
     )
@@ -364,9 +372,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     mainMenu.addItem(fileItem)
 
     let captureItem = NSMenuItem()
-    let captureMenu = NSMenu(title: "Capture")
+    let captureMenu = NSMenu(title: nativeText("Capture", "摘录"))
     let saveSelectedCapture = NSMenuItem(
-      title: "Save Selected Text as Capture",
+      title: nativeText("Save Selected Text as Capture", "保存选中文本为摘录"),
       action: #selector(saveSelectedTextAsCapture(_:)),
       keyEquivalent: "x"
     )
@@ -374,7 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     saveSelectedCapture.target = self
     captureMenu.addItem(saveSelectedCapture)
     let saveClipboardCapture = NSMenuItem(
-      title: "Save Clipboard as Capture",
+      title: nativeText("Save Clipboard as Capture", "保存剪贴板为摘录"),
       action: #selector(saveClipboardAsCapture(_:)),
       keyEquivalent: "c"
     )
@@ -382,7 +390,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     saveClipboardCapture.target = self
     captureMenu.addItem(saveClipboardCapture)
     let fillFromClipboard = NSMenuItem(
-      title: "Fill Capture From Clipboard",
+      title: nativeText("Fill Capture From Clipboard", "从剪贴板填充摘录"),
       action: #selector(fillCaptureFromClipboard(_:)),
       keyEquivalent: "v"
     )
@@ -391,7 +399,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     captureMenu.addItem(NSMenuItem.separator())
     captureMenu.addItem(fillFromClipboard)
     captureMenu.addItem(NSMenuItem.separator())
-    let hotKeyStatus = NSMenuItem(title: "Global Hotkey: registering...", action: nil, keyEquivalent: "")
+    let hotKeyStatus = NSMenuItem(title: nativeText("Global Hotkey: registering...", "全局快捷键：正在注册..."), action: nil, keyEquivalent: "")
     hotKeyStatus.isEnabled = false
     clipboardCaptureHotKeyStatusItem = hotKeyStatus
     captureMenu.addItem(hotKeyStatus)
@@ -403,9 +411,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     mainMenu.addItem(captureItem)
 
     let windowItem = NSMenuItem()
-    let windowMenu = NSMenu(title: "Window")
+    let windowMenu = NSMenu(title: nativeText("Window", "窗口"))
     let enterSidecar = NSMenuItem(
-      title: "Enter Sidecar Window",
+      title: nativeText("Enter Sidecar Window", "进入侧栏窗口"),
       action: #selector(enterSidecarWindow(_:)),
       keyEquivalent: "]"
     )
@@ -413,7 +421,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     enterSidecar.target = self
     windowMenu.addItem(enterSidecar)
     let restoreDesk = NSMenuItem(
-      title: "Restore Desk Window",
+      title: nativeText("Restore Desk Window", "恢复桌面窗口"),
       action: #selector(restoreDeskWindow(_:)),
       keyEquivalent: "["
     )
@@ -422,7 +430,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     windowMenu.addItem(restoreDesk)
     windowMenu.addItem(NSMenuItem.separator())
     let keepAbove = NSMenuItem(
-      title: "Keep Window Above Others",
+      title: nativeText("Keep Window Above Others", "保持窗口置顶"),
       action: #selector(toggleKeepWindowAboveOthers(_:)),
       keyEquivalent: ""
     )
@@ -494,7 +502,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       &clipboardCaptureEventHandler
     )
     guard handlerStatus == noErr else {
-      updateClipboardCaptureHotKeyStatus("Global Hotkey: unavailable")
+      updateClipboardCaptureHotKeyStatus(nativeText("Global Hotkey: unavailable", "全局快捷键：不可用"))
       fputs("Learning Companion: global clipboard hotkey handler registration failed (\(handlerStatus))\n", stderr)
       return
     }
@@ -505,10 +513,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       ref: &clipboardCaptureHotKeyRef
     )
     if clipboardStatus == noErr {
-      updateClipboardCaptureHotKeyStatus("Global Hotkey: Ctrl+Option+Cmd+C")
+      updateClipboardCaptureHotKeyStatus(nativeText("Global Hotkey: Ctrl+Option+Cmd+C", "全局快捷键：Ctrl+Option+Cmd+C"))
     } else {
       clipboardCaptureHotKeyRef = nil
-      updateClipboardCaptureHotKeyStatus("Global Hotkey: unavailable")
+      updateClipboardCaptureHotKeyStatus(nativeText("Global Hotkey: unavailable", "全局快捷键：不可用"))
       fputs("Learning Companion: global clipboard hotkey registration failed (\(clipboardStatus))\n", stderr)
     }
 
@@ -521,7 +529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       updateSelectedTextCaptureStatus()
     } else {
       selectedTextCaptureHotKeyRef = nil
-      updateSelectedTextCaptureStatus("Selected Text: hotkey unavailable")
+      updateSelectedTextCaptureStatus(nativeText("Selected Text: hotkey unavailable", "选中文本：快捷键不可用"))
       fputs("Learning Companion: selected text hotkey registration failed (\(selectedStatus))\n", stderr)
     }
 
@@ -556,8 +564,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
   private func selectedTextCaptureStatusTitle() -> String {
     AXIsProcessTrusted()
-      ? "Selected Text: Ctrl+Option+Cmd+X"
-      : "Selected Text: needs Accessibility permission"
+      ? nativeText("Selected Text: Ctrl+Option+Cmd+X", "选中文本：Ctrl+Option+Cmd+X")
+      : nativeText("Selected Text: needs Accessibility permission", "选中文本：需要辅助功能权限")
   }
 
   private func requestAccessibilityPermission() {
@@ -605,7 +613,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             let data = text.data(using: .utf8),
             let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             payload["ok"] as? Bool == true else {
-        self?.showError("Could not save the text as a capture.")
+        self?.showError(nativeText("Could not save the text as a capture.", "无法把文本保存为摘录。"))
         return
       }
       onSuccess?()
@@ -764,7 +772,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
   private func saveWorkspaceJson(_ json: String) {
     let panel = NSSavePanel()
-    panel.title = "Export Learning Companion Workspace"
+    panel.title = nativeText("Export Learning Companion Workspace", "导出 Learning Companion 工作区")
     panel.allowedContentTypes = [.json]
     panel.nameFieldStringValue = "learning-companion-workspace.json"
 
@@ -774,19 +782,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     do {
       try json.write(to: url, atomically: true, encoding: .utf8)
     } catch {
-      showError("Could not save the workspace file.")
+      showError(nativeText("Could not save the workspace file.", "无法保存工作区文件。"))
     }
   }
 
   private func saveTextFileFromWeb(requestId: String, filename: String, mediaType: String, text: String) {
     guard let data = text.data(using: .utf8), data.count <= maxNativeSaveBytes else {
       completeNativeSaveRequest(requestId, ok: false, error: "file_too_large")
-      showError("The export is too large to save from the app.")
+      showError(nativeText("The export is too large to save from the app.", "导出内容过大，无法从应用保存。"))
       return
     }
 
     let panel = NSSavePanel()
-    panel.title = "Save Learning Companion Export"
+    panel.title = nativeText("Save Learning Companion Export", "保存 Learning Companion 导出")
     panel.allowedContentTypes = allowedContentTypes(mediaType: mediaType, filename: filename)
     panel.nameFieldStringValue = safeSuggestedFilename(filename)
 
@@ -800,7 +808,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
       completeNativeSaveRequest(requestId, ok: true)
     } catch {
       completeNativeSaveRequest(requestId, ok: false, error: "write_failed")
-      showError("Could not save the export file.")
+      showError(nativeText("Could not save the export file.", "无法保存导出文件。"))
     }
   }
 
@@ -858,7 +866,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
   private func importWorkspaceJson(_ json: String) {
     guard let encoded = jsonStringLiteral(json) else {
-      showError("Could not encode the selected workspace file.")
+      showError(nativeText("Could not encode the selected workspace file.", "无法编码所选工作区文件。"))
       return
     }
     let script = """
@@ -874,14 +882,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             let text = result as? String,
             let data = text.data(using: .utf8),
             let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-        self?.showError("Could not import the selected workspace file.")
+        self?.showError(nativeText("Could not import the selected workspace file.", "无法导入所选工作区文件。"))
         return
       }
       if payload["canceled"] as? Bool == true {
         return
       }
       if payload["ok"] as? Bool != true {
-        let message = payload["error"] as? String ?? "Could not import the selected workspace file."
+        let message = payload["error"] as? String ?? nativeText("Could not import the selected workspace file.", "无法导入所选工作区文件。")
         self?.showError(message)
       }
     }
@@ -943,8 +951,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
   private func showMissingWebRoot(_ indexFile: URL) {
     let alert = NSAlert()
-    alert.messageText = "Learning Companion web app not found"
-    alert.informativeText = "Expected index.html at \(indexFile.path). Run from the repository, or pass the companion-web path explicitly."
+    alert.messageText = nativeText("Learning Companion web app not found", "未找到 Learning Companion Web 应用")
+    alert.informativeText = nativeText(
+      "Expected index.html at \(indexFile.path). Run from the repository, or pass the companion-web path explicitly.",
+      "预期在 \(indexFile.path) 找到 index.html。请从仓库运行，或显式传入 companion-web 路径。"
+    )
     alert.runModal()
     NSApp.terminate(nil)
   }

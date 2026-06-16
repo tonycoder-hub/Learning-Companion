@@ -8,15 +8,27 @@ This is a live-evidence checklist, not a fixture. Leave any unobserved value as 
 
 Run this only when the current turn authorizes the required browser/server/network actions and every source material item is explicitly approved in the current turn. A public URL is necessary but not sufficient.
 
+Here, `URL` means the public learning-material link, not a repository or deployment URL.
+中文：URL 就是网页链接。这里需要的是公开学习材料链接，不是仓库、部署地址、本机地址或内部页面。
+
+The shortest approved-input shape is:
+
+```text
+阅读：https://<public-reading-material>
+视频：https://<public-video-material>
+时间：00:15
+```
+
 Eligible sources:
 
 - public non-private pages,
-- user-provided non-private URLs,
-- local files explicitly provided for validation.
+- user-provided non-private URLs.
 
 Do not use:
 
 - authenticated or private pages,
+- localhost, private IP, single-label intranet hosts, or reserved example domains as approved external sources,
+- local files in the browser harness path; handle any explicitly provided local file through a separate runbook and do not convert it into `APPROVED_SOURCE_CANDIDATE`,
 - pages containing secrets, personal data, internal documents, cookies, or session identifiers,
 - screenshots that expose account identity, tokens, private chat, private docs, or browser profiles.
 
@@ -39,6 +51,57 @@ Recommended files:
 - `04-video-timestamp.png`: video timestamp evidence when relevant.
 
 Screenshots are evidence of what was visible. They are not proof of broad platform compatibility, playback quality, or human comprehension unless the run note records the exercised behavior.
+
+## Browser Harness
+
+The project includes a gated browser harness for repeatable local evidence capture:
+
+```bash
+npm run external:source-help
+npm run external:validate:selftest
+```
+
+`external:source-help` prints the expected learning-material links and modes. The self-test uses generated local reading and video fixtures. It verifies the harness and receipt shape only; it cannot satisfy the approved external reading/video evidence rows.
+
+Before running browser evidence, a pasted user input block can be parsed and validated without launching Chromium:
+
+```bash
+npm run external:source-intake -- --input "阅读：https://<public-reading-material> 视频：https://<public-video-material> 时间：00:15"
+```
+
+This command checks that the reading/video links are public http(s) learning-material URLs, rejects local/private/internal/reserved/sensitive-query URLs, normalizes the timestamp, and prints both a non-claiming public dry-run command and the approved-candidate command to run after explicit current-turn approval.
+
+When exact approval is not available yet, a real public-source preflight can exercise the same browser/source/resume mechanics without creating approved evidence:
+
+```bash
+npm run external:validate:public-dry-run -- --reading-url <public-reading-url> --video-url <public-video-url> --video-timestamp <observed-timestamp> --dry-run-note "<why this is only a dry run>"
+```
+
+The dry-run path still rejects local/private/internal/reserved URLs and sensitive query keys, rejects Chromium network error pages or pages with too little visible content, writes screenshots plus `runContext`, and keeps `canClaimExternalKo: false`. It writes `evidenceTier: PUBLIC_SOURCE_DRY_RUN`, `approvedCurrentTurn: false`, and `PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED` source markers. The privacy-review template and review validators reject this receipt tier; it is useful for checking real public material behavior before approval, not for KO evidence.
+
+For real approved sources, use the same harness only when the current turn explicitly approves the exact URLs:
+
+```bash
+npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note "<current-turn approval>"
+```
+
+Optional source details can be provided with `--reading-title`, `--reading-quote`, `--reading-thought`, `--reading-language`, `--video-title`, `--video-quote`, `--video-thought`, and `--video-language`.
+
+The harness writes `receipt.json`, `run.md`, and evidence screenshots under `.codex-tmp/external-source-validation/`. `01-source-and-app-before-capture.png` is a composed two-pane image generated from source and app screenshots captured in the same headless browser run. The receipt also records `runContext`: app URL/root, git HEAD, dirty-worktree status, git-status summary, throwaway browser profile, viewport sizes, and local/remote network mode. Treat approved actual-source output as candidate evidence until a human privacy review confirms that no private account, token, cookie, internal document, sensitive identifier, or unreviewed run-context mismatch is present. The receipt intentionally keeps `canClaimExternalKo: false` until that review is recorded.
+
+After a real approved-source candidate run, generate a privacy-review template:
+
+```bash
+npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>
+```
+
+Template generation is candidate-only. Local fixture self-tests and `PUBLIC_SOURCE_DRY_RUN` receipts are rejected before a privacy template is written. Fill every `TBD` / `false` field from a human artifact review. Then validate the completed review:
+
+```bash
+npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>
+```
+
+The harness and validators reject localhost, private/link-local IPs, IPv4-mapped local IPv6 literals such as `::ffff:127.0.0.1`, single-label intranet hosts, reserved example domains, and exact normalized sensitive URL query keys such as `token`, `access_token`, `id_token`, `session_id`, `auth_token`, `authorization`, `api_key`, `password`, `jwt`, `sig`, `signature`, `X-Amz-Signature`, `X-Goog-Signature`, `Expires`, `Key-Pair-Id`, or `Policy` for real approved-source candidates. Benign public query keys such as `keyword` are allowed. The validator refuses local fixture self-tests, requires an `APPROVED_SOURCE_CANDIDATE` receipt, requires one approved reading run and one approved video run with timestamp evidence, verifies the listed screenshots still exist, verifies `runContext` has app revision / throwaway profile / viewport / network fields, and only writes `canClaimExternalKo: true` in the derived review artifact after the human privacy review has `PASS` verdict and all privacy plus execution-review booleans are true.
 
 ## Run Note Template
 
@@ -65,6 +128,7 @@ Run type: TBD
 - App URL or file path: TBD
 - App commit SHA: TBD
 - Dirty worktree: TBD
+- Git status summary: TBD
 - Viewport / window layout: TBD
 - Browser: TBD
 - Browser profile mode: TBD
@@ -85,6 +149,8 @@ Run type: TBD
 - Saved capture: TBD
 - Resumed/opened source from app: TBD
 - Video timestamp captured: TBD
+- Run context reviewed: TBD
+- App revision recorded: TBD
 
 ## Evidence
 
@@ -160,3 +226,5 @@ One successful reading run and one successful video run prove only that those ap
 - authenticated pages are supported,
 - browser extension compatibility,
 - mobile or Windows compatibility.
+
+The final KO gate also requires the browser bilingual runtime receipt, the controlled learning-loop receipt, native Mac manual QA, Windows static/manual QA, and HarmonyOS device/toolchain QA. A privacy-reviewed approved-source artifact is necessary but not sufficient for `canClaimKo: true`.

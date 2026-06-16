@@ -9,6 +9,7 @@ This scaffold gives the native HarmonyOS work a concrete shape without requiring
 - Import local `learning-companion.workspace.v1` or `learning-companion.mirror-bundle.staging.v1` JSON.
 - Render Phone Next, Resume Here, topic summaries, due review cards, and import receipts.
 - Export append-only inbox/review-progress patch envelopes.
+- Keep visible scaffold copy bilingual by pairing English labels with Chinese guidance while preserving parser/schema strings.
 - Avoid Feishu credentials, browser cookies, background sync, or direct Mac workspace mutation.
 
 ## Intended Phone Loop
@@ -22,6 +23,7 @@ This scaffold gives the native HarmonyOS work a concrete shape without requiring
 
 This is still a scaffold contract until DevEco compile, document picker, device storage, and real file export behavior are verified on a HarmonyOS phone.
 The save/copy return JSON step names the intended native behavior; this scaffold has not verified a real HarmonyOS file write or share-sheet export.
+The bilingual labels in this scaffold are string/source evidence only; they do not replace compiled UI or device visual QA.
 
 ## DevEco Import
 

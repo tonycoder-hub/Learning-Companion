@@ -111,9 +111,30 @@ const indexHtml = readFileSync("apps/companion-web/index.html", "utf8");
 const appJs = readFileSync("apps/companion-web/src/app.js", "utf8");
 const markdownJs = readFileSync("apps/companion-web/src/markdown.js", "utf8");
 const appCss = readFileSync("apps/companion-web/styles.css", "utf8");
+const macMainSwift = readFileSync("apps/companion-mac/Sources/LearningCompanionMac/main.swift", "utf8");
 const serviceWorker = readFileSync("apps/companion-web/service-worker.js", "utf8");
 const devServerJs = readFileSync("scripts/dev-server.mjs", "utf8");
+const smokeBrowserJs = readFileSync("scripts/smoke-browser.mjs", "utf8");
+const smokeSourceResumeJs = readFileSync("scripts/smoke-source-resume.mjs", "utf8");
+const smokeTextFragmentBrowserJs = readFileSync("scripts/smoke-text-fragment-browser.mjs", "utf8");
+const agentStudyLoopCheckJs = readFileSync("scripts/agent-study-loop-check.mjs", "utf8");
+const smokeBilingualRuntimeBrowserJs = readFileSync("scripts/smoke-bilingual-runtime-browser.mjs", "utf8");
+const externalSourceValidationBrowserJs = readFileSync("scripts/external-source-validation-browser.mjs", "utf8");
+const externalSourcePrivacyReviewJs = readFileSync("scripts/validate-external-source-privacy-review.mjs", "utf8");
+const koEvidenceReviewJs = readFileSync("scripts/validate-ko-evidence.mjs", "utf8");
+const koNextActionSummaryJs = readFileSync("scripts/ko-next-action-summary.mjs", "utf8");
 assert.equal(packageJson.scripts.dev, "node scripts/dev-server.mjs");
+assert.equal(packageJson.scripts["external:validate"], "node scripts/external-source-validation-browser.mjs");
+assert.equal(packageJson.scripts["external:source-help"], "node scripts/external-source-validation-browser.mjs --help");
+assert.equal(packageJson.scripts["external:source-intake"], "node scripts/external-source-validation-browser.mjs --source-intake");
+assert.equal(packageJson.scripts["external:validate:selftest"], "node scripts/external-source-validation-browser.mjs --self-test");
+assert.equal(packageJson.scripts["external:validate:public-dry-run"], "node scripts/external-source-validation-browser.mjs --public-source-dry-run");
+assert.equal(packageJson.scripts["external:privacy-template"], "node scripts/validate-external-source-privacy-review.mjs --write-template");
+assert.equal(packageJson.scripts["external:privacy-review"], "node scripts/validate-external-source-privacy-review.mjs");
+assert.equal(packageJson.scripts["external:privacy-review:selftest"], "node scripts/validate-external-source-privacy-review.mjs --self-test");
+assert.equal(packageJson.scripts["ko:next"], "node scripts/ko-next-action-summary.mjs");
+assert.equal(packageJson.scripts["ko:validate"], "node scripts/validate-ko-evidence.mjs");
+assert.equal(packageJson.scripts["ko:validate:selftest"], "node scripts/validate-ko-evidence.mjs --self-test");
 assert.match(devServerJs, /--port/);
 assert.match(devServerJs, /--strict-port/);
 assert.match(devServerJs, /Port \$\{requestedPort\} unavailable; using \$\{selectedPort\}\./);
@@ -130,22 +151,61 @@ assert.match(indexHtml, /id="sidecarRail" class="sidecar-rail" aria-label="Sidec
 assert.match(indexHtml, /id="activityHint" class="next-step-hint" data-next-step-hint="" data-hint-installed="true" hidden/);
 assert.match(indexHtml, /id="activityHintBtn" class="mini-button" type="button"/);
 assert.match(indexHtml, /id="sidecarLayoutBtn"[^>]+aria-label="Focus sidecar layout"[^>]*>Focus Sidecar<\/button>/);
-assert.match(indexHtml, /id="languageSelect" aria-label="Language"/);
-assert.match(indexHtml, /<option value="zh">中文<\/option>/);
+assert.match(indexHtml, /id="languageSelect"[^>]*aria-label="Language \/ 语言"/);
+assert.match(indexHtml, /<option value="zh">中<\/option>/);
 assert.match(indexHtml, /id="focusBriefActionBtn" class="command-button" type="button">Start typing<\/button>/);
 assert.match(indexHtml, /id="updateNotice" class="storage-notice update-notice" hidden/);
 assert.match(indexHtml, /id="updateReloadBtn" class="mini-button" type="button">Reload/);
+assert.match(indexHtml, /id="workspaceExportSection" class="export-section-title"/);
+assert.match(indexHtml, /id="workspaceExportNote" class="export-note"/);
+assert.match(indexHtml, /id="workspaceExportJsonSummary"/);
+assert.match(indexHtml, /id="browserCaptureExportSection" class="export-section-title"/);
+assert.match(indexHtml, /id="browserCaptureExportNote" class="export-note"/);
 assert.match(appJs, /ArrowDown/);
 assert.match(appJs, /aria-activedescendant/);
 assert.match(appJs, /event\.isComposing/);
 assert.match(appJs, /searchResultsCollapsed/);
 assert.match(appJs, /scrollIntoView\(\{ block: "nearest" \}\)/);
 assert.match(appJs, /openSearchResult\(results\[Math\.max\(0, activeSearchIndex\)\]\)/);
-assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = 4/);
+assert.match(appJs, /UI_PREFS_SCHEMA_VERSION = \d+/);
 assert.match(appJs, /language: normalizeUiLanguage\(parsed\.language\)/);
 assert.match(appJs, /function langText\(en, zh\)/);
 assert.match(appJs, /function languageText\(language, en, zh\)/);
 assert.match(appJs, /document\.documentElement\.lang = language === "zh" \? "zh-CN" : "en"/);
+assert.match(appJs, /label\[for="sessionTitle"\]/);
+assert.match(appJs, /data-focus-mode="synthesize"/);
+assert.match(appJs, /data-tab="captures"/);
+assert.match(appJs, /Question Queue Health", "问题队列健康度"/);
+assert.match(appJs, /Study Details", "学习详情"/);
+assert.match(appJs, /Review Next", "复习下一张"/);
+assert.match(appJs, /Recent Stack", "最近堆栈"/);
+assert.match(appJs, /Search result opened", "搜索结果已打开"/);
+assert.match(appJs, /Time adjusted", "时间已调整"/);
+assert.match(appJs, /Source resumed", "来源已继续"/);
+assert.match(appJs, /Capture note updated", "摘录笔记已更新"/);
+assert.match(appJs, /function renderExportShellCopy\(\)/);
+assert.match(appJs, /function exportShellCopy\(\)/);
+assert.match(appJs, /function exportToastCopy\(kind\)/);
+assert.match(appJs, /function localizedMessage\(message\)/);
+assert.doesNotMatch(appJs, /copyText\(dom\.workspaceExport\.value, "Workspace copied"\)/);
+[
+  "完整工作区（全部主题）",
+  "仅本地备份。这里不是云同步，也不是飞书上传。",
+  "显示工作区 JSON",
+  "复制工作区",
+  "保存工作区",
+  "复习包",
+  "当前主题",
+  "镜像文件夹",
+  "浏览器摘录",
+  "复制 Clip，把它加入浏览器书签",
+  "工作区已复制",
+  "今日学习包已复制",
+  "镜像 bundle 已复制",
+  "备份已保存 - 请确认所选文件",
+  "已请求导出备份 - 请确认导出的文件",
+  "这里无法使用保存选择器；请使用复制，或通过 Mac 应用导出。"
+].forEach((text) => assert.ok(appJs.includes(text), `app.js should include bilingual export surface copy: ${text}`));
 assert.match(appJs, /function importReceiptTitle\(receipt, language = currentLanguage\(\)\)/);
 assert.match(appJs, /function formatImportReceipt\(receipt, language = currentLanguage\(\)\)/);
 assert.match(appJs, /function formatReturnFilesReceipt\(receipt, language = currentLanguage\(\)\)/);
@@ -218,6 +278,30 @@ assert.match(appJs, /messageHandlers\?\.learningCompanion/);
 assert.match(appJs, /completeSaveRequest/);
 assert.match(appJs, /shouldUseFallbackDownload/);
 assert.match(appJs, /__LC_ALLOW_AUTOMATED_DOWNLOADS__/);
+assert.match(macMainSwift, /private func nativeText\(_ en: String, _ zh: String\) -> String/);
+assert.match(macMainSwift, /Locale\.preferredLanguages\.first\?\.lowercased\(\)/);
+[
+  "导入工作区...",
+  "导出工作区...",
+  "打开晨间复习包",
+  "保存选中文本为摘录",
+  "保存剪贴板为摘录",
+  "从剪贴板填充摘录",
+  "进入侧栏窗口",
+  "恢复桌面窗口",
+  "保持窗口置顶",
+  "导入 Learning Companion 工作区",
+  "导出 Learning Companion 工作区",
+  "保存 Learning Companion 导出",
+  "无法从 Web 视图读取当前工作区。",
+  "未找到 Learning Companion Web 应用",
+  "全局快捷键：不可用",
+  "选中文本：需要辅助功能权限"
+].forEach((text) => assert.ok(macMainSwift.includes(text), `Mac shell should include bilingual native copy: ${text}`));
+assert.match(macMainSwift, /WKScriptMessageHandler/);
+assert.match(macMainSwift, /configuration\.userContentController\.add\(self, name: "learningCompanion"\)/);
+assert.match(macMainSwift, /payload\["type"\] as\? String == "saveTextFile"/);
+assert.match(macMainSwift, /completeNativeSaveRequest\(requestId, ok: true\)/);
 assert.match(appJs, /if \(!shouldUseFallbackDownload\(\)\) \{[\s\S]+downloadBlob\(filename, blob\);/);
 assert.match(appJs, /Backup export requested - verify the exported file/);
 assert.match(appJs, /Backup saved - verify the selected file/);
@@ -244,13 +328,16 @@ assert.match(appJs, /activityTargetsHighlightAnnotation/);
 assert.match(appJs, /Add thought to saved highlight/);
 assert.match(appJs, /captureStackNextStep/);
 assert.match(appJs, /Needs your why — or leave it as a quote/);
+assert.match(appJs, /需要补上你的原因/);
 assert.match(appJs, /Choose next: add to Notes for synthesis, or save for recall/);
 assert.match(appJs, /In Notes · keep reading, or save for recall practice/);
 assert.match(appJs, /capture-detail-next/);
 assert.match(appJs, /Highlight already has a thought/);
+assert.match(appJs, /高亮已经有想法/);
 assert.match(appJs, /updateCaptureThought/);
 assert.match(appJs, /Add why this highlight matters/);
 assert.match(appJs, /Update note/);
+assert.match(appJs, /更新笔记/);
 assert.match(appJs, /View in Notes/);
 assert.match(appJs, /captureNoteActionMeta/);
 assert.match(appJs, /Add this capture to Notes for synthesis/);
@@ -423,12 +510,171 @@ assert.match(appCss, /\.today-detail-badge/);
 assert.match(appCss, /\.storage-notice\.update-notice/);
 assert.match(appCss, /prefers-reduced-motion: reduce/);
 assert.match(serviceWorker, /CACHE_NAME/);
-assert.match(serviceWorker, /learning-companion-static-v5/);
+assert.match(serviceWorker, /learning-companion-static-v\d+/);
 assert.match(serviceWorker, /STATIC_ASSETS/);
 assert.match(serviceWorker, /src\/app\.js/);
+assert.match(serviceWorker, /src\/viewer\.js/);
+assert.match(serviceWorker, /src\/reader\.js/);
+assert.match(serviceWorker, /src\/voice\.js/);
 assert.match(serviceWorker, /await fetch\(request\)/);
 assert.match(serviceWorker, /cache\.match\(request\)/);
 assert.match(serviceWorker, /name\.startsWith\("learning-companion-static-"\) && name !== CACHE_NAME/);
+assert.match(smokeBrowserJs, /const chromePath = resolveChromePath\(\)/);
+assert.match(smokeBrowserJs, /process\.env\.CHROME_PATH/);
+assert.match(smokeBrowserJs, /\/usr\/bin\/chromium/);
+assert.doesNotMatch(smokeBrowserJs, /const chromePath = ["']\/Applications\/Google Chrome\.app/);
+[smokeSourceResumeJs, smokeTextFragmentBrowserJs, agentStudyLoopCheckJs, externalSourceValidationBrowserJs].forEach((browserScript) => {
+  assert.match(browserScript, /const chromePath = resolveChromePath\(\)/);
+  assert.match(browserScript, /process\.env\.CHROME_PATH/);
+  assert.match(browserScript, /\/usr\/bin\/chromium/);
+  assert.doesNotMatch(browserScript, /const chromePath = ["']\/Applications\/Google Chrome\.app/);
+});
+assert.match(smokeBilingualRuntimeBrowserJs, /snapshotStudyShell/);
+assert.match(smokeBilingualRuntimeBrowserJs, /staticShellChromeZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /staticShellChromeEnAfterSwitch: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /newSessionDefaultZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /studyShellZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /todayLearningFlowZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /reviewToolbarZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /mainLoopCaptureZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /synthesisOverwriteConfirmZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /mirrorImportConfirmZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /recentStackZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /searchResultsZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /activityHintZh: true/);
+assert.match(smokeBilingualRuntimeBrowserJs, /问题队列健康度/);
+assert.match(smokeBilingualRuntimeBrowserJs, /搜索主题、笔记、摘录/);
+assert.match(smokeBilingualRuntimeBrowserJs, /导入工作区、镜像包或补丁/);
+assert.match(smokeBilingualRuntimeBrowserJs, /综合草稿/);
+assert.match(smokeBilingualRuntimeBrowserJs, /新建学习主题/);
+assert.match(smokeBilingualRuntimeBrowserJs, /用重新生成的版本替换已编辑的综合草稿/);
+assert.match(smokeBilingualRuntimeBrowserJs, /用镜像 bundle/);
+assert.match(appJs, /Replace current workspace with mirror bundle/);
+assert.match(appJs, /Replace your edited synthesis draft with a regenerated version/);
+assert.match(appJs, /defaultNewSessionTitle/);
+assert.match(smokeBilingualRuntimeBrowserJs, /复习下一张/);
+assert.match(smokeBilingualRuntimeBrowserJs, /最近堆栈/);
+assert.match(smokeBilingualRuntimeBrowserJs, /添加想法/);
+assert.match(smokeBilingualRuntimeBrowserJs, /查找/);
+assert.match(externalSourceValidationBrowserJs, /approved-current-turn/);
+assert.match(externalSourceValidationBrowserJs, /buildCliHelp/);
+assert.match(externalSourceValidationBrowserJs, /public learning-material URL/);
+assert.match(externalSourceValidationBrowserJs, /public-source-dry-run/);
+assert.match(externalSourceValidationBrowserJs, /dry-run-note/);
+assert.match(externalSourceValidationBrowserJs, /reading-url/);
+assert.match(externalSourceValidationBrowserJs, /video-url/);
+assert.match(externalSourceValidationBrowserJs, /approval-note/);
+assert.match(externalSourceValidationBrowserJs, /External video validation requires --video-timestamp/);
+assert.match(externalSourceValidationBrowserJs, /allocateTcpPort\(\)/);
+assert.doesNotMatch(externalSourceValidationBrowserJs, /9800 \+ Math\.floor/);
+assert.match(externalSourceValidationBrowserJs, /LOCAL_FIXTURE_SELF_TEST/);
+assert.match(externalSourceValidationBrowserJs, /APPROVED_SOURCE_CANDIDATE/);
+assert.match(externalSourceValidationBrowserJs, /PUBLIC_SOURCE_DRY_RUN/);
+assert.match(externalSourceValidationBrowserJs, /PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED/);
+assert.match(externalSourceValidationBrowserJs, /PUBLIC_REMOTE_SOURCE_DRY_RUN_AND_LOCAL_APP/);
+assert.match(externalSourceValidationBrowserJs, /assertSourcePageUsable/);
+assert.match(externalSourceValidationBrowserJs, /This site can.t be reached/);
+assert.match(externalSourceValidationBrowserJs, /too little visible content/);
+assert.match(externalSourceValidationBrowserJs, /external-source-run-context\.v1/);
+assert.match(externalSourceValidationBrowserJs, /gitHeadCaptured/);
+assert.match(externalSourceValidationBrowserJs, /dirtyWorktree/);
+assert.match(externalSourceValidationBrowserJs, /statusCaptured/);
+assert.match(externalSourceValidationBrowserJs, /throwaway-profile/);
+assert.match(externalSourceValidationBrowserJs, /APPROVED_REMOTE_SOURCE_AND_LOCAL_APP/);
+assert.match(externalSourceValidationBrowserJs, /sourceEvidence/);
+assert.match(externalSourceValidationBrowserJs, /runApprovedUrlBoundarySelfChecks/);
+assert.match(externalSourceValidationBrowserJs, /::ffff:127\.0\.0\.1/);
+assert.match(externalSourceValidationBrowserJs, /isPrivateOrReservedIpv4/);
+assert.match(externalSourceValidationBrowserJs, /expandMappedIpv4/);
+assert.match(externalSourceValidationBrowserJs, /isSensitiveQueryKey/);
+assert.match(externalSourceValidationBrowserJs, /X-Amz-Signature/);
+assert.match(externalSourceValidationBrowserJs, /keyword=learning/);
+assert.match(externalSourceValidationBrowserJs, /public, non-private approved source URL/);
+assert.match(externalSourceValidationBrowserJs, /canClaimExternalKo: false/);
+assert.match(externalSourceValidationBrowserJs, /cannot be privacy-reviewed into KO evidence/);
+assert.match(externalSourceValidationBrowserJs, /Human privacy review is still required/);
+assert.match(externalSourceValidationBrowserJs, /--no-sandbox/);
+assert.match(externalSourcePrivacyReviewJs, /external-source-privacy-review\.v1/);
+assert.match(externalSourcePrivacyReviewJs, /external-source-ko-evidence-review\.v1/);
+assert.match(externalSourcePrivacyReviewJs, /external-source-privacy-review-selftest\.v1/);
+assert.match(externalSourcePrivacyReviewJs, /APPROVED_SOURCE_CANDIDATE/);
+assert.match(externalSourcePrivacyReviewJs, /LOCAL_FIXTURE_SELF_TEST/);
+assert.match(externalSourcePrivacyReviewJs, /PUBLIC_SOURCE_DRY_RUN/);
+assert.match(externalSourcePrivacyReviewJs, /public source dry-run receipt rejected/);
+assert.match(externalSourcePrivacyReviewJs, /APPROVED_SOURCE_PRIVACY_REVIEWED/);
+assert.match(externalSourcePrivacyReviewJs, /canClaimExternalKo: true/);
+assert.match(externalSourcePrivacyReviewJs, /fixtureOnly: true/);
+assert.match(externalSourcePrivacyReviewJs, /validatedClaimShapeInMemory/);
+assert.doesNotMatch(externalSourcePrivacyReviewJs, /join\(root, "claim\.json"\)/);
+assert.match(externalSourcePrivacyReviewJs, /noSecretsTokensSessionIds/);
+assert.match(externalSourcePrivacyReviewJs, /runContextReviewed/);
+assert.match(externalSourcePrivacyReviewJs, /appRevisionRecorded/);
+assert.match(externalSourcePrivacyReviewJs, /assertGitHead/);
+assert.match(externalSourcePrivacyReviewJs, /assertApprovedExternalUrl/);
+assert.match(externalSourcePrivacyReviewJs, /isPrivateOrReservedIpv4/);
+assert.match(externalSourcePrivacyReviewJs, /isSensitiveQueryKey/);
+assert.match(externalSourcePrivacyReviewJs, /expandMappedIpv4/);
+assert.match(externalSourcePrivacyReviewJs, /local or private source URL rejected/);
+assert.match(externalSourcePrivacyReviewJs, /IPv4-mapped IPv6 local source URL rejected/);
+assert.match(externalSourcePrivacyReviewJs, /sensitive source query key rejected/);
+assert.match(externalSourcePrivacyReviewJs, /signed source query key rejected/);
+assert.match(externalSourcePrivacyReviewJs, /X-Amz-Signature/);
+assert.match(externalSourcePrivacyReviewJs, /throwaway-profile/);
+assert.match(externalSourcePrivacyReviewJs, /videoTimestampPass/);
+assert.match(externalSourcePrivacyReviewJs, /local fixture self-tests cannot be privacy-reviewed into KO evidence/);
+assert.match(koEvidenceReviewJs, /learning-companion\.ko-evidence-review\.v1/);
+assert.match(koEvidenceReviewJs, /learning-companion\.ko-evidence-selftest\.v1/);
+assert.match(koEvidenceReviewJs, /learning-companion\.external-source-ko-evidence-review\.v1/);
+assert.match(koEvidenceReviewJs, /learning-companion\.mac-manual-qa-receipt\.v1/);
+assert.match(koEvidenceReviewJs, /learning-companion\.windows-static-qa-receipt\.v1/);
+assert.match(koEvidenceReviewJs, /learning-companion\.harmony-device-qa-receipt\.v1/);
+assert.match(koEvidenceReviewJs, /todayLearningFlowZh/);
+assert.match(koEvidenceReviewJs, /reviewToolbarZh/);
+assert.match(koEvidenceReviewJs, /mainLoopCaptureZh/);
+assert.match(koEvidenceReviewJs, /recentStackZh/);
+assert.match(koEvidenceReviewJs, /searchResultsZh/);
+assert.match(koEvidenceReviewJs, /activityHintZh/);
+assert.match(koEvidenceReviewJs, /assertExternalRunContext/);
+assert.match(koEvidenceReviewJs, /external claim runContext/);
+assert.match(koEvidenceReviewJs, /external-source-run-context\.v1/);
+assert.match(koEvidenceReviewJs, /assertApprovedExternalUrl/);
+assert.match(koEvidenceReviewJs, /expandMappedIpv4/);
+assert.match(koEvidenceReviewJs, /local or private external source URL rejected/);
+assert.match(koEvidenceReviewJs, /IPv4-mapped IPv6 external source URL rejected/);
+assert.match(koEvidenceReviewJs, /sensitive external source query key rejected/);
+assert.match(koEvidenceReviewJs, /signed external source query key rejected/);
+assert.match(koEvidenceReviewJs, /X-Goog-Signature/);
+assert.match(koEvidenceReviewJs, /throwaway-profile/);
+assert.match(koEvidenceReviewJs, /KO_MISSING_EVIDENCE/);
+assert.match(koEvidenceReviewJs, /KO_READY_EVIDENCE_REVIEW/);
+assert.match(koEvidenceReviewJs, /Missing --external path/);
+assert.match(koEvidenceReviewJs, /native Mac manual bilingual\/runtime QA/);
+assert.match(koEvidenceReviewJs, /Windows static\/manual bilingual QA/);
+assert.match(koEvidenceReviewJs, /HarmonyOS device\/toolchain bilingual QA/);
+assert.match(koEvidenceReviewJs, /canClaimMacManualQaUsable/);
+assert.match(koEvidenceReviewJs, /canClaimWindowsStaticLoopUsable/);
+assert.match(koEvidenceReviewJs, /canClaimHarmonyDeviceRoundtripUsable/);
+assert.match(koEvidenceReviewJs, /fixtureOnly, false/);
+assert.match(koEvidenceReviewJs, /HUMAN_PRIVACY_REVIEW/);
+assert.match(koEvidenceReviewJs, /external-source-privacy-review-selftest/);
+assert.match(koEvidenceReviewJs, /ko-evidence-selftest/);
+assert.match(koEvidenceReviewJs, /fixture-only external evidence rejected/);
+assert.match(koEvidenceReviewJs, /pending platform evidence rejected/);
+assert.match(koNextActionSummaryJs, /Learning Companion KO next actions/);
+assert.match(koNextActionSummaryJs, /URL here means a public learning-material link/);
+assert.match(koNextActionSummaryJs, /URL 就是网页链接/);
+assert.match(koNextActionSummaryJs, /阅读：https:\/\/\.\.\. \/ 视频：https:\/\/\.\.\. \/ 时间：00:15/);
+assert.match(koNextActionSummaryJs, /npm run external:source-help/);
+assert.match(koNextActionSummaryJs, /npm run external:source-intake/);
+assert.match(koNextActionSummaryJs, /npm run external:validate -- --approved-current-turn/);
+assert.match(koNextActionSummaryJs, /Self-test and public dry-run evidence/);
+assert.match(externalSourceValidationBrowserJs, /中文：URL 就是网页链接/);
+assert.match(externalSourceValidationBrowserJs, /阅读：https:\/\/<public-reading-material>/);
+assert.match(externalSourceValidationBrowserJs, /视频：https:\/\/<public-video-material>/);
+assert.match(externalSourceValidationBrowserJs, /function runSourceIntake/);
+assert.match(externalSourceValidationBrowserJs, /source_intake_ok/);
+assert.match(externalSourceValidationBrowserJs, /source_intake_error/);
+assert.match(externalSourceValidationBrowserJs, /APPROVED_IN_CURRENT_TURN/);
 
 let workspace = createDefaultWorkspace();
 assert.equal(workspace.schema, WORKSPACE_SCHEMA);

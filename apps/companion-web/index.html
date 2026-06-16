@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f7f6f0">
+    <meta name="theme-color" content="#f4f6f5">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Learning Companion">
@@ -21,6 +21,10 @@
             <h1>Learning Companion</h1>
             <p id="workspaceMeta">Local workspace</p>
           </div>
+          <select id="languageSelect" class="lang-toggle" aria-label="Language / 语言">
+            <option value="en">EN</option>
+            <option value="zh">中</option>
+          </select>
         </header>
 
         <div class="search-wrap">
@@ -36,12 +40,9 @@
             <input id="importWorkspaceInput" type="file" accept="application/json" multiple>
           </label>
         </div>
-        <div class="sidebar-settings" aria-label="Interface settings">
-          <label id="languageLabel" for="languageSelect">Language</label>
-          <select id="languageSelect" aria-label="Language">
-            <option value="en">English</option>
-            <option value="zh">中文</option>
-          </select>
+        <div class="sidebar-settings case-study-settings" aria-label="Case studies">
+          <label id="caseStudyLabel">Case Study</label>
+          <button id="loadCaseStudyBtn" class="mini-button" type="button" title="Load the E-commerce Psychology course as a sample workspace">📚 Course</button>
         </div>
         <div id="storageNotice" class="storage-notice" hidden>
           <span id="storageNoticeText">Export workspace</span>
@@ -110,7 +111,7 @@
             <label for="sessionTags">Tags</label>
             <input id="sessionTags" type="text" placeholder="ml, rust, system-design" autocomplete="off">
           </div>
-          <button id="sidecarLayoutBtn" class="icon-button sidecar-toggle" type="button" title="Focus sidecar layout" aria-label="Focus sidecar layout" aria-pressed="false">Focus Sidecar</button>
+          <button id="sidecarLayoutBtn" class="command-button sidecar-toggle" type="button" title="Focus sidecar layout" aria-label="Focus sidecar layout" aria-pressed="false">Focus Sidecar</button>
         </section>
 
         <section class="metrics-row" aria-label="Learning metrics">
@@ -159,6 +160,8 @@
           <button id="focusBriefActionBtn" class="command-button" type="button">Start typing</button>
         </section>
 
+        <section id="viewerPane" class="viewer-pane" aria-label="Material viewer" hidden></section>
+
         <section class="work-grid">
           <div id="capturePane" class="capture-pane" aria-label="Quick capture">
             <div class="panel-heading">
@@ -190,6 +193,10 @@
             <textarea id="quoteInput" class="quote-box" placeholder="Paste a quote, transcript line, or key idea"></textarea>
             <label for="thoughtInput" class="sr-only">Thought</label>
             <textarea id="thoughtInput" class="thought-box" placeholder="Your note, question, or synthesis"></textarea>
+            <div class="voice-row">
+              <button id="voiceBtn" class="mini-button voice-btn" type="button" title="Voice input / 语音输入" hidden>🎤</button>
+              <span id="voiceStatus" class="voice-status" hidden></span>
+            </div>
             <div id="captureStack" class="capture-stack" aria-label="Recent capture stack"></div>
           </div>
 
@@ -267,23 +274,23 @@
         </section>
 
         <section id="exportTab" class="tab-panel export-panel" aria-label="Export">
-          <div class="export-section-title">Full Workspace (all sessions)</div>
+          <div id="workspaceExportSection" class="export-section-title">Full Workspace (all sessions)</div>
           <div class="export-actions">
             <button id="copyWorkspaceBtn" class="command-button primary" type="button">Copy Workspace</button>
             <button id="downloadWorkspaceBtn" class="command-button" type="button">Save Workspace</button>
           </div>
-          <p class="export-note">Local backup only. This is not cloud sync or Feishu upload.</p>
+          <p id="workspaceExportNote" class="export-note">Local backup only. This is not cloud sync or Feishu upload.</p>
           <details class="export-details">
-            <summary>Show workspace JSON</summary>
+            <summary id="workspaceExportJsonSummary">Show workspace JSON</summary>
             <textarea id="workspaceExport" readonly></textarea>
           </details>
-          <div class="export-section-title">Review Pack</div>
+          <div id="reviewPackExportSection" class="export-section-title">Review Pack</div>
           <div class="export-actions">
             <button id="copyReviewPackBtn" class="command-button primary" type="button">Copy Pack</button>
             <button id="downloadReviewPackBtn" class="command-button" type="button">Save Pack</button>
           </div>
           <textarea id="reviewPackExport" readonly></textarea>
-          <div class="export-section-title">Current Session</div>
+          <div id="currentSessionExportSection" class="export-section-title">Current Session</div>
           <div class="export-actions">
             <button id="copyMarkdownBtn" class="command-button" type="button">Copy MD</button>
             <button id="downloadMarkdownBtn" class="command-button" type="button">Save MD</button>
@@ -306,8 +313,8 @@
             <button id="downloadMirrorZipBtn" class="command-button" type="button">Save ZIP Copy</button>
           </div>
           <textarea id="mirrorExport" readonly></textarea>
-          <div class="export-section-title">Browser Capture</div>
-          <p class="export-note">Copy Clip, add it as a browser bookmark, then click it on a source page to send selected text, title, URL, and video time back here.</p>
+          <div id="browserCaptureExportSection" class="export-section-title">Browser Capture</div>
+          <p id="browserCaptureExportNote" class="export-note">Copy Clip, add it as a browser bookmark, then click it on a source page to send selected text, title, URL, and video time back here.</p>
           <div class="export-actions">
             <button id="copyBookmarkletBtn" class="command-button" type="button">Copy Clip</button>
           </div>
