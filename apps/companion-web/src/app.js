@@ -56,6 +56,9 @@ import {
   resolveDraftSourceMaterialType,
   sanitizeWorkspace,
   searchWorkspace,
+  isYouTubeHost,
+  isBilibiliHost,
+  isVimeoHost,
   secondsToTimestamp,
   summarizeCaptureDraft,
   selectSession,
@@ -74,6 +77,7 @@ import { renderMarkdown } from "./markdown.js";
 import { SEED_WORKSPACES } from "./seed-workspaces.js";
 import { renderViewer } from "./viewer.js";
 import { createVoiceInput, isVoiceSupported } from "./voice.js";
+import { initNotesCanvas } from "./canvas.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
@@ -184,6 +188,9 @@ const dom = {
   notesPreview: document.querySelector("#notesPreview"),
   notesEditBtn: document.querySelector("#notesEditBtn"),
   notesPreviewBtn: document.querySelector("#notesPreviewBtn"),
+  notesCanvasBtn: document.querySelector("#notesCanvasBtn"),
+  notesCanvas: document.querySelector("#notesCanvas"),
+  notesCanvasWrap: document.querySelector(".notes-canvas-wrap"),
   saveState: document.querySelector("#saveState"),
   todaySummary: document.querySelector("#todaySummary"),
   todayList: document.querySelector("#todayList"),
@@ -314,6 +321,36 @@ installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
 applyUrlCapture();
 render();
+
+// Notes handwriting canvas
+let notesCanvas = null;
+let notesCanvasVisible = false;
+if (dom.notesCanvas && dom.notesCanvasWrap) {
+  const toolbar = dom.notesCanvasWrap.querySelector(".canvas-toolbar");
+  notesCanvas = initNotesCanvas(dom.notesCanvas, toolbar, {
+    onSave: (dataUrl) => {
+      // Insert markdown image reference at cursor position in notes editor
+      const editor = dom.notesEditor;
+      const start = editor.selectionStart ?? editor.value.length;
+      const end = editor.selectionEnd ?? editor.value.length;
+      const imgMarkdown = `\n![drawing](${dataUrl})\n`;
+      editor.value = editor.value.slice(0, start) + imgMarkdown + editor.value.slice(end);
+      editor.selectionStart = editor.selectionEnd = start + imgMarkdown.length;
+      const session = getActiveSession(workspace);
+      workspace = updateSession(workspace, session.id, { notesMarkdown: editor.value });
+      scheduleSave();
+      renderNotesMode();
+      showToast(langText("Drawing inserted into notes", "手写已插入笔记"));
+    },
+    onChange: (dataUrl) => {
+      // Auto-persist canvas drawing to session
+      const session = getActiveSession(workspace);
+      workspace = updateSession(workspace, session.id, { notesCanvas: dataUrl });
+      scheduleSave();
+    }
+  });
+}
+
 registerServiceWorker();
 installNativeBridge();
 
@@ -859,6 +896,18 @@ dom.notesPreviewBtn.addEventListener("click", () => {
   renderNotesMode();
 });
 
+dom.notesCanvasBtn?.addEventListener("click", () => {
+  notesCanvasVisible = !notesCanvasVisible;
+  dom.notesCanvasBtn.classList.toggle("active", notesCanvasVisible);
+  if (notesCanvas) notesCanvas.setVisible(notesCanvasVisible);
+  // Persist current canvas to session before switching view
+  if (notesCanvas && !notesCanvas.isEmpty()) {
+    const session = getActiveSession(workspace);
+    workspace = updateSession(workspace, session.id, { notesCanvas: notesCanvas.save() });
+    scheduleSave();
+  }
+});
+
 dom.openSourceBtn.addEventListener("click", toggleViewerPane);
 dom.pasteSourceBtn.addEventListener("click", pasteSourceFromClipboard);
 dom.captureContextTarget.addEventListener("click", showCaptureDestination);
@@ -932,14 +981,23 @@ dom.voiceBtn?.addEventListener("click", () => {
 });
 
 document.addEventListener("lc:quote-capture", (e) => {
-  const text = (e.detail && (e.detail.text || e.detail)) || "";
-  if (typeof text === "string") {
+  const detail = e.detail || {};
+  const text = typeof detail === "string" ? detail : (detail.text || "");
+  if (typeof text === "string" && text) {
     dom.quoteInput.value = text;
+  }
+  // If in video mode and a timestamp is provided and >0, capture it (don't overwrite existing timestamp)
+  const session = getActiveSession(workspace);
+  if (session.materialType === "video" && detail.timestamp != null && detail.timestamp > 0 && !dom.timestampInput.value.trim()) {
+    dom.timestampInput.value = secondsToTimestamp(Math.max(0, Math.floor(detail.timestamp)));
   }
   if (dom.capturePane) {
     dom.capturePane.classList.add("capture-pane-flash");
     setTimeout(() => dom.capturePane.classList.remove("capture-pane-flash"), 500);
   }
+  // Refresh capture context to show current source title
+  renderCaptureContext(getActiveSession(workspace));
+  saveCurrentCaptureDraft();
   dom.thoughtInput.focus();
 });
 
@@ -1027,6 +1085,8 @@ document.addEventListener("keydown", (event) => {
     return;
   }
   if (isMod && event.key === "Enter") {
+    // Don't hijack Enter in the notes editor or synthesis draft (those use Enter for new lines)
+    if (event.target === dom.notesEditor || event.target === dom.synthesisDraft) return;
     event.preventDefault();
     capture(event.shiftKey);
     return;
@@ -1660,10 +1720,32 @@ function formatInboundResolution(resolution, sourceUpdated = false) {
   }[resolution] || langText("current topic", "当前主题");
 }
 
+function detectMaterialTypeFromUrl(urlString) {
+  try {
+    const url = new URL(urlString);
+    const host = url.hostname.toLowerCase();
+    const path = url.pathname.toLowerCase();
+    // Video hosts
+    if (isYouTubeHost(host) || isBilibiliHost(host) || isVimeoHost(host)) {
+      return "video";
+    }
+    // Feishu/Lark docs
+    if ((host === "feishu.cn" || host.endsWith(".feishu.cn") || host === "larksuite.com" || host.endsWith(".larksuite.com"))
+        && (path.startsWith("/docx/") || path.startsWith("/wiki/") || path.startsWith("/doc/"))) {
+      return "doc";
+    }
+    // Default to article for other URLs
+    return "article";
+  } catch {
+    return null;
+  }
+}
+
 function updateSessionFromFields(event) {
   const session = getActiveSession(workspace);
   let sourceUrl = dom.sourceUrl.value;
   let stagedSourceTimestamp = "";
+  let materialTypeAutoChanged = false;
   if (event?.target === dom.sourceUrl) {
     const extractedTimestamp = extractSourceTimestamp(sourceUrl);
     const strippedSourceUrl = stripSourceTimestamp(sourceUrl);
@@ -1685,6 +1767,14 @@ function updateSessionFromFields(event) {
         dom.sourceUrl.value = strippedSourceUrl;
       }
     }
+    // Auto-detect materialType from URL
+    if (sourceUrl) {
+      const detectedType = detectMaterialTypeFromUrl(sourceUrl);
+      if (detectedType && dom.materialType.value !== detectedType) {
+        dom.materialType.value = detectedType;
+        materialTypeAutoChanged = true;
+      }
+    }
   }
   workspace = updateSession(workspace, session.id, {
     title: dom.sessionTitle.value,
@@ -1696,6 +1786,13 @@ function updateSessionFromFields(event) {
   const linkedDraftToSource = maybeAnchorUnsourcedCaptureDraft(getActiveSession(workspace), event);
   scheduleSave();
   renderOpenSourceButton(getActiveSession(workspace));
+  // Re-render viewer when source URL changes (on "change" event, i.e. paste/blur/Enter),
+  // when materialType select changes, or when we auto-detected a new material type from a pasted URL.
+  if (event?.target === dom.materialType
+      || materialTypeAutoChanged
+      || (event?.target === dom.sourceUrl && event?.type === "change")) {
+    renderViewerPane();
+  }
   renderCaptureContext(getActiveSession(workspace));
   renderCaptureDraftStatus(getActiveSession(workspace));
   renderFocusBrief();
@@ -2061,6 +2158,14 @@ function render() {
   dom.materialType.value = session.materialType;
   dom.sessionTags.value = session.tags.join(", ");
   dom.notesEditor.value = session.notesMarkdown;
+  // Restore canvas drawing for this session
+  if (notesCanvas) {
+    if (session.notesCanvas) {
+      notesCanvas.loadDataUrl(session.notesCanvas);
+    } else {
+      notesCanvas.clear();
+    }
+  }
   renderCaptureDraft(session);
   renderCaptureStack(session);
   renderOpenSourceButton(session);
@@ -2197,6 +2302,7 @@ function renderStaticBilingualShell() {
   setText(".editor-pane .panel-heading h2", "Notes", "笔记");
   setText("#notesEditBtn", "Edit", "编辑");
   setText("#notesPreviewBtn", "Preview", "预览");
+  setText("#notesCanvasBtn", "✏️ Draw", "✏️ 手写");
   if (dom.reviewNextBtn) dom.reviewNextBtn.textContent = langText("Review Next", "复习下一张");
   document.querySelector("#captureStarters")?.setAttribute("aria-label", langText("Capture starters", "摘录开头"));
   if (dom.captureStarterLabel) dom.captureStarterLabel.textContent = langText("Write as", "写成");
@@ -2638,8 +2744,8 @@ function renderViewerPane() {
         persistWorkspace();
         render();
       },
-      onQuoteCapture(text) {
-        document.dispatchEvent(new CustomEvent("lc:quote-capture", { detail: { text } }));
+      onQuoteCapture(text, meta) {
+        document.dispatchEvent(new CustomEvent("lc:quote-capture", { detail: { text, timestamp: meta?.timestamp } }));
       }
     });
   }

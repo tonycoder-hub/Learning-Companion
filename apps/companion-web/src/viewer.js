@@ -320,6 +320,7 @@ export function renderViewer(container, session, options = {}) {
 
       if (sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be")) {
         ensureYouTubeApi();
+        let lastTsReport = 0;
         window.addEventListener("message", (e) => {
           if (e.origin !== "https://www.youtube.com") return;
           try {
@@ -327,6 +328,12 @@ export function renderViewer(container, session, options = {}) {
             if (data.info?.currentTime) {
               currentTimeSec = Math.floor(data.info.currentTime);
               if (timeDisplay) timeDisplay.textContent = secondsToTimestamp(currentTimeSec);
+              // Throttle timestamp reporting to once per 2 seconds
+              const now = Date.now();
+              if (onTimestampChange && now - lastTsReport > 2000) {
+                lastTsReport = now;
+                onTimestampChange(currentTimeSec);
+              }
             }
           } catch { /* not JSON */ }
         });
@@ -380,7 +387,7 @@ export function renderViewer(container, session, options = {}) {
             url: sourceUrl,
             title: result.title || sourceTitle,
             onQuoteCapture: (text) => {
-              if (onQuoteCapture) onQuoteCapture(text);
+              if (onQuoteCapture) onQuoteCapture(text, { timestamp: currentTimeSec });
             },
             lang: document.body?.dataset?.uiLanguage,
           });
@@ -391,7 +398,7 @@ export function renderViewer(container, session, options = {}) {
             url: sourceUrl,
             title: sourceTitle,
             onQuoteCapture: (text) => {
-              if (onQuoteCapture) onQuoteCapture(text);
+              if (onQuoteCapture) onQuoteCapture(text, { timestamp: currentTimeSec });
             },
             lang: document.body?.dataset?.uiLanguage,
           });
@@ -404,7 +411,7 @@ export function renderViewer(container, session, options = {}) {
           url: sourceUrl,
           title: sourceTitle,
           onQuoteCapture: (text) => {
-            if (onQuoteCapture) onQuoteCapture(text);
+            if (onQuoteCapture) onQuoteCapture(text, { timestamp: currentTimeSec });
           },
           lang: document.body?.dataset?.uiLanguage,
         });
