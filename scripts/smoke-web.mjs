@@ -516,6 +516,8 @@ assert.match(serviceWorker, /src\/app\.js/);
 assert.match(serviceWorker, /src\/viewer\.js/);
 assert.match(serviceWorker, /src\/reader\.js/);
 assert.match(serviceWorker, /src\/voice\.js/);
+assert.match(serviceWorker, /src\/canvas\.js/);
+assert.match(serviceWorker, /pathname\.startsWith\("\/api\/"\)/);
 assert.match(serviceWorker, /await fetch\(request\)/);
 assert.match(serviceWorker, /cache\.match\(request\)/);
 assert.match(serviceWorker, /name\.startsWith\("learning-companion-static-"\) && name !== CACHE_NAME/);

@@ -15,8 +15,8 @@ const mimeTypes = new Map([
   [".webmanifest", "application/manifest+json; charset=utf-8"]
 ]);
 
-const ALLOWED_INLINE_TAGS = new Set(["a", "strong", "em", "code", "br", "span"]);
-const ALLOWED_BLOCK_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "li", "pre", "blockquote", "img", "hr", "div", "section"]);
+const ALLOWED_INLINE_TAGS = new Set(["a", "b", "strong", "em", "i", "u", "code", "br", "span", "sub", "sup"]);
+const ALLOWED_BLOCK_TAGS = new Set(["h1", "h2", "h3", "h4", "h5", "h6", "p", "ul", "ol", "li", "pre", "blockquote", "img", "hr", "div", "section", "table", "thead", "tbody", "tr", "td", "th"]);
 const ALLOWED_TAGS = new Set([...ALLOWED_INLINE_TAGS, ...ALLOWED_BLOCK_TAGS]);
 
 function parseArgs(argv) {
@@ -321,6 +321,24 @@ function execFileAsync(file, args, options) {
   });
 }
 
+const MAX_DOC_SIZE = 500 * 1024; // 500 KB
+
+function extractTitleFromHtml(html) {
+  // Prefer explicit <title>...</title>
+  const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (titleMatch) {
+    const t = titleMatch[1].replace(/<[^>]+>/g, "").trim();
+    if (t) return t;
+  }
+  // Fall back to first <h1>...</h1>
+  const h1Match = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
+  if (h1Match) {
+    const t = h1Match[1].replace(/<[^>]+>/g, "").trim();
+    if (t) return t;
+  }
+  return "";
+}
+
 async function handleFetchDoc(url, response) {
   const docUrl = url.searchParams.get("url");
   if (!docUrl) {
@@ -333,7 +351,42 @@ async function handleFetchDoc(url, response) {
       ["docs", "+fetch", "--api-version", "v2", "--doc", docUrl],
       { timeout: 30000, maxBuffer: 10 * 1024 * 1024 }
     );
-    const { html, title } = convertLarkToHtml(stdout);
+
+    let html;
+    let title;
+
+    // lark-cli returns JSON: { ok, data: { document: { content, document_id } } }
+    // The content field is already clean HTML.
+    try {
+      const parsed = JSON.parse(stdout);
+      const docContent = parsed?.data?.document?.content;
+      if (typeof docContent === "string" && docContent.length > 0) {
+        if (docContent.length > MAX_DOC_SIZE) {
+          sendJson(response, 413, { ok: false, error: "Document too large" });
+          return;
+        }
+        title = extractTitleFromHtml(docContent) || parsed?.data?.document?.title || "";
+        html = `<article class="reader-article">\n${docContent}\n</article>`;
+      } else {
+        // JSON parsed but no content field - fall through to fallback
+        throw new Error("No document.content in lark-cli JSON response");
+      }
+    } catch {
+      // Fallback: stdout is not JSON (or missing content) - treat as raw XML/markdown
+      const converted = convertLarkToHtml(stdout);
+      if (converted.html.length > MAX_DOC_SIZE) {
+        sendJson(response, 413, { ok: false, error: "Document too large" });
+        return;
+      }
+      html = converted.html;
+      title = converted.title;
+    }
+
+    if (html.length > MAX_DOC_SIZE) {
+      sendJson(response, 413, { ok: false, error: "Document too large" });
+      return;
+    }
+
     sendJson(response, 200, { ok: true, html, title });
   } catch (error) {
     sendJson(response, 500, { ok: false, error: error.message || String(error) });

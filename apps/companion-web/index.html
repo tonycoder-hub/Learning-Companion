@@ -239,11 +239,23 @@
               <div class="notes-actions">
                 <button id="notesEditBtn" class="mini-button active" type="button">Edit</button>
                 <button id="notesPreviewBtn" class="mini-button" type="button">Preview</button>
+                <button id="notesCanvasBtn" class="mini-button" type="button">✏️ Draw</button>
                 <span id="saveState" class="save-state">Saved</span>
               </div>
             </div>
             <textarea id="notesEditor" class="notes-editor" spellcheck="true"></textarea>
             <div id="notesPreview" class="notes-preview markdown-lite" hidden></div>
+            <div class="notes-canvas-wrap" hidden>
+              <div class="canvas-toolbar">
+                <button type="button" class="mini-button canvas-pen active" data-pen="pen" title="Pen / 笔">✏️</button>
+                <button type="button" class="mini-button canvas-eraser" data-pen="eraser" title="Eraser / 橡皮">🧽</button>
+                <input type="color" class="canvas-color" value="#1a1a1a" title="Color / 颜色">
+                <input type="range" class="canvas-size" min="1" max="12" value="2" title="Size / 粗细">
+                <button type="button" class="mini-button canvas-clear" title="Clear / 清空">🗑️</button>
+                <button type="button" class="mini-button canvas-save" title="Save to notes / 保存到笔记">💾</button>
+              </div>
+              <canvas id="notesCanvas" class="notes-canvas"></canvas>
+            </div>
           </div>
         </section>
       </main>

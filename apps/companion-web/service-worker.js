@@ -1,4 +1,4 @@
-const CACHE_NAME = "learning-companion-static-v7";
+const CACHE_NAME = "learning-companion-static-v8";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
@@ -11,7 +11,8 @@ const STATIC_ASSETS = [
   "./src/model.js",
   "./src/viewer.js",
   "./src/reader.js",
-  "./src/voice.js"
+  "./src/voice.js",
+  "./src/canvas.js"
 ];
 
 self.addEventListener("install", (event) => {
@@ -32,6 +33,15 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
+
+  if (url.pathname.startsWith("/api/")) {
+    // Never cache API responses - always go to the network
+    event.respondWith(fetch(request).catch(() => new Response(JSON.stringify({ok:false,error:"offline"}), {
+      status: 503,
+      headers: { "content-type": "application/json" }
+    })));
+    return;
+  }
 
   event.respondWith(caches.open(CACHE_NAME).then(async (cache) => {
     try {
