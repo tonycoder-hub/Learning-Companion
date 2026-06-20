@@ -81,8 +81,12 @@ import { initNotesCanvas } from "./canvas.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
-const UI_PREFS_SCHEMA_VERSION = 5;
+const UI_PREFS_SCHEMA_VERSION = 6;
 const UI_LANGUAGES = new Set(["en", "zh"]);
+const READER_THEMES = new Set(["light", "sepia", "dark"]);
+const READER_FONT_MIN = 14;
+const READER_FONT_MAX = 20;
+const READER_FONT_DEFAULT = 16;
 const CAPTURE_DELETE_UNDO_MS = 10000;
 const CAPTURE_NODE_ATTR = "data-capture-id";
 const nativeSaveRequests = new Map();
@@ -316,15 +320,14 @@ const highlightThoughtHintKeys = new Set();
 const pulseTimers = new WeakMap();
 let returnFilesPickerArmed = false;
 let firstNoteDeviceFlowRevealed = false;
+let notesCanvas = null;
+let notesCanvasVisible = false;
 
 installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
 applyUrlCapture();
-render();
 
 // Notes handwriting canvas
-let notesCanvas = null;
-let notesCanvasVisible = false;
 if (dom.notesCanvas && dom.notesCanvasWrap) {
   const toolbar = dom.notesCanvasWrap.querySelector(".canvas-toolbar");
   notesCanvas = initNotesCanvas(dom.notesCanvas, toolbar, {
@@ -353,6 +356,7 @@ if (dom.notesCanvas && dom.notesCanvasWrap) {
 
 registerServiceWorker();
 installNativeBridge();
+render();
 
 dom.newSessionBtn.addEventListener("click", () => {
   workspace = addSession(workspace, defaultNewSessionTitle());
@@ -1210,6 +1214,7 @@ function loadUiPrefs() {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       language: normalizeUiLanguage(parsed.language),
       sidecarLayout: Boolean(parsed.sidecarLayout),
+      readingPrefs: normalizeReadingPrefs(parsed.readingPrefs),
       captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts),
       workspaceBackup: normalizeWorkspaceBackup(parsed.workspaceBackup),
       mirrorHandoff: normalizeMirrorHandoff(parsed.mirrorHandoff)
@@ -1225,6 +1230,7 @@ function saveUiPrefs() {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       language: normalizeUiLanguage(uiPrefs.language),
       sidecarLayout: Boolean(uiPrefs.sidecarLayout),
+      readingPrefs: normalizeReadingPrefs(uiPrefs.readingPrefs),
       captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts),
       workspaceBackup: normalizeWorkspaceBackup(uiPrefs.workspaceBackup),
       mirrorHandoff: normalizeMirrorHandoff(uiPrefs.mirrorHandoff)
@@ -1241,9 +1247,23 @@ function defaultUiPrefs() {
     schemaVersion: UI_PREFS_SCHEMA_VERSION,
     language: detected,
     sidecarLayout: false,
+    readingPrefs: normalizeReadingPrefs(),
     captureDrafts: {},
     workspaceBackup: null,
     mirrorHandoff: null
+  };
+}
+
+function normalizeReadingPrefs(value = {}) {
+  const theme = READER_THEMES.has(value.theme) ? value.theme : "light";
+  const fontSize = Math.max(
+    READER_FONT_MIN,
+    Math.min(READER_FONT_MAX, Math.round(Number(value.fontSize) || READER_FONT_DEFAULT))
+  );
+  return {
+    theme,
+    fontSize,
+    tocCollapsed: Boolean(value.tocCollapsed)
   };
 }
 
@@ -1746,6 +1766,7 @@ function updateSessionFromFields(event) {
   let sourceUrl = dom.sourceUrl.value;
   let stagedSourceTimestamp = "";
   let materialTypeAutoChanged = false;
+  let sourceUrlChanged = false;
   if (event?.target === dom.sourceUrl) {
     const extractedTimestamp = extractSourceTimestamp(sourceUrl);
     const strippedSourceUrl = stripSourceTimestamp(sourceUrl);
@@ -1768,9 +1789,20 @@ function updateSessionFromFields(event) {
       }
     }
     // Auto-detect materialType from URL
+    sourceUrlChanged = cleanUrl(sourceUrl) !== cleanUrl(session.sourceUrl);
     if (sourceUrl) {
       const detectedType = detectMaterialTypeFromUrl(sourceUrl);
-      if (detectedType && dom.materialType.value !== detectedType) {
+      const previousDetectedType = detectMaterialTypeFromUrl(session.sourceUrl);
+      const currentTypeCameFromPreviousUrl = sourceUrlChanged
+        && previousDetectedType
+        && previousDetectedType !== "article"
+        && dom.materialType.value === previousDetectedType;
+      const canAutoChangeType = detectedType !== "article"
+        || !dom.materialType.value
+        || dom.materialType.value === "article"
+        || dom.materialType.value === "other"
+        || currentTypeCameFromPreviousUrl;
+      if (detectedType && dom.materialType.value !== detectedType && canAutoChangeType) {
         dom.materialType.value = detectedType;
         materialTypeAutoChanged = true;
       }
@@ -1781,7 +1813,8 @@ function updateSessionFromFields(event) {
     sourceTitle: dom.sourceTitle.value,
     sourceUrl,
     materialType: dom.materialType.value,
-    tags: dom.sessionTags.value
+    tags: dom.sessionTags.value,
+    ...(sourceUrlChanged ? { viewerPosition: 0 } : {})
   });
   const linkedDraftToSource = maybeAnchorUnsourcedCaptureDraft(getActiveSession(workspace), event);
   scheduleSave();
@@ -2146,6 +2179,10 @@ function persist() {
     dom.saveState.textContent = langText("Export needed", "需要导出");
   }
   renderStorageNotice();
+}
+
+function persistWorkspace() {
+  persist();
 }
 
 function render() {
@@ -2733,6 +2770,7 @@ function renderViewerPane() {
     const startSec = timestampToSeconds(dom.timestampInput.value) || 0;
     renderViewer(dom.viewerPane, session, {
       startTimestamp: startSec,
+      readerPrefs: normalizeReadingPrefs(uiPrefs.readingPrefs),
       onTimestampChange(sec) {
         dom.timestampInput.value = secondsToTimestamp(Math.max(0, Math.floor(sec)));
       },
@@ -2746,6 +2784,22 @@ function renderViewerPane() {
       },
       onQuoteCapture(text, meta) {
         document.dispatchEvent(new CustomEvent("lc:quote-capture", { detail: { text, timestamp: meta?.timestamp } }));
+      },
+      onReaderScroll(top) {
+        const activeSession = getActiveSession(workspace);
+        if (!activeSession || activeSession.id !== session.id) return;
+        const nextTop = Math.max(0, Math.round(Number(top) || 0));
+        if (Math.abs((Number(activeSession.viewerPosition) || 0) - nextTop) < 4) return;
+        workspace = updateSession(workspace, activeSession.id, { viewerPosition: nextTop });
+        persistWorkspace();
+      },
+      onReaderPrefsChange(prefs) {
+        uiPrefs = {
+          ...uiPrefs,
+          readingPrefs: normalizeReadingPrefs(prefs)
+        };
+        saveUiPrefs();
+        renderViewerPane();
       }
     });
   }

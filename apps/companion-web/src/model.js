@@ -436,7 +436,7 @@ export function createSession(overrides = {}, originClientId = overrides.originC
     focusMode: FOCUS_MODES.has(overrides.focusMode) ? overrides.focusMode : "capture",
     viewerOpen: overrides.viewerOpen !== false,
     viewerMode: overrides.viewerMode || "auto",
-    viewerPosition: Number.isFinite(overrides.viewerPosition) ? overrides.viewerPosition : 0,
+    viewerPosition: Math.max(0, Math.round(Number(overrides.viewerPosition) || 0)),
     notesMarkdown: cleanText(overrides.notesMarkdown || "", MAX_NOTE_LENGTH),
     captures: Array.isArray(overrides.captures)
       ? overrides.captures.map((capture) => normalizeCapture(capture, originClientId, {
@@ -1001,6 +1001,7 @@ export function updateSession(workspace, sessionId, patch) {
       next.notesMarkdown = cleanText(next.notesMarkdown, MAX_NOTE_LENGTH);
       next.materialType = MATERIAL_TYPES.has(next.materialType) ? next.materialType : "other";
       next.focusMode = FOCUS_MODES.has(next.focusMode) ? next.focusMode : "capture";
+      next.viewerPosition = Math.max(0, Math.round(Number(next.viewerPosition) || 0));
       return next;
     })
   };
