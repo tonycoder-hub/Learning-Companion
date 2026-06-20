@@ -28,7 +28,7 @@ learning-companion/
 │   ├── companion-web/          # PRIMARY app (vanilla JS ES modules)
 │   │   ├── index.html
 │   │   ├── styles.css
-│   │   ├── service-worker.js   # Cache: learning-companion-static-v8
+│   │   ├── service-worker.js   # Cache: learning-companion-static-v9
 │   │   ├── manifest.webmanifest
 │   │   ├── bookmarklet.js
 │   │   ├── assets/
@@ -61,7 +61,7 @@ learning-companion/
 - ALL data shapes, schemas, and business rules live here.
 - No DOM, no `document`, no `window`. Pure functions only.
 - Key exports: `createSession`, `addCapture`, `sanitizeWorkspace`, `gradeCard`, `generateMarkdown`, `buildResumeSource`, `isYouTubeHost`, etc.
-- Schema versions: `WORKSPACE_SCHEMA_VERSION = 2`, `UI_PREFS_SCHEMA_VERSION = 5` (in app.js).
+- Schema versions: `WORKSPACE_SCHEMA_VERSION = 2`, `UI_PREFS_SCHEMA_VERSION = 6` (in app.js).
 - If you add a new data field, update `createSession`, `sanitizeWorkspace`, and the appropriate normalize function.
 
 ### Layer 2 — `app.js` (DOM Controller)
@@ -124,7 +124,7 @@ Static files served from `apps/companion-web/` with MIME detection and path-trav
 }
 ```
 
-UI prefs stored separately: key `learning-companion.ui.v1`, version 5.
+UI prefs stored separately: key `learning-companion.ui.v1`, version 6.
 
 ## Common Tasks
 

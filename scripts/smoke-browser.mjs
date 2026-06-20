@@ -1636,7 +1636,7 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
-  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 4);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 6);
   assert.equal(sidecarLayout.afterPanelShortcut.storedLanguage, "en");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeTab, "captures");
@@ -1756,7 +1756,7 @@ try {
   assert.equal(pastedSource.activityAction, "Capture");
   assert.equal(pastedSource.activityAria, "Open capture");
   assert.equal(pastedSource.activeElement, "quoteInput");
-  assert.equal(pastedSource.openSourceTitle, "Open source at 01:35");
+  assert.equal(pastedSource.openSourceTitle, "Hide material viewer");
   assert.equal(pastedSource.contextOpenText, "Resume @ 01:35");
   assert.equal(pastedSource.captureIntent, "Video moment");
   assert.equal(pastedSource.quotePlaceholder, "Transcript line or key phrase at this moment");
@@ -3382,7 +3382,7 @@ try {
   assert.equal(result.sourceTimestampStage.sourceUrlInputAfterChange, "https://www.youtube.com/watch?v=rust123");
   assert.equal(result.sourceTimestampStage.activityTitle, "Source time staged");
   assert.match(result.sourceTimestampStage.activityDetail, /Timestamp 08:12 saved as a capture draft/);
-  assert.equal(result.sourceTimestampStage.openSourceTitle, "Open source at 08:12");
+  assert.equal(result.sourceTimestampStage.openSourceTitle, "Hide material viewer");
   assert.equal(result.sourceTimestampStage.draftStatus, "Time kept");
   assert.equal(result.sourceTimestampStage.timestampPulsed, true);
   assert.equal(result.sourceTimestampStage.contextTarget, "To Learning Companion MVP");
@@ -3406,7 +3406,7 @@ try {
   assert.equal(result.sourceTimestampStage.contextOpenText, "Resume @ 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12");
   assert.equal(result.sourceTimestampStage.contextOpenAria, "Open source at 08:12");
-  assert.equal(result.sourceTimestampStage.contextOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
+  assert.equal(result.sourceTimestampStage.contextOpened, "");
   assert.deepEqual(result.sourceContextShown, {
     activeElement: "sourceTitle",
     activityTitle: "Capture source shown",
@@ -3419,7 +3419,7 @@ try {
   assert.equal(result.sourceTimestampTyped.contextOpenText, "Resume @ 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpenAria, "Open source at 12:30");
-  assert.equal(result.sourceTimestampTyped.contextOpened, "https://www.youtube.com/watch?v=rust123&t=750s");
+  assert.equal(result.sourceTimestampTyped.contextOpened, "");
   assert.deepEqual(result.sourceTimestampNudge.afterTimeBack, {
     timestamp: "12:15",
     contextTime: "@ 12:15",
@@ -3746,7 +3746,7 @@ try {
     statusClass: "save-state capture-draft-status",
     statusTitle: ""
   });
-  assert.equal(result.sourceJumpOpened, "https://www.youtube.com/watch?v=rust123&t=492s");
+  assert.equal(result.sourceJumpOpened, "");
   assert.equal(result.activityAfterSynthesis, "Synthesis inserted");
   assert.match(result.captureText, /Ownership lets Rust/);
   assert.match(result.reviewText, /Spaced repetition improves/);
@@ -3861,7 +3861,7 @@ try {
   assert.equal(result.mirrorHasMarkdown, true);
   assert.equal(result.mirrorHasTimeJump, true);
   assert.equal(result.mirrorFingerprintsValid, true);
-  assert.equal(result.schemaVersion, 1);
+  assert.equal(result.schemaVersion, 2);
   assert.match(result.clientId, /^client_/);
 
   const importErrorReceipts = await cdp.evaluate(`(async () => {

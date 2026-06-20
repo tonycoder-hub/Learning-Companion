@@ -32,6 +32,16 @@ const STRINGS = {
     videoPlayer: "Video player",
     docViewer: "Document viewer",
     loading: "Loading...",
+    themeLight: "Light",
+    themeSepia: "Sepia",
+    themeDark: "Dark",
+    themeTitle: "Reading theme",
+    fontSizeTitle: "Reader font size",
+    fontSmaller: "A-",
+    fontLarger: "A+",
+    tocToggle: "TOC",
+    tocTitle: "Table of contents",
+    tocEmpty: "No headings",
   },
   zh: {
     typeLabels: { video: "▶ 视频", article: "📄 文章", doc: "📑 文档", course: "📚 课程", book: "📖 书籍", other: "📎 其他" },
@@ -49,6 +59,16 @@ const STRINGS = {
     videoPlayer: "视频播放器",
     docViewer: "文档阅读器",
     loading: "加载中...",
+    themeLight: "浅色",
+    themeSepia: "纸色",
+    themeDark: "深色",
+    themeTitle: "阅读主题",
+    fontSizeTitle: "阅读字号",
+    fontSmaller: "A-",
+    fontLarger: "A+",
+    tocToggle: "目录",
+    tocTitle: "目录",
+    tocEmpty: "暂无标题",
   }
 };
 
@@ -60,6 +80,232 @@ function t(key) {
 }
 function tType(mat) {
   return t("typeLabels")[mat] || mat;
+}
+
+const READER_THEMES = new Set(["light", "sepia", "dark"]);
+const READER_FONT_MIN = 14;
+const READER_FONT_MAX = 20;
+const READER_FONT_DEFAULT = 16;
+
+function normalizeReaderPrefs(value = {}) {
+  const theme = READER_THEMES.has(value.theme) ? value.theme : "light";
+  const fontSize = Math.max(
+    READER_FONT_MIN,
+    Math.min(READER_FONT_MAX, Math.round(Number(value.fontSize) || READER_FONT_DEFAULT))
+  );
+  return {
+    theme,
+    fontSize,
+    tocCollapsed: Boolean(value.tocCollapsed)
+  };
+}
+
+function readerThemeLabel(theme) {
+  if (theme === "sepia") return t("themeSepia");
+  if (theme === "dark") return t("themeDark");
+  return t("themeLight");
+}
+
+function throttle(fn, delay = 200) {
+  let lastRun = 0;
+  let timer = null;
+  return (...args) => {
+    const now = Date.now();
+    const run = () => {
+      lastRun = Date.now();
+      timer = null;
+      fn(...args);
+    };
+    if (now - lastRun >= delay) {
+      run();
+      return;
+    }
+    clearTimeout(timer);
+    timer = setTimeout(run, delay - (now - lastRun));
+  };
+}
+
+function slugifyHeading(value, index) {
+  const slug = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+  return `reader-heading-${slug || "section"}-${index + 1}`;
+}
+
+function collectReaderHeadings(content) {
+  return Array.from(content.querySelectorAll(".reader-article h1, .reader-article h2, .reader-article h3"))
+    .map((heading, index) => {
+      const text = heading.textContent.trim();
+      if (!text) return null;
+      if (!heading.id) heading.id = slugifyHeading(text, index);
+      return {
+        id: heading.id,
+        text,
+        level: heading.tagName.toLowerCase()
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 24);
+}
+
+function applyReaderPrefs(content, prefs) {
+  const readerPrefs = normalizeReaderPrefs(prefs);
+  const scroll = content.querySelector(".reader-scroll");
+  if (!scroll) return;
+  scroll.dataset.readerTheme = readerPrefs.theme;
+  scroll.style.setProperty("--reader-font-size", `${readerPrefs.fontSize}px`);
+}
+
+function setReaderProgress(content) {
+  const scroll = content.querySelector(".reader-scroll");
+  const progress = content.querySelector(".reader-progress-fill");
+  if (!scroll || !progress) return;
+  const maxScroll = Math.max(1, scroll.scrollHeight - scroll.clientHeight);
+  const percent = Math.max(0, Math.min(100, (scroll.scrollTop / maxScroll) * 100));
+  progress.style.width = `${percent}%`;
+}
+
+function restoreReaderScroll(content, top) {
+  const scroll = content.querySelector(".reader-scroll");
+  if (!scroll) return;
+  const nextTop = Math.max(0, Number(top) || 0);
+  requestAnimationFrame(() => {
+    scroll.scrollTop = nextTop;
+    setReaderProgress(content);
+  });
+}
+
+function appendReaderProgress(content) {
+  const progress = document.createElement("div");
+  progress.className = "reader-progress";
+  progress.setAttribute("aria-hidden", "true");
+  const fill = document.createElement("div");
+  fill.className = "reader-progress-fill";
+  progress.appendChild(fill);
+  content.appendChild(progress);
+}
+
+function appendReaderToc(content, headings, prefs, onPrefsChange) {
+  const toc = document.createElement("nav");
+  toc.className = "reader-toc";
+  toc.setAttribute("aria-label", t("tocTitle"));
+  toc.classList.toggle("collapsed", Boolean(prefs.tocCollapsed));
+
+  const header = document.createElement("button");
+  header.className = "reader-toc-header";
+  header.type = "button";
+  header.textContent = t("tocTitle");
+  header.title = t("tocTitle");
+  header.onclick = () => {
+    const collapsed = !toc.classList.contains("collapsed");
+    toc.classList.toggle("collapsed", collapsed);
+    if (onPrefsChange) onPrefsChange({ ...prefs, tocCollapsed: collapsed });
+  };
+  toc.appendChild(header);
+
+  const list = document.createElement("div");
+  list.className = "reader-toc-list";
+  if (!headings.length) {
+    const empty = document.createElement("span");
+    empty.className = "reader-toc-empty";
+    empty.textContent = t("tocEmpty");
+    list.appendChild(empty);
+  } else {
+    headings.forEach((heading) => {
+      const item = document.createElement("button");
+      item.className = `reader-toc-item ${heading.level}`;
+      item.type = "button";
+      item.textContent = heading.text;
+      item.title = heading.text;
+      item.onclick = () => {
+        const scroll = content.querySelector(".reader-scroll");
+        const target = content.querySelector(`#${CSS.escape(heading.id)}`);
+        if (!scroll || !target) return;
+        scroll.scrollTo({
+          top: Math.max(0, target.offsetTop - 16),
+          behavior: "smooth"
+        });
+      };
+      list.appendChild(item);
+    });
+  }
+  toc.appendChild(list);
+  content.appendChild(toc);
+}
+
+function enhanceReader(content, options = {}) {
+  const {
+    prefs,
+    restoreScrollTop,
+    onScrollPositionChange,
+    onReaderPrefsChange
+  } = options;
+  const scroll = content.querySelector(".reader-scroll");
+  if (!scroll) return;
+  const readerPrefs = normalizeReaderPrefs(prefs);
+  applyReaderPrefs(content, readerPrefs);
+  appendReaderProgress(content);
+  const headings = collectReaderHeadings(content);
+  if (headings.length >= 3) {
+    appendReaderToc(content, headings, readerPrefs, onReaderPrefsChange);
+  }
+  const reportScroll = throttle(() => {
+    setReaderProgress(content);
+    if (onScrollPositionChange) onScrollPositionChange(scroll.scrollTop);
+  }, 200);
+  scroll.addEventListener("scroll", reportScroll, { passive: true });
+  restoreReaderScroll(content, restoreScrollTop);
+}
+
+function appendReaderControls(controls, prefs, onPrefsChange) {
+  const readerPrefs = normalizeReaderPrefs(prefs);
+
+  const themeSelect = document.createElement("select");
+  themeSelect.className = "reader-theme-select";
+  themeSelect.title = t("themeTitle");
+  themeSelect.setAttribute("aria-label", t("themeTitle"));
+  ["light", "sepia", "dark"].forEach((theme) => {
+    const option = document.createElement("option");
+    option.value = theme;
+    option.textContent = readerThemeLabel(theme);
+    themeSelect.appendChild(option);
+  });
+  themeSelect.value = readerPrefs.theme;
+  themeSelect.onchange = () => {
+    if (onPrefsChange) onPrefsChange({ ...readerPrefs, theme: themeSelect.value });
+  };
+  controls.appendChild(themeSelect);
+
+  const fontGroup = document.createElement("span");
+  fontGroup.className = "reader-font-controls";
+  fontGroup.title = t("fontSizeTitle");
+
+  const smaller = document.createElement("button");
+  smaller.className = "mini-button reader-font-button";
+  smaller.type = "button";
+  smaller.textContent = t("fontSmaller");
+  smaller.title = t("fontSizeTitle");
+  smaller.disabled = readerPrefs.fontSize <= READER_FONT_MIN;
+  smaller.onclick = () => {
+    if (onPrefsChange) onPrefsChange({ ...readerPrefs, fontSize: Math.max(READER_FONT_MIN, readerPrefs.fontSize - 1) });
+  };
+  fontGroup.appendChild(smaller);
+
+  const larger = document.createElement("button");
+  larger.className = "mini-button reader-font-button";
+  larger.type = "button";
+  larger.textContent = t("fontLarger");
+  larger.title = t("fontSizeTitle");
+  larger.disabled = readerPrefs.fontSize >= READER_FONT_MAX;
+  larger.onclick = () => {
+    if (onPrefsChange) onPrefsChange({ ...readerPrefs, fontSize: Math.min(READER_FONT_MAX, readerPrefs.fontSize + 1) });
+  };
+  fontGroup.appendChild(larger);
+
+  controls.appendChild(fontGroup);
 }
 
 // --- URL parsing for embed IDs ---
@@ -185,7 +431,16 @@ function appendFallbackCard(container, sourceUrl, sourceTitle) {
 // --- Main render function ---
 
 export function renderViewer(container, session, options = {}) {
-  const { onTimestampChange, onOpenExternal, onToggleCollapse, startTimestamp, onQuoteCapture } = options;
+  const {
+    onTimestampChange,
+    onOpenExternal,
+    onToggleCollapse,
+    startTimestamp,
+    onQuoteCapture,
+    readerPrefs,
+    onReaderPrefsChange,
+    onReaderScroll
+  } = options;
   if (!container) return null;
 
   const sourceUrl = session?.sourceUrl || "";
@@ -274,6 +529,10 @@ export function renderViewer(container, session, options = {}) {
         } catch { /* ignore */ }
       }
     };
+  }
+
+  if (mode === "content") {
+    appendReaderControls(controls, readerPrefs, onReaderPrefsChange);
   }
 
   const openExt = document.createElement("button");
@@ -391,6 +650,12 @@ export function renderViewer(container, session, options = {}) {
             },
             lang: document.body?.dataset?.uiLanguage,
           });
+          enhanceReader(content, {
+            prefs: readerPrefs,
+            restoreScrollTop: session?.viewerPosition,
+            onScrollPositionChange: onReaderScroll,
+            onReaderPrefsChange
+          });
         } else {
           content.innerHTML = "";
           renderReaderContent(content, {
@@ -401,6 +666,12 @@ export function renderViewer(container, session, options = {}) {
               if (onQuoteCapture) onQuoteCapture(text, { timestamp: currentTimeSec });
             },
             lang: document.body?.dataset?.uiLanguage,
+          });
+          enhanceReader(content, {
+            prefs: readerPrefs,
+            restoreScrollTop: session?.viewerPosition,
+            onScrollPositionChange: onReaderScroll,
+            onReaderPrefsChange
           });
         }
       })
@@ -414,6 +685,12 @@ export function renderViewer(container, session, options = {}) {
             if (onQuoteCapture) onQuoteCapture(text, { timestamp: currentTimeSec });
           },
           lang: document.body?.dataset?.uiLanguage,
+        });
+        enhanceReader(content, {
+          prefs: readerPrefs,
+          restoreScrollTop: session?.viewerPosition,
+          onScrollPositionChange: onReaderScroll,
+          onReaderPrefsChange
         });
       });
   } else {
