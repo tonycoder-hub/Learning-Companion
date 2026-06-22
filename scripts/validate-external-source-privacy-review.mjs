@@ -7,6 +7,11 @@ import { dirname, join, resolve } from "node:path";
 const RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
 const REVIEW_SCHEMA = "learning-companion.external-source-privacy-review.v1";
 const CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-review.v1";
+const PLACEHOLDER_REVIEW_TEXT = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
+const LEADING_REVIEW_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
+const TRAILING_REVIEW_DECORATION_PATTERN = /[`"'()[\]{}<>*_.,;:#\-\s]+$/;
+const PLACEHOLDER_REVIEW_PREFIX_PATTERN = /^(tbd|todo|placeholder|n\s*\/\s*a)(\b|[\s:;,.()[\]{}_-]|$)/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -34,11 +39,11 @@ if (args["self-test"]) {
 function validatePrivacyReview({ receipt, receiptPath, review, reviewPath }) {
   const receiptSummary = validateCandidateReceipt(receipt);
   assert.equal(review.schema, REVIEW_SCHEMA, "review schema mismatch");
-  assertNonTbd(review.reviewer, "reviewer");
-  assertNonTbd(review.reviewedAt, "reviewedAt");
+  assertConcreteReviewText(review.reviewer, "reviewer");
+  assertIsoDateTime(review.reviewedAt, "reviewedAt");
   assert.equal(review.receiptSchema, RECEIPT_SCHEMA, "review should name the receipt schema");
   assert.equal(review.sourceApproval?.currentTurnApprovalConfirmed, true, "current-turn source approval must be confirmed");
-  assertNonTbd(review.sourceApproval?.approvalReference, "sourceApproval.approvalReference");
+  assertConcreteReviewText(review.sourceApproval?.approvalReference, "sourceApproval.approvalReference");
   assert.equal(review.sourceApproval?.approvedReadingUrl, receiptSummary.reading.source.url, "approved reading URL must match receipt");
   assert.equal(review.sourceApproval?.approvedVideoUrl, receiptSummary.video.source.url, "approved video URL must match receipt");
 
@@ -61,6 +66,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath }) {
   });
   assert.equal(review.verdict, "PASS", "privacy review verdict must be PASS");
   assert.equal(review.canUseForKo, true, "review must explicitly allow KO use");
+  assertConcreteReviewText(review.notes, "notes");
 
   return {
     schema: CLAIM_SCHEMA,
@@ -166,11 +172,11 @@ function buildReviewTemplate(receipt, receiptPath) {
     schema: REVIEW_SCHEMA,
     receiptSchema: receipt.schema || RECEIPT_SCHEMA,
     receiptPath,
-    reviewer: "TBD",
-    reviewedAt: "TBD",
+    reviewer: "TBD (human reviewer name)",
+    reviewedAt: "TBD (ISO date-time with timezone, e.g. 2026-06-23T21:30:00+08:00)",
     sourceApproval: {
       currentTurnApprovalConfirmed: false,
-      approvalReference: "TBD",
+      approvalReference: "TBD (current-turn approval message or link)",
       approvedReadingUrl: reading.source?.url || "TBD",
       approvedVideoUrl: video.source?.url || "TBD"
     },
@@ -191,7 +197,7 @@ function buildReviewTemplate(receipt, receiptPath) {
     },
     verdict: "TBD",
     canUseForKo: false,
-    notes: "TBD"
+    notes: "TBD (brief concrete privacy-review notes)"
   };
 }
 
@@ -201,6 +207,8 @@ async function runSelfTest() {
   const fixture = await createCandidateFixture(root);
   const candidateTemplate = buildReviewTemplate(fixture.receipt, fixture.receiptPath);
   assert.equal(candidateTemplate.sourceApproval.approvedReadingUrl, fixture.receipt.runs.find((run) => run.source.type === "reading").source.url);
+  assert.match(candidateTemplate.reviewedAt, /ISO date-time with timezone/);
+  assert.match(candidateTemplate.notes, /concrete privacy-review notes/);
   const validReview = buildValidReview(fixture.receipt, fixture.receiptPath);
   const claim = validatePrivacyReview({
     receipt: fixture.receipt,
@@ -210,6 +218,28 @@ async function runSelfTest() {
   });
   assert.equal(claim.canClaimExternalKo, true);
   assert.equal(claim.evidenceTier, "APPROVED_SOURCE_PRIVACY_REVIEWED");
+
+  const descriptiveNoneNotesClaim = validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: {
+      ...validReview,
+      notes: "None of the screenshots contained private or sensitive content; all required files were reviewed."
+    },
+    reviewPath: join(root, "descriptive-none-notes-review.json")
+  });
+  assert.equal(descriptiveNoneNotesClaim.canClaimExternalKo, true);
+
+  const descriptiveNoEvidenceNotesClaim = validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: {
+      ...validReview,
+      notes: "No evidence of private account identity, secrets, or browser chrome in the reviewed screenshots."
+    },
+    reviewPath: join(root, "descriptive-no-evidence-notes-review.json")
+  });
+  assert.equal(descriptiveNoEvidenceNotesClaim.canClaimExternalKo, true);
 
   const selfTestReceipt = {
     ...fixture.receipt,
@@ -264,6 +294,53 @@ async function runSelfTest() {
     review: failedReview,
     reviewPath: join(root, "failed-review.json")
   }), /noSecretsTokensSessionIds must be true/);
+
+  const placeholderReviewerReview = {
+    ...validReview,
+    reviewer: "N/A"
+  };
+  assert.throws(() => validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: placeholderReviewerReview,
+    reviewPath: join(root, "placeholder-reviewer-review.json")
+  }), /reviewer must be filled with concrete review evidence/);
+
+  const relativeReviewedAtReview = {
+    ...validReview,
+    reviewedAt: "today"
+  };
+  assert.throws(() => validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: relativeReviewedAtReview,
+    reviewPath: join(root, "relative-reviewed-at-review.json")
+  }), /reviewedAt must be an ISO date-time with timezone/);
+
+  const placeholderApprovalReferenceReview = {
+    ...validReview,
+    sourceApproval: {
+      ...validReview.sourceApproval,
+      approvalReference: "1. todo: paste current-turn approval"
+    }
+  };
+  assert.throws(() => validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: placeholderApprovalReferenceReview,
+    reviewPath: join(root, "placeholder-approval-reference-review.json")
+  }), /sourceApproval\.approvalReference must be filled with concrete review evidence/);
+
+  const placeholderNotesReview = {
+    ...validReview,
+    notes: "> todo: inspect screenshots"
+  };
+  assert.throws(() => validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: placeholderNotesReview,
+    reviewPath: join(root, "placeholder-notes-review.json")
+  }), /notes must be filled with concrete review evidence/);
 
   const emptyFilesReceipt = {
     ...fixture.receipt,
@@ -379,6 +456,10 @@ async function runSelfTest() {
       "public source dry-run receipt rejected",
       "public source dry-run template rejected",
       "failed privacy boolean rejected",
+      "placeholder reviewer rejected",
+      "relative reviewedAt timestamp rejected",
+      "placeholder approval reference rejected",
+      "placeholder review notes rejected",
       "empty evidence file lists rejected",
       "missing source URL rejected",
       "mismatched review URL rejected",
@@ -630,6 +711,34 @@ function assertGitHead(value, label) {
 function assertNonTbd(value, label) {
   assert.equal(typeof value, "string", `${label} must be a string`);
   assert.ok(value.trim() && value.trim() !== "TBD", `${label} must be filled`);
+}
+
+function assertConcreteReviewText(value, label) {
+  assert.equal(typeof value, "string", `${label} must be a string`);
+  const text = normalizeReviewText(value);
+  assert.ok(text && !isPlaceholderReviewText(text), `${label} must be filled with concrete review evidence`);
+}
+
+function assertIsoDateTime(value, label) {
+  assertConcreteReviewText(value, label);
+  const text = String(value).trim();
+  assert.ok(ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text)), `${label} must be an ISO date-time with timezone`);
+}
+
+function normalizeReviewText(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function isPlaceholderReviewText(text) {
+  const unwrappedText = text.replace(LEADING_REVIEW_DECORATION_PATTERN, "");
+  const canonicalText = text.replace(LEADING_REVIEW_DECORATION_PATTERN, "").replace(TRAILING_REVIEW_DECORATION_PATTERN, "");
+  const canonicalUnwrappedText = unwrappedText.replace(TRAILING_REVIEW_DECORATION_PATTERN, "");
+  return PLACEHOLDER_REVIEW_TEXT.has(text)
+    || PLACEHOLDER_REVIEW_TEXT.has(unwrappedText)
+    || PLACEHOLDER_REVIEW_TEXT.has(canonicalText)
+    || PLACEHOLDER_REVIEW_TEXT.has(canonicalUnwrappedText)
+    || PLACEHOLDER_REVIEW_PREFIX_PATTERN.test(text)
+    || PLACEHOLDER_REVIEW_PREFIX_PATTERN.test(unwrappedText);
 }
 
 function assertHttpUrl(value, label) {
