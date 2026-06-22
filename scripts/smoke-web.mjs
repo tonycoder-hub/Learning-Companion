@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import {
   WORKSPACE_SCHEMA,
@@ -127,6 +128,7 @@ const externalSourcePrivacyReviewJs = readFileSync("scripts/validate-external-so
 const koEvidenceReviewJs = readFileSync("scripts/validate-ko-evidence.mjs", "utf8");
 const koNextActionSummaryJs = readFileSync("scripts/ko-next-action-summary.mjs", "utf8");
 const platformQaHandoffJs = readFileSync("scripts/platform-qa-handoff.mjs", "utf8");
+const nextMajorReadinessJs = readFileSync("scripts/next-major-readiness.mjs", "utf8");
 const macManualQaValidatorJs = readFileSync("scripts/validate-mac-manual-qa.mjs", "utf8");
 const windowsStaticQaValidatorJs = readFileSync("scripts/validate-windows-static-qa.mjs", "utf8");
 const harmonyDeviceQaValidatorJs = readFileSync("scripts/validate-harmony-device-qa.mjs", "utf8");
@@ -143,6 +145,7 @@ assert.equal(packageJson.scripts["external:privacy-review:selftest"], "node scri
 assert.equal(packageJson.scripts["ko:next"], "node scripts/ko-next-action-summary.mjs");
 assert.equal(packageJson.scripts["ko:validate"], "node scripts/validate-ko-evidence.mjs");
 assert.equal(packageJson.scripts["ko:validate:selftest"], "node scripts/validate-ko-evidence.mjs --self-test");
+assert.equal(packageJson.scripts["next:readiness"], "node scripts/next-major-readiness.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.match(devServerJs, /--port/);
 assert.match(devServerJs, /--strict-port/);
@@ -813,7 +816,77 @@ assert.match(koNextActionSummaryJs, /npm run external:validate -- --approved-cur
 assert.match(koNextActionSummaryJs, /npm run platform:qa-handoff -- --out \.codex-tmp\/platform-qa-handoff\/current\.json --markdown-out \.codex-tmp\/platform-qa-handoff\/current\.md/);
 assert.match(koNextActionSummaryJs, /Real-run platform receipts are auto-selected by ko:next\/ko:validate when present/);
 assert.match(koNextActionSummaryJs, /--mac-manual \.codex-tmp\/mac-manual-qa\/real-run-receipt\.json/);
+assert.match(koNextActionSummaryJs, /npm run next:readiness -- --refresh --out \.codex-tmp\/next-major-readiness\/current\.json --markdown-out \.codex-tmp\/next-major-readiness\/current\.md/);
 assert.match(koNextActionSummaryJs, /Self-test and public dry-run evidence/);
+assert.match(nextMajorReadinessJs, /learning-companion\.next-major-readiness\.v1/);
+assert.match(nextMajorReadinessJs, /learning-companion\.ko-evidence-review\.v1/);
+assert.match(nextMajorReadinessJs, /NEXT_MAJOR_READINESS_SUMMARY_ONLY/);
+assert.match(nextMajorReadinessJs, /REQUIRED_REQUIREMENT_IDS/);
+assert.match(nextMajorReadinessJs, /READINESS_PACKET_NOT_EXECUTED/);
+assert.match(nextMajorReadinessJs, /function assertRequiredRequirements/);
+assert.match(nextMajorReadinessJs, /KO status is missing required requirements/);
+assert.match(nextMajorReadinessJs, /canClaimNextMajorPreReleaseReady/);
+assert.match(nextMajorReadinessJs, /releaseActionAuthorized: false/);
+assert.match(nextMajorReadinessJs, /blockedOrNotExecuted: READINESS_PACKET_NOT_EXECUTED/);
+assert.doesNotMatch(nextMajorReadinessJs, /blockedOrNotExecuted: ready \? \[\]/);
+assert.match(nextMajorReadinessJs, /NOT_READY_MISSING_EVIDENCE/);
+assert.match(nextMajorReadinessJs, /Readiness summary only/);
+assert.match(nextMajorReadinessJs, /does not authorize release/);
+assert.match(nextMajorReadinessJs, /No new approved external reading\/video candidate was run by this readiness packet/);
+assert.match(nextMajorReadinessJs, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
+assert.match(nextMajorReadinessJs, /scripts\/validate-ko-evidence\.mjs/);
+assert.match(nextMajorReadinessJs, /--allow-missing/);
+assert.match(nextMajorReadinessJs, /function buildNextMajorReadinessMarkdown/);
+assert.match(nextMajorReadinessJs, /Next Major Readiness Packet/);
+assert.match(nextMajorReadinessJs, /function writePrivateFile/);
+assert.match(nextMajorReadinessJs, /chmod\(path, 0o600\)/);
+assert.match(nextMajorReadinessJs, /"status", "out", "markdown-out"/);
+assert.match(nextMajorReadinessJs, /requires a file path/);
+const readinessSmokeDir = mkdtempSync(join(tempBase, "next-major-readiness-"));
+try {
+  const claimableStatusPath = join(readinessSmokeDir, "claimable-ko-status.json");
+  const readinessJsonPath = join(readinessSmokeDir, "readiness.json");
+  const readinessMarkdownPath = join(readinessSmokeDir, "readiness.md");
+  writeFileSync(claimableStatusPath, `${JSON.stringify({
+    schema: "learning-companion.ko-evidence-review.v1",
+    evidenceTier: "KO_READY_EVIDENCE_REVIEW",
+    canClaimKo: true,
+    requirements: [
+      { id: "bilingualRuntime", status: "PASS", evidencePath: ".codex-tmp/example/bilingual.json", detail: "fixture pass" },
+      { id: "controlledLearningLoop", status: "PASS", evidencePath: ".codex-tmp/example/loop.json", detail: "fixture pass" },
+      { id: "nativeMacManualQa", status: "PASS", evidencePath: ".codex-tmp/example/mac.json", detail: "fixture pass" },
+      { id: "windowsStaticManualQa", status: "PASS", evidencePath: ".codex-tmp/example/windows.json", detail: "fixture pass" },
+      { id: "harmonyDeviceQa", status: "PASS", evidencePath: ".codex-tmp/example/harmony.json", detail: "fixture pass" },
+      { id: "approvedExternalReadingVideo", status: "PASS", evidencePath: ".codex-tmp/example/external.json", detail: "fixture pass" }
+    ],
+    platformQaStatus: []
+  }, null, 2)}\n`);
+  const readinessConsole = execFileSync(process.execPath, [
+    "scripts/next-major-readiness.mjs",
+    "--status",
+    claimableStatusPath,
+    "--out",
+    readinessJsonPath,
+    "--markdown-out",
+    readinessMarkdownPath
+  ], { encoding: "utf8" });
+  const readinessFixture = JSON.parse(readFileSync(readinessJsonPath, "utf8"));
+  const readinessMarkdown = readFileSync(readinessMarkdownPath, "utf8");
+  assert.equal(readinessFixture.canClaimNextMajorPreReleaseReady, true);
+  assert.equal(readinessFixture.releaseActionAuthorized, false);
+  assert.equal(readinessFixture.readinessStatus, "PRE_RELEASE_EVIDENCE_READY");
+  assert.equal(readinessFixture.blockingRequirements.length, 0);
+  assert.equal(readinessFixture.blockedOrNotExecuted.length, 6);
+  assert.equal(readinessFixture.blockedOrNotExecuted.includes("No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet."), true);
+  assert.match(readinessConsole, /Can claim next-major pre-release ready: YES/);
+  assert.match(readinessConsole, /does not authorize release/);
+  assert.match(readinessMarkdown, /Release action authorized: false/);
+  assert.match(readinessMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
+  assert.equal(statSync(readinessJsonPath).mode & 0o777, 0o600);
+  assert.equal(statSync(readinessMarkdownPath).mode & 0o777, 0o600);
+} finally {
+  if (cleanupSmokeArtifacts) rmSync(readinessSmokeDir, { recursive: true, force: true });
+}
 assert.match(platformQaHandoffJs, /learning-companion\.platform-qa-handoff\.v1/);
 assert.match(platformQaHandoffJs, /PLATFORM_QA_HANDOFF_ONLY/);
 assert.match(platformQaHandoffJs, /canClaimKo: false/);
