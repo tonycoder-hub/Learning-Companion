@@ -86,7 +86,7 @@ When exact approval is not available yet, a real public-source preflight can exe
 npm run external:validate:public-dry-run -- --reading-url <public-reading-url> --video-url <public-video-url> --video-timestamp <observed-timestamp> --dry-run-note "<why this is only a dry run>"
 ```
 
-The dry-run path still rejects local/private/internal/reserved URLs and sensitive query keys, rejects Chromium network error pages or pages with too little visible content, writes screenshots plus `runContext`, and keeps `canClaimExternalKo: false`. It writes `evidenceTier: PUBLIC_SOURCE_DRY_RUN`, `approvedCurrentTurn: false`, and `PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED` source markers. The privacy-review template and review validators reject this receipt tier; it is useful for checking real public material behavior before approval, not for KO evidence.
+The dry-run path still rejects local/private/internal/reserved URLs and sensitive query keys, rejects Chromium network error pages or pages with too little visible content, writes screenshots plus `runContext`, and keeps `canClaimExternalKo: false`. It writes `evidenceTier: PUBLIC_SOURCE_DRY_RUN`, `approvedCurrentTurn: false`, and `PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED` source markers. After capture, the harness shuts down Chromium and removes the throwaway browser profile; the receipt records `profileRetained: false` and cleanup status. The privacy-review template and review validators reject this receipt tier; it is useful for checking real public material behavior before approval, not for KO evidence.
 
 For real approved sources, use the same harness only when the current turn explicitly approves the exact URLs:
 
@@ -96,7 +96,7 @@ npm run external:validate -- --approved-current-turn --reading-url <approved-rea
 
 Optional source details can be provided with `--reading-title`, `--reading-quote`, `--reading-thought`, `--reading-language`, `--video-title`, `--video-quote`, `--video-thought`, and `--video-language`.
 
-The harness writes `receipt.json`, `run.md`, and evidence screenshots under `.codex-tmp/external-source-validation/`. `01-source-and-app-before-capture.png` is a composed two-pane image generated from source and app screenshots captured in the same headless browser run. The receipt also records `runContext`: app URL/root, git HEAD, dirty-worktree status, git-status summary, throwaway browser profile, viewport sizes, and local/remote network mode. Treat approved actual-source output as candidate evidence until a human privacy review confirms that no private account, token, cookie, internal document, sensitive identifier, or unreviewed run-context mismatch is present. The receipt intentionally keeps `canClaimExternalKo: false` until that review is recorded.
+The harness writes `receipt.json`, `run.md`, and evidence screenshots under `.codex-tmp/external-source-validation/`. `01-source-and-app-before-capture.png` is a composed two-pane image generated from source and app screenshots captured in the same headless browser run. The receipt also records `runContext`: app URL/root, git HEAD, dirty-worktree status, git-status summary, throwaway browser profile path, cleanup result, viewport sizes, and local/remote network mode. Treat approved actual-source output as candidate evidence until a human privacy review confirms that no private account, token, cookie, internal document, sensitive identifier, retained browser profile, or unreviewed run-context mismatch is present. The receipt intentionally keeps `canClaimExternalKo: false` until that review is recorded.
 
 After a real approved-source candidate run, generate a privacy-review template:
 
@@ -110,7 +110,7 @@ Template generation is candidate-only. Local fixture self-tests and `PUBLIC_SOUR
 npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>
 ```
 
-The harness and validators reject localhost, private/link-local IPs, IPv4-mapped local IPv6 literals such as `::ffff:127.0.0.1`, single-label intranet hosts, reserved example domains, and exact normalized sensitive URL query keys such as `token`, `access_token`, `id_token`, `session_id`, `auth_token`, `authorization`, `api_key`, `password`, `jwt`, `sig`, `signature`, `X-Amz-Signature`, `X-Goog-Signature`, `Expires`, `Key-Pair-Id`, or `Policy` for real approved-source candidates. Benign public query keys such as `keyword` are allowed. The validator refuses local fixture self-tests, requires an `APPROVED_SOURCE_CANDIDATE` receipt, requires one approved reading run and one approved video run with timestamp evidence, video timestamp-note insertion, video bookmark creation, and playback-rate preference persistence, verifies the listed screenshots still exist, verifies `runContext` has app revision / throwaway profile / viewport / network fields, and only writes `canClaimExternalKo: true` in the derived review artifact after the human privacy review has `PASS` verdict and all privacy plus execution-review booleans are true.
+The harness and validators reject localhost, private/link-local IPs, IPv4-mapped local IPv6 literals such as `::ffff:127.0.0.1`, single-label intranet hosts, reserved example domains, and exact normalized sensitive URL query keys such as `token`, `access_token`, `id_token`, `session_id`, `auth_token`, `authorization`, `api_key`, `password`, `jwt`, `sig`, `signature`, `X-Amz-Signature`, `X-Goog-Signature`, `Expires`, `Key-Pair-Id`, or `Policy` for real approved-source candidates. Benign public query keys such as `keyword` are allowed. The validator refuses local fixture self-tests, requires an `APPROVED_SOURCE_CANDIDATE` receipt, requires one approved reading run and one approved video run with timestamp evidence, video timestamp-note insertion, video bookmark creation, and playback-rate preference persistence, verifies the listed screenshots still exist, verifies `runContext` has app revision / throwaway profile / cleanup / viewport / network fields, and only writes `canClaimExternalKo: true` in the derived review artifact after the human privacy review has `PASS` verdict and all privacy plus execution-review booleans are true.
 
 ## Run Note Template
 
@@ -141,12 +141,15 @@ Run type: TBD
 - Viewport / window layout: TBD
 - Browser: TBD
 - Browser profile mode: TBD
+- Browser profile retained after run: TBD
+- Browser profile cleanup: TBD
 - Network mode: TBD
 
 ## Privacy Preflight
 
 - Signed-out or guest browser where possible: TBD
 - No visible account avatar/email/profile: TBD
+- Throwaway browser profile cleaned after capture: TBD
 - No private tabs/bookmarks/sidebar content visible: TBD
 - No tokens/session IDs/private IDs in URL: TBD
 - Final artifact privacy review: TBD

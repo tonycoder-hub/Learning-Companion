@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
-import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { dirname, extname, join, resolve } from "node:path";
@@ -106,6 +106,8 @@ const chrome = spawn(chromePath, [
   `--remote-debugging-port=${debuggingPort}`,
   appUrl
 ], { stdio: "ignore" });
+let chromeStopped = false;
+let profileCleaned = false;
 
 try {
   const target = await waitForTarget(debuggingPort);
@@ -125,6 +127,17 @@ try {
   for (const source of sourceSet) {
     const result = await runSourceValidation({ cdp, appUrl, source, runRoot, exceptions });
     runs.push(result);
+  }
+
+  cdp.close();
+  await stopChrome(chrome);
+  chromeStopped = true;
+  const profileCleanup = await cleanupBrowserProfile(profile);
+  profileCleaned = profileCleanup.ok && !profileCleanup.retained;
+  runContext.browser.profileRetained = profileCleanup.retained;
+  runContext.browser.profileCleanup = profileCleanup;
+  if (!profileCleanup.ok || profileCleanup.retained) {
+    throw new Error(`Failed to clean throwaway browser profile: ${profileCleanup.error || "profile still exists"}`);
   }
 
   const receipt = {
@@ -159,11 +172,12 @@ try {
   assert.equal(runs.some((run) => run.source.type === "video"), true);
   assert.equal(receipt.canClaimExternalKo, false);
 
-  cdp.close();
   console.log(`${selfTest ? "external_source_validation_selftest_ok" : publicSourceDryRun ? "external_source_validation_public_dry_run_ok" : "external_source_validation_candidate_ok"} ${join(runRoot, "receipt.json")}`);
 } finally {
-  chrome.kill("SIGTERM");
-  await waitForProcessExit(chrome, 3000);
+  if (!chromeStopped) await stopChrome(chrome);
+  if (!profileCleaned) {
+    await cleanupBrowserProfile(profile).catch(() => {});
+  }
   server.close();
 }
 
@@ -628,6 +642,8 @@ function buildRunMarkdown(receipt) {
     `- Changed/untracked entries: ${git.statusLineCount ?? "UNKNOWN"}`,
     `- Browser: ${browser.chromePath || receipt.chromePath}`,
     `- Browser profile mode: ${browser.profileMode || "throwaway-profile"}`,
+    `- Browser profile retained after run: ${browser.profileRetained}`,
+    `- Browser profile cleanup: ${browser.profileCleanup?.ok === true ? "PASS" : "FAIL"}`,
     `- Headless: ${browser.headless}`,
     `- Viewport: ${viewport.app?.width || "TBD"}x${viewport.app?.height || "TBD"} app, ${viewport.sourceEvidence?.width || "TBD"}x${viewport.sourceEvidence?.height || "TBD"} source capture`,
     `- Network mode: ${network.mode || "TBD"}`,
@@ -701,6 +717,13 @@ async function buildRunContext({ appUrl, chromePath, debuggingPort, profile, sel
       headless: true,
       profileMode: "throwaway-profile",
       profilePath: profile,
+      profileRetained: true,
+      profileCleanup: {
+        attempted: false,
+        ok: false,
+        retained: true,
+        error: "not attempted before browser shutdown"
+      },
       debuggingPort
     },
     viewport: {
@@ -1244,14 +1267,54 @@ async function waitForPageQuiet(cdp) {
 }
 
 function waitForProcessExit(process, timeoutMs) {
-  if (process.exitCode !== null || process.signalCode !== null) return Promise.resolve();
+  if (process.exitCode !== null || process.signalCode !== null) return Promise.resolve(true);
   return new Promise((resolveExit) => {
-    const timeout = setTimeout(resolveExit, timeoutMs);
+    const timeout = setTimeout(() => resolveExit(false), timeoutMs);
     process.once("exit", () => {
       clearTimeout(timeout);
-      resolveExit();
+      resolveExit(true);
     });
   });
+}
+
+async function stopChrome(process) {
+  if (process.exitCode === null && process.signalCode === null) {
+    process.kill("SIGTERM");
+  }
+  const stopped = await waitForProcessExit(process, 3000);
+  if (!stopped && process.exitCode === null && process.signalCode === null) {
+    process.kill("SIGKILL");
+    await waitForProcessExit(process, 3000);
+  }
+}
+
+async function cleanupBrowserProfile(profilePath) {
+  let lastError = "";
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      await rm(profilePath, { recursive: true, force: true });
+    } catch (error) {
+      lastError = error?.code || error?.message || "unknown cleanup error";
+    }
+    const retained = existsSync(profilePath);
+    if (!retained) {
+      return {
+        attempted: true,
+        attempts: attempt,
+        ok: true,
+        retained: false,
+        error: ""
+      };
+    }
+    if (attempt < 5) await sleep(100 * attempt);
+  }
+  return {
+    attempted: true,
+    attempts: 5,
+    ok: false,
+    retained: existsSync(profilePath),
+    error: lastError || "profile still exists after cleanup"
+  };
 }
 
 function allocateTcpPort() {

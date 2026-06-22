@@ -881,6 +881,10 @@ function assertExternalRunContext(runContext) {
   assertNonTbd(runContext.browser?.chromePath, "external claim runContext.browser.chromePath");
   assert.equal(runContext.browser?.headless, true, "external claim runContext browser must be headless");
   assert.equal(runContext.browser?.profileMode, "throwaway-profile", "external claim runContext browser profile mode must be throwaway-profile");
+  assert.equal(runContext.browser?.profileRetained, false, "external claim runContext browser profile must be cleaned");
+  assert.equal(runContext.browser?.profileCleanup?.attempted, true, "external claim runContext browser profile cleanup must be attempted");
+  assert.equal(runContext.browser?.profileCleanup?.ok, true, "external claim runContext browser profile cleanup must pass");
+  assert.equal(runContext.browser?.profileCleanup?.retained, false, "external claim runContext browser profile cleanup must not retain the profile");
   assert.equal(runContext.viewport?.app?.width, 1440, "external claim runContext app viewport width mismatch");
   assert.equal(runContext.viewport?.sourceEvidence?.width, 720, "external claim runContext source-evidence viewport width mismatch");
   assert.equal(runContext.network?.mode, "APPROVED_REMOTE_SOURCE_AND_LOCAL_APP", "external claim runContext network mode must be approved remote source plus local app");
@@ -959,6 +963,66 @@ async function runSelfTest() {
   });
   assert.equal(missingRunContextReport.canClaimKo, false);
   assert.ok(missingRunContextReport.blockers.some((item) => item.includes("runContext schema mismatch")));
+
+  const retainedProfileExternalPath = join(root, "retained-profile-external.json");
+  await writeJson(retainedProfileExternalPath, {
+    ...fixtures.externalClaim,
+    runContext: {
+      ...fixtures.externalClaim.runContext,
+      browser: {
+        ...fixtures.externalClaim.runContext.browser,
+        profileRetained: true,
+        profileCleanup: {
+          attempted: true,
+          ok: true,
+          retained: true,
+          error: "profile still exists after cleanup"
+        }
+      }
+    }
+  });
+  const retainedProfileReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: retainedProfileExternalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(retainedProfileReport.canClaimKo, false);
+  assert.ok(retainedProfileReport.blockers.some((item) => item.includes("browser profile must be cleaned")));
+
+  const failedProfileCleanupExternalPath = join(root, "failed-profile-cleanup-external.json");
+  await writeJson(failedProfileCleanupExternalPath, {
+    ...fixtures.externalClaim,
+    runContext: {
+      ...fixtures.externalClaim.runContext,
+      browser: {
+        ...fixtures.externalClaim.runContext.browser,
+        profileRetained: false,
+        profileCleanup: {
+          attempted: true,
+          ok: false,
+          retained: false,
+          error: "ENOTEMPTY"
+        }
+      }
+    }
+  });
+  const failedProfileCleanupReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: failedProfileCleanupExternalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(failedProfileCleanupReport.canClaimKo, false);
+  assert.ok(failedProfileCleanupReport.blockers.some((item) => item.includes("profile cleanup must pass")));
 
   const localExternalSourcePath = join(root, "local-external-source.json");
   await writeJson(localExternalSourcePath, {
@@ -1618,7 +1682,14 @@ async function createKoFixtures(root) {
       browser: {
         chromePath: "/usr/bin/chromium",
         headless: true,
-        profileMode: "throwaway-profile"
+        profileMode: "throwaway-profile",
+        profileRetained: false,
+        profileCleanup: {
+          attempted: true,
+          ok: true,
+          retained: false,
+          error: ""
+        }
       },
       viewport: {
         app: {

@@ -413,6 +413,52 @@ async function runSelfTest() {
     reviewPath: join(root, "valid-review.json")
   }), /runContext schema mismatch/);
 
+  const retainedProfileReceipt = {
+    ...fixture.receipt,
+    runContext: {
+      ...fixture.receipt.runContext,
+      browser: {
+        ...fixture.receipt.runContext.browser,
+        profileRetained: true,
+        profileCleanup: {
+          attempted: true,
+          ok: true,
+          retained: true,
+          error: "profile still exists after cleanup"
+        }
+      }
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: retainedProfileReceipt,
+    receiptPath: join(root, "retained-profile-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /browser profile must be cleaned/);
+
+  const failedProfileCleanupReceipt = {
+    ...fixture.receipt,
+    runContext: {
+      ...fixture.receipt.runContext,
+      browser: {
+        ...fixture.receipt.runContext.browser,
+        profileRetained: false,
+        profileCleanup: {
+          attempted: true,
+          ok: false,
+          retained: false,
+          error: "ENOTEMPTY"
+        }
+      }
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: failedProfileCleanupReceipt,
+    receiptPath: join(root, "failed-profile-cleanup-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /browser profile cleanup must pass/);
+
   const localSourceReceipt = {
     ...fixture.receipt,
     runs: fixture.receipt.runs.map((run) => run.source.type === "reading"
@@ -542,6 +588,13 @@ async function createCandidateFixture(root) {
         headless: true,
         profileMode: "throwaway-profile",
         profilePath: join(root, "profile"),
+        profileRetained: false,
+        profileCleanup: {
+          attempted: true,
+          ok: true,
+          retained: false,
+          error: ""
+        },
         debuggingPort: 12346
       },
       viewport: {
@@ -695,6 +748,10 @@ function validateRunContext(runContext) {
   assert.equal(runContext.browser?.headless, true, "runContext browser must be headless for this harness");
   assert.equal(runContext.browser?.profileMode, "throwaway-profile", "runContext browser profile mode must be throwaway-profile");
   assertNonTbd(runContext.browser?.profilePath, "runContext.browser.profilePath");
+  assert.equal(runContext.browser?.profileRetained, false, "runContext browser profile must be cleaned after evidence capture");
+  assert.equal(runContext.browser?.profileCleanup?.attempted, true, "runContext browser profile cleanup must be attempted");
+  assert.equal(runContext.browser?.profileCleanup?.ok, true, "runContext browser profile cleanup must pass");
+  assert.equal(runContext.browser?.profileCleanup?.retained, false, "runContext browser profile cleanup must not retain the profile");
   assert.equal(Number.isInteger(runContext.browser?.debuggingPort), true, "runContext browser debuggingPort must be an integer");
   assert.equal(runContext.viewport?.app?.width, 1440, "runContext app viewport width mismatch");
   assert.equal(runContext.viewport?.app?.height, 900, "runContext app viewport height mismatch");
@@ -720,7 +777,9 @@ function summarizeRunContextForClaim(runContext) {
     browser: {
       chromePath: runContext.browser.chromePath,
       headless: runContext.browser.headless,
-      profileMode: runContext.browser.profileMode
+      profileMode: runContext.browser.profileMode,
+      profileRetained: runContext.browser.profileRetained,
+      profileCleanup: runContext.browser.profileCleanup
     },
     viewport: runContext.viewport,
     network: runContext.network
