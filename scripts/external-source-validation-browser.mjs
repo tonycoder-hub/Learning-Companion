@@ -23,6 +23,15 @@ if (args["source-intake"]) {
   }
   process.exit(0);
 }
+if (args["approval-request"]) {
+  try {
+    await runSourceApprovalRequest(args);
+  } catch (error) {
+    console.error(`source_approval_request_error: ${error.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
 const selfTest = Boolean(args["self-test"]);
 const approvedCurrentTurn = Boolean(args["approved-current-turn"]);
 const publicSourceDryRun = Boolean(args["public-source-dry-run"]);
@@ -827,6 +836,43 @@ async function runSourceIntake(args) {
   ].join("\n"));
 }
 
+async function runSourceApprovalRequest(args) {
+  if (args.out === true) throw new Error("--out requires a file path.");
+  if (args["markdown-out"] === true) throw new Error("--markdown-out requires a file path.");
+  const hasIntake = Boolean(args["intake-handoff"]);
+  const hasDryRun = Boolean(args["dry-run-receipt"]);
+  if (hasIntake === hasDryRun) {
+    throw new Error("Use exactly one of --intake-handoff <path> or --dry-run-receipt <path>.");
+  }
+  const source = hasIntake
+    ? buildApprovalRequestSourceFromIntake(await readJsonFile(args["intake-handoff"], "--intake-handoff"), args["intake-handoff"])
+    : buildApprovalRequestSourceFromDryRun(await readJsonFile(args["dry-run-receipt"], "--dry-run-receipt"), args["dry-run-receipt"]);
+  const request = buildSourceApprovalRequest(source);
+  if (args.out) {
+    const outPath = resolve(String(args.out));
+    await writePrivateFile(outPath, `${JSON.stringify(request, null, 2)}\n`);
+  }
+  if (args["markdown-out"]) {
+    const markdownPath = resolve(String(args["markdown-out"]));
+    await writePrivateFile(markdownPath, buildSourceApprovalRequestMarkdown(request));
+  }
+  const lines = [
+    "source_approval_request_ok",
+    `Reading URL: ${request.sources.reading.url}`,
+    `Video URL: ${request.sources.video.url}`,
+    `Video timestamp: ${request.sources.video.timestamp}`,
+    "",
+    "Approval text to request from the user:",
+    request.requestedApprovalText,
+    "",
+    "Approved candidate command (run only after that exact approval appears in the current turn):",
+    request.nextCommands.approvedCandidateAfterCurrentTurnApproval
+  ];
+  if (args.out) lines.splice(4, 0, `Approval request JSON: ${resolve(String(args.out))}`);
+  if (args["markdown-out"]) lines.splice(args.out ? 5 : 4, 0, `Approval request Markdown: ${resolve(String(args["markdown-out"]))}`);
+  console.log(lines.join("\n"));
+}
+
 function buildSourceIntakeHandoff({ readingUrl, videoUrl, videoTimestamp, publicDryRunCommand, approvedCommand }) {
   return {
     schema: "learning-companion.external-source-intake-handoff.v1",
@@ -870,6 +916,177 @@ function buildSourceIntakeHandoff({ readingUrl, videoUrl, videoTimestamp, public
       "Mac, Windows, and HarmonyOS platform QA are not covered."
     ]
   };
+}
+
+function buildApprovalRequestSourceFromIntake(handoff, inputPath) {
+  if (handoff.schema !== "learning-companion.external-source-intake-handoff.v1") {
+    throw new Error(`--intake-handoff schema mismatch: ${handoff.schema || "missing"}`);
+  }
+  if (handoff.evidenceTier !== "SOURCE_INTAKE_HANDOFF_ONLY" || handoff.canClaimExternalKo !== false) {
+    throw new Error("--intake-handoff must be non-claiming SOURCE_INTAKE_HANDOFF_ONLY.");
+  }
+  const normalized = handoff.normalized || {};
+  return {
+    basis: "SOURCE_INTAKE_HANDOFF",
+    inputPath: String(inputPath),
+    readingUrl: requireApprovedUrl(normalized.readingUrl, "reading-url"),
+    readingTitle: "TBD",
+    videoUrl: requireApprovedUrl(normalized.videoUrl, "video-url"),
+    videoTitle: "TBD",
+    videoTimestamp: normalizeVideoTimestamp(normalized.videoTimestamp),
+    priorDryRunReceipt: ""
+  };
+}
+
+function buildApprovalRequestSourceFromDryRun(receipt, inputPath) {
+  if (receipt.schema !== "learning-companion.external-source-validation-browser.v1") {
+    throw new Error(`--dry-run-receipt schema mismatch: ${receipt.schema || "missing"}`);
+  }
+  if (receipt.evidenceTier !== "PUBLIC_SOURCE_DRY_RUN" || receipt.publicSourceDryRun !== true || receipt.canClaimExternalKo !== false) {
+    throw new Error("--dry-run-receipt must be a non-claiming PUBLIC_SOURCE_DRY_RUN receipt.");
+  }
+  const runs = Array.isArray(receipt.runs) ? receipt.runs : [];
+  const readingRuns = runs.filter((run) => run?.source?.type === "reading");
+  const videoRuns = runs.filter((run) => run?.source?.type === "video");
+  if (readingRuns.length !== 1 || videoRuns.length !== 1) throw new Error("--dry-run-receipt must include exactly one reading run and one video run.");
+  const [reading] = readingRuns;
+  const [video] = videoRuns;
+  if (reading.summary?.ok !== true || video.summary?.ok !== true) {
+    throw new Error("--dry-run-receipt reading and video runs must both have summary.ok true.");
+  }
+  return {
+    basis: "PUBLIC_SOURCE_DRY_RUN_RECEIPT",
+    inputPath: String(inputPath),
+    readingUrl: requireApprovedUrl(reading.source.url, "reading-url"),
+    readingTitle: reading.source.title || "TBD",
+    videoUrl: requireApprovedUrl(video.source.url, "video-url"),
+    videoTitle: video.source.title || "TBD",
+    videoTimestamp: normalizeVideoTimestamp(video.saved?.captureTimestamp || ""),
+    priorDryRunReceipt: String(inputPath),
+    priorDryRun: {
+      runRoot: receipt.runRoot || "",
+      generatedAt: receipt.generatedAt || "",
+      gitHead: receipt.runContext?.appRevision?.gitHead || "",
+      dirtyWorktree: optionalBoolean(receipt.runContext?.appRevision?.dirtyWorktree),
+      profileRetained: optionalBoolean(receipt.runContext?.browser?.profileRetained),
+      profileCleanupOk: optionalBoolean(receipt.runContext?.browser?.profileCleanup?.ok)
+    }
+  };
+}
+
+function buildSourceApprovalRequest(source) {
+  const requestedApprovalText = [
+    "I approve these exact public learning-material sources for the current turn:",
+    `reading=${source.readingUrl}`,
+    `video=${source.videoUrl}`,
+    `timestamp=${source.videoTimestamp}.`,
+    "They may be used for Learning Companion external-source validation screenshots and privacy review."
+  ].join(" ");
+  return {
+    schema: "learning-companion.external-source-approval-request.v1",
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+    canClaimExternalKo: false,
+    claimBoundary: "Approval request only. It does not grant current-turn approval, launch browser evidence, perform privacy review, or satisfy KO evidence.",
+    basis: {
+      type: source.basis,
+      inputPath: source.inputPath,
+      priorDryRunReceipt: source.priorDryRunReceipt || "",
+      priorDryRun: source.priorDryRun || null
+    },
+    sources: {
+      reading: {
+        url: source.readingUrl,
+        title: source.readingTitle || "TBD"
+      },
+      video: {
+        url: source.videoUrl,
+        title: source.videoTitle || "TBD",
+        timestamp: source.videoTimestamp
+      }
+    },
+    requestedApprovalText,
+    nextCommands: {
+      approvedCandidateAfterCurrentTurnApproval: buildSourceValidationCommand({
+        mode: "approved",
+        readingUrl: source.readingUrl,
+        videoUrl: source.videoUrl,
+        videoTimestamp: source.videoTimestamp,
+        note: requestedApprovalText
+      }),
+      privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+      privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+    },
+    approvalRequiredBeforeKoEvidence: [
+      "The user must explicitly approve the exact requestedApprovalText in the current turn.",
+      "The approved candidate command must run after that approval, not before.",
+      "The candidate receipt must pass human privacy review before KO use."
+    ],
+    blockedOrNotExecuted: [
+      "No current-turn source approval was granted by this request artifact.",
+      "No browser was launched by this request artifact.",
+      "No screenshots were captured by this request artifact.",
+      "No approved-source candidate receipt was created.",
+      "No privacy review was performed.",
+      "Mac, Windows, and HarmonyOS platform QA are not covered."
+    ]
+  };
+}
+
+function buildSourceApprovalRequestMarkdown(request) {
+  return `# External Source Approval Request
+
+Evidence tier: ${markdownInline(request.evidenceTier)}
+Can claim external KO: ${request.canClaimExternalKo ? "true" : "false"}
+
+## Exact Sources
+
+- Reading URL: ${markdownInline(request.sources.reading.url)}
+- Reading title: ${markdownInline(request.sources.reading.title)}
+- Video URL: ${markdownInline(request.sources.video.url)}
+- Video title: ${markdownInline(request.sources.video.title)}
+- Video timestamp: ${markdownInline(request.sources.video.timestamp)}
+
+## Approval Text Needed
+
+${request.requestedApprovalText}
+
+## Next Command After Current-Turn Approval
+
+\`\`\`bash
+${request.nextCommands.approvedCandidateAfterCurrentTurnApproval}
+\`\`\`
+
+## Boundary
+
+${request.claimBoundary}
+
+## Blocked / Not Run / Needs Decision
+
+${request.blockedOrNotExecuted.map((item) => `- ${item}`).join("\n")}
+`;
+}
+
+function optionalBoolean(value) {
+  return typeof value === "boolean" ? value : null;
+}
+
+function markdownInline(value) {
+  const text = String(value ?? "TBD").replace(/\s+/g, " ").trim() || "TBD";
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\`")
+    .replace(/\*/g, "\\*")
+    .replace(/_/g, "\\_")
+    .replace(/\[/g, "\\[")
+    .replace(/\]/g, "\\]")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+async function readJsonFile(pathValue, label) {
+  if (!pathValue || pathValue === true) throw new Error(`${label} requires a file path.`);
+  return JSON.parse(await readFile(resolve(String(pathValue)), "utf8"));
 }
 
 async function readSourceIntakeText(args) {
@@ -991,6 +1208,12 @@ Modes:
   Parse and validate a pasted source-input block, then print the next dry-run and approved-candidate commands. Does not launch a browser and never creates KO evidence.
   Add --out .codex-tmp/external-source-validation/source-intake-handoff.json to write a handoff-only JSON artifact for the next approved run.
 
+- npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md
+  Generate a non-claiming approval request from a source-intake handoff. It asks the user to approve exact reading/video/timestamp inputs in the current turn. Does not launch a browser and never creates KO evidence.
+
+- npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json
+  Generate the same non-claiming approval request from a PUBLIC_SOURCE_DRY_RUN receipt.
+
 - npm run external:validate:selftest
   Local fixture harness check. Never KO evidence.
 
@@ -1048,6 +1271,129 @@ function runApprovedUrlBoundarySelfChecks() {
   assert.equal(intakeHandoff.canClaimExternalKo, false);
   assert.match(intakeHandoff.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--approved-current-turn/);
   assert.ok(intakeHandoff.blockedOrNotExecuted.includes("No browser was launched."));
+  const approvalFromIntake = buildSourceApprovalRequest(buildApprovalRequestSourceFromIntake(intakeHandoff, ".codex-tmp/source-intake-handoff.json"));
+  assert.equal(approvalFromIntake.schema, "learning-companion.external-source-approval-request.v1");
+  assert.equal(approvalFromIntake.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY");
+  assert.equal(approvalFromIntake.canClaimExternalKo, false);
+  assert.match(approvalFromIntake.requestedApprovalText, /I approve these exact public learning-material sources/);
+  assert.match(approvalFromIntake.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--approved-current-turn/);
+  assert.ok(approvalFromIntake.blockedOrNotExecuted.includes("No current-turn source approval was granted by this request artifact."));
+  const approvalFromDryRun = buildSourceApprovalRequest(buildApprovalRequestSourceFromDryRun({
+    schema: "learning-companion.external-source-validation-browser.v1",
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
+    canClaimExternalKo: false,
+    publicSourceDryRun: true,
+    runRoot: ".codex-tmp/external-source-validation/public-dry-run",
+    runContext: {
+      appRevision: {
+        gitHead: "fixture-git-head",
+        dirtyWorktree: false
+      },
+      browser: {
+        profileRetained: false,
+        profileCleanup: {
+          ok: true
+        }
+      }
+    },
+    runs: [
+      {
+        source: {
+          type: "reading",
+          url: intake.readingUrl,
+          title: "Spaced repetition"
+        },
+        summary: {
+          ok: true
+        }
+      },
+      {
+        source: {
+          type: "video",
+          url: intake.videoUrl,
+          title: "Flower video"
+        },
+        saved: {
+          captureTimestamp: "00:03"
+        },
+        summary: {
+          ok: true
+        }
+      }
+    ]
+  }, ".codex-tmp/external-source-validation/public-dry-run/receipt.json"));
+  assert.equal(approvalFromDryRun.basis.type, "PUBLIC_SOURCE_DRY_RUN_RECEIPT");
+  assert.equal(approvalFromDryRun.basis.priorDryRun.gitHead, "fixture-git-head");
+  assert.equal(approvalFromDryRun.basis.priorDryRun.dirtyWorktree, false);
+  assert.equal(approvalFromDryRun.sources.video.timestamp, "00:03");
+  assert.match(buildSourceApprovalRequestMarkdown(approvalFromDryRun), /External Source Approval Request/);
+  const approvalFromSparseDryRun = buildSourceApprovalRequest(buildApprovalRequestSourceFromDryRun({
+    schema: "learning-companion.external-source-validation-browser.v1",
+    evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
+    canClaimExternalKo: false,
+    publicSourceDryRun: true,
+    runs: [
+      {
+        source: {
+          type: "reading",
+          url: intake.readingUrl,
+          title: "Bad\n# Heading [x]"
+        },
+        summary: {
+          ok: true
+        }
+      },
+      {
+        source: {
+          type: "video",
+          url: intake.videoUrl,
+          title: "Clip `code` *bold*"
+        },
+        saved: {
+          captureTimestamp: "00:03"
+        },
+        summary: {
+          ok: true
+        }
+      }
+    ]
+  }, ".codex-tmp/external-source-validation/sparse-public-dry-run/receipt.json"));
+  assert.equal(approvalFromSparseDryRun.basis.priorDryRun.dirtyWorktree, null);
+  assert.equal(approvalFromSparseDryRun.basis.priorDryRun.profileRetained, null);
+  assert.equal(approvalFromSparseDryRun.basis.priorDryRun.profileCleanupOk, null);
+  const sparseMarkdown = buildSourceApprovalRequestMarkdown(approvalFromSparseDryRun);
+  assert.ok(sparseMarkdown.includes("- Reading title: Bad # Heading \\[x\\]"));
+  assert.ok(sparseMarkdown.includes("- Video title: Clip \\`code\\` \\*bold\\*"));
+  assert.throws(() => buildApprovalRequestSourceFromDryRun({
+    schema: "learning-companion.external-source-validation-browser.v1",
+    evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
+    canClaimExternalKo: false,
+    publicSourceDryRun: true,
+    runs: [
+      {
+        source: {
+          type: "reading",
+          url: intake.readingUrl
+        },
+        summary: {
+          ok: true
+        }
+      },
+      {
+        source: {
+          type: "video",
+          url: intake.videoUrl
+        },
+        saved: {
+          captureTimestamp: "00:03"
+        },
+        summary: {
+          ok: false
+        }
+      }
+    ]
+  }, ".codex-tmp/external-source-validation/failed-public-dry-run/receipt.json"), /summary\.ok true/);
 }
 
 function isSensitiveQueryKey(key) {
