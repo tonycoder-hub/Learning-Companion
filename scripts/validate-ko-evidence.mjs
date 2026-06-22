@@ -12,8 +12,107 @@ const EXTERNAL_CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-re
 const MAC_MANUAL_QA_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const WINDOWS_STATIC_QA_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const HARMONY_DEVICE_QA_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
+const PLATFORM_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const MAC_MANUAL_QA_AREAS = [
+  "Launch",
+  "Morning pack shortcut",
+  "Sidecar",
+  "Sidecar focus rail",
+  "Floating",
+  "Clipboard capture",
+  "Quick Capture draft persistence",
+  "Keyboard quick capture",
+  "Source time staging",
+  "Paste Source setup",
+  "Today draft resume",
+  "First-run First Note",
+  "Today section map",
+  "Focus Brief draft precedence",
+  "Focus Brief question signal",
+  "Open question handoff",
+  "Question close loop",
+  "Source timestamp jump",
+  "Selected text capture",
+  "Clipboard fallback guard",
+  "Browser context",
+  "Native import success",
+  "Native import failure",
+  "Export backup",
+  "Relaunch persistence",
+  "Mirror inspection",
+  "Feishu dry-run artifact"
+];
+const WINDOWS_STATIC_QA_AREAS = [
+  "Launch mirror home",
+  "Read Today",
+  "Pre-return fingerprint check",
+  "Review return file",
+  "Inbox return file",
+  "Unsaved leave warning",
+  "Manual transfer back",
+  "Batch partial-import guard",
+  "Wrong file guard",
+  "Static boundary"
+];
+const HARMONY_DEVICE_QA_AREAS = [
+  "DevEco/toolchain compile",
+  "File candidate guard",
+  "Import workspace JSON",
+  "Import mirror bundle",
+  "Failed import preservation",
+  "Phone next action",
+  "Review reveal",
+  "Offline relaunch",
+  "Capture patch export",
+  "Review patch export"
+];
+const PLATFORM_FULL_RUN_FIELDS = {
+  macManualQa: [
+    ["dateTime", "Date/time"],
+    ["reviewer", "Reviewer"],
+    ["macBuildSource", "Mac build/source"],
+    ["macosVersion", "macOS version"],
+    ["browserSourceUsed", "Browser/source used"],
+    ["nativeBuildGateResult", "Native build gate result"],
+    ["browserSmokeGateResult", "Browser smoke gate result"],
+    ["totalElapsedTime", "Total elapsed time"],
+    ["permissionPromptsObserved", "Permission prompts observed"],
+    ["nativeSaveImportFrictionObserved", "Native save/import friction observed"],
+    ["biggestFriction", "Biggest friction"]
+  ],
+  windowsStaticQa: [
+    ["dateTime", "Date/time"],
+    ["reviewer", "Reviewer"],
+    ["windowsBrowserDevice", "Windows browser/device"],
+    ["mirrorBuildSource", "Mirror build/source"],
+    ["transferMethod", "Transfer method"],
+    ["macImportMethod", "Mac import method"],
+    ["staticReturnContractGateResult", "Static return contract gate result"],
+    ["macReturnFilesImportResult", "Mac Return Files import result"],
+    ["totalElapsedTime", "Total elapsed time"],
+    ["windowsLocalFileFrictionObserved", "Windows local-file friction observed"],
+    ["returnFileTransferFrictionObserved", "Return-file transfer friction observed"],
+    ["biggestFriction", "Biggest friction"]
+  ],
+  harmonyDeviceQa: [
+    ["dateTime", "Date/time"],
+    ["reviewer", "Reviewer"],
+    ["harmonyDeviceBuild", "HarmonyOS device/build"],
+    ["appBuildSource", "App build/source"],
+    ["devEcoToolchainGateResult", "DevEco/toolchain gate result"],
+    ["importMethod", "Import method"],
+    ["returnTransferMethod", "Return transfer method"],
+    ["macImportMethod", "Mac import method"],
+    ["macReturnFilesImportResult", "Mac Return Files import result"],
+    ["totalElapsedTime", "Total elapsed time"],
+    ["filePickerStorageFrictionObserved", "File-picker/storage friction observed"],
+    ["patchExportImportFrictionObserved", "Patch export/import friction observed"],
+    ["biggestFriction", "Biggest friction"]
+  ]
+};
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -57,6 +156,9 @@ async function buildKoReport({
       schema: MAC_MANUAL_QA_SCHEMA,
       claimKey: "canClaimMacManualQaUsable",
       environmentKey: "macosVersion",
+      environmentLabel: "macOS version",
+      expectedAreas: MAC_MANUAL_QA_AREAS,
+      requiredFullRunFields: PLATFORM_FULL_RUN_FIELDS.macManualQa,
       gateKeys: [
         ["nativeBuildGatePass", "Native build gate"],
         ["browserSmokeGatePass", "Browser smoke gate"]
@@ -69,6 +171,9 @@ async function buildKoReport({
       schema: WINDOWS_STATIC_QA_SCHEMA,
       claimKey: "canClaimWindowsStaticLoopUsable",
       environmentKey: "windowsBrowserDevice",
+      environmentLabel: "Windows browser/device",
+      expectedAreas: WINDOWS_STATIC_QA_AREAS,
+      requiredFullRunFields: PLATFORM_FULL_RUN_FIELDS.windowsStaticQa,
       gateKeys: [
         ["staticReturnContractGatePass", "Static return contract gate"],
         ["macReturnFilesImportPass", "Mac Return Files import gate"]
@@ -81,6 +186,9 @@ async function buildKoReport({
       schema: HARMONY_DEVICE_QA_SCHEMA,
       claimKey: "canClaimHarmonyDeviceRoundtripUsable",
       environmentKey: "harmonyDeviceBuild",
+      environmentLabel: "HarmonyOS device/build",
+      expectedAreas: HARMONY_DEVICE_QA_AREAS,
+      requiredFullRunFields: PLATFORM_FULL_RUN_FIELDS.harmonyDeviceQa,
       gateKeys: [
         ["devEcoToolchainGatePass", "DevEco/toolchain gate"],
         ["macReturnFilesImportPass", "Mac Return Files import gate"]
@@ -256,11 +364,14 @@ function summarizePlatformQaStatus(items) {
         }
       ]));
       const claimAllowed = receipt.claimBoundary?.[item.claimKey] === true;
-      const rowEvidenceErrors = platformRowEvidenceErrors(receipt, item.label);
-      const blockingReasons = summarizePlatformBlockingReasons({ summary, gates, claimAllowed, rowEvidenceErrors });
+      const platformEvidenceErrors = [
+        ...platformRowEvidenceErrors(receipt, item),
+        ...platformClaimEvidenceErrors(receipt, item)
+      ];
+      const blockingReasons = summarizePlatformBlockingReasons({ summary, gates, claimAllowed, platformEvidenceErrors });
       return {
         ...base,
-        status: classifyPlatformQaStatus({ summary, gates, claimAllowed, rowEvidenceErrors }),
+        status: classifyPlatformQaStatus({ summary, gates, claimAllowed, platformEvidenceErrors }),
         detail: blockingReasons.length ? blockingReasons.join("; ") : "Platform QA receipt is completed and claimable.",
         schema: receipt.schema,
         evidenceTier: receipt.evidenceTier || "",
@@ -282,7 +393,7 @@ function summarizePlatformQaStatus(items) {
           environment: receipt.sessionFields?.[item.environmentKey] || ""
         },
         claimAllowed,
-        errors: [...(Array.isArray(receipt.errors) ? receipt.errors : []), ...rowEvidenceErrors]
+        errors: [...(Array.isArray(receipt.errors) ? receipt.errors : []), ...platformEvidenceErrors]
       };
     } catch (error) {
       return {
@@ -294,12 +405,12 @@ function summarizePlatformQaStatus(items) {
   });
 }
 
-function summarizePlatformBlockingReasons({ summary, gates, claimAllowed, rowEvidenceErrors = [] }) {
+function summarizePlatformBlockingReasons({ summary, gates, claimAllowed, platformEvidenceErrors = [] }) {
   const reasons = [];
   if (summary.ok !== true) reasons.push("receipt structure is not valid");
   if (summary.anyRealRowsFilled !== true) reasons.push("no real platform rows are filled");
   if (summary.allRowsPass !== true) reasons.push("rows are not all PASS");
-  if (rowEvidenceErrors.length) reasons.push(...rowEvidenceErrors);
+  if (platformEvidenceErrors.length) reasons.push(...platformEvidenceErrors);
   Object.values(gates).forEach((gate) => {
     if (!gate.pass) reasons.push(`${gate.label} is not PASS`);
   });
@@ -307,11 +418,11 @@ function summarizePlatformBlockingReasons({ summary, gates, claimAllowed, rowEvi
   return reasons;
 }
 
-function classifyPlatformQaStatus({ summary, gates, claimAllowed, rowEvidenceErrors = [] }) {
+function classifyPlatformQaStatus({ summary, gates, claimAllowed, platformEvidenceErrors = [] }) {
   const rows = Number(summary.rows || 0);
   const nt = Number(summary.nt || 0);
   const allGatesPass = Object.values(gates).every((gate) => gate.pass);
-  if (rowEvidenceErrors.length) return "INVALID_OR_INCOMPLETE";
+  if (platformEvidenceErrors.length) return "INVALID_OR_INCOMPLETE";
   if (summary.ok === true && summary.allRowsPass === true && summary.anyRealRowsFilled === true && allGatesPass && claimAllowed) {
     return "PASSING_REAL_RUN";
   }
@@ -324,16 +435,106 @@ function classifyPlatformQaStatus({ summary, gates, claimAllowed, rowEvidenceErr
   return "INVALID_OR_INCOMPLETE";
 }
 
-function platformRowEvidenceErrors(receipt, label) {
+function platformClaimEvidenceErrors(receipt, item) {
   const errors = [];
+  const rowSummary = derivePlatformRowSummary(receipt.rows, item.expectedAreas?.length || 0);
+  const receiptErrors = Array.isArray(receipt.errors) ? receipt.errors : [];
+  if (!Array.isArray(receipt.errors)) {
+    errors.push(`${item.label} receipt errors must be listed`);
+  }
+  if (receiptErrors.length > 0) {
+    errors.push(`${item.label} receipt errors must be empty before a platform claim`);
+  }
+  if (receiptErrors.length > 0 && receipt.summary?.ok === true) {
+    errors.push(`${item.label} summary ok must not be true while receipt errors are present`);
+  }
+  if (rowSummary.anyRealRowsFilled === true) {
+    if (!isIsoDateTimeWithTimezone(receipt.sessionFields?.dateTime)) {
+      errors.push(`${item.label} Date/time must be an ISO date-time with timezone`);
+    }
+    [
+      ["reviewer", "Reviewer"],
+      [item.environmentKey, item.environmentLabel]
+    ].forEach(([key, label]) => {
+      if (!hasConcretePlatformText(receipt.sessionFields?.[key])) {
+        errors.push(`${item.label} ${label} must be filled with concrete platform QA evidence`);
+      }
+    });
+  }
+  if (rowSummary.allRowsExecuted === true) {
+    for (const [key, label] of item.requiredFullRunFields || []) {
+      if (!hasConcretePlatformText(receipt.sessionFields?.[key])) {
+        errors.push(`${item.label} ${label} must be filled with concrete platform QA evidence`);
+      }
+    }
+  }
+  const gatesPass = item.gateKeys.every(([key]) => receipt.summary?.[key] === true);
+  const fullRunFieldsConcrete = rowSummary.allRowsExecuted === true
+    && (item.requiredFullRunFields || []).every(([key]) => hasConcretePlatformText(receipt.sessionFields?.[key]));
+  const expectedClaimAllowed = receiptErrors.length === 0
+    && rowSummary.allRowsPass === true
+    && gatesPass
+    && fullRunFieldsConcrete;
+  const claimAllowed = receipt.claimBoundary?.[item.claimKey] === true;
+  if (claimAllowed !== expectedClaimAllowed) {
+    errors.push(`${item.label} claim boundary must match derived platform evidence: expected ${expectedClaimAllowed}`);
+  }
+  if (expectedClaimAllowed && receipt.evidenceTier !== "MANUAL_PLATFORM_QA") {
+    errors.push(`${item.label} evidenceTier must be MANUAL_PLATFORM_QA only for a claimable full platform run`);
+  }
+  if (!expectedClaimAllowed && receipt.evidenceTier === "MANUAL_PLATFORM_QA") {
+    errors.push(`${item.label} evidenceTier must not be MANUAL_PLATFORM_QA unless the full platform run is claimable`);
+  }
+  if (!rowSummary.anyRealRowsFilled && receipt.evidenceTier !== "PENDING_USER_GATE") {
+    errors.push(`${item.label} evidenceTier must remain PENDING_USER_GATE until real platform rows are filled`);
+  }
+  if (rowSummary.anyRealRowsFilled && !expectedClaimAllowed && receipt.evidenceTier !== "PARTIAL_PLATFORM_QA") {
+    errors.push(`${item.label} evidenceTier must be PARTIAL_PLATFORM_QA for non-claimable filled platform rows`);
+  }
+  return errors;
+}
+
+function platformRowEvidenceErrors(receipt, item) {
+  const errors = [];
+  const label = item.label;
   const rows = Array.isArray(receipt.rows) ? receipt.rows : null;
   if (!rows) {
     return [`${label} receipt rows must be listed for row-level evidence review`];
   }
-  const expectedRows = Number(receipt.summary?.rows || 0);
+  const expectedRows = item.expectedAreas?.length || 0;
   if (expectedRows && rows.length !== expectedRows) {
-    errors.push(`${label} receipt rows length ${rows.length} does not match summary rows ${expectedRows}`);
+    errors.push(`${label} receipt rows length ${rows.length} does not match expected rows ${expectedRows}`);
   }
+  if (expectedRows) {
+    item.expectedAreas.forEach((expectedArea, index) => {
+      const actualArea = String(rows[index]?.area || "").trim();
+      if (actualArea !== expectedArea) {
+        errors.push(`${label} row ${index + 1} area must be ${expectedArea}`);
+      }
+    });
+  }
+  const derived = derivePlatformRowSummary(rows, expectedRows);
+  [
+    ["rows", derived.rows],
+    ["pass", derived.pass],
+    ["fail", derived.fail],
+    ["blocked", derived.blocked],
+    ["nt", derived.nt],
+    ["invalid", derived.invalid]
+  ].forEach(([key, expected]) => {
+    if (Number(receipt.summary?.[key] || 0) !== expected) {
+      errors.push(`${label} summary ${key} does not match rows: expected ${expected}`);
+    }
+  });
+  [
+    ["allRowsExecuted", derived.allRowsExecuted],
+    ["allRowsPass", derived.allRowsPass],
+    ["anyRealRowsFilled", derived.anyRealRowsFilled]
+  ].forEach(([key, expected]) => {
+    if (Boolean(receipt.summary?.[key]) !== expected) {
+      errors.push(`${label} summary ${key} does not match rows: expected ${expected}`);
+    }
+  });
   rows.forEach((row, index) => {
     const result = String(row?.result || "").trim().toUpperCase();
     if (result && result !== "NT" && !hasEvidenceNote(row?.notes)) {
@@ -343,9 +544,45 @@ function platformRowEvidenceErrors(receipt, label) {
   return errors;
 }
 
+function derivePlatformRowSummary(rows, expectedRows = 0) {
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const normalized = safeRows.map((row) => String(row?.result || "").trim().toUpperCase());
+  const summary = {
+    rows: safeRows.length,
+    pass: normalized.filter((result) => result === "PASS").length,
+    fail: normalized.filter((result) => result === "FAIL").length,
+    blocked: normalized.filter((result) => result === "BLOCKED").length,
+    nt: normalized.filter((result) => result === "NT").length,
+    invalid: normalized.filter((result) => !PLATFORM_RESULTS.has(result)).length
+  };
+  const rowCountMatches = !expectedRows || summary.rows === expectedRows;
+  return {
+    ...summary,
+    allRowsExecuted: rowCountMatches && summary.rows > 0 && summary.nt === 0 && summary.invalid === 0,
+    allRowsPass: rowCountMatches && summary.rows > 0 && summary.pass === summary.rows && summary.fail === 0 && summary.blocked === 0 && summary.nt === 0 && summary.invalid === 0,
+    anyRealRowsFilled: normalized.some((result) => result !== "NT")
+  };
+}
+
 function hasEvidenceNote(value) {
   const text = String(value || "").trim();
   return Boolean(text && !isPlaceholderEvidenceNote(text));
+}
+
+function hasConcretePlatformText(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
+  return Boolean(text && !isPlaceholderPlatformText(text) && !isPlaceholderPlatformText(unwrappedText));
+}
+
+function isPlaceholderPlatformText(text) {
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+}
+
+function isIsoDateTimeWithTimezone(value) {
+  const text = String(value || "").trim();
+  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
 function isPlaceholderEvidenceNote(value) {
@@ -398,7 +635,20 @@ function validateBilingualReceipt(receipt) {
 
 function validateMacManualQaReceipt(receipt) {
   assert.equal(receipt.schema, MAC_MANUAL_QA_SCHEMA, "Mac manual QA receipt schema mismatch");
-  assert.deepEqual(platformRowEvidenceErrors(receipt, "Mac manual QA"), [], "Mac manual QA rows must include evidence notes for every non-NT result");
+  const item = {
+    label: "Mac manual QA",
+    environmentKey: "macosVersion",
+    environmentLabel: "macOS version",
+    expectedAreas: MAC_MANUAL_QA_AREAS,
+    requiredFullRunFields: PLATFORM_FULL_RUN_FIELDS.macManualQa,
+    gateKeys: [
+      ["nativeBuildGatePass", "Native build gate"],
+      ["browserSmokeGatePass", "Browser smoke gate"]
+    ],
+    claimKey: "canClaimMacManualQaUsable"
+  };
+  assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Mac manual QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item), [], "Mac manual QA session fields, tier, errors, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "Mac manual QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Mac manual QA rows must all PASS");
   assertTrue(receipt.summary?.nativeBuildGatePass, "Mac native build gate must PASS");
@@ -421,7 +671,20 @@ function validateMacManualQaReceipt(receipt) {
 
 function validateWindowsStaticQaReceipt(receipt) {
   assert.equal(receipt.schema, WINDOWS_STATIC_QA_SCHEMA, "Windows static QA receipt schema mismatch");
-  assert.deepEqual(platformRowEvidenceErrors(receipt, "Windows static QA"), [], "Windows static QA rows must include evidence notes for every non-NT result");
+  const item = {
+    label: "Windows static QA",
+    environmentKey: "windowsBrowserDevice",
+    environmentLabel: "Windows browser/device",
+    expectedAreas: WINDOWS_STATIC_QA_AREAS,
+    requiredFullRunFields: PLATFORM_FULL_RUN_FIELDS.windowsStaticQa,
+    gateKeys: [
+      ["staticReturnContractGatePass", "Static return contract gate"],
+      ["macReturnFilesImportPass", "Mac Return Files import gate"]
+    ],
+    claimKey: "canClaimWindowsStaticLoopUsable"
+  };
+  assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Windows static QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item), [], "Windows static QA session fields, tier, errors, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "Windows static QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Windows static QA rows must all PASS");
   assertTrue(receipt.summary?.staticReturnContractGatePass, "Windows static-return contract gate must PASS");
@@ -444,7 +707,20 @@ function validateWindowsStaticQaReceipt(receipt) {
 
 function validateHarmonyDeviceQaReceipt(receipt) {
   assert.equal(receipt.schema, HARMONY_DEVICE_QA_SCHEMA, "HarmonyOS device QA receipt schema mismatch");
-  assert.deepEqual(platformRowEvidenceErrors(receipt, "HarmonyOS device QA"), [], "HarmonyOS device QA rows must include evidence notes for every non-NT result");
+  const item = {
+    label: "HarmonyOS device QA",
+    environmentKey: "harmonyDeviceBuild",
+    environmentLabel: "HarmonyOS device/build",
+    expectedAreas: HARMONY_DEVICE_QA_AREAS,
+    requiredFullRunFields: PLATFORM_FULL_RUN_FIELDS.harmonyDeviceQa,
+    gateKeys: [
+      ["devEcoToolchainGatePass", "DevEco/toolchain gate"],
+      ["macReturnFilesImportPass", "Mac Return Files import gate"]
+    ],
+    claimKey: "canClaimHarmonyDeviceRoundtripUsable"
+  };
+  assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "HarmonyOS device QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item), [], "HarmonyOS device QA session fields, tier, errors, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "HarmonyOS device QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "HarmonyOS device QA rows must all PASS");
   assertTrue(receipt.summary?.devEcoToolchainGatePass, "HarmonyOS DevEco/toolchain gate must PASS");
@@ -771,6 +1047,7 @@ async function runSelfTest() {
   await writeJson(pendingPlatformPath, {
     ...fixtures.macManualReceipt,
     evidenceTier: "PENDING_USER_GATE",
+    rows: fixtures.macManualReceipt.rows.map((row) => ({ ...row, result: "NT", notes: "" })),
     summary: {
       ...fixtures.macManualReceipt.summary,
       pass: 0,
@@ -912,6 +1189,177 @@ async function runSelfTest() {
   const harmonyPlaceholderNotesStatus = harmonyPlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "harmonyDeviceQa");
   assert.equal(harmonyPlaceholderNotesStatus?.status, "INVALID_OR_INCOMPLETE");
 
+  const placeholderPlatformReviewerPath = join(root, "placeholder-platform-reviewer-receipt.json");
+  await writeJson(placeholderPlatformReviewerPath, {
+    ...fixtures.macManualReceipt,
+    sessionFields: {
+      ...fixtures.macManualReceipt.sessionFields,
+      reviewer: "N/A"
+    }
+  });
+  const placeholderPlatformReviewerReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: placeholderPlatformReviewerPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(placeholderPlatformReviewerReport.canClaimKo, false);
+  assert.ok(placeholderPlatformReviewerReport.blockers.some((item) => item.includes("Reviewer must be filled with concrete platform QA evidence")));
+  const placeholderReviewerMacStatus = placeholderPlatformReviewerReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(placeholderReviewerMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const relativePlatformDatePath = join(root, "relative-platform-date-receipt.json");
+  await writeJson(relativePlatformDatePath, {
+    ...fixtures.windowsStaticReceipt,
+    sessionFields: {
+      ...fixtures.windowsStaticReceipt.sessionFields,
+      dateTime: "today"
+    }
+  });
+  const relativePlatformDateReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: relativePlatformDatePath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(relativePlatformDateReport.canClaimKo, false);
+  assert.ok(relativePlatformDateReport.blockers.some((item) => item.includes("Date/time must be an ISO date-time with timezone")));
+  const relativeDateWindowsStatus = relativePlatformDateReport.platformQaStatus.find((item) => item.id === "windowsStaticManualQa");
+  assert.equal(relativeDateWindowsStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const mismatchedPlatformSummaryPath = join(root, "mismatched-platform-summary-receipt.json");
+  await writeJson(mismatchedPlatformSummaryPath, {
+    ...fixtures.harmonyDeviceReceipt,
+    rows: fixtures.harmonyDeviceReceipt.rows.map((row) => ({ ...row, result: "NT", notes: "" })),
+    summary: {
+      ...fixtures.harmonyDeviceReceipt.summary,
+      rows: fixtures.harmonyDeviceReceipt.summary.rows,
+      pass: fixtures.harmonyDeviceReceipt.summary.rows,
+      fail: 0,
+      blocked: 0,
+      nt: 0,
+      invalid: 0,
+      allRowsExecuted: true,
+      allRowsPass: true,
+      anyRealRowsFilled: true
+    },
+    claimBoundary: {
+      ...fixtures.harmonyDeviceReceipt.claimBoundary,
+      canClaimHarmonyDeviceRoundtripUsable: true
+    }
+  });
+  const mismatchedPlatformSummaryReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: mismatchedPlatformSummaryPath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedPlatformSummaryReport.canClaimKo, false);
+  assert.ok(mismatchedPlatformSummaryReport.blockers.some((item) => item.includes("summary allRowsPass does not match rows")));
+  const mismatchedPlatformSummaryStatus = mismatchedPlatformSummaryReport.platformQaStatus.find((item) => item.id === "harmonyDeviceQa");
+  assert.equal(mismatchedPlatformSummaryStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const truncatedPlatformRowsPath = join(root, "truncated-platform-rows-receipt.json");
+  await writeJson(truncatedPlatformRowsPath, {
+    ...fixtures.macManualReceipt,
+    rows: fixtures.macManualReceipt.rows.slice(0, 1),
+    summary: {
+      ...fixtures.macManualReceipt.summary,
+      rows: 1,
+      pass: 1,
+      allRowsExecuted: true,
+      allRowsPass: true,
+      anyRealRowsFilled: true
+    },
+    claimBoundary: {
+      ...fixtures.macManualReceipt.claimBoundary,
+      canClaimMacManualQaUsable: true
+    }
+  });
+  const truncatedPlatformRowsReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: truncatedPlatformRowsPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(truncatedPlatformRowsReport.canClaimKo, false);
+  assert.ok(truncatedPlatformRowsReport.blockers.some((item) => item.includes("receipt rows length 1 does not match expected rows")));
+  const truncatedRowsMacStatus = truncatedPlatformRowsReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(truncatedRowsMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const platformReceiptErrorsPath = join(root, "platform-receipt-errors-receipt.json");
+  await writeJson(platformReceiptErrorsPath, {
+    ...fixtures.windowsStaticReceipt,
+    errors: ["hand-edited validator error that must remain blocking"],
+    summary: {
+      ...fixtures.windowsStaticReceipt.summary,
+      ok: true
+    }
+  });
+  const platformReceiptErrorsReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: platformReceiptErrorsPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(platformReceiptErrorsReport.canClaimKo, false);
+  assert.ok(platformReceiptErrorsReport.blockers.some((item) => item.includes("receipt errors must be empty before a platform claim")));
+  const receiptErrorsWindowsStatus = platformReceiptErrorsReport.platformQaStatus.find((item) => item.id === "windowsStaticManualQa");
+  assert.equal(receiptErrorsWindowsStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const nonClaimableManualTierPath = join(root, "nonclaimable-manual-tier-receipt.json");
+  await writeJson(nonClaimableManualTierPath, {
+    ...fixtures.harmonyDeviceReceipt,
+    rows: fixtures.harmonyDeviceReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, result: "FAIL", notes: ".codex-tmp/ko-evidence-selftest/harmony-fail-note.txt" } : row
+    )),
+    summary: {
+      ...fixtures.harmonyDeviceReceipt.summary,
+      pass: fixtures.harmonyDeviceReceipt.summary.rows - 1,
+      fail: 1,
+      allRowsPass: false
+    },
+    evidenceTier: "MANUAL_PLATFORM_QA",
+    claimBoundary: {
+      ...fixtures.harmonyDeviceReceipt.claimBoundary,
+      canClaimHarmonyDeviceRoundtripUsable: false
+    }
+  });
+  const nonClaimableManualTierReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: nonClaimableManualTierPath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(nonClaimableManualTierReport.canClaimKo, false);
+  assert.ok(nonClaimableManualTierReport.blockers.some((item) => item.includes("evidenceTier must not be MANUAL_PLATFORM_QA")));
+  const nonClaimableManualTierStatus = nonClaimableManualTierReport.platformQaStatus.find((item) => item.id === "harmonyDeviceQa");
+  assert.equal(nonClaimableManualTierStatus?.status, "INVALID_OR_INCOMPLETE");
+
   const summary = {
     schema: SELFTEST_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -932,7 +1380,13 @@ async function runSelfTest() {
       "platform PASS rows with placeholder evidence notes rejected",
       "platform PASS rows with decorated placeholder evidence notes rejected",
       "Windows platform PASS rows with numbered placeholder evidence notes rejected",
-      "Harmony platform PASS rows with blockquote placeholder evidence notes rejected"
+      "Harmony platform PASS rows with blockquote placeholder evidence notes rejected",
+      "platform placeholder reviewer rejected",
+      "platform relative Date/time rejected",
+      "platform summary/row mismatch rejected",
+      "platform truncated row set rejected",
+      "platform receipt errors rejected",
+      "platform nonclaimable manual tier rejected"
     ]
   };
   const outPath = join(root, "selftest-summary.json");
@@ -1015,8 +1469,8 @@ async function createKoFixtures(root) {
     generatedAt: new Date().toISOString(),
     summary: {
       ok: true,
-      rows: 27,
-      pass: 27,
+      rows: MAC_MANUAL_QA_AREAS.length,
+      pass: MAC_MANUAL_QA_AREAS.length,
       fail: 0,
       blocked: 0,
       nt: 0,
@@ -1028,10 +1482,20 @@ async function createKoFixtures(root) {
       anyRealRowsFilled: true
     },
     sessionFields: {
+      dateTime: new Date().toISOString(),
       reviewer: "Self Test",
-      macosVersion: "Self Test macOS"
+      macBuildSource: "Self Test Mac build",
+      macosVersion: "Self Test macOS",
+      browserSourceUsed: "Self Test browser",
+      nativeBuildGateResult: "PASS",
+      browserSmokeGateResult: "PASS",
+      totalElapsedTime: "10 minutes",
+      permissionPromptsObserved: "None observed during self-test fixture",
+      nativeSaveImportFrictionObserved: "None observed during self-test fixture",
+      biggestFriction: "None observed during self-test fixture"
     },
-    rows: buildPlatformQaRows(27, "Mac manual QA"),
+    rows: buildPlatformQaRows(MAC_MANUAL_QA_AREAS, "Mac manual QA"),
+    errors: [],
     claimBoundary: {
       canClaimMacManualQaUsable: true
     }
@@ -1042,8 +1506,8 @@ async function createKoFixtures(root) {
     generatedAt: new Date().toISOString(),
     summary: {
       ok: true,
-      rows: 10,
-      pass: 10,
+      rows: WINDOWS_STATIC_QA_AREAS.length,
+      pass: WINDOWS_STATIC_QA_AREAS.length,
       fail: 0,
       blocked: 0,
       nt: 0,
@@ -1055,10 +1519,21 @@ async function createKoFixtures(root) {
       anyRealRowsFilled: true
     },
     sessionFields: {
+      dateTime: new Date().toISOString(),
       reviewer: "Self Test",
-      windowsBrowserDevice: "Self Test Windows"
+      windowsBrowserDevice: "Self Test Windows",
+      mirrorBuildSource: "Self Test mirror",
+      transferMethod: "Self Test transfer",
+      macImportMethod: "Self Test Mac import",
+      staticReturnContractGateResult: "PASS",
+      macReturnFilesImportResult: "PASS",
+      totalElapsedTime: "10 minutes",
+      windowsLocalFileFrictionObserved: "None observed during self-test fixture",
+      returnFileTransferFrictionObserved: "None observed during self-test fixture",
+      biggestFriction: "None observed during self-test fixture"
     },
-    rows: buildPlatformQaRows(10, "Windows static QA"),
+    rows: buildPlatformQaRows(WINDOWS_STATIC_QA_AREAS, "Windows static QA"),
+    errors: [],
     claimBoundary: {
       canClaimWindowsStaticLoopUsable: true
     }
@@ -1069,8 +1544,8 @@ async function createKoFixtures(root) {
     generatedAt: new Date().toISOString(),
     summary: {
       ok: true,
-      rows: 10,
-      pass: 10,
+      rows: HARMONY_DEVICE_QA_AREAS.length,
+      pass: HARMONY_DEVICE_QA_AREAS.length,
       fail: 0,
       blocked: 0,
       nt: 0,
@@ -1082,10 +1557,22 @@ async function createKoFixtures(root) {
       anyRealRowsFilled: true
     },
     sessionFields: {
+      dateTime: new Date().toISOString(),
       reviewer: "Self Test",
-      harmonyDeviceBuild: "Self Test HarmonyOS"
+      harmonyDeviceBuild: "Self Test HarmonyOS",
+      appBuildSource: "Self Test app build",
+      devEcoToolchainGateResult: "PASS",
+      importMethod: "Self Test import",
+      returnTransferMethod: "Self Test return transfer",
+      macImportMethod: "Self Test Mac import",
+      macReturnFilesImportResult: "PASS",
+      totalElapsedTime: "10 minutes",
+      filePickerStorageFrictionObserved: "None observed during self-test fixture",
+      patchExportImportFrictionObserved: "None observed during self-test fixture",
+      biggestFriction: "None observed during self-test fixture"
     },
-    rows: buildPlatformQaRows(10, "HarmonyOS device QA"),
+    rows: buildPlatformQaRows(HARMONY_DEVICE_QA_AREAS, "HarmonyOS device QA"),
+    errors: [],
     claimBoundary: {
       canClaimHarmonyDeviceRoundtripUsable: true
     }
@@ -1178,10 +1665,10 @@ async function createKoFixtures(root) {
   };
 }
 
-function buildPlatformQaRows(count, label) {
+function buildPlatformQaRows(areas, label) {
   const slug = label.toLowerCase().replaceAll(" ", "-");
-  return Array.from({ length: count }, (_, index) => ({
-    area: `${label} row ${index + 1}`,
+  return areas.map((area, index) => ({
+    area,
     steps: "Self-test fixture step",
     expected: "Self-test fixture expected result",
     result: "PASS",

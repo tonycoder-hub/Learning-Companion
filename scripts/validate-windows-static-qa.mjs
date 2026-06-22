@@ -7,6 +7,7 @@ const WINDOWS_STATIC_QA_RECEIPT_SCHEMA = "learning-companion.windows-static-qa-r
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = 10;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
@@ -81,6 +82,22 @@ function isFilled(value) {
   return Boolean(text && text !== "TBD" && text !== "-");
 }
 
+function hasConcreteQaText(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
+  return Boolean(text && !isPlaceholderQaText(text) && !isPlaceholderQaText(unwrappedText));
+}
+
+function isIsoDateTimeWithTimezone(value) {
+  const text = String(value || "").trim();
+  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
+}
+
+function isPlaceholderQaText(text) {
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+}
+
 function hasEvidenceNote(value) {
   const text = String(value || "").trim();
   return Boolean(text && !isPlaceholderEvidenceNote(text));
@@ -140,6 +157,7 @@ function validateWindowsStaticQa(markdown, qaPath) {
   const counts = summarizeRows(rows);
   const allRowsExecuted = rows.length === EXPECTED_QA_ROWS && counts.nt === 0 && counts.invalid === 0;
   const allRowsPass = allRowsExecuted && counts.pass === EXPECTED_QA_ROWS && counts.fail === 0 && counts.blocked === 0;
+  const anyRealRowsFilled = rows.some((row) => row.result !== "NT");
   const sessionFields = {
     dateTime: fields["Date/time"] || "",
     reviewer: fields.Reviewer || "",
@@ -155,10 +173,25 @@ function validateWindowsStaticQa(markdown, qaPath) {
     biggestFriction: fields["Biggest friction"] || ""
   };
 
+  if (anyRealRowsFilled) {
+    if (!isIsoDateTimeWithTimezone(sessionFields.dateTime)) {
+      errors.push("Windows static QA has filled rows but Date/time must be an ISO date-time with timezone");
+    }
+    [
+      ["reviewer", "Reviewer"],
+      ["windowsBrowserDevice", "Windows browser/device"]
+    ].forEach(([key, label]) => {
+      if (!hasConcreteQaText(sessionFields[key])) {
+        errors.push(`Windows static QA has filled rows but ${label} is empty, TBD, or placeholder`);
+      }
+    });
+  }
+
   if (allRowsExecuted) {
     for (const [key, label] of REQUIRED_FULL_RUN_FIELDS) {
-      if (!isFilled(sessionFields[key])) {
-        errors.push(`Windows static QA fully executed but ${label} is empty or TBD`);
+      if (["dateTime", "reviewer", "windowsBrowserDevice"].includes(key)) continue;
+      if (!hasConcreteQaText(sessionFields[key])) {
+        errors.push(`Windows static QA fully executed but ${label} is empty, TBD, or placeholder`);
       }
     }
     for (const [key, label] of [
@@ -173,9 +206,13 @@ function validateWindowsStaticQa(markdown, qaPath) {
 
   const staticReturnContractGatePass = isPass(sessionFields.staticReturnContractGateResult);
   const macReturnFilesImportPass = isPass(sessionFields.macReturnFilesImportResult);
+  const canClaimWindowsStaticLoopUsable = errors.length === 0 && allRowsPass && staticReturnContractGatePass && macReturnFilesImportPass;
+  const evidenceTier = canClaimWindowsStaticLoopUsable
+    ? "MANUAL_PLATFORM_QA"
+    : anyRealRowsFilled ? "PARTIAL_PLATFORM_QA" : "PENDING_USER_GATE";
   const receipt = {
     schema: WINDOWS_STATIC_QA_RECEIPT_SCHEMA,
-    evidenceTier: "PENDING_USER_GATE",
+    evidenceTier,
     generatedAt: new Date().toISOString(),
     qaPath,
     summary: {
@@ -186,13 +223,13 @@ function validateWindowsStaticQa(markdown, qaPath) {
       allRowsPass,
       staticReturnContractGatePass,
       macReturnFilesImportPass,
-      anyRealRowsFilled: rows.some((row) => row.result !== "NT")
+      anyRealRowsFilled
     },
     sessionFields,
     rows,
     errors,
     claimBoundary: {
-      canClaimWindowsStaticLoopUsable: errors.length === 0 && allRowsPass && staticReturnContractGatePass && macReturnFilesImportPass,
+      canClaimWindowsStaticLoopUsable,
       doesNotProve: [
         "Feishu live sync or remote Drive writes",
         "HarmonyOS app/device behavior",

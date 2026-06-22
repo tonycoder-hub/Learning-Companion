@@ -7,6 +7,7 @@ const HARMONY_DEVICE_QA_RECEIPT_SCHEMA = "learning-companion.harmony-device-qa-r
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = 10;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
@@ -82,6 +83,22 @@ function isFilled(value) {
   return Boolean(text && text !== "TBD" && text !== "-");
 }
 
+function hasConcreteQaText(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
+  return Boolean(text && !isPlaceholderQaText(text) && !isPlaceholderQaText(unwrappedText));
+}
+
+function isIsoDateTimeWithTimezone(value) {
+  const text = String(value || "").trim();
+  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
+}
+
+function isPlaceholderQaText(text) {
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+}
+
 function hasEvidenceNote(value) {
   const text = String(value || "").trim();
   return Boolean(text && !isPlaceholderEvidenceNote(text));
@@ -141,6 +158,7 @@ function validateHarmonyDeviceQa(markdown, qaPath) {
   const counts = summarizeRows(rows);
   const allRowsExecuted = rows.length === EXPECTED_QA_ROWS && counts.nt === 0 && counts.invalid === 0;
   const allRowsPass = allRowsExecuted && counts.pass === EXPECTED_QA_ROWS && counts.fail === 0 && counts.blocked === 0;
+  const anyRealRowsFilled = rows.some((row) => row.result !== "NT");
   const sessionFields = {
     dateTime: fields["Date/time"] || "",
     reviewer: fields.Reviewer || "",
@@ -157,10 +175,25 @@ function validateHarmonyDeviceQa(markdown, qaPath) {
     biggestFriction: fields["Biggest friction"] || ""
   };
 
+  if (anyRealRowsFilled) {
+    if (!isIsoDateTimeWithTimezone(sessionFields.dateTime)) {
+      errors.push("HarmonyOS device QA has filled rows but Date/time must be an ISO date-time with timezone");
+    }
+    [
+      ["reviewer", "Reviewer"],
+      ["harmonyDeviceBuild", "HarmonyOS device/build"]
+    ].forEach(([key, label]) => {
+      if (!hasConcreteQaText(sessionFields[key])) {
+        errors.push(`HarmonyOS device QA has filled rows but ${label} is empty, TBD, or placeholder`);
+      }
+    });
+  }
+
   if (allRowsExecuted) {
     for (const [key, label] of REQUIRED_FULL_RUN_FIELDS) {
-      if (!isFilled(sessionFields[key])) {
-        errors.push(`HarmonyOS device QA fully executed but ${label} is empty or TBD`);
+      if (["dateTime", "reviewer", "harmonyDeviceBuild"].includes(key)) continue;
+      if (!hasConcreteQaText(sessionFields[key])) {
+        errors.push(`HarmonyOS device QA fully executed but ${label} is empty, TBD, or placeholder`);
       }
     }
     for (const [key, label] of [
@@ -175,9 +208,13 @@ function validateHarmonyDeviceQa(markdown, qaPath) {
 
   const devEcoToolchainGatePass = isPass(sessionFields.devEcoToolchainGateResult);
   const macReturnFilesImportPass = isPass(sessionFields.macReturnFilesImportResult);
+  const canClaimHarmonyDeviceRoundtripUsable = errors.length === 0 && allRowsPass && devEcoToolchainGatePass && macReturnFilesImportPass;
+  const evidenceTier = canClaimHarmonyDeviceRoundtripUsable
+    ? "MANUAL_PLATFORM_QA"
+    : anyRealRowsFilled ? "PARTIAL_PLATFORM_QA" : "PENDING_USER_GATE";
   const receipt = {
     schema: HARMONY_DEVICE_QA_RECEIPT_SCHEMA,
-    evidenceTier: "PENDING_USER_GATE",
+    evidenceTier,
     generatedAt: new Date().toISOString(),
     qaPath,
     summary: {
@@ -188,13 +225,13 @@ function validateHarmonyDeviceQa(markdown, qaPath) {
       allRowsPass,
       devEcoToolchainGatePass,
       macReturnFilesImportPass,
-      anyRealRowsFilled: rows.some((row) => row.result !== "NT")
+      anyRealRowsFilled
     },
     sessionFields,
     rows,
     errors,
     claimBoundary: {
-      canClaimHarmonyDeviceRoundtripUsable: errors.length === 0 && allRowsPass && devEcoToolchainGatePass && macReturnFilesImportPass,
+      canClaimHarmonyDeviceRoundtripUsable,
       doesNotProve: [
         "Feishu live sync or remote Drive reads/writes",
         "Windows browser behavior",
