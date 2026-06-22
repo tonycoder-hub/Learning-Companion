@@ -1,6 +1,6 @@
 # Learning Companion Status
 
-Updated: 2026-06-15
+Updated: 2026-06-23
 
 ## Current State
 
@@ -158,7 +158,8 @@ The top-level KO evidence gate is now locally self-tested:
 - The bilingual receipt requirement now includes the expanded main-shell checks: `studyShellZh`, `studyShellEnAfterSwitch`, `todayLearningFlowZh`, `reviewToolbarZh`, `mainLoopCaptureZh`, `recentStackZh`, `searchResultsZh`, and `activityHintZh`.
 - The gate reports `canClaimKo: false` when any platform QA receipt is still pending, when the external approved-source artifact is missing, or when old self-test claim-shaped artifacts from `.codex-tmp/external-source-privacy-review-selftest/` are passed in.
 - The report now includes `platformQaStatus` for native Mac, Windows, and HarmonyOS receipts. It classifies each receipt as `PENDING_NOT_RUN`, `PARTIAL_OR_BLOCKED_RUN`, `PASSING_REAL_RUN`, `INVALID`, or `INVALID_OR_INCOMPLETE`, with row counts, gate booleans, reviewer/environment fields, and blocking reasons.
-- `npm run ko:validate:selftest` verifies the positive gate shape in memory and negative cases for missing external evidence, fixture-only external evidence, pending platform evidence, and platform-status classification. It writes only a fixture-only summary with `canClaimKo: false`.
+- Platform QA validators and the top-level KO gate now require every non-`NT` platform QA row to include a concrete Notes evidence reference; empty Notes are only valid for `NT` rows. A receipt with `PASS`, `FAIL`, or `BLOCKED` rows lacking Notes is classified as `INVALID_OR_INCOMPLETE`.
+- `npm run ko:validate:selftest` verifies the positive gate shape in memory and negative cases for missing external evidence, fixture-only external evidence, pending platform evidence, platform rows without evidence Notes, and platform-status classification. It writes only a fixture-only summary with `canClaimKo: false`.
 - `node scripts/validate-ko-evidence.mjs --allow-missing --out .codex-tmp/ko-evidence/current-status.json` now records the current authoritative status: the local bilingual/controlled-loop evidence exists, but KO is not claimable because native Mac manual QA, Windows static/manual QA, HarmonyOS device/toolchain QA, and the real privacy-reviewed approved reading/video artifact are still missing or pending. The current platform receipt statuses are all `PENDING_NOT_RUN`.
 
 Subagent review follow-up:
@@ -211,6 +212,8 @@ PASS:
 - `npm run mac:manual:validate:smoke` -> pending receipt valid, 27 rows all `NT`
 - `npm run windows:static:validate:smoke` -> pending receipt valid, 10 rows all `NT`
 - `npm run harmony:device:validate:smoke` -> pending receipt valid, 10 rows all `NT`
+- Wrapped negative check for Mac/Windows/Harmony platform QA templates with one `PASS` row and empty Notes -> `platform_qa_empty_note_negative_ok`
+- Wrapped positive check for Mac/Windows/Harmony platform QA templates with one `PASS` row and an evidence Notes value -> `platform_qa_evidence_note_positive_ok`
 - `npm run smoke` -> `smoke_web_ok`
 - `npm run smoke:harmony` -> `smoke_harmony_schema_ok`, `smoke_harmony_scaffold_ok`
 - `npm run smoke:bilingual-browser` -> `.codex-tmp/bilingual-browser-smoke/receipt.json`
@@ -247,6 +250,8 @@ Most recent focused rerun after adding the approved source input-intake command 
 Most recent focused rerun after adding external-source run context passed `node --check scripts/external-source-validation-browser.mjs`, `node --check scripts/validate-external-source-privacy-review.mjs`, `node --check scripts/validate-ko-evidence.mjs`, `node --check scripts/smoke-web.mjs`, `npm run external:validate:selftest`, `npm run external:privacy-review:selftest`, `npm run ko:validate:selftest`, `npm run smoke`, and `node scripts/validate-ko-evidence.mjs --allow-missing --out .codex-tmp/ko-evidence/current-status.json`. The refreshed KO status still has `canClaimKo: false`.
 
 Most recent focused rerun after tightening approved-source URL boundaries passed `node --check scripts/external-source-validation-browser.mjs`, `node --check scripts/validate-external-source-privacy-review.mjs`, `node --check scripts/validate-ko-evidence.mjs`, `node --check scripts/smoke-web.mjs`, `npm run external:validate:selftest`, `npm run external:privacy-review:selftest`, `npm run ko:validate:selftest`, `npm run smoke`, and `node scripts/validate-ko-evidence.mjs --allow-missing --out .codex-tmp/ko-evidence/current-status.json`. The refreshed KO status still has `canClaimKo: false`.
+
+Most recent focused rerun after hardening platform QA row evidence passed `node --check scripts/validate-ko-evidence.mjs`, `node --check scripts/smoke-web.mjs`, `node --check scripts/validate-mac-manual-qa.mjs`, `node --check scripts/validate-windows-static-qa.mjs`, `node --check scripts/validate-harmony-device-qa.mjs`, `node --check scripts/build-morning-demo.mjs`, `node --check scripts/validate-morning-receipts.mjs`, `npm run ko:validate:selftest`, `npm run smoke`, `npm run mac:manual:validate:smoke`, `npm run windows:static:validate:smoke`, `npm run harmony:device:validate:smoke`, the wrapped empty-Notes negative check, the wrapped evidence-Notes positive check, `node scripts/validate-ko-evidence.mjs --allow-missing --out .codex-tmp/ko-evidence/current-status.json`, and `npm run ko:next`. The refreshed KO status still has `canClaimKo: false`; real approved external evidence and real Mac/Windows/Harmony platform QA remain required.
 
 Most recent rerun on 2026-06-15 covered the HarmonyOS visible scaffold, focused browser bilingual runtime, full browser runtime, source-resume, text-fragment, controlled agent-loop, external-source harness self-test, privacy-review contract self-test, and top-level KO gate self-test slices with `node --check` gates, `npm run smoke`, `npm run smoke:harmony`, `npm run smoke:bilingual-browser`, `npm run smoke:browser`, `npm run smoke:source-resume`, `npm run smoke:text-fragment`, `npm run agent:study-loop`, `npm run external:validate:selftest`, `npm run external:privacy-review:selftest`, `npm run ko:validate:selftest`, `npm run check:morning`, and `git diff --check`.
 

@@ -112,8 +112,8 @@ function validateWindowsStaticQa(markdown, qaPath) {
     if (!VALID_RESULTS.has(row.result)) {
       invalidRows.push(rowNumber);
     }
-    if ((row.result === "BLOCKED" || row.result === "FAIL") && !isFilled(row.notes)) {
-      errors.push(`row ${rowNumber} (${row.area || "unnamed"}) is ${row.result} without a QA note`);
+    if (row.result !== "NT" && !isFilled(row.notes)) {
+      errors.push(`row ${rowNumber} (${row.area || "unnamed"}) is ${row.result} without a QA note or evidence reference`);
     }
   });
   if (invalidRows.length) {
