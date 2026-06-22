@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { dirname, extname, join, resolve } from "node:path";
@@ -26,6 +26,7 @@ if (args["source-intake"]) {
 const selfTest = Boolean(args["self-test"]);
 const approvedCurrentTurn = Boolean(args["approved-current-turn"]);
 const publicSourceDryRun = Boolean(args["public-source-dry-run"]);
+if (args["out-root"] === true) throw new Error("--out-root requires a directory path.");
 const outputRoot = resolve(args["out-root"] || ".codex-tmp/external-source-validation");
 const runSlug = selfTest
   ? "selftest-local-fixtures"
@@ -149,8 +150,8 @@ try {
     selfTest,
     runs
   };
-  await writeFile(join(runRoot, "receipt.json"), `${JSON.stringify(receipt, null, 2)}\n`);
-  await writeFile(join(runRoot, "run.md"), buildRunMarkdown(receipt));
+  await writePrivateFile(join(runRoot, "receipt.json"), `${JSON.stringify(receipt, null, 2)}\n`);
+  await writePrivateFile(join(runRoot, "run.md"), buildRunMarkdown(receipt));
 
   assert.equal(runs.length, 2);
   assert.equal(runs.every((run) => run.summary.ok), true);
@@ -436,7 +437,7 @@ async function exerciseVideoLearningTools({ cdp, source, sourceDir }) {
 async function capturePng(cdp, outPath) {
   await mkdir(dirname(outPath), { recursive: true, mode: 0o700 });
   const result = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: true });
-  await writeFile(outPath, Buffer.from(result.data, "base64"));
+  await writePrivateFile(outPath, Buffer.from(result.data, "base64"));
   return result.data;
 }
 
@@ -534,13 +535,16 @@ function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
     ];
   }
 
-  const approvalSource = publicSourceDryRun ? (args["dry-run-note"] || "") : (args["approval-note"] || "");
-  if (publicSourceDryRun && !approvalSource) throw new Error("Public source dry-run requires --dry-run-note.");
-  if (!publicSourceDryRun && !approvalSource) throw new Error("External validation requires --approval-note.");
+  const approvalSource = publicSourceDryRun
+    ? requireStringArg(args["dry-run-note"], "dry-run-note", "Public source dry-run requires --dry-run-note.")
+    : requireStringArg(args["approval-note"], "approval-note", "External validation requires --approval-note.");
   const readingUrl = requireApprovedUrl(args["reading-url"], "reading-url");
   const videoUrl = requireApprovedUrl(args["video-url"], "video-url");
-  const videoTimestamp = args["video-timestamp"] || "";
-  if (!videoTimestamp) throw new Error("External video validation requires --video-timestamp for timestamp/resume evidence.");
+  const videoTimestamp = requireStringArg(
+    args["video-timestamp"],
+    "video-timestamp",
+    "External video validation requires --video-timestamp for timestamp/resume evidence."
+  );
   const approvalMarker = publicSourceDryRun ? "PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED" : "APPROVED_IN_CURRENT_TURN";
   const sourceApproval = publicSourceDryRun ? `dry-run only: ${approvalSource}` : approvalSource;
   return [
@@ -748,6 +752,7 @@ function execFileText(command, commandArgs) {
 }
 
 async function runSourceIntake(args) {
+  if (args.out === true) throw new Error("--out requires a file path.");
   const input = await readSourceIntakeText(args);
   const parsed = parseSourceIntake(input);
   const readingUrl = requireApprovedUrl(parsed.readingUrl, "reading-url");
@@ -777,7 +782,7 @@ async function runSourceIntake(args) {
   if (args.out) {
     const outPath = resolve(String(args.out));
     await mkdir(dirname(outPath), { recursive: true, mode: 0o700 });
-    await writeFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`, { mode: 0o600 });
+    await writePrivateFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`);
   }
   const outputLines = [
     "source_intake_ok",
@@ -846,8 +851,8 @@ function buildSourceIntakeHandoff({ readingUrl, videoUrl, videoTimestamp, public
 
 async function readSourceIntakeText(args) {
   if (args.input && args["input-file"]) throw new Error("Use only one of --input or --input-file.");
-  if (args.input) return String(args.input);
-  if (args["input-file"]) return readFile(resolve(String(args["input-file"])), "utf8");
+  if (args.input) return requireStringArg(args.input, "input", "Missing source input.");
+  if (args["input-file"]) return readFile(resolve(requireStringArg(args["input-file"], "input-file", "Missing --input-file path.")), "utf8");
   throw new Error("Missing source input. Use --input \"阅读：https://...\\n视频：https://...\\n时间：00:15\" or --input-file <path>.");
 }
 
@@ -934,6 +939,11 @@ function requireApprovedUrl(value, label) {
     if (isSensitiveQueryKey(key)) throw new Error(`--${label} query key ${key} looks sensitive.`);
   }
   return url.href;
+}
+
+function requireStringArg(value, label, message = `Missing --${label}.`) {
+  if (!value || value === true) throw new Error(message);
+  return String(value);
 }
 
 function buildCliHelp() {
@@ -1149,6 +1159,15 @@ function parseArgs(argv) {
     index += 1;
   }
   return parsed;
+}
+
+async function writePrivateFile(path, value) {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await chmod(path, 0o600).catch((error) => {
+    if (error?.code !== "ENOENT") throw error;
+  });
+  await writeFile(path, value, { mode: 0o600 });
+  await chmod(path, 0o600);
 }
 
 function timestampSlug(date) {
