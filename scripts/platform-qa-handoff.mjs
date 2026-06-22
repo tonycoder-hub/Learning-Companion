@@ -113,6 +113,9 @@ const handoff = await buildPlatformQaHandoff(args.status || STATUS_PATH);
 if (args.out) {
   const outPath = resolve(String(args.out));
   await mkdir(dirname(outPath), { recursive: true, mode: 0o700 });
+  await chmod(outPath, 0o600).catch((error) => {
+    if (error?.code !== "ENOENT") throw error;
+  });
   await writeFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`, { mode: 0o600 });
   await chmod(outPath, 0o600);
 }

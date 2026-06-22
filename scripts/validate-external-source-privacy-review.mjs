@@ -928,6 +928,9 @@ async function readJson(path, label) {
 
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await chmod(path, 0o600).catch((error) => {
+    if (error?.code !== "ENOENT") throw error;
+  });
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
   await chmod(path, 0o600);
 }
