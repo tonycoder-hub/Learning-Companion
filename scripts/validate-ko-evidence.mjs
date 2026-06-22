@@ -13,6 +13,7 @@ const MAC_MANUAL_QA_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const WINDOWS_STATIC_QA_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const HARMONY_DEVICE_QA_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
+const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -349,7 +350,7 @@ function hasEvidenceNote(value) {
 
 function isPlaceholderEvidenceNote(value) {
   const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const unwrappedText = text.replace(/^[`"'([{<*_.,;:\-\s]+/, "");
+  const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
   return isPlaceholderEvidenceText(text) || isPlaceholderEvidenceText(unwrappedText);
 }
 
@@ -871,7 +872,7 @@ async function runSelfTest() {
   await writeJson(windowsPlaceholderPlatformNotesPath, {
     ...fixtures.windowsStaticReceipt,
     rows: fixtures.windowsStaticReceipt.rows.map((row, index) => (
-      index === 0 ? { ...row, notes: "todo" } : row
+      index === 0 ? { ...row, notes: "1. todo: capture screenshot" } : row
     ))
   });
   const windowsPlaceholderPlatformNotesReport = await buildKoReport({
@@ -893,7 +894,7 @@ async function runSelfTest() {
   await writeJson(harmonyPlaceholderPlatformNotesPath, {
     ...fixtures.harmonyDeviceReceipt,
     rows: fixtures.harmonyDeviceReceipt.rows.map((row, index) => (
-      index === 0 ? { ...row, notes: "- todo: capture screenshot" } : row
+      index === 0 ? { ...row, notes: "> todo: capture screenshot" } : row
     ))
   });
   const harmonyPlaceholderPlatformNotesReport = await buildKoReport({
@@ -930,8 +931,8 @@ async function runSelfTest() {
       "platform PASS rows without evidence notes rejected",
       "platform PASS rows with placeholder evidence notes rejected",
       "platform PASS rows with decorated placeholder evidence notes rejected",
-      "Windows platform PASS rows with placeholder evidence notes rejected",
-      "Harmony platform PASS rows with decorated placeholder evidence notes rejected"
+      "Windows platform PASS rows with numbered placeholder evidence notes rejected",
+      "Harmony platform PASS rows with blockquote placeholder evidence notes rejected"
     ]
   };
   const outPath = join(root, "selftest-summary.json");
