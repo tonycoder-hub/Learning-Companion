@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 
 const WINDOWS_STATIC_QA_RECEIPT_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
+const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const EXPECTED_QA_ROWS = 10;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
@@ -79,6 +80,21 @@ function isFilled(value) {
   return Boolean(text && text !== "TBD" && text !== "-");
 }
 
+function hasEvidenceNote(value) {
+  const text = String(value || "").trim();
+  return Boolean(text && !isPlaceholderEvidenceNote(text));
+}
+
+function isPlaceholderEvidenceNote(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const unwrappedText = text.replace(/^[`"'([{<*_.,;:\-\s]+/, "");
+  return isPlaceholderEvidenceText(text) || isPlaceholderEvidenceText(unwrappedText);
+}
+
+function isPlaceholderEvidenceText(text) {
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text) || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+}
+
 function isPass(value) {
   return normalizeResult(value) === "PASS";
 }
@@ -112,8 +128,8 @@ function validateWindowsStaticQa(markdown, qaPath) {
     if (!VALID_RESULTS.has(row.result)) {
       invalidRows.push(rowNumber);
     }
-    if (row.result !== "NT" && !isFilled(row.notes)) {
-      errors.push(`row ${rowNumber} (${row.area || "unnamed"}) is ${row.result} without a QA note or evidence reference`);
+    if (row.result !== "NT" && !hasEvidenceNote(row.notes)) {
+      errors.push(`row ${rowNumber} (${row.area || "unnamed"}) is ${row.result} without a concrete QA note or evidence reference`);
     }
   });
   if (invalidRows.length) {
