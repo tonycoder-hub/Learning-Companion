@@ -2,7 +2,7 @@
 
 This project now has several useful local capabilities. This document keeps the wording honest: a local fixture, a dry-run report, or a schema prototype is not the same as a live integration.
 
-For the remaining platform work, run `npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json` to generate a non-claiming execution handoff. The handoff reads the current KO status plus the Mac, Windows, and HarmonyOS QA templates, but it does not run platform QA, retain raw QA Markdown/Notes, or satisfy any KO evidence row by itself.
+For the remaining platform work, run `npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md` to generate a non-claiming execution handoff. The handoff reads the current KO status plus the Mac, Windows, and HarmonyOS QA templates, writes a machine-readable JSON packet plus a human-readable Markdown execution packet, but it does not run platform QA, retain raw QA Markdown/Notes, or satisfy any KO evidence row by itself.
 
 ## Mac Shell
 
