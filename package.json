@@ -47,6 +47,7 @@
     "ko:next": "node scripts/ko-next-action-summary.mjs",
     "ko:validate": "node scripts/validate-ko-evidence.mjs",
     "ko:validate:selftest": "node scripts/validate-ko-evidence.mjs --self-test",
+    "next:readiness": "node scripts/next-major-readiness.mjs",
     "mac:build": "bash scripts/mac-build.sh",
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",
     "check:static-return": "node scripts/static-return-loop-check.mjs",
