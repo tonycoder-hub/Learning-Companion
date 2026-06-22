@@ -105,6 +105,9 @@ if (args.help) {
 if (args.out === true) {
   throw new Error("--out requires a file path.");
 }
+if (args["markdown-out"] === true) {
+  throw new Error("--markdown-out requires a file path.");
+}
 if (args.status === true) {
   throw new Error("--status requires a KO status JSON path.");
 }
@@ -112,14 +115,26 @@ if (args.status === true) {
 const handoff = await buildPlatformQaHandoff(args.status || STATUS_PATH);
 if (args.out) {
   const outPath = resolve(String(args.out));
-  await mkdir(dirname(outPath), { recursive: true, mode: 0o700 });
-  await chmod(outPath, 0o600).catch((error) => {
+  await writePrivateFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`);
+}
+if (args["markdown-out"]) {
+  const markdownPath = resolve(String(args["markdown-out"]));
+  await writePrivateFile(markdownPath, buildPlatformQaHandoffMarkdown(handoff));
+}
+console.log(buildConsoleSummary(
+  handoff,
+  args.out ? resolve(String(args.out)) : "",
+  args["markdown-out"] ? resolve(String(args["markdown-out"])) : ""
+));
+
+async function writePrivateFile(path, content) {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await chmod(path, 0o600).catch((error) => {
     if (error?.code !== "ENOENT") throw error;
   });
-  await writeFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`, { mode: 0o600 });
-  await chmod(outPath, 0o600);
+  await writeFile(path, content, { mode: 0o600 });
+  await chmod(path, 0o600);
 }
-console.log(buildConsoleSummary(handoff, args.out ? resolve(String(args.out)) : ""));
 
 async function buildPlatformQaHandoff(statusPath) {
   if (!existsSync(statusPath)) {
@@ -282,7 +297,7 @@ function isIsoDateTimeWithTimezone(value) {
   return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
-function buildConsoleSummary(handoff, outPath) {
+function buildConsoleSummary(handoff, outPath, markdownPath = "") {
   const lines = [
     "platform_qa_handoff_ok",
     `Status file: ${handoff.statusPath}`,
@@ -292,6 +307,9 @@ function buildConsoleSummary(handoff, outPath) {
   ];
   if (outPath) {
     lines.push(`Handoff JSON: ${outPath}`);
+  }
+  if (markdownPath) {
+    lines.push(`Handoff Markdown: ${markdownPath}`);
   }
   lines.push("Real-run platform receipts are auto-selected by ko:next/ko:validate when present.");
   lines.push("", "Platform QA work:");
@@ -305,12 +323,109 @@ function buildConsoleSummary(handoff, outPath) {
   return `${lines.join("\n")}\n`;
 }
 
+function buildPlatformQaHandoffMarkdown(handoff) {
+  const lines = [
+    "# Platform QA Execution Handoff",
+    "",
+    `Evidence tier: ${markdownInline(handoff.evidenceTier)}`,
+    `Can claim KO: ${handoff.canClaimKo ? "true" : "false"}`,
+    `Status file: ${markdownInline(handoff.statusPath)}`,
+    `KO claimable before this handoff: ${handoff.koStatus.canClaimKo ? "YES" : "NO"}`,
+    "",
+    "## Missing KO Requirements",
+    ""
+  ];
+  if (handoff.koStatus.missingRequirements.length) {
+    for (const requirement of handoff.koStatus.missingRequirements) {
+      lines.push(`- ${markdownInline(requirement.id)}: ${markdownInline(requirement.status)} - ${markdownInline(requirement.detail || "TBD")}`);
+    }
+  } else {
+    lines.push("- none");
+  }
+  lines.push("", "## Platform Runs", "");
+  for (const platform of handoff.platforms) {
+    const summary = platform.currentTemplateSummary;
+    lines.push(
+      `### ${markdownInline(platform.label)}`,
+      "",
+      `- Platform ID: ${markdownInline(platform.id)}`,
+      `- Current KO status: ${markdownInline(platform.currentKoStatus.status)} - ${markdownInline(platform.currentKoStatus.detail || "TBD")}`,
+      `- QA template: ${markdownInline(platform.qaPath)}`,
+      `- Expected rows: ${platform.expectedRows}`,
+      `- Current rows: ${summary.rows} total; PASS ${summary.pass}; FAIL ${summary.fail}; BLOCKED ${summary.blocked}; NT ${summary.nt}; invalid ${summary.invalid}`,
+      `- Rows needing concrete Notes: ${summary.rowsNeedingConcreteNotes}`,
+      `- Can claim from this handoff: ${platform.canClaimPlatform ? "true" : "false"}`,
+      "",
+      "Required session fields:",
+      ""
+    );
+    for (const field of summary.requiredSessionFields) {
+      lines.push(`- ${field.filled ? "filled" : "missing"}: ${markdownInline(field.field)}`);
+    }
+    lines.push(
+      "",
+      "Validate after the real run:",
+      "",
+      "```bash",
+      platform.validateCommand,
+      "```",
+      "",
+      "Real-run steps:",
+      ""
+    );
+    for (const step of platform.nextRealRunSteps) {
+      lines.push(`- ${markdownInline(step)}`);
+    }
+    lines.push("", "Cannot be filled from:", "");
+    for (const item of platform.cannotBeFilledFrom) {
+      lines.push(`- ${markdownInline(item)}`);
+    }
+    lines.push("", "Row areas:", "");
+    for (const area of summary.rowAreas) {
+      lines.push(`- ${markdownInline(area)}`);
+    }
+    lines.push("");
+  }
+  lines.push(
+    "## Final Gate Commands",
+    "",
+    "```bash",
+    handoff.nextCommands.refreshKoStatus,
+    handoff.nextCommands.finalKoGate,
+    handoff.nextCommands.finalKoGateWithExplicitPlatformReceipts,
+    "```",
+    "",
+    "## Boundary",
+    "",
+    markdownInline(handoff.claimBoundary),
+    ""
+  );
+  for (const item of handoff.blockedOrNotExecuted) {
+    lines.push(`- ${markdownInline(item)}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function markdownInline(value) {
+  const text = String(value ?? "TBD").replace(/\s+/g, " ").trim() || "TBD";
+  return text
+    .replace(/\\/g, "\\\\")
+    .replace(/`/g, "\\`")
+    .replace(/\*/g, "\\*")
+    .replace(/_/g, "\\_")
+    .replace(/\[/g, "\\[")
+    .replace(/\]/g, "\\]")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 function buildHelp() {
   return `Build a non-claiming handoff for the remaining Learning Companion platform QA gates.
 
 Usage:
   npm run platform:qa-handoff
   npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json
+  npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md
 
 The handoff reads ${STATUS_PATH} plus the generated Mac, Windows, and HarmonyOS
 QA templates. It does not run any platform QA and cannot satisfy KO evidence.`;
