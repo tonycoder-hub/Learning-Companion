@@ -80,6 +80,20 @@ npm run external:source-intake -- --input "阅读：https://<public-reading-mate
 
 The handoff uses `schema: learning-companion.external-source-intake-handoff.v1`, `evidenceTier: SOURCE_INTAKE_HANDOFF_ONLY`, and `canClaimExternalKo: false`. It records only the normalized URLs/timestamp, next dry-run / approved-candidate / privacy-review commands, approval requirements, privacy checklist, and the exact boundary that no browser, local app server, screenshots, current-turn approval, or privacy review were executed. It does not retain the raw pasted input text.
 
+To turn a validated intake or a public dry-run receipt into a concise approval prompt, generate a non-claiming approval request:
+
+```bash
+npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md
+```
+
+or:
+
+```bash
+npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md
+```
+
+The approval request uses `schema: learning-companion.external-source-approval-request.v1`, `evidenceTier: SOURCE_APPROVAL_REQUEST_ONLY`, and `canClaimExternalKo: false`. It contains the exact reading URL, video URL, timestamp, requested current-turn approval text, and the approved-candidate command to run only after that exact approval appears in the current turn. It does not grant approval, launch a browser, capture screenshots, perform privacy review, or satisfy KO evidence.
+
 When exact approval is not available yet, a real public-source preflight can exercise the same browser/source/resume mechanics without creating approved evidence:
 
 ```bash
