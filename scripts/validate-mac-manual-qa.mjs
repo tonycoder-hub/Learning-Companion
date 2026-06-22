@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const MAC_MANUAL_QA_RECEIPT_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
@@ -31,10 +31,14 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--qa") {
-      options.qaPath = argv[index + 1] || options.qaPath;
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("--qa requires a Markdown path.");
+      options.qaPath = value;
       index += 1;
     } else if (arg === "--out") {
-      options.outPath = argv[index + 1] || "";
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("--out requires a receipt JSON path.");
+      options.outPath = value;
       index += 1;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
@@ -257,8 +261,12 @@ async function main() {
   const receipt = validateMacManualQa(markdown, options.qaPath);
   assert.equal(receipt.schema, MAC_MANUAL_QA_RECEIPT_SCHEMA);
   if (options.outPath) {
-    await mkdir(dirname(options.outPath), { recursive: true });
-    await writeFile(options.outPath, `${JSON.stringify(receipt, null, 2)}\n`);
+    await mkdir(dirname(options.outPath), { recursive: true, mode: 0o700 });
+    await chmod(options.outPath, 0o600).catch((error) => {
+      if (error?.code !== "ENOENT") throw error;
+    });
+    await writeFile(options.outPath, `${JSON.stringify(receipt, null, 2)}\n`, { mode: 0o600 });
+    await chmod(options.outPath, 0o600);
   }
   console.log(JSON.stringify(receipt, null, 2));
   process.exitCode = receipt.summary.ok ? 0 : 1;

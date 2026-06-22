@@ -758,6 +758,12 @@ assert.match(koEvidenceReviewJs, /Reviewer must be filled with concrete platform
   assert.match(validatorJs, /isPlaceholderEvidenceText/);
   assert.match(validatorJs, /row\.result !== "NT"/);
   assert.match(validatorJs, /without a concrete QA note or evidence reference/);
+  assert.match(validatorJs, /mode: 0o700/);
+  assert.match(validatorJs, /mode: 0o600/);
+  assert.match(validatorJs, /error\?\.code !== "ENOENT"/);
+  assert.match(validatorJs, /chmod\(options\.outPath, 0o600\)/);
+  assert.match(validatorJs, /--out requires a receipt JSON path/);
+  assert.match(validatorJs, /--qa requires a Markdown path/);
 });
 assert.match(morningDemoBuilderJs, /For every non-`NT` row, fill Notes with the concrete evidence reference/);
 assert.match(morningDemoBuilderJs, /每个非 `NT` 行都必须在 Notes 写入具体证据引用/);
