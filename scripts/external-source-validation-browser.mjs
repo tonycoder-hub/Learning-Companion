@@ -276,6 +276,7 @@ async function runSourceValidation({ cdp, appUrl, source, runRoot, exceptions })
     };
   })()`);
   await capturePng(cdp, join(sourceDir, "02-capture-saved.png"));
+  const videoTools = await exerciseVideoLearningTools({ cdp, source, sourceDir });
 
   const resume = await cdp.evaluate(`(() => {
     let opened = "";
@@ -303,6 +304,7 @@ async function runSourceValidation({ cdp, appUrl, source, runRoot, exceptions })
   const expectedFiles = [
     "01-source-and-app-before-capture.png",
     "02-capture-saved.png",
+    ...(source.type === "video" ? ["02b-video-learning-tools.png"] : []),
     "03-resume-source.png",
     ...(source.type === "video" ? ["04-video-timestamp.png"] : [])
   ];
@@ -314,7 +316,13 @@ async function runSourceValidation({ cdp, appUrl, source, runRoot, exceptions })
   const sourceContextPreserved = saved.captureSourceUrl === source.url;
   const resumeOpened = Boolean(resume.opened);
   const videoTimestampCaptured = source.type === "video" ? Boolean(saved.captureTimestamp) && saved.captureTimestamp === source.timestamp : false;
-  const ok = captureSaved && sourceContextPreserved && resumeOpened && (source.type !== "video" || videoTimestampCaptured);
+  const videoLearningToolsCaptured = source.type === "video"
+    ? Boolean(videoTools?.timestampNoteInserted && videoTools?.videoBookmarkSaved && videoTools?.playbackRatePersisted)
+    : false;
+  const ok = captureSaved
+    && sourceContextPreserved
+    && resumeOpened
+    && (source.type !== "video" || (videoTimestampCaptured && videoLearningToolsCaptured));
 
   return {
     source: {
@@ -329,6 +337,7 @@ async function runSourceValidation({ cdp, appUrl, source, runRoot, exceptions })
     },
     appBefore: before,
     saved,
+    videoTools,
     resume,
     files: expectedFiles.map((file) => join(sourceDir, file)),
     summary: {
@@ -338,11 +347,90 @@ async function runSourceValidation({ cdp, appUrl, source, runRoot, exceptions })
       sourceContextPreserved,
       resumeOpened,
       videoTimestampCaptured,
+      videoLearningToolsCaptured,
       selfTestOnly: source.selfTestOnly,
       dryRunOnly: Boolean(source.dryRunOnly),
       canClaimKo: false
     }
   };
+}
+
+async function exerciseVideoLearningTools({ cdp, source, sourceDir }) {
+  if (source.type !== "video") return null;
+  const result = await cdp.evaluate(`(async () => {
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const compact = (text) => String(text || "").replace(/\\s+/g, " ").trim();
+    const expectedTimestamp = ${JSON.stringify(source.timestamp || "")};
+    const bookmarkLabel = "External source timestamp";
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      if (!node) return false;
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+      node.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    };
+    setValue("#timestampInput", expectedTimestamp);
+    if (!document.querySelector(".video-speed-select")) {
+      document.querySelector("#openSourceBtn")?.click();
+      await delay(160);
+    }
+    const noteButton = document.querySelector("#insertTimestampNoteBtn");
+    const timestampButtonEnabled = Boolean(noteButton && !noteButton.disabled);
+    noteButton?.click();
+    await delay(120);
+
+    const speedSelect = document.querySelector(".video-speed-select");
+    const speedControlAvailable = Boolean(speedSelect);
+    if (speedSelect) {
+      speedSelect.value = "1.5";
+      speedSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      await delay(120);
+    }
+
+    const bookmarkButton = document.querySelector("[data-video-bookmark-action='add']")
+      || Array.from(document.querySelectorAll("button")).find((button) => {
+        const label = compact((button.textContent || "") + " " + (button.title || "") + " " + (button.getAttribute("aria-label") || ""));
+        return /Bookmark|书签/i.test(label) && /Save current video time|保存为书签|保存/i.test(label);
+      });
+    const nativePrompt = window.prompt;
+    window.prompt = () => bookmarkLabel;
+    try {
+      bookmarkButton?.click();
+    } finally {
+      window.prompt = nativePrompt;
+    }
+    await delay(180);
+
+    const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+    const session = workspace.sessions.find((item) => item.id === workspace.activeSessionId) || workspace.sessions[0] || {};
+    const notesMarkdown = String(session.notesMarkdown || "");
+    const bookmarks = Array.isArray(session.videoBookmarks) ? session.videoBookmarks : [];
+    const latestBookmark = bookmarks[bookmarks.length - 1] || {};
+    const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const timestampNeedle = "[" + expectedTimestamp + "]";
+    const timestampNoteInserted = expectedTimestamp
+      ? notesMarkdown.includes(timestampNeedle) && notesMarkdown.includes(${JSON.stringify(source.url)})
+      : false;
+    const videoBookmarkSaved = bookmarks.length > 0
+      && latestBookmark.timestamp === expectedTimestamp
+      && latestBookmark.label === bookmarkLabel;
+    const playbackRatePersisted = Number(prefs.videoPlaybackRate) === 1.5;
+    return {
+      timestampButtonEnabled,
+      speedControlAvailable,
+      bookmarkButtonAvailable: Boolean(bookmarkButton),
+      timestampNoteInserted,
+      videoBookmarkSaved,
+      playbackRatePersisted,
+      bookmarkCount: bookmarks.length,
+      bookmarkLabel: latestBookmark.label || "",
+      bookmarkTimestamp: latestBookmark.timestamp || "",
+      playbackRate: prefs.videoPlaybackRate ?? null
+    };
+  })()`);
+  await capturePng(cdp, join(sourceDir, "02b-video-learning-tools.png"));
+  return result;
 }
 
 async function capturePng(cdp, outPath) {
@@ -557,6 +645,14 @@ function buildRunMarkdown(receipt) {
     lines.push(`- Source context preserved: ${run.summary.sourceContextPreserved}`);
     lines.push(`- Resume opened: ${run.summary.resumeOpened}`);
     lines.push(`- Video timestamp captured: ${run.summary.videoTimestampCaptured}`);
+    lines.push(`- Video learning tools captured: ${run.summary.videoLearningToolsCaptured}`);
+    if (run.source.type === "video") {
+      lines.push(`- Timestamp note inserted: ${run.videoTools?.timestampNoteInserted}`);
+      lines.push(`- Video bookmark saved: ${run.videoTools?.videoBookmarkSaved}`);
+      lines.push(`- Playback speed preference saved: ${run.videoTools?.playbackRatePersisted}`);
+      lines.push(`- Bookmark observed: ${run.videoTools?.bookmarkTimestamp || "TBD"} ${run.videoTools?.bookmarkLabel || "TBD"}`);
+      lines.push(`- Playback rate observed: ${run.videoTools?.playbackRate ?? "TBD"}`);
+    }
     lines.push("");
     lines.push("Evidence files:");
     run.files.forEach((file) => lines.push(`- ${file}`));

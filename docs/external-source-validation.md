@@ -47,6 +47,7 @@ Recommended files:
 - `run.md`: completed run note,
 - `01-source-and-app-before-capture.png`: source visible beside the app before capture,
 - `02-capture-saved.png`: app showing the saved capture or activity feedback,
+- `02b-video-learning-tools.png`: video notes/bookmark/playback-rate evidence when relevant,
 - `03-resume-source.png`: source opened or resumed from the app,
 - `04-video-timestamp.png`: video timestamp evidence when relevant.
 
@@ -101,7 +102,7 @@ Template generation is candidate-only. Local fixture self-tests and `PUBLIC_SOUR
 npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>
 ```
 
-The harness and validators reject localhost, private/link-local IPs, IPv4-mapped local IPv6 literals such as `::ffff:127.0.0.1`, single-label intranet hosts, reserved example domains, and exact normalized sensitive URL query keys such as `token`, `access_token`, `id_token`, `session_id`, `auth_token`, `authorization`, `api_key`, `password`, `jwt`, `sig`, `signature`, `X-Amz-Signature`, `X-Goog-Signature`, `Expires`, `Key-Pair-Id`, or `Policy` for real approved-source candidates. Benign public query keys such as `keyword` are allowed. The validator refuses local fixture self-tests, requires an `APPROVED_SOURCE_CANDIDATE` receipt, requires one approved reading run and one approved video run with timestamp evidence, verifies the listed screenshots still exist, verifies `runContext` has app revision / throwaway profile / viewport / network fields, and only writes `canClaimExternalKo: true` in the derived review artifact after the human privacy review has `PASS` verdict and all privacy plus execution-review booleans are true.
+The harness and validators reject localhost, private/link-local IPs, IPv4-mapped local IPv6 literals such as `::ffff:127.0.0.1`, single-label intranet hosts, reserved example domains, and exact normalized sensitive URL query keys such as `token`, `access_token`, `id_token`, `session_id`, `auth_token`, `authorization`, `api_key`, `password`, `jwt`, `sig`, `signature`, `X-Amz-Signature`, `X-Goog-Signature`, `Expires`, `Key-Pair-Id`, or `Policy` for real approved-source candidates. Benign public query keys such as `keyword` are allowed. The validator refuses local fixture self-tests, requires an `APPROVED_SOURCE_CANDIDATE` receipt, requires one approved reading run and one approved video run with timestamp evidence, video timestamp-note insertion, video bookmark creation, and playback-rate preference persistence, verifies the listed screenshots still exist, verifies `runContext` has app revision / throwaway profile / viewport / network fields, and only writes `canClaimExternalKo: true` in the derived review artifact after the human privacy review has `PASS` verdict and all privacy plus execution-review booleans are true.
 
 ## Run Note Template
 
@@ -149,6 +150,9 @@ Run type: TBD
 - Saved capture: TBD
 - Resumed/opened source from app: TBD
 - Video timestamp captured: TBD
+- Video timestamp note inserted: TBD
+- Video bookmark saved: TBD
+- Playback speed preference saved: TBD
 - Run context reviewed: TBD
 - App revision recorded: TBD
 
@@ -156,6 +160,7 @@ Run type: TBD
 
 - Source beside app screenshot: TBD
 - Capture saved screenshot: TBD
+- Video learning tools screenshot: TBD
 - Resume source screenshot: TBD
 - Video timestamp screenshot: TBD
 - Captured timestamp: TBD
@@ -203,15 +208,17 @@ PASS requires:
 5. Capture a note while the video has a visible timestamp or while the app receives a timestamp.
 6. Record the captured timestamp.
 7. Save the capture.
-8. Use the app source/resume action and record the resume URL timestamp plus observed resumed playback time when supported.
-9. Review every artifact for privacy before delivery.
-10. Save the required screenshots and complete `run.md`.
+8. Insert the captured timestamp into notes, save a video bookmark at the same timestamp, and change playback speed to prove the video learning controls persist.
+9. Use the app source/resume action and record the resume URL timestamp plus observed resumed playback time when supported.
+10. Review every artifact for privacy before delivery.
+11. Save the required screenshots and complete `run.md`.
 
 PASS requires:
 
 - the video source and app are visible together before capture,
 - the saved capture preserves source title and URL,
 - timestamp evidence is captured when the platform exposes it,
+- the app records a timestamp note, a video bookmark, and a playback-rate preference for the approved video run,
 - supported resume playback lands within 5 seconds of the captured timestamp,
 - resume/open-source behavior is recorded,
 - the approval source and privacy review are recorded,

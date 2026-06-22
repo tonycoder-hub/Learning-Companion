@@ -603,6 +603,7 @@ export function renderViewer(container, session, options = {}) {
     const bookmarkButton = document.createElement("button");
     bookmarkButton.className = "mini-button";
     bookmarkButton.type = "button";
+    bookmarkButton.dataset.videoBookmarkAction = "add";
     bookmarkButton.title = t("addBookmarkTitle");
     bookmarkButton.textContent = t("addBookmark");
     bookmarkButton.onclick = () => onAddVideoBookmark?.(currentTimeSec);

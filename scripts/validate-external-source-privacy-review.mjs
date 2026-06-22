@@ -51,7 +51,8 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath }) {
     ["executionReview.appRevisionRecorded", review.executionReview?.appRevisionRecorded],
     ["executionReview.readingSourceContextPass", review.executionReview?.readingSourceContextPass],
     ["executionReview.videoSourceContextPass", review.executionReview?.videoSourceContextPass],
-    ["executionReview.videoTimestampPass", review.executionReview?.videoTimestampPass]
+    ["executionReview.videoTimestampPass", review.executionReview?.videoTimestampPass],
+    ["executionReview.videoLearningToolsPass", review.executionReview?.videoLearningToolsPass]
   ].forEach(([label, value]) => assert.equal(value, true, `${label} must be true`));
 
   const reviewedFiles = new Map((review.privacyReview?.screenshotsReviewed || []).map((item) => [item.file, item.status]));
@@ -88,6 +89,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath }) {
       proves: [
         "One approved reading source worked in this browser/app evidence run.",
         "One approved video source worked in this browser/app evidence run with timestamp evidence.",
+        "The approved video run exercised timestamp notes, video bookmarks, and playback-rate persistence.",
         "The candidate screenshots were reviewed for private or sensitive content before KO use."
       ],
       doesNotProve: [
@@ -136,10 +138,15 @@ function validateCandidateReceipt(receipt) {
   assertRunFiles(video, [
     "01-source-and-app-before-capture.png",
     "02-capture-saved.png",
+    "02b-video-learning-tools.png",
     "03-resume-source.png",
     "04-video-timestamp.png"
   ]);
   assert.equal(video.summary?.videoTimestampCaptured, true, "video timestamp evidence must be captured");
+  assert.equal(video.summary?.videoLearningToolsCaptured, true, "video learning-tool evidence must be captured");
+  assert.equal(video.videoTools?.timestampNoteInserted, true, "video timestamp note insertion must be recorded");
+  assert.equal(video.videoTools?.videoBookmarkSaved, true, "video bookmark creation must be recorded");
+  assert.equal(video.videoTools?.playbackRatePersisted, true, "video playback-rate preference must be recorded");
   assertNonTbd(video.saved?.captureTimestamp, "video.saved.captureTimestamp");
   assert.equal(video.saved?.captureMaterialType, "video", "video capture material type must be video");
 
@@ -179,7 +186,8 @@ function buildReviewTemplate(receipt, receiptPath) {
       appRevisionRecorded: false,
       readingSourceContextPass: false,
       videoSourceContextPass: false,
-      videoTimestampPass: false
+      videoTimestampPass: false,
+      videoLearningToolsPass: false
     },
     verdict: "TBD",
     canUseForKo: false,
@@ -392,6 +400,7 @@ async function createCandidateFixture(root) {
     join(root, "reading", "03-resume-source.png"),
     join(root, "video", "01-source-and-app-before-capture.png"),
     join(root, "video", "02-capture-saved.png"),
+    join(root, "video", "02b-video-learning-tools.png"),
     join(root, "video", "03-resume-source.png"),
     join(root, "video", "04-video-timestamp.png")
   ];
@@ -501,6 +510,18 @@ async function createCandidateFixture(root) {
           captureTimestamp: "01:35",
           captureMaterialType: "video"
         },
+        videoTools: {
+          timestampButtonEnabled: true,
+          speedControlAvailable: true,
+          bookmarkButtonAvailable: true,
+          timestampNoteInserted: true,
+          videoBookmarkSaved: true,
+          playbackRatePersisted: true,
+          bookmarkCount: 1,
+          bookmarkLabel: "External source timestamp",
+          bookmarkTimestamp: "01:35",
+          playbackRate: 1.5
+        },
         resume: {
           opened: "https://www.youtube.com/watch?v=learning-companion-approved-video&t=95"
         },
@@ -510,7 +531,8 @@ async function createCandidateFixture(root) {
           captureSaved: true,
           sourceContextPreserved: true,
           resumeOpened: true,
-          videoTimestampCaptured: true
+          videoTimestampCaptured: true,
+          videoLearningToolsCaptured: true
         }
       }
     ]
@@ -544,7 +566,8 @@ function buildValidReview(receipt, receiptPath) {
       appRevisionRecorded: true,
       readingSourceContextPass: true,
       videoSourceContextPass: true,
-      videoTimestampPass: true
+      videoTimestampPass: true,
+      videoLearningToolsPass: true
     },
     verdict: "PASS",
     canUseForKo: true,
