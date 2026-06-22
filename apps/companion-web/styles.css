@@ -840,7 +840,7 @@ textarea:focus {
 }
 
 .editor-pane {
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
 }
 
 .synthesis-pane {
@@ -924,6 +924,11 @@ textarea:focus {
   overflow: hidden;
 }
 
+.viewer-content.has-video-bookmarks {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
 .viewer-iframe-wrap {
   position: relative;
   width: 100%;
@@ -938,6 +943,71 @@ textarea:focus {
   width: 100%;
   height: 100%;
   border: 0;
+}
+
+.video-speed-select {
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.video-bookmarks {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  border-top: 1px solid var(--line);
+  background: #fbfaf6;
+}
+
+.video-bookmarks-title,
+.video-bookmarks-empty {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.video-bookmark-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  border: 1px solid rgba(49, 95, 130, 0.22);
+  border-radius: 999px;
+  background: var(--blue-soft);
+  overflow: hidden;
+}
+
+.video-bookmark-jump,
+.video-bookmark-delete {
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.video-bookmark-jump {
+  min-width: 0;
+  max-width: 180px;
+  padding: 0 9px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-bookmark-delete {
+  width: 28px;
+  padding: 0;
+  border-left: 1px solid rgba(49, 95, 130, 0.18);
 }
 
 .viewer-iframe-note {
@@ -2311,6 +2381,30 @@ textarea:focus {
 .mini-button.danger {
   border-color: rgba(162, 61, 52, 0.35);
   color: var(--red);
+}
+
+.notes-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 6px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+}
+
+.notes-toolbar[hidden] {
+  display: none;
+}
+
+.notes-tool-button {
+  width: 34px;
+  padding: 0;
+  text-align: center;
+}
+
+.notes-timestamp-button {
+  margin-left: auto;
 }
 
 .mini-button.danger.tertiary {

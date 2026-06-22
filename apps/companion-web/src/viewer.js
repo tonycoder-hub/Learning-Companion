@@ -42,6 +42,13 @@ const STRINGS = {
     tocToggle: "TOC",
     tocTitle: "Table of contents",
     tocEmpty: "No headings",
+    playbackSpeedTitle: "Playback speed",
+    addBookmark: "＋ Bookmark",
+    addBookmarkTitle: "Save current video time as a bookmark",
+    videoBookmarks: "Bookmarks",
+    openBookmarkTitle: "Jump to this bookmark",
+    deleteBookmarkTitle: "Delete bookmark",
+    noBookmarks: "No bookmarks yet",
   },
   zh: {
     typeLabels: { video: "▶ 视频", article: "📄 文章", doc: "📑 文档", course: "📚 课程", book: "📖 书籍", other: "📎 其他" },
@@ -69,6 +76,13 @@ const STRINGS = {
     tocToggle: "目录",
     tocTitle: "目录",
     tocEmpty: "暂无标题",
+    playbackSpeedTitle: "播放速度",
+    addBookmark: "＋ 书签",
+    addBookmarkTitle: "把当前视频时间保存为书签",
+    videoBookmarks: "书签",
+    openBookmarkTitle: "跳到这个书签",
+    deleteBookmarkTitle: "删除书签",
+    noBookmarks: "暂无书签",
   }
 };
 
@@ -308,6 +322,53 @@ function appendReaderControls(controls, prefs, onPrefsChange) {
   controls.appendChild(fontGroup);
 }
 
+function normalizePlaybackRate(value) {
+  const rate = Number(value);
+  return [0.75, 1, 1.25, 1.5, 2].includes(rate) ? rate : 1;
+}
+
+function appendVideoBookmarks(content, bookmarks = [], callbacks = {}) {
+  const rail = document.createElement("div");
+  rail.className = "video-bookmarks";
+  rail.setAttribute("aria-label", t("videoBookmarks"));
+  const heading = document.createElement("span");
+  heading.className = "video-bookmarks-title";
+  heading.textContent = t("videoBookmarks");
+  rail.appendChild(heading);
+
+  if (!bookmarks.length) {
+    const empty = document.createElement("span");
+    empty.className = "video-bookmarks-empty";
+    empty.textContent = t("noBookmarks");
+    rail.appendChild(empty);
+  } else {
+    bookmarks.forEach((bookmark) => {
+      const chip = document.createElement("span");
+      chip.className = "video-bookmark-chip";
+      chip.dataset.videoBookmarkId = bookmark.id;
+
+      const jump = document.createElement("button");
+      jump.className = "video-bookmark-jump";
+      jump.type = "button";
+      jump.title = t("openBookmarkTitle");
+      jump.textContent = `${bookmark.timestamp} · ${bookmark.label}`;
+      jump.onclick = () => callbacks.onJump?.(bookmark);
+      chip.appendChild(jump);
+
+      const remove = document.createElement("button");
+      remove.className = "video-bookmark-delete";
+      remove.type = "button";
+      remove.title = t("deleteBookmarkTitle");
+      remove.setAttribute("aria-label", t("deleteBookmarkTitle"));
+      remove.textContent = "×";
+      remove.onclick = () => callbacks.onDelete?.(bookmark);
+      chip.appendChild(remove);
+      rail.appendChild(chip);
+    });
+  }
+  content.appendChild(rail);
+}
+
 // --- URL parsing for embed IDs ---
 
 function parseYouTubeId(url) {
@@ -439,7 +500,12 @@ export function renderViewer(container, session, options = {}) {
     onQuoteCapture,
     readerPrefs,
     onReaderPrefsChange,
-    onReaderScroll
+    onReaderScroll,
+    videoBookmarks = [],
+    playbackRate,
+    onPlaybackRateChange,
+    onAddVideoBookmark,
+    onDeleteVideoBookmark
   } = options;
   if (!container) return null;
 
@@ -453,6 +519,7 @@ export function renderViewer(container, session, options = {}) {
     || 0;
 
   container.innerHTML = "";
+  container.learningCompanionVideo = null;
 
   if (!sourceUrl || mode === "none") {
     container.hidden = true;
@@ -481,6 +548,9 @@ export function renderViewer(container, session, options = {}) {
 
   var currentTimeSec = startSec;
   var timeDisplay = null;
+  var seekVideoTo = null;
+  var pauseVideo = null;
+  var applyPlaybackRate = null;
 
   if (mode === "video-embed") {
     timeDisplay = document.createElement("span");
@@ -512,8 +582,34 @@ export function renderViewer(container, session, options = {}) {
     };
     controls.appendChild(captureAtTime);
 
-    var seekVideo = (delta) => {
-      currentTimeSec = Math.max(0, currentTimeSec + delta);
+    const speedSelect = document.createElement("select");
+    speedSelect.className = "video-speed-select";
+    speedSelect.title = t("playbackSpeedTitle");
+    speedSelect.setAttribute("aria-label", t("playbackSpeedTitle"));
+    [0.75, 1, 1.25, 1.5, 2].forEach((rate) => {
+      const option = document.createElement("option");
+      option.value = String(rate);
+      option.textContent = `${rate}×`;
+      speedSelect.appendChild(option);
+    });
+    speedSelect.value = String(normalizePlaybackRate(playbackRate));
+    speedSelect.onchange = () => {
+      const nextRate = normalizePlaybackRate(speedSelect.value);
+      applyPlaybackRate?.(nextRate);
+      onPlaybackRateChange?.(nextRate);
+    };
+    controls.appendChild(speedSelect);
+
+    const bookmarkButton = document.createElement("button");
+    bookmarkButton.className = "mini-button";
+    bookmarkButton.type = "button";
+    bookmarkButton.title = t("addBookmarkTitle");
+    bookmarkButton.textContent = t("addBookmark");
+    bookmarkButton.onclick = () => onAddVideoBookmark?.(currentTimeSec);
+    controls.appendChild(bookmarkButton);
+
+    seekVideoTo = (seconds) => {
+      currentTimeSec = Math.max(0, Math.floor(Number(seconds) || 0));
       if (timeDisplay) timeDisplay.textContent = secondsToTimestamp(currentTimeSec);
       if (onTimestampChange) onTimestampChange(currentTimeSec);
       const iframe = container.querySelector(".viewer-iframe");
@@ -528,6 +624,39 @@ export function renderViewer(container, session, options = {}) {
           }
         } catch { /* ignore */ }
       }
+    };
+    var seekVideo = (delta) => seekVideoTo(currentTimeSec + delta);
+    pauseVideo = () => {
+      const iframe = container.querySelector(".viewer-iframe");
+      if (!iframe) return;
+      try {
+        const url = new URL(cleanUrl(sourceUrl));
+        if (isYouTubeHost(url.hostname)) {
+          youtubePostMessage(iframe, "command", { func: "pauseVideo", args: [] });
+          return;
+        }
+        if (isVimeoHost(url.hostname)) {
+          iframe.contentWindow?.postMessage({ method: "pause" }, "https://player.vimeo.com");
+        }
+      } catch { /* ignore */ }
+    };
+    applyPlaybackRate = (rate) => {
+      const iframe = container.querySelector(".viewer-iframe");
+      if (!iframe) return;
+      try {
+        const url = new URL(cleanUrl(sourceUrl));
+        if (isYouTubeHost(url.hostname)) {
+          youtubePostMessage(iframe, "command", { func: "setPlaybackRate", args: [rate] });
+          return;
+        }
+        if (isVimeoHost(url.hostname)) {
+          iframe.contentWindow?.postMessage({ method: "setPlaybackRate", value: rate }, "https://player.vimeo.com");
+        }
+      } catch { /* ignore */ }
+    };
+    container.learningCompanionVideo = {
+      pause: pauseVideo,
+      seekTo: seekVideoTo
     };
   }
 
@@ -562,6 +691,7 @@ export function renderViewer(container, session, options = {}) {
   content.className = "viewer-content";
 
   if (mode === "video-embed") {
+    content.classList.add("has-video-bookmarks");
     const embedUrl = buildEmbedUrl(sourceUrl, startSec);
     if (embedUrl) {
       const wrap = document.createElement("div");
@@ -576,6 +706,19 @@ export function renderViewer(container, session, options = {}) {
       iframe.setAttribute("allowfullscreen", "");
       wrap.appendChild(iframe);
       content.appendChild(wrap);
+      appendVideoBookmarks(content, videoBookmarks, {
+        onJump(bookmark) {
+          seekVideoTo?.(bookmark.seconds);
+        },
+        onDelete(bookmark) {
+          onDeleteVideoBookmark?.(bookmark);
+        }
+      });
+      const applyInitialPlaybackRate = () => applyPlaybackRate?.(normalizePlaybackRate(playbackRate));
+      requestAnimationFrame(applyInitialPlaybackRate);
+      iframe.addEventListener("load", () => {
+        setTimeout(applyInitialPlaybackRate, 150);
+      }, { once: true });
 
       if (sourceUrl.includes("youtube.com") || sourceUrl.includes("youtu.be")) {
         ensureYouTubeApi();
