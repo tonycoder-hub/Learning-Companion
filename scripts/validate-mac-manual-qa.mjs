@@ -6,6 +6,7 @@ import { dirname } from "node:path";
 const MAC_MANUAL_QA_RECEIPT_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
+const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const EXPECTED_QA_ROWS = 27;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
@@ -86,7 +87,7 @@ function hasEvidenceNote(value) {
 
 function isPlaceholderEvidenceNote(value) {
   const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
-  const unwrappedText = text.replace(/^[`"'([{<*_.,;:\-\s]+/, "");
+  const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
   return isPlaceholderEvidenceText(text) || isPlaceholderEvidenceText(unwrappedText);
 }
 
