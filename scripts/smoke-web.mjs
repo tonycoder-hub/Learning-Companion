@@ -66,6 +66,7 @@ import {
   isReviewProgressPatch,
   isReviewProgressPatchLike,
   normalizeCaptureDraft,
+  normalizeVideoBookmark,
   promoteCapture,
   refreshAnsweredQuestionReviewCard,
   resolveCaptureDraftFocusOverride,
@@ -161,6 +162,9 @@ assert.match(indexHtml, /id="workspaceExportNote" class="export-note"/);
 assert.match(indexHtml, /id="workspaceExportJsonSummary"/);
 assert.match(indexHtml, /id="browserCaptureExportSection" class="export-section-title"/);
 assert.match(indexHtml, /id="browserCaptureExportNote" class="export-note"/);
+assert.match(indexHtml, /id="notesToolbar" class="notes-toolbar" aria-label="Notes formatting"/);
+assert.match(indexHtml, /data-notes-tool="bold"/);
+assert.match(indexHtml, /id="insertTimestampNoteBtn"/);
 assert.match(appJs, /ArrowDown/);
 assert.match(appJs, /aria-activedescendant/);
 assert.match(appJs, /event\.isComposing/);
@@ -235,6 +239,13 @@ assert.match(appJs, /formatImportReceipt\(lastImportReceipt, "zh"\)/);
 assert.match(appJs, /schema === "learning-companion\.return-files-receipt\.v1"/);
 assert.match(appJs, /kind: "return-files"/);
 assert.match(appJs, /renderCaptureStarterCopy/);
+assert.match(appJs, /function renderNotesToolbarCopy/);
+assert.match(appJs, /function insertCurrentTimestampNote/);
+assert.match(appJs, /function addVideoBookmarkAt/);
+assert.match(appJs, /videoPlaybackRate: normalizeVideoPlaybackRate/);
+assert.match(appJs, /parsedSchemaVersion > UI_PREFS_SCHEMA_VERSION/);
+assert.match(smokeBrowserJs, /assertUiPrefsV6Migration/);
+assert.match(smokeBrowserJs, /draftQuote: "migration draft quote"/);
 assert.match(appJs, /workspaceBackupFingerprint/);
 assert.match(appJs, /workspaceStorageNotice/);
 assert.match(appJs, /mirrorHandoff/);
@@ -247,6 +258,8 @@ assert.match(appJs, /Next: import or paste the return file/);
 assert.match(appJs, /Export Updated Mirror/);
 assert.match(appJs, /mirrorReturnImportCoversCurrentWorkspace/);
 assert.match(appJs, /mirrorLegacyReturnImportCoversExport/);
+assert.match(appCss, /\.notes-toolbar/);
+assert.match(appCss, /\.video-bookmarks/);
 assert.match(appJs, /mirrorExportChangeSummary/);
 assert.match(appJs, /MIRROR_EXPORT_CHANGE_FIELDS/);
 assert.match(appJs, /renderMirrorChangeDetail/);
@@ -797,6 +810,33 @@ assert.equal(buildSourceJumpUrl("https://m.bilibili.com/video/BV123/?p=2", "01:3
 assert.equal(buildSourceJumpUrl("https://vimeo.com/123456789?h=abc", "01:30"), "https://vimeo.com/123456789?h=abc#t=1m30s");
 assert.equal(buildSourceJumpUrl("https://vimeo.com/123456789?h=abc#autoplay=1", "01:30"), "https://vimeo.com/123456789?h=abc#autoplay=1&t=1m30s");
 assert.equal(buildSourceJumpUrl("https://vimeo.com/123456789#chapter-one", "01:30"), "https://vimeo.com/123456789#chapter-one");
+const normalizedVideoBookmark = normalizeVideoBookmark({ seconds: 95.8, label: "  Key idea  " });
+assert.equal(normalizedVideoBookmark.seconds, 95);
+assert.equal(normalizedVideoBookmark.timestamp, "01:35");
+assert.equal(normalizedVideoBookmark.label, "Key idea");
+assert.equal(normalizeVideoBookmark({ timestamp: "02:05", label: "timestamp only" }).seconds, 125);
+assert.equal(normalizeVideoBookmark({ seconds: 42, timestamp: "99:99", label: "canonical" }).timestamp, "00:42");
+assert.equal(normalizeVideoBookmark({ seconds: 0, timestamp: "99:99", label: "start" }).timestamp, "00:00");
+const bookmarkSession = createSession({
+  title: "Video bookmark topic",
+  sourceUrl: "https://youtu.be/rust123",
+  materialType: "video",
+  videoBookmarks: [normalizedVideoBookmark]
+}, workspace.clientId);
+assert.equal(bookmarkSession.videoBookmarks.length, 1);
+assert.match(generateMarkdown(bookmarkSession), /## Video Bookmarks/);
+assert.match(generateMarkdown(bookmarkSession), /\[01:35 - Key idea\]\(https:\/\/youtu\.be\/rust123\?t=95s\)/);
+let bookmarkWorkspace = createDefaultWorkspace();
+const bookmarkActive = getActiveSession(bookmarkWorkspace);
+bookmarkWorkspace = updateSession(bookmarkWorkspace, bookmarkActive.id, {
+  sourceUrl: "https://youtu.be/rust123",
+  materialType: "video",
+  videoBookmarks: [{ seconds: 42, timestamp: "99:99", label: "canonical" }]
+});
+assert.equal(getActiveSession(bookmarkWorkspace).videoBookmarks[0].timestamp, "00:42");
+bookmarkWorkspace = updateSession(bookmarkWorkspace, bookmarkActive.id, { materialType: "article" });
+assert.equal(getActiveSession(bookmarkWorkspace).videoBookmarks.length, 0);
+assert.doesNotMatch(generateMarkdown(getActiveSession(bookmarkWorkspace)), /Video Bookmarks/);
 assert.equal(
   buildSourceTextFragmentUrl("https://example.com/article?unit=1", "A captured sentence worth reopening beside the sidecar."),
   "https://example.com/article?unit=1#:~:text=A%20captured%20sentence%20worth%20reopening%20beside%20the%20sidecar."

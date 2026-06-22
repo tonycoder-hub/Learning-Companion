@@ -1636,7 +1636,7 @@ try {
   assert.equal(sidecarLayout.afterPanelShortcut.activeId, "sidecarLayoutBtn");
   assert.equal(sidecarLayout.afterPanelShortcut.pressed, "true");
   assert.equal(sidecarLayout.afterPanelShortcut.stored, true);
-  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 6);
+  assert.equal(sidecarLayout.afterPanelShortcut.storedVersion, 7);
   assert.equal(sidecarLayout.afterPanelShortcut.storedLanguage, "en");
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.shellCompact, true);
   assert.equal(sidecarLayout.afterFocusCaptureShortcut.activeTab, "captures");
@@ -6997,6 +6997,8 @@ try {
   await assertCaptureStackNextStepMix(cdp);
   await assertSidecarHighlightActivity(cdp);
   await assertReaderSelectionCapture(cdp);
+  await assertUiPrefsV6Migration(cdp);
+  await assertVideoNotesTools(cdp);
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {
@@ -7006,6 +7008,160 @@ try {
   if (cleanupSmokeArtifacts) {
     rmSync(smokeRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+}
+
+async function assertUiPrefsV6Migration(cdp) {
+  const beforePrefs = await cdp.evaluate(`localStorage.getItem("learning-companion.ui.v1")`);
+  const activeSessionId = await cdp.evaluate(`JSON.parse(window.learningCompanionNative.exportWorkspaceJson()).activeSessionId`);
+  try {
+    await cdp.evaluate(`(() => {
+      const activeSessionId = ${JSON.stringify(activeSessionId)};
+      localStorage.setItem("learning-companion.ui.v1", JSON.stringify({
+        schemaVersion: 6,
+        language: "zh",
+        sidecarLayout: true,
+        readingPrefs: { theme: "dark", fontSize: 18, tocCollapsed: true },
+        captureDrafts: {
+          [activeSessionId]: {
+            quote: "migration draft quote",
+            thought: "migration draft thought",
+            timestamp: "00:12",
+            updatedAt: "2026-06-20T10:00:00.000Z"
+          }
+        },
+        workspaceBackup: {
+          fingerprint: "fnv1a-deadbeef",
+          exportedAt: "2026-06-20T10:00:00.000Z"
+        },
+        mirrorHandoff: {
+          workspaceFingerprint: "fnv1a-cafebabe",
+          returnBaseFingerprint: "fnv1a-feedface",
+          exportedAt: "2026-06-20T10:00:00.000Z",
+          kind: "Mirror JSON",
+          exportStats: { captures: 1, cards: 2, questions: 3, due: 4 }
+        }
+      }));
+    })()`);
+    await cdp.send("Page.reload", { ignoreCache: true });
+    await sleep(500);
+    const result = await cdp.evaluate(`(() => {
+      const activeSessionId = ${JSON.stringify(activeSessionId)};
+      const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      return {
+        schemaVersion: prefs.schemaVersion,
+        language: prefs.language,
+        sidecarLayout: prefs.sidecarLayout,
+        readingTheme: prefs.readingPrefs?.theme || "",
+        readingFontSize: prefs.readingPrefs?.fontSize || 0,
+        tocCollapsed: prefs.readingPrefs?.tocCollapsed === true,
+        playbackRate: prefs.videoPlaybackRate,
+        draftQuote: prefs.captureDrafts?.[activeSessionId]?.quote || "",
+        backupFingerprint: prefs.workspaceBackup?.fingerprint || "",
+        mirrorKind: prefs.mirrorHandoff?.kind || "",
+        htmlLang: document.documentElement.lang
+      };
+    })()`);
+    assert.deepEqual(result, {
+      schemaVersion: 7,
+      language: "zh",
+      sidecarLayout: true,
+      readingTheme: "dark",
+      readingFontSize: 18,
+      tocCollapsed: true,
+      playbackRate: 1,
+      draftQuote: "migration draft quote",
+      backupFingerprint: "fnv1a-deadbeef",
+      mirrorKind: "Mirror JSON",
+      htmlLang: "zh-CN"
+    });
+  } finally {
+    if (beforePrefs === null) await cdp.evaluate(`localStorage.removeItem("learning-companion.ui.v1")`);
+    else await cdp.evaluate(`localStorage.setItem("learning-companion.ui.v1", ${JSON.stringify(beforePrefs)})`);
+    await cdp.send("Page.reload", { ignoreCache: true });
+    await sleep(500);
+  }
+}
+
+async function assertVideoNotesTools(cdp) {
+  const result = await cdp.evaluate(`(async () => {
+    const beforeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const beforePrefs = localStorage.getItem("learning-companion.ui.v1");
+    try {
+      const workspace = JSON.parse(beforeWorkspaceJson);
+      const session = {
+        ...workspace.sessions[0],
+        id: "video_notes_tools_session",
+        title: "Video notes tools",
+        sourceTitle: "Video lesson",
+        sourceUrl: "https://youtu.be/rust123",
+        materialType: "video",
+        tags: [],
+        notesMarkdown: "alpha",
+        videoBookmarks: [],
+        captures: [],
+        reviewCards: [],
+        focusMode: "capture",
+        viewerOpen: true
+      };
+      window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+        ...workspace,
+        activeSessionId: session.id,
+        sessions: [session],
+        importedPatches: [],
+        importedReviewPatches: []
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const editor = document.querySelector("#notesEditor");
+      editor.focus();
+      editor.setSelectionRange(0, 5);
+      document.querySelector('[data-notes-tool="bold"]').click();
+      const afterBold = editor.value;
+      document.querySelector("#timestampInput").value = "01:23";
+      editor.setSelectionRange(editor.value.length, editor.value.length);
+      document.querySelector("#insertTimestampNoteBtn").click();
+      const afterTimestamp = editor.value;
+      const speed = document.querySelector(".video-speed-select");
+      speed.value = "1.5";
+      speed.dispatchEvent(new Event("change", { bubbles: true }));
+      window.prompt = () => "key insight";
+      [...document.querySelectorAll(".viewer-controls button")]
+        .find((button) => /Bookmark|书签/.test(button.textContent))?.click();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      const exported = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      const active = exported.sessions.find((item) => item.id === exported.activeSessionId);
+      const bookmarkChipText = document.querySelector(".video-bookmark-chip")?.textContent || "";
+      const prefs = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+      return {
+        afterBold,
+        afterTimestamp,
+        toolbarHidden: document.querySelector("#notesToolbar").hidden,
+        timestampDisabled: document.querySelector("#insertTimestampNoteBtn").disabled,
+        bookmarkCount: active.videoBookmarks.length,
+        bookmarkLabel: active.videoBookmarks[0]?.label || "",
+        bookmarkChipText,
+        playbackRate: prefs.videoPlaybackRate,
+        notesMarkdown: active.notesMarkdown,
+        timestampButtonTitle: document.querySelector("#insertTimestampNoteBtn").title,
+        speedExists: Boolean(speed)
+      };
+    } finally {
+      window.learningCompanionNative.importWorkspaceJson(beforeWorkspaceJson);
+      if (beforePrefs === null) localStorage.removeItem("learning-companion.ui.v1");
+      else localStorage.setItem("learning-companion.ui.v1", beforePrefs);
+    }
+  })()`);
+
+  assert.equal(result.afterBold, "**alpha**");
+  assert.match(result.afterTimestamp, /\[01:23\]\(https:\/\/youtu\.be\/rust123\?t=83s\)/);
+  assert.equal(result.toolbarHidden, false);
+  assert.equal(result.timestampDisabled, false);
+  assert.equal(result.bookmarkCount, 1);
+  assert.equal(result.bookmarkLabel, "key insight");
+  assert.match(result.bookmarkChipText, /key insight/);
+  assert.equal(result.playbackRate, 1.5);
+  assert.match(result.notesMarkdown, /\*\*alpha\*\*/);
+  assert.match(result.timestampButtonTitle, /Insert current video timestamp|插入当前视频时间戳/);
+  assert.equal(result.speedExists, true);
 }
 
 async function assertDraftSourceSnapshotCommit(cdp) {

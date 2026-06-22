@@ -14,6 +14,8 @@ export const MAX_INBOX_PATCH_CAPTURES = 50;
 export const MAX_REVIEW_PROGRESS_PATCH_BYTES = 256_000;
 export const MAX_REVIEW_PROGRESS_EVENTS = 200;
 export const MAX_SEARCH_QUERY_LENGTH = 200;
+export const MAX_VIDEO_BOOKMARKS = 80;
+export const MAX_VIDEO_BOOKMARK_LABEL_LENGTH = 80;
 export const FOCUS_BRIEF_SYNTHESIS_CAPTURE_THRESHOLD = 3;
 export const FOCUS_BRIEF_CAPTURE_IDLE_MINUTES = 10;
 export const CAPTURE_DRAFT_FOCUS_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -399,6 +401,37 @@ export function normalizeCapture(capture = {}, originClientId = makeId("client")
   };
 }
 
+export function normalizeVideoBookmark(bookmark = {}) {
+  const timestampSeconds = timestampToSeconds(bookmark.timestamp);
+  const rawSeconds = Number(bookmark.seconds);
+  const hasSeconds = bookmark.seconds !== undefined
+    && bookmark.seconds !== null
+    && String(bookmark.seconds).trim() !== ""
+    && Number.isFinite(rawSeconds);
+  const seconds = Math.max(0, Math.floor(hasSeconds ? rawSeconds : (timestampSeconds || 0)));
+  const label = cleanText(bookmark.label, MAX_VIDEO_BOOKMARK_LABEL_LENGTH)
+    .replace(/\s+/g, " ")
+    .trim();
+  const timestamp = secondsToTimestamp(seconds);
+  const createdAt = optionIso(bookmark.createdAt) || nowIso();
+  return {
+    id: cleanText(bookmark.id, 128) || makeId("bookmark"),
+    seconds,
+    timestamp,
+    label: label || timestamp,
+    createdAt
+  };
+}
+
+function normalizeVideoBookmarks(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((bookmark) => normalizeVideoBookmark(bookmark))
+    .filter((bookmark) => bookmark.timestamp)
+    .sort((a, b) => a.seconds - b.seconds || a.createdAt.localeCompare(b.createdAt))
+    .slice(0, MAX_VIDEO_BOOKMARKS);
+}
+
 // Review-card provenance invariants:
 // sourceCaptureId is the originating capture; deleting that capture deletes the card.
 // answersQuestionCaptureId lives on answer captures and points back to the question capture.
@@ -437,6 +470,7 @@ export function createSession(overrides = {}, originClientId = overrides.originC
     viewerOpen: overrides.viewerOpen !== false,
     viewerMode: overrides.viewerMode || "auto",
     viewerPosition: Math.max(0, Math.round(Number(overrides.viewerPosition) || 0)),
+    videoBookmarks: materialType === "video" ? normalizeVideoBookmarks(overrides.videoBookmarks) : [],
     notesMarkdown: cleanText(overrides.notesMarkdown || "", MAX_NOTE_LENGTH),
     captures: Array.isArray(overrides.captures)
       ? overrides.captures.map((capture) => normalizeCapture(capture, originClientId, {
@@ -1002,6 +1036,7 @@ export function updateSession(workspace, sessionId, patch) {
       next.materialType = MATERIAL_TYPES.has(next.materialType) ? next.materialType : "other";
       next.focusMode = FOCUS_MODES.has(next.focusMode) ? next.focusMode : "capture";
       next.viewerPosition = Math.max(0, Math.round(Number(next.viewerPosition) || 0));
+      next.videoBookmarks = next.materialType === "video" ? normalizeVideoBookmarks(next.videoBookmarks) : [];
       return next;
     })
   };
@@ -2038,6 +2073,17 @@ export function generateMarkdown(session) {
     session.notesMarkdown || "_No notes yet._",
     session.notesMarkdown ? "" : "_还没有笔记。_",
     "",
+    ...(session.videoBookmarks?.length ? [
+      "## Video Bookmarks",
+      "_中文：视频书签_",
+      "",
+      ...session.videoBookmarks.map((bookmark) => {
+        const href = buildSourceJumpUrl(session.sourceUrl, bookmark.timestamp);
+        const label = `${bookmark.timestamp} - ${bookmark.label}`;
+        return href ? `- [${label}](${href})` : `- ${label}`;
+      }),
+      ""
+    ] : []),
     "## Captures",
     "_中文：摘录_",
     ""

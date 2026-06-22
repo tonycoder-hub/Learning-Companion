@@ -49,6 +49,7 @@ import {
   isMobileInboxPatchLike,
   isReviewProgressPatch,
   isReviewProgressPatchLike,
+  normalizeVideoBookmark,
   normalizeCaptureDraft,
   promoteCapture,
   refreshAnsweredQuestionReviewCard,
@@ -81,12 +82,13 @@ import { initNotesCanvas } from "./canvas.js";
 
 const STORAGE_KEY = "learning-companion.workspace.v1";
 const UI_PREFS_KEY = "learning-companion.ui.v1";
-const UI_PREFS_SCHEMA_VERSION = 6;
+const UI_PREFS_SCHEMA_VERSION = 7;
 const UI_LANGUAGES = new Set(["en", "zh"]);
 const READER_THEMES = new Set(["light", "sepia", "dark"]);
 const READER_FONT_MIN = 14;
 const READER_FONT_MAX = 20;
 const READER_FONT_DEFAULT = 16;
+const VIDEO_PLAYBACK_RATES = new Set([0.75, 1, 1.25, 1.5, 2]);
 const CAPTURE_DELETE_UNDO_MS = 10000;
 const CAPTURE_NODE_ATTR = "data-capture-id";
 const nativeSaveRequests = new Map();
@@ -189,6 +191,8 @@ const dom = {
   deskReviewAgainBtn: document.querySelector("#deskReviewAgainBtn"),
   deskReviewGoodBtn: document.querySelector("#deskReviewGoodBtn"),
   notesEditor: document.querySelector("#notesEditor"),
+  notesToolbar: document.querySelector("#notesToolbar"),
+  insertTimestampNoteBtn: document.querySelector("#insertTimestampNoteBtn"),
   notesPreview: document.querySelector("#notesPreview"),
   notesEditBtn: document.querySelector("#notesEditBtn"),
   notesPreviewBtn: document.querySelector("#notesPreviewBtn"),
@@ -890,6 +894,17 @@ dom.notesEditor.addEventListener("input", () => {
   renderNotesMode();
 });
 
+dom.notesToolbar?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-notes-tool]");
+  if (!button) return;
+  event.preventDefault();
+  applyNotesTool(button.dataset.notesTool);
+});
+
+dom.insertTimestampNoteBtn?.addEventListener("click", () => {
+  insertCurrentTimestampNote();
+});
+
 dom.notesEditBtn.addEventListener("click", () => {
   notesMode = "edit";
   renderNotesMode();
@@ -1210,15 +1225,28 @@ function loadUiPrefs() {
     const raw = localStorage.getItem(UI_PREFS_KEY);
     if (!raw) return defaultUiPrefs();
     const parsed = JSON.parse(raw);
-    return {
+    const parsedSchemaVersion = Number(parsed.schemaVersion);
+    if (Number.isFinite(parsedSchemaVersion) && parsedSchemaVersion > UI_PREFS_SCHEMA_VERSION) {
+      return defaultUiPrefs();
+    }
+    const prefs = {
       schemaVersion: UI_PREFS_SCHEMA_VERSION,
       language: normalizeUiLanguage(parsed.language),
       sidecarLayout: Boolean(parsed.sidecarLayout),
       readingPrefs: normalizeReadingPrefs(parsed.readingPrefs),
+      videoPlaybackRate: normalizeVideoPlaybackRate(parsed.videoPlaybackRate),
       captureDrafts: normalizeCaptureDrafts(parsed.captureDrafts),
       workspaceBackup: normalizeWorkspaceBackup(parsed.workspaceBackup),
       mirrorHandoff: normalizeMirrorHandoff(parsed.mirrorHandoff)
     };
+    if (parsed.schemaVersion !== UI_PREFS_SCHEMA_VERSION || parsed.videoPlaybackRate === undefined) {
+      try {
+        localStorage.setItem(UI_PREFS_KEY, JSON.stringify(prefs));
+      } catch {
+        // Keep the in-memory migrated prefs even if the browser refuses the cleanup write.
+      }
+    }
+    return prefs;
   } catch {
     return defaultUiPrefs();
   }
@@ -1231,6 +1259,7 @@ function saveUiPrefs() {
       language: normalizeUiLanguage(uiPrefs.language),
       sidecarLayout: Boolean(uiPrefs.sidecarLayout),
       readingPrefs: normalizeReadingPrefs(uiPrefs.readingPrefs),
+      videoPlaybackRate: normalizeVideoPlaybackRate(uiPrefs.videoPlaybackRate),
       captureDrafts: pruneCaptureDrafts(uiPrefs.captureDrafts),
       workspaceBackup: normalizeWorkspaceBackup(uiPrefs.workspaceBackup),
       mirrorHandoff: normalizeMirrorHandoff(uiPrefs.mirrorHandoff)
@@ -1248,6 +1277,7 @@ function defaultUiPrefs() {
     language: detected,
     sidecarLayout: false,
     readingPrefs: normalizeReadingPrefs(),
+    videoPlaybackRate: 1,
     captureDrafts: {},
     workspaceBackup: null,
     mirrorHandoff: null
@@ -1265,6 +1295,11 @@ function normalizeReadingPrefs(value = {}) {
     fontSize,
     tocCollapsed: Boolean(value.tocCollapsed)
   };
+}
+
+function normalizeVideoPlaybackRate(value) {
+  const rate = Number(value);
+  return VIDEO_PLAYBACK_RATES.has(rate) ? rate : 1;
 }
 
 function normalizeUiLanguage(value) {
@@ -1814,7 +1849,7 @@ function updateSessionFromFields(event) {
     sourceUrl,
     materialType: dom.materialType.value,
     tags: dom.sessionTags.value,
-    ...(sourceUrlChanged ? { viewerPosition: 0 } : {})
+    ...(sourceUrlChanged ? { viewerPosition: 0, videoBookmarks: [] } : {})
   });
   const linkedDraftToSource = maybeAnchorUnsourcedCaptureDraft(getActiveSession(workspace), event);
   scheduleSave();
@@ -1891,6 +1926,7 @@ function capture(promoteToReview) {
         sourceProvenance: "snapshot"
       }
     : {};
+  pauseActiveVideoOnCapture(session);
   workspace = addCapture(workspace, session.id, {
     quote: dom.quoteInput.value,
     thought: dom.thoughtInput.value,
@@ -1923,6 +1959,11 @@ function capture(promoteToReview) {
   dom.thoughtInput.value = "";
   persistAndRender(captureSaveToast(savedCapture, { isCloze, isLinkedAnswer, promotedToReview: Boolean(promoteToReview) }));
   dom.quoteInput.focus();
+}
+
+function pauseActiveVideoOnCapture(session) {
+  if (session.materialType !== "video") return;
+  dom.viewerPane?.learningCompanionVideo?.pause?.();
 }
 
 function captureSaveActivity(session, capture, options = {}) {
@@ -2287,6 +2328,7 @@ function renderStaticBilingualShell() {
   document.querySelector("#synthesisPane")?.setAttribute("aria-label", langText("Synthesis", "综合"));
   document.querySelector("#deskReviewPane")?.setAttribute("aria-label", langText("Focused review", "专注复习"));
   document.querySelector(".editor-pane")?.setAttribute("aria-label", langText("Session notes", "主题笔记"));
+  document.querySelector("#notesToolbar")?.setAttribute("aria-label", langText("Notes formatting", "笔记格式工具"));
   document.querySelector(".inspector")?.setAttribute("aria-label", langText("Learning inspector", "学习检查器"));
   document.querySelector(".inspector .tabs")?.setAttribute("aria-label", langText("Inspector views", "检查视图"));
   document.querySelector("#todayTab")?.setAttribute("aria-label", langText("Today study pack", "今日学习包"));
@@ -2340,12 +2382,34 @@ function renderStaticBilingualShell() {
   setText("#notesEditBtn", "Edit", "编辑");
   setText("#notesPreviewBtn", "Preview", "预览");
   setText("#notesCanvasBtn", "✏️ Draw", "✏️ 手写");
+  renderNotesToolbarCopy();
   if (dom.reviewNextBtn) dom.reviewNextBtn.textContent = langText("Review Next", "复习下一张");
   document.querySelector("#captureStarters")?.setAttribute("aria-label", langText("Capture starters", "摘录开头"));
   if (dom.captureStarterLabel) dom.captureStarterLabel.textContent = langText("Write as", "写成");
   renderCaptureStarterCopy();
   renderCaptureActionCopy();
   renderExportShellCopy();
+}
+
+function renderNotesToolbarCopy() {
+  const copy = {
+    bold: { label: "B", title: langText("Bold", "加粗") },
+    italic: { label: "I", title: langText("Italic", "斜体") },
+    code: { label: "</>", title: langText("Code", "代码") },
+    link: { label: "🔗", title: langText("Link", "链接") },
+    list: { label: "•", title: langText("Bulleted list", "项目列表") }
+  };
+  document.querySelectorAll("[data-notes-tool]").forEach((button) => {
+    const item = copy[button.dataset.notesTool];
+    if (!item) return;
+    button.textContent = item.label;
+    button.title = item.title;
+    button.setAttribute("aria-label", item.title);
+  });
+  if (dom.insertTimestampNoteBtn) {
+    dom.insertTimestampNoteBtn.textContent = langText("Time", "时间");
+    renderNotesAssistControls(getActiveSession(workspace));
+  }
 }
 
 function renderExportShellCopy() {
@@ -2750,6 +2814,38 @@ function toggleViewerPane() {
   render();
 }
 
+function addVideoBookmarkAt(secondsInput) {
+  const session = getActiveSession(workspace);
+  if (session.materialType !== "video" || !session.sourceUrl) {
+    showToast(langText("Set a video source first", "请先设置视频来源"));
+    return;
+  }
+  const seconds = Math.max(0, Math.floor(Number(secondsInput) || 0));
+  const timestamp = secondsToTimestamp(seconds);
+  const defaultLabel = langText(`Bookmark ${timestamp}`, `书签 ${timestamp}`);
+  const label = window.prompt(langText("Bookmark label", "书签标签"), defaultLabel);
+  if (label === null) return;
+  const bookmark = normalizeVideoBookmark({
+    seconds,
+    timestamp,
+    label: label.trim() || defaultLabel
+  });
+  workspace = updateSession(workspace, session.id, {
+    videoBookmarks: [...session.videoBookmarks, bookmark]
+  });
+  dom.timestampInput.value = timestamp;
+  saveCurrentCaptureDraft();
+  persistAndRender(langText("Video bookmark saved", "视频书签已保存"));
+}
+
+function deleteVideoBookmark(bookmarkId) {
+  const session = getActiveSession(workspace);
+  const nextBookmarks = session.videoBookmarks.filter((bookmark) => bookmark.id !== bookmarkId);
+  if (nextBookmarks.length === session.videoBookmarks.length) return;
+  workspace = updateSession(workspace, session.id, { videoBookmarks: nextBookmarks });
+  persistAndRender(langText("Video bookmark deleted", "视频书签已删除"));
+}
+
 function renderViewerPane() {
   const session = getActiveSession(workspace);
   if (!dom.viewerPane) return;
@@ -2771,8 +2867,23 @@ function renderViewerPane() {
     renderViewer(dom.viewerPane, session, {
       startTimestamp: startSec,
       readerPrefs: normalizeReadingPrefs(uiPrefs.readingPrefs),
+      videoBookmarks: session.videoBookmarks,
+      playbackRate: normalizeVideoPlaybackRate(uiPrefs.videoPlaybackRate),
       onTimestampChange(sec) {
         dom.timestampInput.value = secondsToTimestamp(Math.max(0, Math.floor(sec)));
+      },
+      onPlaybackRateChange(rate) {
+        uiPrefs = {
+          ...uiPrefs,
+          videoPlaybackRate: normalizeVideoPlaybackRate(rate)
+        };
+        saveUiPrefs();
+      },
+      onAddVideoBookmark(sec) {
+        addVideoBookmarkAt(sec);
+      },
+      onDeleteVideoBookmark(bookmark) {
+        deleteVideoBookmark(bookmark.id);
       },
       onOpenExternal(url) {
         window.open(buildSourceJumpUrl(url, dom.timestampInput.value), "_blank", "noopener,noreferrer");
@@ -4923,14 +5034,138 @@ function gradeActiveReview(grade) {
   persistAndRender(next ? langText("Review updated", "复习已更新") : langText("Review queue clear", "复习队列已清空"));
 }
 
+function applyNotesTool(tool) {
+  const editor = dom.notesEditor;
+  if (!editor || notesMode === "preview") return;
+  const start = editor.selectionStart ?? editor.value.length;
+  const end = editor.selectionEnd ?? editor.value.length;
+  const selected = editor.value.slice(start, end);
+  const replacement = notesToolReplacement(tool, selected);
+  if (!replacement) return;
+  commitNotesEditorValue(
+    editor.value.slice(0, start) + replacement.text + editor.value.slice(end),
+    start + replacement.selectionStart,
+    start + replacement.selectionEnd,
+    langText("Notes updated", "笔记已更新")
+  );
+}
+
+function notesToolReplacement(tool, selected) {
+  const text = String(selected || "");
+  const trimmed = text.trim();
+  if (tool === "bold") return wrapNotesSelection(text, langText("bold text", "加粗文本"), "**", "**");
+  if (tool === "italic") return wrapNotesSelection(text, langText("italic text", "斜体文本"), "*", "*");
+  if (tool === "code") {
+    if (text.includes("\n")) {
+      const body = text || langText("code", "代码");
+      return {
+        text: `\n\`\`\`\n${body}\n\`\`\`\n`,
+        selectionStart: 5,
+        selectionEnd: 5 + body.length
+      };
+    }
+    return wrapNotesSelection(text, langText("code", "代码"), "`", "`");
+  }
+  if (tool === "link") {
+    const label = trimmed || langText("link text", "链接文本");
+    const output = `[${label}](https://)`;
+    return {
+      text: output,
+      selectionStart: output.length - 9,
+      selectionEnd: output.length - 1
+    };
+  }
+  if (tool === "list") {
+    const body = text || langText("List item", "列表项");
+    const output = body.split(/\r?\n/).map((line) => line.trim() ? `- ${line.replace(/^[-*]\s+/, "")}` : "- ").join("\n");
+    return {
+      text: output,
+      selectionStart: 2,
+      selectionEnd: output.length
+    };
+  }
+  return null;
+}
+
+function wrapNotesSelection(selected, fallback, before, after) {
+  const body = selected || fallback;
+  return {
+    text: `${before}${body}${after}`,
+    selectionStart: before.length,
+    selectionEnd: before.length + body.length
+  };
+}
+
+function insertCurrentTimestampNote() {
+  const session = getActiveSession(workspace);
+  if (session.materialType !== "video" || !session.sourceUrl) {
+    showToast(langText("Set a video source first", "请先设置视频来源"));
+    return;
+  }
+  const seconds = timestampToSeconds(dom.timestampInput.value)
+    ?? timestampToSeconds(buildResumeSource(session, "").timestamp)
+    ?? 0;
+  const timestamp = secondsToTimestamp(seconds);
+  const href = buildSourceJumpUrl(session.sourceUrl, timestamp);
+  insertMarkdownAtCursor(href ? `[${timestamp}](${href})` : `[${timestamp}]()`, {
+    message: langText("Timestamp inserted", "时间戳已插入")
+  });
+}
+
+function insertMarkdownAtCursor(markdown, options = {}) {
+  const editor = dom.notesEditor;
+  if (!editor) return;
+  notesMode = "edit";
+  renderNotesMode();
+  const start = editor.selectionStart ?? editor.value.length;
+  const end = editor.selectionEnd ?? editor.value.length;
+  const prefix = start > 0 && !/\s$/.test(editor.value.slice(0, start)) ? " " : "";
+  const suffix = end < editor.value.length && !/^\s/.test(editor.value.slice(end)) ? " " : "";
+  const text = `${prefix}${markdown}${suffix}`;
+  commitNotesEditorValue(
+    editor.value.slice(0, start) + text + editor.value.slice(end),
+    start + prefix.length,
+    start + prefix.length + markdown.length,
+    options.message
+  );
+}
+
+function commitNotesEditorValue(value, selectionStart, selectionEnd, message = "") {
+  const editor = dom.notesEditor;
+  if (!editor) return;
+  editor.value = value;
+  const session = getActiveSession(workspace);
+  workspace = updateSession(workspace, session.id, { notesMarkdown: value });
+  scheduleSave();
+  renderCaptureStack(getActiveSession(workspace));
+  renderFocusBrief();
+  renderInspector();
+  renderNotesMode();
+  editor.focus();
+  editor.setSelectionRange(selectionStart, selectionEnd);
+  if (message) showToast(message);
+}
+
 function renderNotesMode() {
   const session = getActiveSession(workspace);
   const previewing = notesMode === "preview";
+  if (dom.notesToolbar) dom.notesToolbar.hidden = previewing;
   dom.notesEditor.hidden = previewing;
   dom.notesPreview.hidden = !previewing;
   dom.notesEditBtn.classList.toggle("active", !previewing);
   dom.notesPreviewBtn.classList.toggle("active", previewing);
+  renderNotesAssistControls(session);
   if (previewing) renderMarkdown(dom.notesPreview, session.notesMarkdown);
+}
+
+function renderNotesAssistControls(session) {
+  if (!dom.insertTimestampNoteBtn) return;
+  const enabled = session.materialType === "video" && Boolean(session.sourceUrl);
+  dom.insertTimestampNoteBtn.disabled = !enabled;
+  dom.insertTimestampNoteBtn.title = enabled
+    ? langText("Insert current video timestamp", "插入当前视频时间戳")
+    : langText("Set a video source before inserting a timestamp", "设置视频来源后才能插入时间戳");
+  dom.insertTimestampNoteBtn.setAttribute("aria-label", dom.insertTimestampNoteBtn.title);
 }
 
 function renderFocusMode(mode) {

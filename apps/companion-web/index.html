@@ -246,6 +246,14 @@
                 <span id="saveState" class="save-state">Saved</span>
               </div>
             </div>
+            <div id="notesToolbar" class="notes-toolbar" aria-label="Notes formatting">
+              <button class="mini-button notes-tool-button" type="button" data-notes-tool="bold" title="Bold" aria-label="Bold">B</button>
+              <button class="mini-button notes-tool-button" type="button" data-notes-tool="italic" title="Italic" aria-label="Italic">I</button>
+              <button class="mini-button notes-tool-button" type="button" data-notes-tool="code" title="Code" aria-label="Code">&lt;/&gt;</button>
+              <button class="mini-button notes-tool-button" type="button" data-notes-tool="link" title="Link" aria-label="Link">Link</button>
+              <button class="mini-button notes-tool-button" type="button" data-notes-tool="list" title="Bulleted list" aria-label="Bulleted list">•</button>
+              <button id="insertTimestampNoteBtn" class="mini-button notes-timestamp-button" type="button" title="Insert current video timestamp" aria-label="Insert current video timestamp">Time</button>
+            </div>
             <textarea id="notesEditor" class="notes-editor" spellcheck="true"></textarea>
             <div id="notesPreview" class="notes-preview markdown-lite" hidden></div>
             <div class="notes-canvas-wrap" hidden>

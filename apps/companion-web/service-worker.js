@@ -1,4 +1,4 @@
-const CACHE_NAME = "learning-companion-static-v10";
+const CACHE_NAME = "learning-companion-static-v11";
 const STATIC_ASSETS = [
   "./",
   "./index.html",
