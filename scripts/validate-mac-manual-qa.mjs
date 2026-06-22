@@ -7,6 +7,7 @@ const MAC_MANUAL_QA_RECEIPT_SCHEMA = "learning-companion.mac-manual-qa-receipt.v
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = 27;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
@@ -80,6 +81,22 @@ function isFilled(value) {
   return Boolean(text && text !== "TBD" && text !== "-");
 }
 
+function hasConcreteQaText(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
+  return Boolean(text && !isPlaceholderQaText(text) && !isPlaceholderQaText(unwrappedText));
+}
+
+function isIsoDateTimeWithTimezone(value) {
+  const text = String(value || "").trim();
+  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
+}
+
+function isPlaceholderQaText(text) {
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+}
+
 function hasEvidenceNote(value) {
   const text = String(value || "").trim();
   return Boolean(text && !isPlaceholderEvidenceNote(text));
@@ -139,6 +156,7 @@ function validateMacManualQa(markdown, qaPath) {
   const counts = summarizeRows(rows);
   const allRowsExecuted = rows.length === EXPECTED_QA_ROWS && counts.nt === 0 && counts.invalid === 0;
   const allRowsPass = allRowsExecuted && counts.pass === EXPECTED_QA_ROWS && counts.fail === 0 && counts.blocked === 0;
+  const anyRealRowsFilled = rows.some((row) => row.result !== "NT");
   const sessionFields = {
     dateTime: fields["Date/time"] || "",
     reviewer: fields.Reviewer || "",
@@ -153,10 +171,25 @@ function validateMacManualQa(markdown, qaPath) {
     biggestFriction: fields["Biggest friction"] || ""
   };
 
+  if (anyRealRowsFilled) {
+    if (!isIsoDateTimeWithTimezone(sessionFields.dateTime)) {
+      errors.push("Mac manual QA has filled rows but Date/time must be an ISO date-time with timezone");
+    }
+    [
+      ["reviewer", "Reviewer"],
+      ["macosVersion", "macOS version"]
+    ].forEach(([key, label]) => {
+      if (!hasConcreteQaText(sessionFields[key])) {
+        errors.push(`Mac manual QA has filled rows but ${label} is empty, TBD, or placeholder`);
+      }
+    });
+  }
+
   if (allRowsExecuted) {
     for (const [key, label] of REQUIRED_FULL_RUN_FIELDS) {
-      if (!isFilled(sessionFields[key])) {
-        errors.push(`Mac manual QA fully executed but ${label} is empty or TBD`);
+      if (["dateTime", "reviewer", "macosVersion"].includes(key)) continue;
+      if (!hasConcreteQaText(sessionFields[key])) {
+        errors.push(`Mac manual QA fully executed but ${label} is empty, TBD, or placeholder`);
       }
     }
     for (const [key, label] of [
@@ -171,9 +204,13 @@ function validateMacManualQa(markdown, qaPath) {
   const nativeBuildGatePass = isPass(sessionFields.nativeBuildGateResult);
   const browserSmokeGatePass = isPass(sessionFields.browserSmokeGateResult);
 
+  const canClaimMacManualQaUsable = errors.length === 0 && allRowsPass && nativeBuildGatePass && browserSmokeGatePass;
+  const evidenceTier = canClaimMacManualQaUsable
+    ? "MANUAL_PLATFORM_QA"
+    : anyRealRowsFilled ? "PARTIAL_PLATFORM_QA" : "PENDING_USER_GATE";
   const receipt = {
     schema: MAC_MANUAL_QA_RECEIPT_SCHEMA,
-    evidenceTier: "PENDING_USER_GATE",
+    evidenceTier,
     generatedAt: new Date().toISOString(),
     qaPath,
     summary: {
@@ -184,13 +221,13 @@ function validateMacManualQa(markdown, qaPath) {
       allRowsPass,
       nativeBuildGatePass,
       browserSmokeGatePass,
-      anyRealRowsFilled: rows.some((row) => row.result !== "NT")
+      anyRealRowsFilled
     },
     sessionFields,
     rows,
     errors,
     claimBoundary: {
-      canClaimMacManualQaUsable: errors.length === 0 && allRowsPass && nativeBuildGatePass && browserSmokeGatePass,
+      canClaimMacManualQaUsable,
       doesNotProve: [
         "Signed or notarized Mac packaging",
         "Production update or install flow",
