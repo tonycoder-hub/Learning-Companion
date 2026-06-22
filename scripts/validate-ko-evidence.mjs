@@ -113,6 +113,20 @@ const PLATFORM_FULL_RUN_FIELDS = {
     ["biggestFriction", "Biggest friction"]
   ]
 };
+const DEFAULT_PLATFORM_RECEIPTS = {
+  macManual: {
+    pendingPath: ".codex-tmp/mac-manual-qa/receipt.json",
+    realRunPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json"
+  },
+  windowsStatic: {
+    pendingPath: ".codex-tmp/windows-static-qa/receipt.json",
+    realRunPath: ".codex-tmp/windows-static-qa/real-run-receipt.json"
+  },
+  harmonyDevice: {
+    pendingPath: ".codex-tmp/harmony-device-qa/receipt.json",
+    realRunPath: ".codex-tmp/harmony-device-qa/real-run-receipt.json"
+  }
+};
 
 const args = parseArgs(process.argv.slice(2));
 assertPathArgs(args, ["bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device", "external", "out"]);
@@ -123,9 +137,9 @@ if (args["self-test"]) {
   const report = await buildKoReport({
     bilingualPath: args.bilingual || ".codex-tmp/bilingual-browser-smoke/receipt.json",
     agentLoopPath: args["agent-loop"] || ".codex-tmp/agent-study-loop-smoke/receipt.json",
-    macManualPath: args["mac-manual"] || ".codex-tmp/mac-manual-qa/receipt.json",
-    windowsStaticPath: args["windows-static"] || ".codex-tmp/windows-static-qa/receipt.json",
-    harmonyDevicePath: args["harmony-device"] || ".codex-tmp/harmony-device-qa/receipt.json",
+    macManualPath: args["mac-manual"] || selectPlatformReceiptPath(DEFAULT_PLATFORM_RECEIPTS.macManual),
+    windowsStaticPath: args["windows-static"] || selectPlatformReceiptPath(DEFAULT_PLATFORM_RECEIPTS.windowsStatic),
+    harmonyDevicePath: args["harmony-device"] || selectPlatformReceiptPath(DEFAULT_PLATFORM_RECEIPTS.harmonyDevice),
     externalPath: args.external || "",
     allowMissing: Boolean(args["allow-missing"])
   });
@@ -327,6 +341,10 @@ function collectRequirement({ requirements, blockers, label, path, validate, evi
     });
     blockers.push(`${label}: ${error.message}`);
   }
+}
+
+function selectPlatformReceiptPath({ realRunPath, pendingPath }) {
+  return existsSync(realRunPath) ? realRunPath : pendingPath;
 }
 
 function summarizePlatformQaStatus(items) {
@@ -1144,6 +1162,19 @@ async function runSelfTest() {
   assert.equal(pendingMacStatus?.status, "PENDING_NOT_RUN");
   assert.ok(pendingMacStatus?.detail.includes("no real platform rows are filled"));
 
+  const defaultPendingPath = join(root, "default-platform-receipt.json");
+  const defaultRealRunPath = join(root, "default-platform-real-run-receipt.json");
+  await writeJson(defaultPendingPath, { schema: "pending.fixture" });
+  assert.equal(
+    selectPlatformReceiptPath({ pendingPath: defaultPendingPath, realRunPath: defaultRealRunPath }),
+    defaultPendingPath
+  );
+  await writeJson(defaultRealRunPath, { schema: "real.fixture" });
+  assert.equal(
+    selectPlatformReceiptPath({ pendingPath: defaultPendingPath, realRunPath: defaultRealRunPath }),
+    defaultRealRunPath
+  );
+
   const missingPlatformNotesPath = join(root, "missing-platform-row-notes-receipt.json");
   await writeJson(missingPlatformNotesPath, {
     ...fixtures.macManualReceipt,
@@ -1441,6 +1472,7 @@ async function runSelfTest() {
       "signed external source query key rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
+      "real-run platform receipt path selected before pending receipt path",
       "platform PASS rows without evidence notes rejected",
       "platform PASS rows with placeholder evidence notes rejected",
       "platform PASS rows with decorated placeholder evidence notes rejected",

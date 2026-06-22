@@ -154,7 +154,8 @@ async function buildPlatformQaHandoff(statusPath) {
     platforms,
     nextCommands: {
       refreshKoStatus: `node scripts/validate-ko-evidence.mjs --allow-missing --out ${STATUS_PATH}`,
-      finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json"
+      finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
+      finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
     },
     blockedOrNotExecuted: [
       "No Mac GUI manual QA was run by this handoff.",
@@ -292,6 +293,7 @@ function buildConsoleSummary(handoff, outPath) {
   if (outPath) {
     lines.push(`Handoff JSON: ${outPath}`);
   }
+  lines.push("Real-run platform receipts are auto-selected by ko:next/ko:validate when present.");
   lines.push("", "Platform QA work:");
   for (const platform of handoff.platforms) {
     lines.push(`- ${platform.id}: ${platform.currentKoStatus.status}; ${platform.currentTemplateSummary.nt}/${platform.currentTemplateSummary.rows} rows still NT; validate with \`${platform.validateCommand}\``);
