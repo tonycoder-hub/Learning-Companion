@@ -12,6 +12,7 @@ const EXTERNAL_CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-re
 const MAC_MANUAL_QA_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const WINDOWS_STATIC_QA_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const HARMONY_DEVICE_QA_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
+const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -334,12 +335,26 @@ function platformRowEvidenceErrors(receipt, label) {
   }
   rows.forEach((row, index) => {
     const result = String(row?.result || "").trim().toUpperCase();
-    const notes = String(row?.notes || "").trim();
-    if (result && result !== "NT" && !notes) {
-      errors.push(`${label} row ${index + 1} (${row?.area || "unnamed"}) is ${result} without a QA note or evidence reference`);
+    if (result && result !== "NT" && !hasEvidenceNote(row?.notes)) {
+      errors.push(`${label} row ${index + 1} (${row?.area || "unnamed"}) is ${result} without a concrete QA note or evidence reference`);
     }
   });
   return errors;
+}
+
+function hasEvidenceNote(value) {
+  const text = String(value || "").trim();
+  return Boolean(text && !isPlaceholderEvidenceNote(text));
+}
+
+function isPlaceholderEvidenceNote(value) {
+  const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const unwrappedText = text.replace(/^[`"'([{<*_.,;:\-\s]+/, "");
+  return isPlaceholderEvidenceText(text) || isPlaceholderEvidenceText(unwrappedText);
+}
+
+function isPlaceholderEvidenceText(text) {
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text) || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
 }
 
 function validateBilingualReceipt(receipt) {
@@ -804,9 +819,97 @@ async function runSelfTest() {
     allowSelfTestFixtures: true
   });
   assert.equal(missingPlatformNotesReport.canClaimKo, false);
-  assert.ok(missingPlatformNotesReport.blockers.some((item) => item.includes("without a QA note or evidence reference")));
+  assert.ok(missingPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
   const missingNotesMacStatus = missingPlatformNotesReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
   assert.equal(missingNotesMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const placeholderPlatformNotesPath = join(root, "placeholder-platform-row-notes-receipt.json");
+  await writeJson(placeholderPlatformNotesPath, {
+    ...fixtures.macManualReceipt,
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: "N/A" } : row
+    ))
+  });
+  const placeholderPlatformNotesReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: placeholderPlatformNotesPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(placeholderPlatformNotesReport.canClaimKo, false);
+  assert.ok(placeholderPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
+  const placeholderNotesMacStatus = placeholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(placeholderNotesMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const decoratedPlaceholderPlatformNotesPath = join(root, "decorated-placeholder-platform-row-notes-receipt.json");
+  await writeJson(decoratedPlaceholderPlatformNotesPath, {
+    ...fixtures.macManualReceipt,
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: "- todo: capture screenshot" } : row
+    ))
+  });
+  const decoratedPlaceholderPlatformNotesReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: decoratedPlaceholderPlatformNotesPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(decoratedPlaceholderPlatformNotesReport.canClaimKo, false);
+  assert.ok(decoratedPlaceholderPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
+  const decoratedPlaceholderNotesMacStatus = decoratedPlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(decoratedPlaceholderNotesMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const windowsPlaceholderPlatformNotesPath = join(root, "windows-placeholder-platform-row-notes-receipt.json");
+  await writeJson(windowsPlaceholderPlatformNotesPath, {
+    ...fixtures.windowsStaticReceipt,
+    rows: fixtures.windowsStaticReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: "todo" } : row
+    ))
+  });
+  const windowsPlaceholderPlatformNotesReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: windowsPlaceholderPlatformNotesPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(windowsPlaceholderPlatformNotesReport.canClaimKo, false);
+  assert.ok(windowsPlaceholderPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
+  const windowsPlaceholderNotesStatus = windowsPlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "windowsStaticManualQa");
+  assert.equal(windowsPlaceholderNotesStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const harmonyPlaceholderPlatformNotesPath = join(root, "harmony-placeholder-platform-row-notes-receipt.json");
+  await writeJson(harmonyPlaceholderPlatformNotesPath, {
+    ...fixtures.harmonyDeviceReceipt,
+    rows: fixtures.harmonyDeviceReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: "- todo: capture screenshot" } : row
+    ))
+  });
+  const harmonyPlaceholderPlatformNotesReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: harmonyPlaceholderPlatformNotesPath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(harmonyPlaceholderPlatformNotesReport.canClaimKo, false);
+  assert.ok(harmonyPlaceholderPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
+  const harmonyPlaceholderNotesStatus = harmonyPlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "harmonyDeviceQa");
+  assert.equal(harmonyPlaceholderNotesStatus?.status, "INVALID_OR_INCOMPLETE");
 
   const summary = {
     schema: SELFTEST_SCHEMA,
@@ -824,7 +927,11 @@ async function runSelfTest() {
       "signed external source query key rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
-      "platform PASS rows without evidence notes rejected"
+      "platform PASS rows without evidence notes rejected",
+      "platform PASS rows with placeholder evidence notes rejected",
+      "platform PASS rows with decorated placeholder evidence notes rejected",
+      "Windows platform PASS rows with placeholder evidence notes rejected",
+      "Harmony platform PASS rows with decorated placeholder evidence notes rejected"
     ]
   };
   const outPath = join(root, "selftest-summary.json");
@@ -1062,7 +1169,9 @@ async function createKoFixtures(root) {
     macManualPath,
     macManualReceipt,
     windowsStaticPath,
+    windowsStaticReceipt,
     harmonyDevicePath,
+    harmonyDeviceReceipt,
     externalPath,
     externalClaim
   };
