@@ -264,6 +264,20 @@ try {
       activityTitle: document.querySelector("#activityTitle")?.textContent || "",
       activityAction: document.querySelector("#activityDetailsBtn")?.textContent || ""
     };
+    setValue("#searchInput", "中文模式");
+    const searchState = {
+      placeholder: document.querySelector("#searchInput")?.placeholder || "",
+      aria: document.querySelector("#searchInput")?.getAttribute("aria-label") || "",
+      expanded: document.querySelector("#searchInput")?.getAttribute("aria-expanded") || "",
+      activeDescendant: document.querySelector("#searchInput")?.getAttribute("aria-activedescendant") || "",
+      hidden: document.querySelector("#searchResults")?.hidden === true,
+      text: document.querySelector("#searchResults")?.textContent || "",
+      options: [...document.querySelectorAll("#searchResults [role='option']")].map((button) => ({
+        selected: button.getAttribute("aria-selected") || "",
+        text: button.textContent
+      }))
+    };
+    setValue("#searchInput", "");
     const noSourceWorkspace = JSON.parse(originalWorkspaceJson);
     const activeSession = noSourceWorkspace.sessions.find((session) => session.id === noSourceWorkspace.activeSessionId) || noSourceWorkspace.sessions[0];
     activeSession.title = "超长中文学习主题用于布局验证";
@@ -326,6 +340,7 @@ try {
     return {
       linkedState,
       recentState,
+      searchState,
       noSourceState,
       deviceFlowState,
       restored: {
@@ -360,6 +375,19 @@ try {
   assert.equal(bilingualProbe.recentState.inspectAction, "最近");
   assert.equal(bilingualProbe.recentState.activityTitle, "最新摘录");
   assert.equal(bilingualProbe.recentState.activityAction, "详情");
+  assert.equal(bilingualProbe.searchState.placeholder, "搜索主题、笔记、摘录");
+  assert.equal(bilingualProbe.searchState.aria, "搜索主题、笔记、摘录");
+  assert.equal(bilingualProbe.searchState.expanded, "true");
+  assert.equal(bilingualProbe.searchState.activeDescendant, "search-result-0");
+  assert.equal(bilingualProbe.searchState.hidden, false);
+  assert.match(bilingualProbe.searchState.text, /查找/);
+  assert.match(bilingualProbe.searchState.text, /个匹配/);
+  assert.match(bilingualProbe.searchState.text, /摘录/);
+  assert.match(bilingualProbe.searchState.text, /中文模式下的最近摘录/);
+  assert.ok(
+    bilingualProbe.searchState.options.some((option) => option.selected === "true" && /中文模式下的最近摘录/.test(option.text)),
+    "Expected the Chinese search result list to select the matching capture"
+  );
   assert.match(bilingualProbe.noSourceState.panelText, /需要来源/);
   assert.match(bilingualProbe.noSourceState.panelText, /先设置来源/);
   assert.match(bilingualProbe.noSourceState.startHereText, /第一条笔记/);
