@@ -1,21 +1,62 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { promisify } from "node:util";
 
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
+const execFileAsync = promisify(execFile);
+const PATH_ARGS = ["status", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
 
 if (args.help) {
   console.log(buildHelp());
   process.exit(0);
 }
 
+PATH_ARGS.forEach((key) => {
+  if (args[key] === true) {
+    throw new Error(`--${key} requires a file path.`);
+  }
+});
+
+if (args.refresh) {
+  await refreshKoStatus(statusPath, args);
+}
+
 if (!existsSync(statusPath)) {
-  throw new Error(`Missing KO status file: ${statusPath}. Run: node scripts/validate-ko-evidence.mjs --allow-missing --out ${statusPath}`);
+  throw new Error(`Missing KO status file: ${statusPath}. Run: npm run ko:next -- --refresh --status ${statusPath}`);
 }
 
 const status = JSON.parse(await readFile(statusPath, "utf8"));
 console.log(buildSummary(status, statusPath));
+
+async function refreshKoStatus(outPath, parsedArgs) {
+  const refreshArgs = ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", outPath];
+  [
+    ["external", "external"],
+    ["bilingual", "bilingual"],
+    ["agent-loop", "agent-loop"],
+    ["mac-manual", "mac-manual"],
+    ["windows-static", "windows-static"],
+    ["harmony-device", "harmony-device"]
+  ].forEach(([sourceKey, targetKey]) => {
+    const value = parsedArgs[sourceKey];
+    if (value) {
+      refreshArgs.push(`--${targetKey}`, value);
+    }
+  });
+  try {
+    await execFileAsync(process.execPath, refreshArgs, {
+      cwd: process.cwd(),
+      timeout: 30000,
+      maxBuffer: 1024 * 1024
+    });
+  } catch (error) {
+    const stderr = String(error.stderr || error.message || "").trim();
+    throw new Error(`Failed to refresh KO status: ${stderr || "unknown error"}`);
+  }
+}
 
 function buildSummary(status, statusPath) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
@@ -80,6 +121,7 @@ function buildHelp() {
 
 Usage:
   npm run ko:next
+  npm run ko:next -- --refresh
   node scripts/ko-next-action-summary.mjs --status .codex-tmp/ko-evidence/current-status.json
 
 The summary explains:

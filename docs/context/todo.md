@@ -93,6 +93,7 @@ The external-source validation harness is locally self-tested:
 The top-level KO evidence gate is locally self-tested:
 
 - `scripts/validate-ko-evidence.mjs`: combines the bilingual browser runtime receipt, controlled learning-loop receipt, native Mac manual QA, Windows static/manual QA, HarmonyOS device/toolchain QA, and privacy-reviewed approved-source external evidence artifact into one KO status report.
+- `scripts/ko-next-action-summary.mjs`: use `npm run ko:next -- --refresh` when resuming, so `.codex-tmp/ko-evidence/current-status.json` is regenerated from current local receipts with `--allow-missing` before the next-action summary is printed.
 - `scripts/platform-qa-handoff.mjs`: reads the current KO status plus the generated Mac, Windows, and HarmonyOS QA templates and can write a `learning-companion.platform-qa-handoff.v1` JSON handoff with `PLATFORM_QA_HANDOFF_ONLY`, `canClaimKo: false`, exact validation commands, required session-field names, row/result counts, and explicit no-platform-run boundaries. It does not retain raw QA Markdown or row Notes.
 - The bilingual receipt requirement now includes static shell chrome, Chinese-mode new-session default, Synthesis overwrite confirmation, mirror bundle import confirmation, and expanded main-shell checks: `staticShellChromeZh`, `staticShellChromeEnAfterSwitch`, `newSessionDefaultZh`, `synthesisOverwriteConfirmZh`, `mirrorImportConfirmZh`, `studyShellZh`, `studyShellEnAfterSwitch`, `todayLearningFlowZh`, `reviewToolbarZh`, `mainLoopCaptureZh`, `recentStackZh`, `searchResultsZh`, and `activityHintZh`.
 - `platformQaStatus` in the KO status report now classifies native Mac, Windows, and HarmonyOS receipts as `PENDING_NOT_RUN`, `PARTIAL_OR_BLOCKED_RUN`, `PASSING_REAL_RUN`, `INVALID`, or `INVALID_OR_INCOMPLETE`, with row counts, gate booleans, reviewer/environment fields, and blocking reasons.
@@ -202,7 +203,7 @@ Goal paused note on 2026-06-11:
 
 ## Immediate TODO
 
-- Run `npm run ko:next` first to print the current pass/missing evidence summary and next commands.
+- Run `npm run ko:next -- --refresh` first to regenerate the current pass/missing evidence summary from local receipts and print next commands.
 - In this context, `URL` means the public learning-material link. 中文：URL 就是网页链接。Needed inputs are one approved reading material link, one approved video material link, and the video timestamp to capture. The shortest user input shape is `阅读：https://... / 视频：https://... / 时间：00:15`.
 - Run `npm run external:source-help` when the expected source-link inputs need to be shown plainly.
 - Run `npm run external:source-intake -- --input "阅读：https://... 视频：https://... 时间：00:15"` to validate a pasted source-input block and print the next exact dry-run / approved-candidate commands before launching browser evidence.

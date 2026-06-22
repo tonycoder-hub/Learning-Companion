@@ -761,6 +761,10 @@ assert.match(morningDemoBuilderJs, /Filled but non-claimable rows validate as pa
 assert.match(morningDemoBuilderJs, /不可声明的行只算 partial platform QA/);
 assert.match(morningDemoBuilderJs, /Every `PASS`, `FAIL`, or `BLOCKED` row must include a concrete Notes evidence reference/);
 assert.match(koNextActionSummaryJs, /Learning Companion KO next actions/);
+assert.match(koNextActionSummaryJs, /execFileAsync\(process\.execPath/);
+assert.match(koNextActionSummaryJs, /--refresh/);
+assert.match(koNextActionSummaryJs, /requires a file path/);
+assert.match(koNextActionSummaryJs, /Failed to refresh KO status/);
 assert.match(koNextActionSummaryJs, /URL here means a public learning-material link/);
 assert.match(koNextActionSummaryJs, /URL 就是网页链接/);
 assert.match(koNextActionSummaryJs, /阅读：https:\/\/\.\.\. \/ 视频：https:\/\/\.\.\. \/ 时间：00:15/);
