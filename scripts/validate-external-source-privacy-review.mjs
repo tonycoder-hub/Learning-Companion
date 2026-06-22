@@ -12,6 +12,7 @@ const LEADING_REVIEW_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)
 const TRAILING_REVIEW_DECORATION_PATTERN = /[`"'()[\]{}<>*_.,;:#\-\s]+$/;
 const PLACEHOLDER_REVIEW_PREFIX_PATTERN = /^(tbd|todo|placeholder|n\s*\/\s*a)(\b|[\s:;,.()[\]{}_-]|$)/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const PRIVACY_REVIEW_SELF_TEST_PATH = ".codex-tmp/external-source-privacy-review-selftest/";
 
 const args = parseArgs(process.argv.slice(2));
 
@@ -22,6 +23,7 @@ if (args["self-test"]) {
   const outPath = requireArg(args.out, "out");
   const receipt = await readJson(receiptPath, "receipt");
   validateCandidateReceipt(receipt);
+  assertNotPrivacyReviewSelfTestPath(receiptPath, "receiptPath");
   const template = buildReviewTemplate(receipt, receiptPath);
   await writeJson(outPath, template);
   console.log(`external_source_privacy_review_template_ok ${outPath}`);
@@ -36,8 +38,12 @@ if (args["self-test"]) {
   console.log(`external_source_privacy_review_ok ${outPath}`);
 }
 
-function validatePrivacyReview({ receipt, receiptPath, review, reviewPath }) {
+function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allowSelfTestFixtures = false }) {
   const receiptSummary = validateCandidateReceipt(receipt);
+  if (!allowSelfTestFixtures) {
+    assertNotPrivacyReviewSelfTestPath(receiptPath, "receiptPath");
+    assertNotPrivacyReviewSelfTestPath(reviewPath, "reviewPath");
+  }
   assert.equal(review.schema, REVIEW_SCHEMA, "review schema mismatch");
   assertConcreteReviewText(review.reviewer, "reviewer");
   assertIsoDateTime(review.reviewedAt, "reviewedAt");
@@ -210,7 +216,8 @@ async function runSelfTest() {
   assert.match(candidateTemplate.reviewedAt, /ISO date-time with timezone/);
   assert.match(candidateTemplate.notes, /concrete privacy-review notes/);
   const validReview = buildValidReview(fixture.receipt, fixture.receiptPath);
-  const claim = validatePrivacyReview({
+  const validateSelfTestPrivacyReview = (input) => validatePrivacyReview({ ...input, allowSelfTestFixtures: true });
+  const claim = validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: validReview,
@@ -219,7 +226,21 @@ async function runSelfTest() {
   assert.equal(claim.canClaimExternalKo, true);
   assert.equal(claim.evidenceTier, "APPROVED_SOURCE_PRIVACY_REVIEWED");
 
-  const descriptiveNoneNotesClaim = validatePrivacyReview({
+  assert.throws(() => validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: validReview,
+    reviewPath: "approved-source-privacy-review.json"
+  }), /receiptPath must not come from external-source privacy-review self-test artifacts/);
+
+  assert.throws(() => validatePrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: "approved-source-candidate-receipt.json",
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /reviewPath must not come from external-source privacy-review self-test artifacts/);
+
+  const descriptiveNoneNotesClaim = validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: {
@@ -230,7 +251,7 @@ async function runSelfTest() {
   });
   assert.equal(descriptiveNoneNotesClaim.canClaimExternalKo, true);
 
-  const descriptiveNoEvidenceNotesClaim = validatePrivacyReview({
+  const descriptiveNoEvidenceNotesClaim = validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: {
@@ -247,7 +268,7 @@ async function runSelfTest() {
     selfTest: true,
     approvedCurrentTurn: false
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: selfTestReceipt,
     receiptPath: join(root, "selftest-receipt.json"),
     review: validReview,
@@ -273,7 +294,7 @@ async function runSelfTest() {
       }
     }))
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: publicDryRunReceipt,
     receiptPath: join(root, "public-dry-run-receipt.json"),
     review: validReview,
@@ -288,7 +309,7 @@ async function runSelfTest() {
       noSecretsTokensSessionIds: false
     }
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: failedReview,
@@ -299,7 +320,7 @@ async function runSelfTest() {
     ...validReview,
     reviewer: "N/A"
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: placeholderReviewerReview,
@@ -310,7 +331,7 @@ async function runSelfTest() {
     ...validReview,
     reviewedAt: "today"
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: relativeReviewedAtReview,
@@ -324,7 +345,7 @@ async function runSelfTest() {
       approvalReference: "1. todo: paste current-turn approval"
     }
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: placeholderApprovalReferenceReview,
@@ -335,7 +356,7 @@ async function runSelfTest() {
     ...validReview,
     notes: "> todo: inspect screenshots"
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: placeholderNotesReview,
@@ -346,7 +367,7 @@ async function runSelfTest() {
     ...fixture.receipt,
     runs: fixture.receipt.runs.map((run) => ({ ...run, files: [] }))
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: emptyFilesReceipt,
     receiptPath: join(root, "empty-files-receipt.json"),
     review: validReview,
@@ -359,7 +380,7 @@ async function runSelfTest() {
       ? { ...run, source: { ...run.source, url: "" } }
       : run)
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: missingUrlReceipt,
     receiptPath: join(root, "missing-url-receipt.json"),
     review: validReview,
@@ -373,7 +394,7 @@ async function runSelfTest() {
       approvedReadingUrl: "https://example.com/other-reading"
     }
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
     review: mismatchedUrlReview,
@@ -384,7 +405,7 @@ async function runSelfTest() {
     ...fixture.receipt,
     runContext: undefined
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: missingRunContextReceipt,
     receiptPath: join(root, "missing-run-context-receipt.json"),
     review: validReview,
@@ -397,7 +418,7 @@ async function runSelfTest() {
       ? { ...run, source: { ...run.source, url: "http://127.0.0.1:12345/private-reading" } }
       : run)
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: localSourceReceipt,
     receiptPath: join(root, "local-source-receipt.json"),
     review: validReview,
@@ -410,7 +431,7 @@ async function runSelfTest() {
       ? { ...run, source: { ...run.source, url: "http://[::ffff:127.0.0.1]/private-reading" } }
       : run)
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: mappedIpv6LocalSourceReceipt,
     receiptPath: join(root, "mapped-ipv6-local-source-receipt.json"),
     review: validReview,
@@ -423,7 +444,7 @@ async function runSelfTest() {
       ? { ...run, source: { ...run.source, url: "https://www.youtube.com/watch?v=learning-companion-approved-video&token=abc" } }
       : run)
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: sensitiveQueryReceipt,
     receiptPath: join(root, "sensitive-query-receipt.json"),
     review: validReview,
@@ -436,7 +457,7 @@ async function runSelfTest() {
       ? { ...run, source: { ...run.source, url: "https://www.youtube.com/watch?v=learning-companion-approved-video&X-Amz-Signature=abc" } }
       : run)
   };
-  assert.throws(() => validatePrivacyReview({
+  assert.throws(() => validateSelfTestPrivacyReview({
     receipt: signedQueryReceipt,
     receiptPath: join(root, "signed-query-receipt.json"),
     review: validReview,
@@ -452,6 +473,8 @@ async function runSelfTest() {
     validatedClaimShapeInMemory: claim.schema === CLAIM_SCHEMA && claim.canClaimExternalKo === true,
     negativeCases: [
       "approved candidate template shape validated",
+      "privacy-review self-test receipt path rejected",
+      "privacy-review self-test review path rejected",
       "local fixture self-test receipt rejected",
       "public source dry-run receipt rejected",
       "public source dry-run template rejected",
@@ -706,6 +729,16 @@ function summarizeRunContextForClaim(runContext) {
 function assertGitHead(value, label) {
   assertNonTbd(value, label);
   assert.match(value, /^[a-f0-9]{40}$/i, `${label} must be a 40-character git SHA`);
+}
+
+function assertNotPrivacyReviewSelfTestPath(value, label) {
+  assertNonTbd(value, label);
+  const normalizedPath = value.replace(/\\/g, "/");
+  assert.equal(
+    normalizedPath.includes(PRIVACY_REVIEW_SELF_TEST_PATH),
+    false,
+    `${label} must not come from external-source privacy-review self-test artifacts`
+  );
 }
 
 function assertNonTbd(value, label) {
