@@ -6,6 +6,8 @@ For the remaining platform work, run `npm run platform:qa-handoff -- --out .code
 
 To snapshot all remaining next-major readiness gates without running build, deployment, platform QA, external-source capture, or privacy review, run `npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md`. This packet is `NEXT_MAJOR_READINESS_SUMMARY_ONLY`; it is a current-state checklist, not release evidence, and it does not authorize a release action. Its not-run boundary is emitted even if KO inputs later become claimable.
 
+For the single operator view of all remaining next-major gates, run `npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md`. This packet is `NEXT_MAJOR_OPERATOR_PACKET_ONLY`; it consolidates readiness, source approval request, and platform QA handoff data, but it does not grant approval, run source capture, perform privacy review, run platform QA, build, deploy, or satisfy KO evidence.
+
 ## Mac Shell
 
 | Stage | Meaning | Current Evidence | Promotion Gate |

@@ -129,6 +129,7 @@ const koEvidenceReviewJs = readFileSync("scripts/validate-ko-evidence.mjs", "utf
 const koNextActionSummaryJs = readFileSync("scripts/ko-next-action-summary.mjs", "utf8");
 const platformQaHandoffJs = readFileSync("scripts/platform-qa-handoff.mjs", "utf8");
 const nextMajorReadinessJs = readFileSync("scripts/next-major-readiness.mjs", "utf8");
+const nextMajorOperatorPacketJs = readFileSync("scripts/next-major-operator-packet.mjs", "utf8");
 const macManualQaValidatorJs = readFileSync("scripts/validate-mac-manual-qa.mjs", "utf8");
 const windowsStaticQaValidatorJs = readFileSync("scripts/validate-windows-static-qa.mjs", "utf8");
 const harmonyDeviceQaValidatorJs = readFileSync("scripts/validate-harmony-device-qa.mjs", "utf8");
@@ -146,6 +147,7 @@ assert.equal(packageJson.scripts["ko:next"], "node scripts/ko-next-action-summar
 assert.equal(packageJson.scripts["ko:validate"], "node scripts/validate-ko-evidence.mjs");
 assert.equal(packageJson.scripts["ko:validate:selftest"], "node scripts/validate-ko-evidence.mjs --self-test");
 assert.equal(packageJson.scripts["next:readiness"], "node scripts/next-major-readiness.mjs");
+assert.equal(packageJson.scripts["next:operator"], "node scripts/next-major-operator-packet.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.match(devServerJs, /--port/);
 assert.match(devServerJs, /--strict-port/);
@@ -817,6 +819,7 @@ assert.match(koNextActionSummaryJs, /npm run platform:qa-handoff -- --out \.code
 assert.match(koNextActionSummaryJs, /Real-run platform receipts are auto-selected by ko:next\/ko:validate when present/);
 assert.match(koNextActionSummaryJs, /--mac-manual \.codex-tmp\/mac-manual-qa\/real-run-receipt\.json/);
 assert.match(koNextActionSummaryJs, /npm run next:readiness -- --refresh --out \.codex-tmp\/next-major-readiness\/current\.json --markdown-out \.codex-tmp\/next-major-readiness\/current\.md/);
+assert.match(koNextActionSummaryJs, /npm run next:operator -- --refresh --out \.codex-tmp\/next-major-operator\/current\.json --markdown-out \.codex-tmp\/next-major-operator\/current\.md/);
 assert.match(koNextActionSummaryJs, /Self-test and public dry-run evidence/);
 assert.match(nextMajorReadinessJs, /learning-companion\.next-major-readiness\.v1/);
 assert.match(nextMajorReadinessJs, /learning-companion\.ko-evidence-review\.v1/);
@@ -886,6 +889,132 @@ try {
   assert.equal(statSync(readinessMarkdownPath).mode & 0o777, 0o600);
 } finally {
   if (cleanupSmokeArtifacts) rmSync(readinessSmokeDir, { recursive: true, force: true });
+}
+assert.match(nextMajorOperatorPacketJs, /learning-companion\.next-major-operator-packet\.v1/);
+assert.match(nextMajorOperatorPacketJs, /NEXT_MAJOR_OPERATOR_PACKET_ONLY/);
+assert.match(nextMajorOperatorPacketJs, /canClaimNextMajorFromThisPacket: false/);
+assert.match(nextMajorOperatorPacketJs, /releaseActionAuthorized: false/);
+assert.match(nextMajorOperatorPacketJs, /sourceApprovalRequestAvailable/);
+assert.match(nextMajorOperatorPacketJs, /NEEDS_CURRENT_TURN_APPROVAL/);
+assert.match(nextMajorOperatorPacketJs, /NEEDS_REAL_PLATFORM_RUN/);
+assert.match(nextMajorOperatorPacketJs, /BLOCKED_UNTIL_ALL_EVIDENCE_PASSES/);
+assert.match(nextMajorOperatorPacketJs, /No current-turn source approval was granted by this operator packet/);
+assert.match(nextMajorOperatorPacketJs, /No approved-source browser capture or screenshot validation was run by this operator packet/);
+assert.match(nextMajorOperatorPacketJs, /No Mac, Windows, or HarmonyOS real platform QA was run by this operator packet/);
+assert.match(nextMajorOperatorPacketJs, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
+assert.match(nextMajorOperatorPacketJs, /assertLiteral\(readiness\.evidenceTier, "NEXT_MAJOR_READINESS_SUMMARY_ONLY"/);
+assert.match(nextMajorOperatorPacketJs, /assertLiteral\(readiness\.releaseActionAuthorized, false/);
+assert.match(nextMajorOperatorPacketJs, /assertLiteral\(platformHandoff\.evidenceTier, "PLATFORM_QA_HANDOFF_ONLY"/);
+assert.match(nextMajorOperatorPacketJs, /assertLiteral\(platformHandoff\.canClaimKo, false/);
+assert.match(nextMajorOperatorPacketJs, /assertLiteral\(sourceApprovalRequest\.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY"/);
+assert.match(nextMajorOperatorPacketJs, /assertLiteral\(sourceApprovalRequest\.canClaimExternalKo, false/);
+assert.match(nextMajorOperatorPacketJs, /function buildOperatorMarkdown/);
+assert.match(nextMajorOperatorPacketJs, /Next Major Operator Packet/);
+assert.match(nextMajorOperatorPacketJs, /function writePrivateFile/);
+assert.match(nextMajorOperatorPacketJs, /chmod\(path, 0o600\)/);
+assert.match(nextMajorOperatorPacketJs, /"status", "readiness", "platform-handoff", "source-approval-request", "out", "markdown-out"/);
+const operatorSmokeDir = mkdtempSync(join(tempBase, "next-major-operator-"));
+try {
+  const statusPath = join(operatorSmokeDir, "ko-status.json");
+  const readinessPath = join(operatorSmokeDir, "readiness.json");
+  const platformPath = join(operatorSmokeDir, "platform.json");
+  const approvalPath = join(operatorSmokeDir, "approval.json");
+  const operatorJsonPath = join(operatorSmokeDir, "operator.json");
+  const operatorMarkdownPath = join(operatorSmokeDir, "operator.md");
+  writeFileSync(statusPath, `${JSON.stringify({
+    schema: "learning-companion.ko-evidence-review.v1",
+    evidenceTier: "KO_MISSING_EVIDENCE",
+    canClaimKo: false,
+    requirements: [
+      { id: "approvedExternalReadingVideo", status: "MISSING", detail: "fixture missing", evidencePath: "" },
+      { id: "nativeMacManualQa", status: "FAIL", detail: "fixture pending", evidencePath: "" }
+    ]
+  }, null, 2)}\n`);
+  writeFileSync(readinessPath, `${JSON.stringify({
+    schema: "learning-companion.next-major-readiness.v1",
+    evidenceTier: "NEXT_MAJOR_READINESS_SUMMARY_ONLY",
+    canClaimNextMajorPreReleaseReady: false,
+    releaseActionAuthorized: false,
+    readinessStatus: "NOT_READY_MISSING_EVIDENCE"
+  }, null, 2)}\n`);
+  writeFileSync(platformPath, `${JSON.stringify({
+    schema: "learning-companion.platform-qa-handoff.v1",
+    evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+    canClaimKo: false,
+    nextCommands: {
+      finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
+      finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
+    },
+    platforms: [
+      {
+        id: "nativeMacManualQa",
+        label: "Native Mac manual QA",
+        currentKoStatus: { status: "PENDING_NOT_RUN", detail: "fixture pending", evidencePath: "" },
+        qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
+        receiptPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
+        validateCommand: "npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json",
+        expectedRows: 27,
+        currentTemplateSummary: {
+          rows: 27,
+          pass: 0,
+          fail: 0,
+          blocked: 0,
+          nt: 27,
+          invalid: 0,
+          rowsNeedingConcreteNotes: 0,
+          requiredSessionFields: [{ field: "Reviewer", filled: false }]
+        },
+        nextRealRunSteps: ["Fill the real Mac QA template."],
+        cannotBeFilledFrom: ["fixture receipts"]
+      }
+    ]
+  }, null, 2)}\n`);
+  writeFileSync(approvalPath, `${JSON.stringify({
+    schema: "learning-companion.external-source-approval-request.v1",
+    evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+    canClaimExternalKo: false,
+    sources: {
+      reading: { url: "https://example.com/reading", title: "Fixture reading" },
+      video: { url: "https://example.com/video.mp4", title: "Fixture video", timestamp: "00:03" }
+    },
+    requestedApprovalText: "Fixture approval text.",
+    nextCommands: {
+      approvedCandidateAfterCurrentTurnApproval: "npm run external:validate -- --approved-current-turn --reading-url https://example.com/reading --video-url https://example.com/video.mp4 --video-timestamp 00:03 --approval-note 'Fixture approval text.'",
+      privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+      privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+    }
+  }, null, 2)}\n`);
+  const operatorConsole = execFileSync(process.execPath, [
+    "scripts/next-major-operator-packet.mjs",
+    "--status",
+    statusPath,
+    "--readiness",
+    readinessPath,
+    "--platform-handoff",
+    platformPath,
+    "--source-approval-request",
+    approvalPath,
+    "--out",
+    operatorJsonPath,
+    "--markdown-out",
+    operatorMarkdownPath
+  ], { encoding: "utf8" });
+  const operatorPacket = JSON.parse(readFileSync(operatorJsonPath, "utf8"));
+  const operatorMarkdown = readFileSync(operatorMarkdownPath, "utf8");
+  assert.equal(operatorPacket.schema, "learning-companion.next-major-operator-packet.v1");
+  assert.equal(operatorPacket.canClaimNextMajorFromThisPacket, false);
+  assert.equal(operatorPacket.releaseActionAuthorized, false);
+  assert.equal(operatorPacket.inputs.sourceApprovalRequestAvailable, true);
+  assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_CURRENT_TURN_APPROVAL"), true);
+  assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_REAL_PLATFORM_RUN"), true);
+  assert.equal(operatorPacket.blockedOrNotExecuted.length, 5);
+  assert.match(operatorConsole, /Can claim next-major from this packet: NO/);
+  assert.match(operatorMarkdown, /Fixture approval text/);
+  assert.match(operatorMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
+  assert.equal(statSync(operatorJsonPath).mode & 0o777, 0o600);
+  assert.equal(statSync(operatorMarkdownPath).mode & 0o777, 0o600);
+} finally {
+  if (cleanupSmokeArtifacts) rmSync(operatorSmokeDir, { recursive: true, force: true });
 }
 assert.match(platformQaHandoffJs, /learning-companion\.platform-qa-handoff\.v1/);
 assert.match(platformQaHandoffJs, /PLATFORM_QA_HANDOFF_ONLY/);
