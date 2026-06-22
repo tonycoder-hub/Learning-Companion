@@ -896,8 +896,13 @@ assert.match(nextMajorOperatorPacketJs, /canClaimNextMajorFromThisPacket: false/
 assert.match(nextMajorOperatorPacketJs, /releaseActionAuthorized: false/);
 assert.match(nextMajorOperatorPacketJs, /sourceApprovalRequestAvailable/);
 assert.match(nextMajorOperatorPacketJs, /NEEDS_CURRENT_TURN_APPROVAL/);
+assert.match(nextMajorOperatorPacketJs, /NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST/);
 assert.match(nextMajorOperatorPacketJs, /NEEDS_REAL_PLATFORM_RUN/);
 assert.match(nextMajorOperatorPacketJs, /BLOCKED_UNTIL_ALL_EVIDENCE_PASSES/);
+assert.match(nextMajorOperatorPacketJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
+assert.match(nextMajorOperatorPacketJs, /STALE_OR_DIRTY_PUBLIC_DRY_RUN/);
+assert.match(nextMajorOperatorPacketJs, /Prior public dry-run gitHead/);
+assert.match(nextMajorOperatorPacketJs, /refreshPublicDryRun/);
 assert.match(nextMajorOperatorPacketJs, /No current-turn source approval was granted by this operator packet/);
 assert.match(nextMajorOperatorPacketJs, /No approved-source browser capture or screenshot validation was run by this operator packet/);
 assert.match(nextMajorOperatorPacketJs, /No Mac, Windows, or HarmonyOS real platform QA was run by this operator packet/);
@@ -973,6 +978,16 @@ try {
     schema: "learning-companion.external-source-approval-request.v1",
     evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
     canClaimExternalKo: false,
+    basis: {
+      type: "PUBLIC_SOURCE_DRY_RUN_RECEIPT",
+      priorDryRunReceipt: ".codex-tmp/external-source-validation/old-public-dry-run/receipt.json",
+      priorDryRun: {
+        gitHead: "0000000000000000000000000000000000000000",
+        dirtyWorktree: true,
+        profileCleanupOk: true,
+        profileRetained: false
+      }
+    },
     sources: {
       reading: { url: "https://example.com/reading", title: "Fixture reading" },
       video: { url: "https://example.com/video.mp4", title: "Fixture video", timestamp: "00:03" }
@@ -1005,11 +1020,14 @@ try {
   assert.equal(operatorPacket.canClaimNextMajorFromThisPacket, false);
   assert.equal(operatorPacket.releaseActionAuthorized, false);
   assert.equal(operatorPacket.inputs.sourceApprovalRequestAvailable, true);
-  assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_CURRENT_TURN_APPROVAL"), true);
+  assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST"), true);
   assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_REAL_PLATFORM_RUN"), true);
   assert.equal(operatorPacket.blockedOrNotExecuted.length, 5);
   assert.match(operatorConsole, /Can claim next-major from this packet: NO/);
+  assert.match(operatorConsole, /NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST/);
   assert.match(operatorMarkdown, /Fixture approval text/);
+  assert.match(operatorMarkdown, /Approval request freshness: STALE\\_OR\\_DIRTY\\_PUBLIC\\_DRY\\_RUN/);
+  assert.match(operatorMarkdown, /refresh public source preflight/i);
   assert.match(operatorMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
   assert.equal(statSync(operatorJsonPath).mode & 0o777, 0o600);
   assert.equal(statSync(operatorMarkdownPath).mode & 0o777, 0o600);

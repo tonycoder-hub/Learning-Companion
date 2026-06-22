@@ -80,6 +80,27 @@ async function runNodeScript(argv, label) {
   }
 }
 
+async function readCurrentRevision() {
+  try {
+    const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
+      execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 1024 * 128 }),
+      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: 1024 * 128 })
+    ]);
+    return {
+      gitHead: headStdout.trim(),
+      dirtyWorktree: statusStdout.trim().length > 0,
+      statusSummary: statusStdout.trim()
+    };
+  } catch (error) {
+    return {
+      gitHead: "",
+      dirtyWorktree: true,
+      statusSummary: "",
+      error: String(error.message || error)
+    };
+  }
+}
+
 async function buildOperatorPacket(paths) {
   const status = await readRequiredJson(paths.statusPath, "KO status");
   const readiness = await readRequiredJson(paths.readinessPath, "next-major readiness");
@@ -98,10 +119,11 @@ async function buildOperatorPacket(paths) {
     assertLiteral(sourceApprovalRequest.canClaimExternalKo, false, "source approval request canClaimExternalKo");
   }
 
+  const currentRevision = await readCurrentRevision();
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const requirementById = new Map(requirements.map((item) => [item.id || "UNKNOWN", item]));
   const lanes = [
-    buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath),
+    buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
     ...buildPlatformLanes(platformHandoff),
     buildFinalGateLane(readiness, platformHandoff)
   ];
@@ -129,6 +151,7 @@ async function buildOperatorPacket(paths) {
       canClaimNextMajorPreReleaseReady: readiness.canClaimNextMajorPreReleaseReady === true,
       releaseActionAuthorized: readiness.releaseActionAuthorized === true
     },
+    currentRevision,
     lanes,
     operatorOrder: lanes.map((lane) => lane.id),
     blockedOrNotExecuted: [
@@ -141,12 +164,18 @@ async function buildOperatorPacket(paths) {
   };
 }
 
-function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, sourceApprovalRequestPath) {
+function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, sourceApprovalRequestPath, currentRevision) {
   const hasApprovalRequest = Boolean(sourceApprovalRequest);
+  const approvalFreshness = assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision);
+  const needsFreshApprovalRequest = hasApprovalRequest && approvalFreshness.status === "STALE_OR_DIRTY_PUBLIC_DRY_RUN";
   return {
     id: "approvedExternalReadingVideo",
     label: "Approved external reading/video evidence",
-    operatorState: hasApprovalRequest ? "NEEDS_CURRENT_TURN_APPROVAL" : "NEEDS_SOURCE_INPUT",
+    operatorState: !hasApprovalRequest
+      ? "NEEDS_SOURCE_INPUT"
+      : needsFreshApprovalRequest
+        ? "NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST"
+        : "NEEDS_CURRENT_TURN_APPROVAL",
     currentKoStatus: {
       status: requirement.status || "UNKNOWN",
       detail: requirement.detail || "",
@@ -160,7 +189,8 @@ function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, source
           readingUrl: sourceApprovalRequest.sources?.reading?.url || "",
           videoUrl: sourceApprovalRequest.sources?.video?.url || "",
           videoTimestamp: sourceApprovalRequest.sources?.video?.timestamp || "",
-          requestedApprovalText: sourceApprovalRequest.requestedApprovalText || ""
+          requestedApprovalText: sourceApprovalRequest.requestedApprovalText || "",
+          freshness: approvalFreshness
         }
       : {
           path: sourceApprovalRequestPath,
@@ -169,9 +199,12 @@ function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, source
           readingUrl: "",
           videoUrl: "",
           videoTimestamp: "",
-          requestedApprovalText: ""
+          requestedApprovalText: "",
+          freshness: approvalFreshness
         },
-    nextCommands: hasApprovalRequest
+    nextCommands: needsFreshApprovalRequest
+      ? buildFreshSourceCommands(sourceApprovalRequest)
+      : hasApprovalRequest
       ? {
           approvedCandidateAfterCurrentTurnApproval: sourceApprovalRequest.nextCommands?.approvedCandidateAfterCurrentTurnApproval || "",
           privacyTemplate: sourceApprovalRequest.nextCommands?.privacyTemplate || "",
@@ -190,6 +223,71 @@ function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, source
       "approval-request packets",
       "privacy templates without a completed human review"
     ]
+  };
+}
+
+function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision) {
+  if (!sourceApprovalRequest) {
+    return {
+      status: "MISSING_SOURCE_APPROVAL_REQUEST",
+      currentGitHead: currentRevision.gitHead,
+      basisGitHead: "",
+      problems: ["No source approval request exists."]
+    };
+  }
+  const basis = sourceApprovalRequest.basis || {};
+  if (basis.type !== "PUBLIC_SOURCE_DRY_RUN_RECEIPT") {
+    return {
+      status: "NOT_PUBLIC_DRY_RUN_BASED",
+      currentGitHead: currentRevision.gitHead,
+      basisGitHead: "",
+      problems: []
+    };
+  }
+  const prior = basis.priorDryRun || {};
+  const problems = [];
+  if (!prior.gitHead) {
+    problems.push("Prior public dry-run gitHead is missing.");
+  } else if (!currentRevision.gitHead) {
+    problems.push("Current gitHead is unavailable.");
+  } else if (prior.gitHead !== currentRevision.gitHead) {
+    problems.push(`Prior public dry-run gitHead ${prior.gitHead} does not match current HEAD ${currentRevision.gitHead}.`);
+  }
+  if (prior.dirtyWorktree !== false) {
+    problems.push("Prior public dry-run was captured with a dirty worktree.");
+  }
+  if (currentRevision.dirtyWorktree !== false) {
+    problems.push("Current worktree is dirty; regenerate the public dry-run after committing or stashing local changes.");
+  }
+  if (prior.profileRetained === true) {
+    problems.push("Prior public dry-run retained its browser profile.");
+  }
+  if (prior.profileCleanupOk !== true) {
+    problems.push("Prior public dry-run profile cleanup was not proven.");
+  }
+  return {
+    status: problems.length ? "STALE_OR_DIRTY_PUBLIC_DRY_RUN" : "CURRENT_CLEAN_PUBLIC_DRY_RUN",
+    currentGitHead: currentRevision.gitHead,
+    currentDirtyWorktree: currentRevision.dirtyWorktree,
+    basisGitHead: prior.gitHead || "",
+    basisDirtyWorktree: prior.dirtyWorktree === true,
+    basisProfileCleanupOk: prior.profileCleanupOk === true,
+    basisProfileRetained: prior.profileRetained === true,
+    basisReceiptPath: basis.priorDryRunReceipt || basis.inputPath || "",
+    problems
+  };
+}
+
+function buildFreshSourceCommands(sourceApprovalRequest) {
+  const readingUrl = sourceApprovalRequest.sources?.reading?.url || "<approved-reading-url>";
+  const videoUrl = sourceApprovalRequest.sources?.video?.url || "<approved-video-url>";
+  const videoTimestamp = sourceApprovalRequest.sources?.video?.timestamp || "<captured-timestamp>";
+  return {
+    refreshPublicDryRun: `npm run external:validate:public-dry-run -- --reading-url ${shellQuote(readingUrl)} --video-url ${shellQuote(videoUrl)} --video-timestamp ${shellQuote(videoTimestamp)} --dry-run-note ${shellQuote("Refresh public source preflight for current clean HEAD before approval request.")}`,
+    refreshedApprovalRequest: "npm run external:approval-request -- --dry-run-receipt <fresh-public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
+    approvedCandidateAfterCurrentTurnApproval: "npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note \"<current-turn approval from refreshed request>\"",
+    privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+    privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
   };
 }
 
@@ -300,6 +398,8 @@ function buildOperatorMarkdown(packet) {
     `Release action authorized: ${packet.releaseActionAuthorized ? "true" : "false"}`,
     `Source readiness: ${markdownInline(packet.sourceReadiness.readinessStatus)}`,
     `KO claimable: ${packet.sourceKoStatus.canClaimKo ? "true" : "false"}`,
+    `Current git HEAD: ${markdownInline(packet.currentRevision.gitHead || "TBD")}`,
+    `Current worktree dirty: ${packet.currentRevision.dirtyWorktree ? "true" : "false"}`,
     "",
     "## Inputs",
     ""
@@ -324,8 +424,13 @@ function buildOperatorMarkdown(packet) {
         `- Reading URL: ${markdownInline(lane.approvalRequest.readingUrl || "TBD")}`,
         `- Video URL: ${markdownInline(lane.approvalRequest.videoUrl || "TBD")}`,
         `- Video timestamp: ${markdownInline(lane.approvalRequest.videoTimestamp || "TBD")}`,
-        `- Approval text needed: ${markdownInline(lane.approvalRequest.requestedApprovalText || "TBD")}`
+        `- Approval text needed: ${markdownInline(lane.approvalRequest.requestedApprovalText || "TBD")}`,
+        `- Approval request freshness: ${markdownInline(lane.approvalRequest.freshness?.status || "TBD")}`
       );
+      const freshnessProblems = lane.approvalRequest.freshness?.problems || [];
+      for (const problem of freshnessProblems) {
+        lines.push(`- Freshness problem: ${markdownInline(problem)}`);
+      }
     }
     if (lane.qaPath) {
       lines.push(
@@ -381,6 +486,10 @@ function markdownInline(value) {
     .replace(/\]/g, "\\]")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
 }
 
 function buildHelp() {
