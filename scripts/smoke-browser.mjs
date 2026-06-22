@@ -6996,6 +6996,7 @@ try {
   await assertPostSaveFlow(cdp);
   await assertCaptureStackNextStepMix(cdp);
   await assertSidecarHighlightActivity(cdp);
+  await assertReaderSelectionCapture(cdp);
   await cdp.close();
   console.log("smoke_browser_ok");
 } finally {
@@ -9196,6 +9197,125 @@ async function assertSidecarHighlightActivity(cdp) {
   assert.equal(sidecarHighlight.stackFormId, sidecarHighlight.savedId, JSON.stringify(sidecarHighlight));
   assert.equal(sidecarHighlight.focused, true, JSON.stringify(sidecarHighlight));
   assert.equal(sidecarHighlight.focusedAfterTick, true, JSON.stringify(sidecarHighlight));
+}
+
+async function assertReaderSelectionCapture(cdp) {
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(300);
+  const readerSelection = await cdp.evaluate(`(async () => {
+    const { renderReaderContent } = await import("./src/reader.js");
+    const host = document.createElement("section");
+    host.id = "reader-selection-smoke";
+    host.style.position = "fixed";
+    host.style.left = "0";
+    host.style.top = "0";
+    host.style.width = "360px";
+    host.style.height = "220px";
+    host.style.zIndex = "999";
+    host.style.background = "white";
+    document.body.appendChild(host);
+    const captures = [];
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    const selectNodeText = (node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    };
+    let result = {};
+    try {
+      renderReaderContent(host, {
+        html: '<h1>Reader smoke</h1><p id="readerSmokeQuote">Reader selection should stage clean quote text.</p>',
+        url: "https://example.com/reader-smoke",
+        title: "Reader smoke",
+        lang: "en",
+        onQuoteCapture: (text) => captures.push(text)
+      });
+      const article = host.querySelector(".reader-article");
+      article.focus();
+      selectNodeText(host.querySelector("#readerSmokeQuote"));
+      article.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      await nextFrame();
+      const enButton = document.querySelector(".selection-capture-btn");
+      const enRect = enButton.getBoundingClientRect();
+      const english = {
+        text: enButton.textContent,
+        aria: enButton.getAttribute("aria-label") || "",
+        type: enButton.getAttribute("type") || "",
+        top: Math.round(enRect.top),
+        left: Math.round(enRect.left),
+        right: Math.round(enRect.right),
+        bottom: Math.round(enRect.bottom),
+        countBeforeClick: document.querySelectorAll(".selection-capture-btn").length
+      };
+      enButton.click();
+      await nextFrame();
+      const afterClick = {
+        buttonGone: !document.querySelector(".selection-capture-btn"),
+        selectionEmpty: window.getSelection().toString() === ""
+      };
+
+      renderReaderContent(host, {
+        html: '<p id="readerSmokeZh">中文键盘选择也要能摘录。</p>',
+        url: "https://example.com/reader-smoke-zh",
+        title: "Reader smoke zh",
+        lang: "zh",
+        onQuoteCapture: (text) => captures.push(text)
+      });
+      const zhArticle = host.querySelector(".reader-article");
+      zhArticle.focus();
+      selectNodeText(host.querySelector("#readerSmokeZh"));
+      zhArticle.dispatchEvent(new KeyboardEvent("keyup", { key: "ArrowRight", shiftKey: true, bubbles: true }));
+      await nextFrame();
+      const zhButton = document.querySelector(".selection-capture-btn");
+      const zhRect = zhButton.getBoundingClientRect();
+      const zh = {
+        text: zhButton.textContent,
+        aria: zhButton.getAttribute("aria-label") || "",
+        top: Math.round(zhRect.top),
+        left: Math.round(zhRect.left),
+        right: Math.round(zhRect.right),
+        bottom: Math.round(zhRect.bottom),
+        count: document.querySelectorAll(".selection-capture-btn").length
+      };
+      document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await nextFrame();
+      result = {
+        english,
+        afterClick,
+        zh,
+        captures,
+        dismissed: !document.querySelector(".selection-capture-btn"),
+        viewport: { width: window.innerWidth, height: window.innerHeight }
+      };
+    } finally {
+      host.remove();
+      document.querySelectorAll(".selection-capture-btn").forEach((button) => button.remove());
+      window.getSelection().removeAllRanges();
+    }
+    return result;
+  })()`, 15000);
+
+  assert.equal(readerSelection.english.text, "Quote", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.english.aria, "Quote selected text into Quick Capture", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.english.type, "button", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.english.countBeforeClick, 1, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.english.top >= 8, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.english.left >= 8, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.english.right <= readerSelection.viewport.width - 8, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.english.bottom <= readerSelection.viewport.height - 8, JSON.stringify(readerSelection));
+  assert.deepEqual(readerSelection.captures, ["Reader selection should stage clean quote text."], JSON.stringify(readerSelection));
+  assert.equal(readerSelection.afterClick.buttonGone, true, JSON.stringify(readerSelection));
+  assert.equal(readerSelection.afterClick.selectionEmpty, true, JSON.stringify(readerSelection));
+  assert.equal(readerSelection.zh.text, "摘录", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.zh.aria, "摘录选中文本到快速摘录", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.zh.count, 1, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.zh.top >= 8, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.zh.left >= 8, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.zh.right <= readerSelection.viewport.width - 8, JSON.stringify(readerSelection));
+  assert.ok(readerSelection.zh.bottom <= readerSelection.viewport.height - 8, JSON.stringify(readerSelection));
+  assert.equal(readerSelection.dismissed, true, JSON.stringify(readerSelection));
 }
 
 function resolveChromePath() {

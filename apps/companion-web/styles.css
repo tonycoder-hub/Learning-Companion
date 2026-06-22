@@ -3210,6 +3210,10 @@ textarea:focus {
   color: var(--reader-ink);
   overflow-wrap: break-word;
 }
+.reader-article:focus {
+  outline: 2px solid var(--green);
+  outline-offset: -4px;
+}
 
 .reader-article h1 { font-size: 1.5em; margin: 24px 0 12px; font-weight: 700; line-height: 1.3; }
 .reader-article h2 { font-size: 1.25em; margin: 20px 0 10px; font-weight: 700; line-height: 1.35; }
@@ -3344,8 +3348,9 @@ textarea:focus {
   border-color: #dfcda7;
   background: #f3e8cf;
 }
-.selection-capture-btn { position: fixed; z-index: 9999; padding: 5px 12px; background: #16a34a; color: white; border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
-.selection-capture-btn:hover { background: #15803d; }
+.selection-capture-btn { position: fixed; z-index: 9999; min-width: 88px; min-height: 32px; padding: 6px 12px; background: #16a34a; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,0.22); }
+.selection-capture-btn:hover,
+.selection-capture-btn:focus-visible { background: #15803d; outline: 2px solid rgba(255,255,255,0.85); outline-offset: 2px; }
 .viewer-iframe-wrap { aspect-ratio: 16/9; min-height: auto; }
 
 .voice-row { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; }

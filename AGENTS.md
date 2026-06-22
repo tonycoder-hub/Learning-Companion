@@ -28,7 +28,7 @@ learning-companion/
 │   ├── companion-web/          # PRIMARY app (vanilla JS ES modules)
 │   │   ├── index.html
 │   │   ├── styles.css
-│   │   ├── service-worker.js   # Cache: learning-companion-static-v9
+│   │   ├── service-worker.js   # Cache: learning-companion-static-v10
 │   │   ├── manifest.webmanifest
 │   │   ├── bookmarklet.js
 │   │   ├── assets/

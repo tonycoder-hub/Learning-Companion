@@ -253,9 +253,91 @@ export function markdownToSimpleHtml(md) {
 
 // --- Reader rendering ---
 
+let selectionDismissInstalled = false;
+
 function removeSelectionButton() {
-  const existing = document.querySelector(".selection-capture-btn");
-  if (existing) existing.remove();
+  document.querySelectorAll(".selection-capture-btn").forEach((existing) => existing.remove());
+}
+
+function selectionLabel(lang) {
+  return lang === "zh" ? "摘录" : "Quote";
+}
+
+function selectionAriaLabel(lang) {
+  return lang === "zh" ? "摘录选中文本到快速摘录" : "Quote selected text into Quick Capture";
+}
+
+function selectionInsideArticle(article, selection) {
+  if (!article || !selection || selection.rangeCount === 0) return false;
+  const anchor = selection.anchorNode;
+  const focus = selection.focusNode;
+  return Boolean(anchor && focus && article.contains(anchor) && article.contains(focus));
+}
+
+function selectionRect(range) {
+  const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+  if (rects.length) return rects[0];
+  const rect = range.getBoundingClientRect();
+  return rect.width > 0 || rect.height > 0 ? rect : null;
+}
+
+function placeSelectionButton(button, rect) {
+  const margin = 8;
+  const width = Math.max(88, button.offsetWidth || 100);
+  const height = Math.max(32, button.offsetHeight || 32);
+  const maxLeft = Math.max(margin, window.innerWidth - width - margin);
+  const maxTop = Math.max(margin, window.innerHeight - height - margin);
+  const rawLeft = rect.left + rect.width / 2 - width / 2;
+  const rawTop = rect.top - height - margin;
+  const left = Math.min(maxLeft, Math.max(margin, rawLeft));
+  const top = Math.min(maxTop, Math.max(margin, rawTop));
+  button.style.left = `${left}px`;
+  button.style.top = `${top}px`;
+}
+
+function showSelectionButton(article, onQuoteCapture, lang) {
+  removeSelectionButton();
+  const sel = window.getSelection();
+  if (!selectionInsideArticle(article, sel)) return;
+  const text = sel.toString().replace(/\s+/g, " ").trim();
+  if (text.length <= 2) return;
+
+  const range = sel.getRangeAt(0);
+  const rect = selectionRect(range);
+  if (!rect) return;
+
+  const btn = document.createElement("button");
+  btn.className = "selection-capture-btn";
+  btn.type = "button";
+  btn.textContent = selectionLabel(lang);
+  btn.title = selectionAriaLabel(lang);
+  btn.setAttribute("aria-label", selectionAriaLabel(lang));
+  btn.style.visibility = "hidden";
+  btn.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onQuoteCapture) onQuoteCapture(text);
+    removeSelectionButton();
+    sel.removeAllRanges();
+  });
+  document.body.appendChild(btn);
+  placeSelectionButton(btn, rect);
+  btn.style.visibility = "";
+}
+
+function ensureSelectionDismissListener() {
+  if (selectionDismissInstalled) return;
+  selectionDismissInstalled = true;
+  const dismiss = (e) => {
+    if (e.target && e.target.classList && e.target.classList.contains("selection-capture-btn")) return;
+    removeSelectionButton();
+  };
+  document.addEventListener("mousedown", dismiss);
+  document.addEventListener("touchstart", dismiss, { passive: true });
 }
 
 export function renderReaderContent(container, options) {
@@ -328,38 +410,10 @@ export function renderReaderContent(container, options) {
 
   // Text selection handling (only when there is article content)
   if (hasContent) {
-    article.addEventListener("mouseup", () => {
-      removeSelectionButton();
-      const sel = window.getSelection();
-      if (!sel) return;
-      const text = sel.toString().trim();
-      if (text.length <= 2) return;
-
-      const range = sel.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-
-      const btn = document.createElement("button");
-      btn.className = "selection-capture-btn";
-      btn.textContent = "摘录 / Quote";
-      btn.style.left = (rect.left + rect.width / 2 - 50) + "px";
-      btn.style.top = (rect.top - 36) + "px";
-      btn.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (onQuoteCapture) onQuoteCapture(text);
-        removeSelectionButton();
-        sel.removeAllRanges();
-      });
-      document.body.appendChild(btn);
-    });
-
-    document.addEventListener("mousedown", (e) => {
-      if (e.target && e.target.classList && e.target.classList.contains("selection-capture-btn")) return;
-      removeSelectionButton();
-    });
+    article.tabIndex = 0;
+    article.addEventListener("mouseup", () => requestAnimationFrame(() => showSelectionButton(article, onQuoteCapture, lang)));
+    article.addEventListener("keyup", () => requestAnimationFrame(() => showSelectionButton(article, onQuoteCapture, lang)));
+    article.addEventListener("touchend", () => setTimeout(() => showSelectionButton(article, onQuoteCapture, lang), 0), { passive: true });
+    ensureSelectionDismissListener();
   }
 }
