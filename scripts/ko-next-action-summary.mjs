@@ -49,6 +49,7 @@ function buildSummary(status, statusPath) {
     "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
     "",
     "Platform QA still required:",
+    "- Generate the non-claiming platform QA handoff: npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json",
     ...formatPlatformList(platformPending),
     "",
     "Final gate after all evidence exists:",
