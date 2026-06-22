@@ -72,6 +72,14 @@ npm run external:source-intake -- --input "阅读：https://<public-reading-mate
 
 This command checks that the reading/video links are public http(s) learning-material URLs, rejects local/private/internal/reserved/sensitive-query URLs, normalizes the timestamp, and prints both a non-claiming public dry-run command and the approved-candidate command to run after explicit current-turn approval.
 
+Add `--out .codex-tmp/external-source-validation/source-intake-handoff.json` to write a machine-readable handoff for the next approved run:
+
+```bash
+npm run external:source-intake -- --input "阅读：https://<public-reading-material> 视频：https://<public-video-material> 时间：00:15" --out .codex-tmp/external-source-validation/source-intake-handoff.json
+```
+
+The handoff uses `schema: learning-companion.external-source-intake-handoff.v1`, `evidenceTier: SOURCE_INTAKE_HANDOFF_ONLY`, and `canClaimExternalKo: false`. It records only the normalized URLs/timestamp, next dry-run / approved-candidate / privacy-review commands, approval requirements, privacy checklist, and the exact boundary that no browser, local app server, screenshots, current-turn approval, or privacy review were executed. It does not retain the raw pasted input text.
+
 When exact approval is not available yet, a real public-source preflight can exercise the same browser/source/resume mechanics without creating approved evidence:
 
 ```bash

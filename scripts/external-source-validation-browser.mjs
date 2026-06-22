@@ -767,11 +767,29 @@ async function runSourceIntake(args) {
     videoTimestamp,
     note: "<current-turn approval>"
   });
-  console.log([
+  const handoff = buildSourceIntakeHandoff({
+    readingUrl,
+    videoUrl,
+    videoTimestamp,
+    publicDryRunCommand,
+    approvedCommand
+  });
+  if (args.out) {
+    const outPath = resolve(String(args.out));
+    await mkdir(dirname(outPath), { recursive: true, mode: 0o700 });
+    await writeFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`, { mode: 0o600 });
+  }
+  const outputLines = [
     "source_intake_ok",
     `Reading URL: ${readingUrl}`,
     `Video URL: ${videoUrl}`,
-    `Video timestamp: ${videoTimestamp}`,
+    `Video timestamp: ${videoTimestamp}`
+  ];
+  if (args.out) {
+    outputLines.push(`Handoff JSON: ${resolve(String(args.out))}`);
+  }
+  console.log([
+    ...outputLines,
     "",
     "Public dry-run command (not KO evidence):",
     publicDryRunCommand,
@@ -779,6 +797,51 @@ async function runSourceIntake(args) {
     "Approved candidate command (run only after explicit current-turn approval):",
     approvedCommand
   ].join("\n"));
+}
+
+function buildSourceIntakeHandoff({ readingUrl, videoUrl, videoTimestamp, publicDryRunCommand, approvedCommand }) {
+  return {
+    schema: "learning-companion.external-source-intake-handoff.v1",
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "SOURCE_INTAKE_HANDOFF_ONLY",
+    canClaimExternalKo: false,
+    claimBoundary: "Parsed source intake only. No browser evidence, screenshots, source approval, or privacy review has been executed.",
+    rawInputRetained: false,
+    normalized: {
+      readingUrl,
+      videoUrl,
+      videoTimestamp
+    },
+    nextCommands: {
+      publicDryRun: publicDryRunCommand,
+      approvedCandidateAfterCurrentTurnApproval: approvedCommand,
+      privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+      privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+    },
+    approvalRequiredBeforeKoEvidence: [
+      "Exact reading URL approved in the current turn.",
+      "Exact video URL approved in the current turn.",
+      "Exact video timestamp approved or captured from the approved source.",
+      "Browser evidence run executed with --approved-current-turn.",
+      "Human privacy review completed with PASS before KO use."
+    ],
+    privacyReviewChecklist: [
+      "No visible account identity.",
+      "No private or sensitive content.",
+      "No secrets, tokens, cookies, session IDs, or signed URL parameters.",
+      "Throwaway browser profile and run context reviewed.",
+      "App git revision and dirty-worktree state reviewed.",
+      "Every listed screenshot reviewed and marked PASS."
+    ],
+    blockedOrNotExecuted: [
+      "No browser was launched.",
+      "No local app server was started.",
+      "No screenshots were captured.",
+      "No source approval was granted by this handoff.",
+      "No privacy review was performed.",
+      "Mac, Windows, and HarmonyOS platform QA are not covered."
+    ]
+  };
 }
 
 async function readSourceIntakeText(args) {
@@ -893,6 +956,7 @@ Command flags:
 Modes:
 - npm run external:source-intake -- --input "阅读：https://... 视频：https://... 时间：00:15"
   Parse and validate a pasted source-input block, then print the next dry-run and approved-candidate commands. Does not launch a browser and never creates KO evidence.
+  Add --out .codex-tmp/external-source-validation/source-intake-handoff.json to write a handoff-only JSON artifact for the next approved run.
 
 - npm run external:validate:selftest
   Local fixture harness check. Never KO evidence.
@@ -927,6 +991,30 @@ function runApprovedUrlBoundarySelfChecks() {
   assert.equal(intake.readingUrl, "https://www.wikipedia.org/wiki/Spaced_repetition");
   assert.equal(intake.videoUrl, "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4");
   assert.equal(normalizeVideoTimestamp(intake.videoTimestamp), "00:03");
+  const intakeHandoff = buildSourceIntakeHandoff({
+    readingUrl: requireApprovedUrl(intake.readingUrl, "reading-url"),
+    videoUrl: requireApprovedUrl(intake.videoUrl, "video-url"),
+    videoTimestamp: normalizeVideoTimestamp(intake.videoTimestamp),
+    publicDryRunCommand: buildSourceValidationCommand({
+      mode: "public-dry-run",
+      readingUrl: intake.readingUrl,
+      videoUrl: intake.videoUrl,
+      videoTimestamp: normalizeVideoTimestamp(intake.videoTimestamp),
+      note: "source intake preflight"
+    }),
+    approvedCommand: buildSourceValidationCommand({
+      mode: "approved",
+      readingUrl: intake.readingUrl,
+      videoUrl: intake.videoUrl,
+      videoTimestamp: normalizeVideoTimestamp(intake.videoTimestamp),
+      note: "<current-turn approval>"
+    })
+  });
+  assert.equal(intakeHandoff.schema, "learning-companion.external-source-intake-handoff.v1");
+  assert.equal(intakeHandoff.evidenceTier, "SOURCE_INTAKE_HANDOFF_ONLY");
+  assert.equal(intakeHandoff.canClaimExternalKo, false);
+  assert.match(intakeHandoff.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--approved-current-turn/);
+  assert.ok(intakeHandoff.blockedOrNotExecuted.includes("No browser was launched."));
 }
 
 function isSensitiveQueryKey(key) {

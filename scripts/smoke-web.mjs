@@ -772,6 +772,14 @@ assert.match(externalSourceValidationBrowserJs, /视频：https:\/\/<public-vide
 assert.match(externalSourceValidationBrowserJs, /function runSourceIntake/);
 assert.match(externalSourceValidationBrowserJs, /source_intake_ok/);
 assert.match(externalSourceValidationBrowserJs, /source_intake_error/);
+assert.match(externalSourceValidationBrowserJs, /external-source-intake-handoff\.v1/);
+assert.match(externalSourceValidationBrowserJs, /SOURCE_INTAKE_HANDOFF_ONLY/);
+assert.match(externalSourceValidationBrowserJs, /rawInputRetained: false/);
+assert.match(externalSourceValidationBrowserJs, /mode: 0o600/);
+assert.match(externalSourceValidationBrowserJs, /No browser was launched/);
+assert.match(externalSourceValidationBrowserJs, /approvalRequiredBeforeKoEvidence/);
+assert.match(externalSourceValidationBrowserJs, /privacyReviewChecklist/);
+assert.match(externalSourceValidationBrowserJs, /Handoff JSON/);
 assert.match(externalSourceValidationBrowserJs, /APPROVED_IN_CURRENT_TURN/);
 
 let workspace = createDefaultWorkspace();
