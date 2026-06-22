@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
@@ -15,6 +15,7 @@ const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})
 const PRIVACY_REVIEW_SELF_TEST_PATH = ".codex-tmp/external-source-privacy-review-selftest/";
 
 const args = parseArgs(process.argv.slice(2));
+if (args.out === true) throw new Error("--out requires a file path.");
 
 if (args["self-test"]) {
   await runSelfTest();
@@ -927,7 +928,8 @@ async function readJson(path, label) {
 
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  await chmod(path, 0o600);
 }
 
 function defaultOutPath(reviewPath) {

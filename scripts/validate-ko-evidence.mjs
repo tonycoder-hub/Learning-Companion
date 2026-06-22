@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
 const KO_SCHEMA = "learning-companion.ko-evidence-review.v1";
@@ -115,6 +115,7 @@ const PLATFORM_FULL_RUN_FIELDS = {
 };
 
 const args = parseArgs(process.argv.slice(2));
+assertPathArgs(args, ["bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device", "external", "out"]);
 
 if (args["self-test"]) {
   await runSelfTest();
@@ -1789,7 +1790,16 @@ function readJsonSync(path, label) {
 
 async function writeJson(path, value) {
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+  await chmod(path, 0o600);
+}
+
+function assertPathArgs(parsedArgs, keys) {
+  keys.forEach((key) => {
+    if (parsedArgs[key] === true) {
+      throw new Error(`--${key} requires a file path.`);
+    }
+  });
 }
 
 function parseArgs(argv) {
