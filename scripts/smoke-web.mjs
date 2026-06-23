@@ -144,6 +144,7 @@ const gitRevisionSelfTestJs = readFileSync("scripts/git-revision-self-test.mjs",
 const sourceApprovalFreshnessHelperJs = readFileSync("scripts/lib/source-approval-freshness.mjs", "utf8");
 const sourceApprovalFreshnessSelfTestJs = readFileSync("scripts/source-approval-freshness-self-test.mjs", "utf8");
 const platformQaHandoffSelfTestJs = readFileSync("scripts/platform-qa-handoff-self-test.mjs", "utf8");
+const platformQaValidatorsSelfTestJs = readFileSync("scripts/platform-qa-validators-self-test.mjs", "utf8");
 const nextMajorReadinessSelfTestJs = readFileSync("scripts/next-major-readiness-self-test.mjs", "utf8");
 const nextMajorOperatorSelfTestJs = readFileSync("scripts/next-major-operator-self-test.mjs", "utf8");
 const nextAgentPromptMd = readFileSync("NEXT_AGENT_PROMPT.md", "utf8");
@@ -190,7 +191,8 @@ assert.equal(packageJson.scripts["harmony:device:validate:smoke"], "node scripts
 assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --platform-handoff .codex-tmp/platform-qa-handoff/current.json --out .codex-tmp/harmony-device-qa/real-run-receipt.json --require-claimable");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
-assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/validate-external-source-privacy-review.mjs --self-test && node scripts/platform-qa-handoff-self-test.mjs && node scripts/static-return-loop-check.mjs && node scripts/return-file-import-dry-run.mjs --workspace dist/morning-demo/sample-workspace.json --return-file dist/morning-demo/patches/sample-mobile-inbox-patch.json --return-file dist/morning-demo/patches/sample-review-progress-patch.json --out .codex-tmp/return-import-dry-run/receipt.json && node scripts/validate-dogfood-runbook.mjs --runbook dist/morning-demo/DOGFOOD_RUNBOOK.md --out .codex-tmp/dogfood-runbook/receipt.json && node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/receipt.json && node scripts/validate-windows-static-qa.mjs --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/receipt.json && node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/receipt.json && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/ko-next-action-summary.mjs --self-test && node scripts/validate-ko-evidence.mjs --self-test && node scripts/refresh-next-major-local-evidence.mjs --self-test && node scripts/smoke-web.mjs");
+assert.equal(packageJson.scripts["platform:qa-validators:selftest"], "node scripts/platform-qa-validators-self-test.mjs");
+assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/validate-external-source-privacy-review.mjs --self-test && node scripts/platform-qa-handoff-self-test.mjs && node scripts/static-return-loop-check.mjs && node scripts/return-file-import-dry-run.mjs --workspace dist/morning-demo/sample-workspace.json --return-file dist/morning-demo/patches/sample-mobile-inbox-patch.json --return-file dist/morning-demo/patches/sample-review-progress-patch.json --out .codex-tmp/return-import-dry-run/receipt.json && node scripts/validate-dogfood-runbook.mjs --runbook dist/morning-demo/DOGFOOD_RUNBOOK.md --out .codex-tmp/dogfood-runbook/receipt.json && node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/receipt.json && node scripts/validate-windows-static-qa.mjs --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/receipt.json && node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/receipt.json && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/ko-next-action-summary.mjs --self-test && node scripts/validate-ko-evidence.mjs --self-test && node scripts/refresh-next-major-local-evidence.mjs --self-test && node scripts/platform-qa-validators-self-test.mjs && node scripts/smoke-web.mjs");
 assert.match(validateMorningReceiptsJs, /const DEFAULT_ROOT = "dist\/morning-demo"/);
 assert.match(validateMorningReceiptsJs, /process\.env\.MORNING_DEMO_OUT_DIR \|\| DEFAULT_ROOT/);
 assert.match(validateMorningReceiptsJs, /--root=/);
@@ -262,6 +264,15 @@ assert.match(platformQaHandoffSelfTestJs, /--mac-manual requires a Mac manual QA
 assert.match(platformQaHandoffSelfTestJs, /--windows-static requires a Windows static\\\/manual QA receipt path/);
 assert.match(platformQaHandoffSelfTestJs, /--harmony-device requires a HarmonyOS device QA receipt path/);
 assert.match(platformQaHandoffSelfTestJs, /Missing KO status file/);
+assert.match(platformQaValidatorsSelfTestJs, /platform_qa_validators_selftest_ok/);
+assert.match(platformQaValidatorsSelfTestJs, /mkdtemp/);
+assert.match(platformQaValidatorsSelfTestJs, /RUN_ROOT/);
+assert.match(platformQaValidatorsSelfTestJs, /--require-claimable/);
+assert.match(platformQaValidatorsSelfTestJs, /must reject pending templates/);
+assert.match(platformQaValidatorsSelfTestJs, /PENDING_USER_GATE/);
+assert.match(platformQaValidatorsSelfTestJs, /canClaimMacManualQaUsable/);
+assert.match(platformQaValidatorsSelfTestJs, /canClaimWindowsStaticLoopUsable/);
+assert.match(platformQaValidatorsSelfTestJs, /canClaimHarmonyDeviceRoundtripUsable/);
 assert.match(platformQaHandoffBindingJs, /learning-companion\.platform-qa-handoff-binding\.v1/);
 assert.match(platformQaHandoffBindingJs, /learning-companion\.platform-qa-handoff\.v1/);
 assert.match(platformQaHandoffBindingJs, /readPlatformHandoffBinding/);

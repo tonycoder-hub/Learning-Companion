@@ -293,6 +293,7 @@ assert.equal(packageJson.scripts["windows:static:validate:real"], "node scripts/
 assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/validate-harmony-device-qa.mjs");
 assert.equal(packageJson.scripts["harmony:device:validate:smoke"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/receipt.json");
 assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --platform-handoff .codex-tmp/platform-qa-handoff/current.json --out .codex-tmp/harmony-device-qa/real-run-receipt.json --require-claimable");
+assert.equal(packageJson.scripts["platform:qa-validators:selftest"], "node scripts/platform-qa-validators-self-test.mjs");
 assert.match(morningCheck, /npm run dogfood:validate:smoke/);
 assert.match(morningCheck, /npm run mac:manual:validate:smoke/);
 assert.match(morningCheck, /npm run windows:static:validate:smoke/);
