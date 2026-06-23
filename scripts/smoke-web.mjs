@@ -133,6 +133,8 @@ const nextMajorOperatorPacketJs = readFileSync("scripts/next-major-operator-pack
 const macManualQaValidatorJs = readFileSync("scripts/validate-mac-manual-qa.mjs", "utf8");
 const windowsStaticQaValidatorJs = readFileSync("scripts/validate-windows-static-qa.mjs", "utf8");
 const harmonyDeviceQaValidatorJs = readFileSync("scripts/validate-harmony-device-qa.mjs", "utf8");
+const gitRevisionHelperJs = readFileSync("scripts/lib/git-revision.mjs", "utf8");
+const gitRevisionSelfTestJs = readFileSync("scripts/git-revision-self-test.mjs", "utf8");
 assert.equal(packageJson.scripts.dev, "node scripts/dev-server.mjs");
 assert.equal(packageJson.scripts["external:validate"], "node scripts/external-source-validation-browser.mjs");
 assert.equal(packageJson.scripts["external:source-help"], "node scripts/external-source-validation-browser.mjs --help");
@@ -149,6 +151,18 @@ assert.equal(packageJson.scripts["ko:validate:selftest"], "node scripts/validate
 assert.equal(packageJson.scripts["next:readiness"], "node scripts/next-major-readiness.mjs");
 assert.equal(packageJson.scripts["next:operator"], "node scripts/next-major-operator-packet.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
+assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
+assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/smoke-web.mjs");
+assert.match(gitRevisionHelperJs, /export async function readCurrentRevision/);
+assert.match(gitRevisionHelperJs, /export function readCurrentRevisionSync/);
+assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);
+assert.match(gitRevisionHelperJs, /export function buildRevisionFromGitOutput/);
+assert.match(gitRevisionHelperJs, /export function buildUnavailableRevision/);
+assert.match(gitRevisionHelperJs, /dirtyWorktree: "TBD"/);
+assert.match(gitRevisionSelfTestJs, /git_revision_selftest_ok/);
+assert.match(gitRevisionSelfTestJs, /readCurrentRevisionSync/);
+assert.match(gitRevisionSelfTestJs, /revisionCanClaim\(undefined\)/);
+assert.match(gitRevisionSelfTestJs, /maxStatusSummaryLines: 1/);
 assert.match(devServerJs, /--port/);
 assert.match(devServerJs, /--strict-port/);
 assert.match(devServerJs, /Port \$\{requestedPort\} unavailable; using \$\{selectedPort\}\./);
