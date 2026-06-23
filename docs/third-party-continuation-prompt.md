@@ -228,6 +228,7 @@ The PASS bullets above are controlled/local evidence, not durable proof for futu
   - `sample-mirror.json`
   - `sample-learning-companion-mirror.zip`
 - Because deletion is deferred, `SUMMARY.json` / `EVIDENCE_TIERS.json` may include stale files when generated with no-clean mode. Record this caveat; do not hide it.
+- `npm run morning:receipts` validates the default `dist/morning-demo` pack. If the pack was generated into a separate root, run `npm run morning:receipts -- --root <generated-morning-pack-root>` against that exact directory instead of interpreting stale default `dist/` output.
 - `.codex-tmp/browser-smoke/` and `.mira-review/` contain many ignored runtime artifacts. Leave them unless Tony approves cleanup.
 
 ## External Review Channels

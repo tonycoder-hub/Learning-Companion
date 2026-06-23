@@ -150,6 +150,7 @@ const promotionGatesMd = readFileSync("docs/promotion-gates.md", "utf8");
 const macManualQaMd = readFileSync("docs/mac-manual-qa.md", "utf8");
 const thirdPartyContinuationPromptMd = readFileSync("docs/third-party-continuation-prompt.md", "utf8");
 const userFlowAuditMd = readFileSync("docs/user-flow-audit.md", "utf8");
+const validateMorningReceiptsJs = readFileSync("scripts/validate-morning-receipts.mjs", "utf8");
 assert.equal(packageJson.scripts.dev, "node scripts/dev-server.mjs");
 assert.equal(packageJson.scripts["external:validate"], "node scripts/external-source-validation-browser.mjs");
 assert.equal(packageJson.scripts["external:source-help"], "node scripts/external-source-validation-browser.mjs --help");
@@ -173,6 +174,7 @@ assert.equal(packageJson.scripts["next:local-evidence"], "node scripts/refresh-n
 assert.equal(packageJson.scripts["next:local-evidence:selftest"], "node scripts/refresh-next-major-local-evidence.mjs --self-test");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
+assert.equal(packageJson.scripts["morning:receipts"], "node scripts/validate-morning-receipts.mjs");
 assert.equal(packageJson.scripts["mac:manual:validate"], "node scripts/validate-mac-manual-qa.mjs");
 assert.equal(packageJson.scripts["mac:manual:validate:real"], "node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --platform-handoff .codex-tmp/platform-qa-handoff/current.json --out .codex-tmp/mac-manual-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["windows:static:validate"], "node scripts/validate-windows-static-qa.mjs");
@@ -182,6 +184,10 @@ assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
 assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/refresh-next-major-local-evidence.mjs --self-test && node scripts/smoke-web.mjs");
+assert.match(validateMorningReceiptsJs, /const DEFAULT_ROOT = "dist\/morning-demo"/);
+assert.match(validateMorningReceiptsJs, /process\.env\.MORNING_DEMO_OUT_DIR \|\| DEFAULT_ROOT/);
+assert.match(validateMorningReceiptsJs, /--root=/);
+assert.match(validateMorningReceiptsJs, /Usage: node scripts\/validate-morning-receipts\.mjs \[--root dist\/morning-demo\]/);
 assert.match(gitRevisionHelperJs, /export async function readCurrentRevision/);
 assert.match(gitRevisionHelperJs, /export function readCurrentRevisionSync/);
 assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);

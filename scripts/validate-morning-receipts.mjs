@@ -4,7 +4,8 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const ROOT = "dist/morning-demo";
+const DEFAULT_ROOT = "dist/morning-demo";
+const ROOT = parseRootOrExit(process.argv.slice(2));
 const EVIDENCE_TIERS = new Set(["EXECUTED", "DRY_RUN", "HANDOFF_ONLY", "PENDING_USER_GATE"]);
 
 const files = {
@@ -553,6 +554,45 @@ for (const line of harmonyDeviceQa.split("\n").filter((item) => item.includes("d
 }
 
 console.log("morning_receipts_ok");
+
+function parseRootOrExit(argv) {
+  try {
+    return parseArgs(argv).root;
+  } catch (error) {
+    console.error(`morning_receipts_error ${error.message}`);
+    printHelp();
+    process.exit(1);
+  }
+}
+
+function parseArgs(argv) {
+  const options = {
+    root: process.env.MORNING_DEMO_OUT_DIR || DEFAULT_ROOT
+  };
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--root") {
+      options.root = argv[index + 1] || "";
+      index += 1;
+    } else if (arg.startsWith("--root=")) {
+      options.root = arg.slice("--root=".length);
+    } else if (arg === "--help" || arg === "-h") {
+      printHelp();
+      process.exit(0);
+    } else {
+      throw new Error(`unknown argument: ${arg}`);
+    }
+  }
+  if (!options.root.trim()) {
+    throw new Error("receipt root must not be empty");
+  }
+  return options;
+}
+
+function printHelp() {
+  console.log("Usage: node scripts/validate-morning-receipts.mjs [--root dist/morning-demo]");
+  console.log("Defaults to MORNING_DEMO_OUT_DIR when set, otherwise dist/morning-demo.");
+}
 
 function assertEvidence(evidence, expectedTier, label) {
   assert.equal(Boolean(evidence), true, `${label} missing evidence`);
