@@ -242,6 +242,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorFreshness, operatorWarning),
     "",
     "Final gate after all evidence exists:",
+    "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
     "- One-command final refresh: npm run next:finalize -- --external <ko-evidence-review.json>",
     "- npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
     "- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json",
