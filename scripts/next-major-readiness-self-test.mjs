@@ -12,8 +12,10 @@ const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = dirname(dirname(scriptPath));
 const readinessScript = join(repoRoot, "scripts/next-major-readiness.mjs");
 const tmp = await mkdtemp(join(tmpdir(), "lc-next-major-readiness-"));
+const fixtureRoot = join(tmp, "repo");
 const inputDir = join(tmp, "inputs");
 const outDir = join(tmp, "out");
+let cleanRevision;
 const REQUIRED_REQUIREMENT_IDS = [
   "bilingualRuntime",
   "controlledLearningLoop",
@@ -24,8 +26,19 @@ const REQUIRED_REQUIREMENT_IDS = [
 ];
 
 try {
+  await mkdir(fixtureRoot, { recursive: true });
   await mkdir(inputDir, { recursive: true });
   await mkdir(outDir, { recursive: true });
+  await writeFile(join(fixtureRoot, "README.md"), "readiness fixture\n");
+  await initFixtureGit("initial readiness fixture");
+  cleanRevision = {
+    gitAvailable: true,
+    gitHead: (await git(["rev-parse", "HEAD"])).stdout.trim(),
+    dirtyWorktree: false,
+    statusLineCount: 0,
+    statusSummary: "",
+    statusTruncated: false
+  };
 
   const blockedStatusPath = join(inputDir, "blocked-status.json");
   await writeJson(blockedStatusPath, buildStatus({
@@ -50,6 +63,7 @@ try {
   assert.equal(blocked.releaseActionAuthorized, false);
   assert.equal(blocked.readinessStatus, "NOT_READY_MISSING_EVIDENCE");
   assert.equal(blocked.sourceKoStatus.canClaimKo, false);
+  assert.equal(blocked.koStatusFreshness.status, "CURRENT_CLEAN_HEAD_KO_STATUS");
   assert.deepEqual(blocked.requirements.map((item) => item.id), REQUIRED_REQUIREMENT_IDS);
   assert.deepEqual(blocked.blockingRequirements.map((item) => item.id), [
     "nativeMacManualQa",
@@ -98,6 +112,26 @@ try {
   assert.equal(claimWithFailingRequirement.canClaimNextMajorPreReleaseReady, false);
   assert.equal(claimWithFailingRequirement.readinessStatus, "NOT_READY_MISSING_EVIDENCE");
 
+  const staleStatusPath = join(inputDir, "stale-status.json");
+  await writeJson(staleStatusPath, buildStatus({
+    canClaimKo: true,
+    requirementStatuses: completeRequirementStatuses(),
+    platformStatus: "PASSING_REAL_RUN",
+    platformClaimAllowed: true,
+    currentRevision: {
+      ...cleanRevision,
+      gitHead: "0000000000000000000000000000000000000000"
+    }
+  }));
+  const staleRun = await runReadiness("stale", staleStatusPath);
+  assert.equal(staleRun.code, 0, staleRun.stderr);
+  const stale = await readJson(staleRun.jsonPath);
+  assert.equal(stale.sourceKoStatus.canClaimKo, true);
+  assert.equal(stale.koStatusFreshness.status, "STALE_OR_DIRTY_KO_STATUS");
+  assert.deepEqual(stale.blockingRequirements.map((item) => item.id), ["koStatusFreshness"]);
+  assert.equal(stale.canClaimNextMajorPreReleaseReady, false);
+  assert.equal(stale.readinessStatus, "NOT_READY_MISSING_EVIDENCE");
+
   const refreshStatusPath = join(outDir, "refresh-status.json");
   const refreshRun = await runNode([readinessScript, "--refresh", "--status", refreshStatusPath]);
   assert.equal(refreshRun.code, 0, refreshRun.stderr);
@@ -119,6 +153,7 @@ try {
   assert.match(readyRun.stdout, /Can claim next-major pre-release ready: YES/);
   const ready = await readJson(readyRun.jsonPath);
   assert.equal(ready.canClaimNextMajorPreReleaseReady, true);
+  assert.equal(ready.koStatusFreshness.status, "CURRENT_CLEAN_HEAD_KO_STATUS");
   assert.equal(ready.releaseActionAuthorized, false);
   assert.equal(ready.readinessStatus, "PRE_RELEASE_EVIDENCE_READY");
   assert.equal(ready.blockingRequirements.length, 0);
@@ -177,7 +212,7 @@ async function runReadiness(label, statusPath) {
     jsonPath,
     "--markdown-out",
     markdownPath
-  ]);
+  ], fixtureRoot);
   return {
     ...result,
     jsonPath,
@@ -185,9 +220,38 @@ async function runReadiness(label, statusPath) {
   };
 }
 
-async function runNode(args) {
+async function initFixtureGit(message) {
+  await git(["init"]);
+  await git(["add", "."]);
+  await gitCommit(message);
+}
+
+async function git(args) {
+  const result = await runCommand("git", args, fixtureRoot);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  return result;
+}
+
+async function gitCommit(message) {
+  await git([
+    "-c",
+    "user.name=Learning Companion Fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "commit",
+    "-m",
+    message
+  ]);
+}
+
+async function runNode(args, cwd = repoRoot) {
+  return runCommand(process.execPath, args, cwd);
+}
+
+async function runCommand(command, args, cwd) {
   try {
-    const result = await execFileAsync(process.execPath, args, {
+    const result = await execFileAsync(command, args, {
+      cwd,
       encoding: "utf8",
       maxBuffer: 1024 * 1024
     });
@@ -213,12 +277,13 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-function buildStatus({ canClaimKo, requirementStatuses, platformStatus = "PENDING_NOT_RUN", platformClaimAllowed = false }) {
+function buildStatus({ canClaimKo, requirementStatuses, platformStatus = "PENDING_NOT_RUN", platformClaimAllowed = false, currentRevision = cleanRevision }) {
   assert.deepEqual([...Object.keys(requirementStatuses)].sort(), [...REQUIRED_REQUIREMENT_IDS].sort());
   return {
     schema: "learning-companion.ko-evidence-review.v1",
     evidenceTier: canClaimKo ? "KO_READY" : "KO_MISSING_EVIDENCE",
     canClaimKo,
+    currentRevision,
     requirements: REQUIRED_REQUIREMENT_IDS.map((id) => {
       const status = requirementStatuses[id];
       return {

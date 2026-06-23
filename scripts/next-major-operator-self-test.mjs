@@ -39,7 +39,7 @@ try {
   await initFixtureGit("initial operator fixture");
 
   const currentHead = (await git(["rev-parse", "HEAD"])).stdout.trim();
-  await writeJson(statusPath, buildStatus());
+  await writeJson(statusPath, buildStatus(currentHead));
   await writeJson(readinessPath, buildReadiness(false));
   await writeJson(receiptPath, buildPublicDryRunReceipt(currentHead));
   await writeJson(platformPath, buildPlatformHandoff(currentHead));
@@ -312,11 +312,19 @@ function assertPlatformLane(lane, { id, nt, validateCommandPattern, cannotBeFill
   assert.equal(lane.cannotBeFilledFrom.includes(cannotBeFilledFrom), true);
 }
 
-function buildStatus() {
+function buildStatus(gitHead) {
   return {
     schema: "learning-companion.ko-evidence-review.v1",
     evidenceTier: "KO_MISSING_EVIDENCE",
     canClaimKo: false,
+    currentRevision: {
+      gitAvailable: true,
+      gitHead,
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    },
     requirements: [
       {
         id: "approvedExternalReadingVideo",

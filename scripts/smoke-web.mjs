@@ -134,6 +134,7 @@ const macManualQaValidatorJs = readFileSync("scripts/validate-mac-manual-qa.mjs"
 const windowsStaticQaValidatorJs = readFileSync("scripts/validate-windows-static-qa.mjs", "utf8");
 const harmonyDeviceQaValidatorJs = readFileSync("scripts/validate-harmony-device-qa.mjs", "utf8");
 const gitRevisionHelperJs = readFileSync("scripts/lib/git-revision.mjs", "utf8");
+const koStatusFreshnessHelperJs = readFileSync("scripts/lib/ko-status-freshness.mjs", "utf8");
 const gitRevisionSelfTestJs = readFileSync("scripts/git-revision-self-test.mjs", "utf8");
 const sourceApprovalFreshnessHelperJs = readFileSync("scripts/lib/source-approval-freshness.mjs", "utf8");
 const sourceApprovalFreshnessSelfTestJs = readFileSync("scripts/source-approval-freshness-self-test.mjs", "utf8");
@@ -168,6 +169,9 @@ assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs
 assert.match(gitRevisionHelperJs, /export async function readCurrentRevision/);
 assert.match(gitRevisionHelperJs, /export function readCurrentRevisionSync/);
 assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);
+assert.match(koStatusFreshnessHelperJs, /CURRENT_CLEAN_HEAD_KO_STATUS/);
+assert.match(koStatusFreshnessHelperJs, /STALE_OR_DIRTY_KO_STATUS/);
+assert.match(koStatusFreshnessHelperJs, /assessKoStatusFreshness/);
 assert.match(gitRevisionHelperJs, /export function buildRevisionFromGitOutput/);
 assert.match(gitRevisionHelperJs, /export function buildUnavailableRevision/);
 assert.match(gitRevisionHelperJs, /dirtyWorktree: "TBD"/);
@@ -926,6 +930,9 @@ assert.match(nextMajorReadinessJs, /REQUIRED_REQUIREMENT_IDS/);
 assert.match(nextMajorReadinessJs, /READINESS_PACKET_NOT_EXECUTED/);
 assert.match(nextMajorReadinessJs, /function assertRequiredRequirements/);
 assert.match(nextMajorReadinessJs, /KO status is missing required requirements/);
+assert.match(nextMajorReadinessJs, /assessKoStatusFreshness/);
+assert.match(nextMajorReadinessJs, /koStatusFreshness/);
+assert.match(nextMajorReadinessJs, /KO status must be regenerated from the current clean git HEAD/);
 assert.match(nextMajorReadinessJs, /canClaimNextMajorPreReleaseReady/);
 assert.match(nextMajorReadinessJs, /releaseActionAuthorized: false/);
 assert.match(nextMajorReadinessJs, /blockedOrNotExecuted: READINESS_PACKET_NOT_EXECUTED/);
@@ -945,6 +952,21 @@ assert.match(nextMajorReadinessJs, /"status", "out", "markdown-out"/);
 assert.match(nextMajorReadinessJs, /requires a file path/);
 const readinessSmokeDir = mkdtempSync(join(tempBase, "next-major-readiness-"));
 try {
+  const readinessRepo = join(readinessSmokeDir, "repo");
+  mkdirSync(readinessRepo, { recursive: true, mode: 0o700 });
+  writeFileSync(join(readinessRepo, "README.md"), "readiness smoke fixture\n");
+  execFileSync("git", ["init"], { cwd: readinessRepo, stdio: "ignore" });
+  execFileSync("git", ["add", "."], { cwd: readinessRepo, stdio: "ignore" });
+  execFileSync("git", [
+    "-c",
+    "user.name=Learning Companion Fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "commit",
+    "-m",
+    "initial readiness smoke fixture"
+  ], { cwd: readinessRepo, stdio: "ignore" });
+  const readinessHead = execFileSync("git", ["rev-parse", "HEAD"], { cwd: readinessRepo, encoding: "utf8" }).trim();
   const claimableStatusPath = join(readinessSmokeDir, "claimable-ko-status.json");
   const readinessJsonPath = join(readinessSmokeDir, "readiness.json");
   const readinessMarkdownPath = join(readinessSmokeDir, "readiness.md");
@@ -952,6 +974,14 @@ try {
     schema: "learning-companion.ko-evidence-review.v1",
     evidenceTier: "KO_READY_EVIDENCE_REVIEW",
     canClaimKo: true,
+    currentRevision: {
+      gitAvailable: true,
+      gitHead: readinessHead,
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    },
     requirements: [
       { id: "bilingualRuntime", status: "PASS", evidencePath: ".codex-tmp/example/bilingual.json", detail: "fixture pass" },
       { id: "controlledLearningLoop", status: "PASS", evidencePath: ".codex-tmp/example/loop.json", detail: "fixture pass" },
@@ -963,26 +993,58 @@ try {
     platformQaStatus: []
   }, null, 2)}\n`);
   const readinessConsole = execFileSync(process.execPath, [
-    "scripts/next-major-readiness.mjs",
+    resolve("scripts/next-major-readiness.mjs"),
     "--status",
     claimableStatusPath,
     "--out",
     readinessJsonPath,
     "--markdown-out",
     readinessMarkdownPath
-  ], { encoding: "utf8" });
+  ], { cwd: readinessRepo, encoding: "utf8" });
   const readinessFixture = JSON.parse(readFileSync(readinessJsonPath, "utf8"));
   const readinessMarkdown = readFileSync(readinessMarkdownPath, "utf8");
   assert.equal(readinessFixture.canClaimNextMajorPreReleaseReady, true);
+  assert.equal(readinessFixture.koStatusFreshness.status, "CURRENT_CLEAN_HEAD_KO_STATUS");
   assert.equal(readinessFixture.releaseActionAuthorized, false);
   assert.equal(readinessFixture.readinessStatus, "PRE_RELEASE_EVIDENCE_READY");
   assert.equal(readinessFixture.blockingRequirements.length, 0);
   assert.equal(readinessFixture.blockedOrNotExecuted.length, 6);
   assert.equal(readinessFixture.blockedOrNotExecuted.includes("No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet."), true);
   assert.match(readinessConsole, /Can claim next-major pre-release ready: YES/);
+  assert.match(readinessConsole, /KO status freshness: CURRENT_CLEAN_HEAD_KO_STATUS/);
   assert.match(readinessConsole, /does not authorize release/);
   assert.match(readinessMarkdown, /Release action authorized: false/);
+  assert.match(readinessMarkdown, /KO status freshness: CURRENT\\_CLEAN\\_HEAD\\_KO\\_STATUS/);
   assert.match(readinessMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
+  const staleStatusPath = join(readinessSmokeDir, "stale-ko-status.json");
+  const staleReadinessJsonPath = join(readinessSmokeDir, "stale-readiness.json");
+  writeFileSync(staleStatusPath, `${JSON.stringify({
+    ...readinessFixture.sourceKoStatus,
+    schema: "learning-companion.ko-evidence-review.v1",
+    evidenceTier: "KO_READY_EVIDENCE_REVIEW",
+    canClaimKo: true,
+    currentRevision: {
+      gitAvailable: true,
+      gitHead: "0000000000000000000000000000000000000000",
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    },
+    requirements: readinessFixture.requirements,
+    platformQaStatus: []
+  }, null, 2)}\n`);
+  execFileSync(process.execPath, [
+    resolve("scripts/next-major-readiness.mjs"),
+    "--status",
+    staleStatusPath,
+    "--out",
+    staleReadinessJsonPath
+  ], { cwd: readinessRepo, encoding: "utf8" });
+  const staleReadinessFixture = JSON.parse(readFileSync(staleReadinessJsonPath, "utf8"));
+  assert.equal(staleReadinessFixture.koStatusFreshness.status, "STALE_OR_DIRTY_KO_STATUS");
+  assert.equal(staleReadinessFixture.canClaimNextMajorPreReleaseReady, false);
+  assert.equal(staleReadinessFixture.blockingRequirements.some((item) => item.id === "koStatusFreshness"), true);
   assert.equal(statSync(readinessJsonPath).mode & 0o777, 0o600);
   assert.equal(statSync(readinessMarkdownPath).mode & 0o777, 0o600);
 } finally {

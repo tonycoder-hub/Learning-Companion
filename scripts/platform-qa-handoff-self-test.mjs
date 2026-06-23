@@ -18,6 +18,7 @@ const statusPath = join(fixtureRoot, ".codex-tmp/ko-evidence/current-status.json
 const macQaPath = join(fixtureRoot, "dist/morning-demo/MAC_MANUAL_QA.md");
 const windowsQaPath = join(fixtureRoot, "dist/morning-demo/WINDOWS_STATIC_QA.md");
 const harmonyQaPath = join(fixtureRoot, "dist/morning-demo/HARMONY_DEVICE_QA.md");
+let cleanRevision;
 
 const MAC_FIELDS = [
   "Date/time",
@@ -71,6 +72,15 @@ try {
 
   await writeFixtureFiles();
   await initFixtureGit("initial platform QA fixture");
+  cleanRevision = {
+    gitAvailable: true,
+    gitHead: (await git(["rev-parse", "HEAD"])).stdout.trim(),
+    dirtyWorktree: false,
+    statusLineCount: 0,
+    statusSummary: "",
+    statusTruncated: false
+  };
+  await writeFile(statusPath, `${JSON.stringify(buildStatus(), null, 2)}\n`);
 
   const cleanRun = await runPlatformHandoff("clean");
   assert.equal(cleanRun.code, 0, cleanRun.stderr);
@@ -85,6 +95,7 @@ try {
   assert.equal(cleanHandoff.rawQaMarkdownRetained, false);
   assert.equal(cleanHandoff.rowNotesRetained, false);
   assert.equal(cleanHandoff.executionFreshness.status, "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF");
+  assert.equal(cleanHandoff.koStatusFreshness.status, "CURRENT_CLEAN_HEAD_KO_STATUS");
   assert.equal(cleanHandoff.currentRevision.gitAvailable, true);
   assert.equal(cleanHandoff.currentRevision.dirtyWorktree, false);
   assert.equal(cleanHandoff.koStatus.canClaimKo, false);
@@ -115,8 +126,23 @@ try {
   const cleanMarkdown = await readFile(cleanRun.markdownPath, "utf8");
   assert.match(cleanMarkdown, /Platform QA Execution Handoff/);
   assert.match(cleanMarkdown, /Can claim KO: false/);
+  assert.match(cleanMarkdown, /KO status freshness: CURRENT\\_CLEAN\\_HEAD\\_KO\\_STATUS/);
   assert.match(cleanMarkdown, /Cannot be filled from/);
   assert.match(cleanMarkdown, /No Mac GUI manual QA was run by this handoff/);
+
+  await writeFile(statusPath, `${JSON.stringify(buildStatus({
+    currentRevision: {
+      ...cleanRevision,
+      gitHead: "0000000000000000000000000000000000000000"
+    }
+  }), null, 2)}\n`);
+  const staleStatusRun = await runPlatformHandoff("stale-status");
+  assert.equal(staleStatusRun.code, 0, staleStatusRun.stderr);
+  const staleStatusHandoff = await readJson(staleStatusRun.jsonPath);
+  assert.equal(staleStatusHandoff.koStatusFreshness.status, "STALE_OR_DIRTY_KO_STATUS");
+  assert.equal(staleStatusHandoff.executionFreshness.status, "REVISION_REFRESH_REQUIRED_BEFORE_PLATFORM_QA");
+  assert.ok(staleStatusHandoff.koStatusFreshness.problems.some((problem) => problem.includes("does not match current HEAD")));
+  await writeFile(statusPath, `${JSON.stringify(buildStatus(), null, 2)}\n`);
 
   await writeFile(macQaPath, buildQaMarkdown("Mac", 27, MAC_FIELDS, {
     firstResult: "PASS",
@@ -161,7 +187,7 @@ try {
 }
 
 async function writeFixtureFiles() {
-  await writeFile(statusPath, `${JSON.stringify(buildStatus(), null, 2)}\n`);
+  await writeFile(join(fixtureRoot, ".gitignore"), ".codex-tmp/\n");
   await writeFile(macQaPath, buildQaMarkdown("Mac", 27, MAC_FIELDS));
   await writeFile(windowsQaPath, buildQaMarkdown("Windows", 10, WINDOWS_FIELDS));
   await writeFile(harmonyQaPath, buildQaMarkdown("Harmony", 10, HARMONY_FIELDS));
@@ -239,11 +265,12 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-function buildStatus() {
+function buildStatus({ currentRevision = cleanRevision } = {}) {
   return {
     schema: "learning-companion.ko-evidence-review.v1",
     evidenceTier: "KO_MISSING_EVIDENCE",
     canClaimKo: false,
+    currentRevision,
     requirements: [
       {
         id: "bilingualRuntime",

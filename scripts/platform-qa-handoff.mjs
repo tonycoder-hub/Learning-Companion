@@ -3,6 +3,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { readCurrentRevision } from "./lib/git-revision.mjs";
+import { CURRENT_CLEAN_KO_STATUS, assessKoStatusFreshness } from "./lib/ko-status-freshness.mjs";
 
 const PLATFORM_QA_HANDOFF_SCHEMA = "learning-companion.platform-qa-handoff.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -143,6 +144,7 @@ async function buildPlatformQaHandoff(statusPath) {
   }
   const currentRevision = await readCurrentRevision();
   const status = JSON.parse(await readFile(statusPath, "utf8"));
+  const koStatusFreshness = assessKoStatusFreshness(status, currentRevision);
   const platformStatusById = new Map((Array.isArray(status.platformQaStatus) ? status.platformQaStatus : []).map((item) => [item.id, item]));
   const platforms = [];
   for (const config of PLATFORMS) {
@@ -157,16 +159,18 @@ async function buildPlatformQaHandoff(statusPath) {
     rawQaMarkdownRetained: false,
     rowNotesRetained: false,
     currentRevision,
+    koStatusFreshness,
     executionFreshness: {
-      status: currentRevision.gitAvailable && currentRevision.dirtyWorktree === false
+      status: currentRevision.gitAvailable && currentRevision.dirtyWorktree === false && koStatusFreshness.status === CURRENT_CLEAN_KO_STATUS
         ? "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF"
         : "REVISION_REFRESH_REQUIRED_BEFORE_PLATFORM_QA",
-      scope: "currentRevision records the source checkout state. The local KO status file and generated QA templates must still be regenerated or verified for the same git HEAD before real platform QA.",
+      scope: "currentRevision records the source checkout state. koStatusFreshness records whether the local KO status file was regenerated for the same clean git HEAD before real platform QA.",
       requiredForRealRun: "Regenerate this handoff on the exact clean git HEAD used for real Mac, Windows, and HarmonyOS QA before filling platform receipts.",
       invalidatesWhen: [
         "git HEAD changes after this handoff is generated",
         "the worktree is dirty when this handoff is generated",
-        "the KO status file or generated QA templates were not regenerated or verified for currentRevision.gitHead",
+        "the KO status file was not regenerated or verified for currentRevision.gitHead",
+        "the generated QA templates were not regenerated or verified for currentRevision.gitHead",
         "the app, mirror, or native build under test is not traceably produced from currentRevision.gitHead"
       ]
     },
@@ -323,6 +327,7 @@ function buildConsoleSummary(handoff, outPath, markdownPath = "") {
     `Can claim KO from this handoff: ${handoff.canClaimKo ? "YES" : "NO"}`,
     `Current git HEAD: ${handoff.currentRevision.gitHead}`,
     `Current worktree dirty: ${String(handoff.currentRevision.dirtyWorktree)}`,
+    `KO status freshness: ${handoff.koStatusFreshness.status}`,
     `Platform handoff freshness: ${handoff.executionFreshness.status}`,
     `Freshness scope: ${handoff.executionFreshness.scope}`
   ];
@@ -354,6 +359,7 @@ function buildPlatformQaHandoffMarkdown(handoff) {
     `KO claimable before this handoff: ${handoff.koStatus.canClaimKo ? "YES" : "NO"}`,
     `Current git HEAD: ${markdownInline(handoff.currentRevision.gitHead)}`,
     `Current worktree dirty: ${markdownInline(String(handoff.currentRevision.dirtyWorktree))}`,
+    `KO status freshness: ${markdownInline(handoff.koStatusFreshness.status)}`,
     `Handoff freshness: ${markdownInline(handoff.executionFreshness.status)}`,
     `Freshness scope: ${markdownInline(handoff.executionFreshness.scope)}`,
     `Required before real platform QA: ${markdownInline(handoff.executionFreshness.requiredForRealRun)}`,
@@ -363,6 +369,13 @@ function buildPlatformQaHandoffMarkdown(handoff) {
   ];
   for (const item of handoff.executionFreshness.invalidatesWhen) {
     lines.push(`- ${markdownInline(item)}`);
+  }
+  const freshnessProblems = handoff.koStatusFreshness.problems || [];
+  if (freshnessProblems.length) {
+    lines.push("", "## KO Status Freshness Problems", "");
+    for (const problem of freshnessProblems) {
+      lines.push(`- ${markdownInline(problem)}`);
+    }
   }
   lines.push(
     "",
