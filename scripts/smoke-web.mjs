@@ -1083,6 +1083,8 @@ assert.match(nextMajorReadinessJs, /No new approved external reading\/video cand
 assert.match(nextMajorReadinessJs, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
 assert.match(nextMajorReadinessJs, /scripts\/validate-ko-evidence\.mjs/);
 assert.match(nextMajorReadinessJs, /--allow-missing/);
+assert.match(nextMajorReadinessJs, /SOURCE_APPROVAL_REQUEST_PATH/);
+assert.match(nextMajorReadinessJs, /--source-approval-request \$\{SOURCE_APPROVAL_REQUEST_PATH\}/);
 assert.match(nextMajorReadinessJs, /function buildNextMajorReadinessMarkdown/);
 assert.match(nextMajorReadinessJs, /Next Major Readiness Packet/);
 assert.match(nextMajorReadinessJs, /function writePrivateFile/);
