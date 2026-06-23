@@ -288,6 +288,7 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
           refreshOperatorPacket: "npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md"
         }
       : {},
+    executionChecklist: platform.executionChecklist || {},
     nextRealRunSteps: platform.nextRealRunSteps || [],
     cannotBeFilledFrom: platform.cannotBeFilledFrom || []
   }));
@@ -437,6 +438,7 @@ function buildOperatorMarkdown(packet) {
       lines.push("", "Real-run steps:", "");
       for (const step of lane.nextRealRunSteps) lines.push(`- ${markdownInline(step)}`);
     }
+    appendExecutionChecklistMarkdown(lines, lane.executionChecklist);
     if (Array.isArray(lane.cannotBeFilledFrom) && lane.cannotBeFilledFrom.length) {
       lines.push("", "Cannot be filled from:", "");
       for (const item of lane.cannotBeFilledFrom) lines.push(`- ${markdownInline(item)}`);
@@ -448,6 +450,23 @@ function buildOperatorMarkdown(packet) {
     lines.push(`- ${markdownInline(item)}`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+function appendExecutionChecklistMarkdown(lines, checklist = {}) {
+  const sections = [
+    ["Before run", checklist.beforeRun],
+    ["During run", checklist.duringRun],
+    ["After run", checklist.afterRun],
+    ["Not accepted as evidence", checklist.notAcceptedEvidence]
+  ];
+  if (!sections.some(([, items]) => Array.isArray(items) && items.length)) return;
+  lines.push("", "Execution checklist:", "");
+  for (const [label, items] of sections) {
+    if (!Array.isArray(items) || !items.length) continue;
+    lines.push(`${label}:`, "");
+    for (const item of items) lines.push(`- ${markdownInline(item)}`);
+    lines.push("");
+  }
 }
 
 async function writePrivateFile(path, content) {

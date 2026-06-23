@@ -240,6 +240,7 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
       requiredSessionFields,
       rowAreas: parsed.rows.map((row) => row.area).filter(Boolean)
     },
+    executionChecklist: buildExecutionChecklist(config, currentRevision),
     nextRealRunSteps: [
       `Before filling this receipt, confirm the app, mirror, or native build under test is traceably produced from git HEAD ${currentRevision.gitHead || "TBD"} and that this handoff was regenerated from a clean worktree.`,
       `Fill ${config.qaPath} during a real ${config.label} run.`,
@@ -249,6 +250,28 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
       `Validate with: ${config.validateCommand}`
     ],
     cannotBeFilledFrom: config.cannotBeFilledFrom
+  };
+}
+
+function buildExecutionChecklist(config, currentRevision) {
+  const gitHead = currentRevision.gitHead || "TBD";
+  return {
+    beforeRun: [
+      `Regenerate this handoff on the exact clean git HEAD used for the real run: ${gitHead}.`,
+      "Confirm the app, mirror, or native build under test is traceably produced from that HEAD.",
+      "Keep rows as NT until they are executed on the named platform; use BLOCKED only with a concrete blocker note."
+    ],
+    duringRun: [
+      `Fill ${config.qaPath} during the real ${config.label} run.`,
+      "Fill every required session field with concrete values before treating row results as evidence.",
+      "For every PASS, FAIL, or BLOCKED row, add a concrete Notes reference to what was observed."
+    ],
+    afterRun: [
+      `Validate the filled receipt with: ${config.validateCommand}`,
+      `Write the real-run receipt to: ${config.receiptPath}`,
+      "Refresh KO status, readiness, platform handoff, and operator packet before making any next-major claim."
+    ],
+    notAcceptedEvidence: config.cannotBeFilledFrom
   };
 }
 
@@ -423,6 +446,7 @@ function buildPlatformQaHandoffMarkdown(handoff) {
     for (const step of platform.nextRealRunSteps) {
       lines.push(`- ${markdownInline(step)}`);
     }
+    appendExecutionChecklistMarkdown(lines, platform.executionChecklist);
     lines.push("", "Cannot be filled from:", "");
     for (const item of platform.cannotBeFilledFrom) {
       lines.push(`- ${markdownInline(item)}`);
@@ -451,6 +475,25 @@ function buildPlatformQaHandoffMarkdown(handoff) {
     lines.push(`- ${markdownInline(item)}`);
   }
   return `${lines.join("\n")}\n`;
+}
+
+function appendExecutionChecklistMarkdown(lines, checklist = {}) {
+  const sections = [
+    ["Before run", checklist.beforeRun],
+    ["During run", checklist.duringRun],
+    ["After run", checklist.afterRun],
+    ["Not accepted as evidence", checklist.notAcceptedEvidence]
+  ];
+  if (!sections.some(([, items]) => Array.isArray(items) && items.length)) return;
+  lines.push("", "Execution checklist:", "");
+  for (const [label, items] of sections) {
+    if (!Array.isArray(items) || !items.length) continue;
+    lines.push(`${label}:`, "");
+    for (const item of items) {
+      lines.push(`- ${markdownInline(item)}`);
+    }
+    lines.push("");
+  }
 }
 
 function markdownInline(value) {

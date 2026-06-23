@@ -1092,6 +1092,8 @@ assert.match(nextMajorOperatorPacketJs, /assertLiteral\(sourceApprovalRequest\.e
 assert.match(nextMajorOperatorPacketJs, /assertLiteral\(sourceApprovalRequest\.canClaimExternalKo, false/);
 assert.match(nextMajorOperatorPacketJs, /function buildOperatorMarkdown/);
 assert.match(nextMajorOperatorPacketJs, /Next Major Operator Packet/);
+assert.match(nextMajorOperatorPacketJs, /executionChecklist/);
+assert.match(nextMajorOperatorPacketJs, /Not accepted as evidence/);
 assert.match(nextMajorOperatorPacketJs, /function writePrivateFile/);
 assert.match(nextMajorOperatorPacketJs, /chmod\(path, 0o600\)/);
 assert.match(nextMajorOperatorPacketJs, /"status", "readiness", "platform-handoff", "source-approval-request", "out", "markdown-out"/);
@@ -1228,6 +1230,8 @@ assert.match(platformQaHandoffJs, /--status requires a KO status JSON path/);
 assert.match(platformQaHandoffJs, /function buildPlatformQaHandoffMarkdown/);
 assert.match(platformQaHandoffJs, /Platform QA Execution Handoff/);
 assert.match(platformQaHandoffJs, /Required session fields/);
+assert.match(platformQaHandoffJs, /Execution checklist/);
+assert.match(platformQaHandoffJs, /notAcceptedEvidence/);
 assert.match(platformQaHandoffJs, /Cannot be filled from/);
 assert.match(platformQaHandoffJs, /function markdownInline/);
 assert.match(platformQaHandoffJs, /No Mac GUI manual QA was run by this handoff/);
