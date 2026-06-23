@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
+import { HARMONY_DEVICE_QA_AREAS } from "./lib/platform-qa-areas.mjs";
 
 const HARMONY_DEVICE_QA_RECEIPT_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const EXPECTED_QA_ROWS = 10;
+const EXPECTED_QA_ROWS = HARMONY_DEVICE_QA_AREAS.length;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
   ["reviewer", "Reviewer"],
@@ -149,6 +150,10 @@ function validateHarmonyDeviceQa(markdown, qaPath, currentRevision) {
   const invalidRows = [];
   rows.forEach((row, index) => {
     const rowNumber = index + 1;
+    const expectedArea = HARMONY_DEVICE_QA_AREAS[index] || "";
+    if (expectedArea && row.area !== expectedArea) {
+      errors.push(`row ${rowNumber} area must be ${expectedArea}`);
+    }
     if (!VALID_RESULTS.has(row.result)) {
       invalidRows.push(rowNumber);
     }
