@@ -30,7 +30,8 @@ function parseArgs(argv) {
   const options = {
     qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
     outPath: "",
-    platformHandoffPath: ""
+    platformHandoffPath: "",
+    requireClaimable: false
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -49,6 +50,8 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--platform-handoff requires a platform handoff JSON path.");
       options.platformHandoffPath = value;
       index += 1;
+    } else if (arg === "--require-claimable") {
+      options.requireClaimable = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -58,7 +61,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log("Usage: node scripts/validate-mac-manual-qa.mjs [--qa dist/morning-demo/MAC_MANUAL_QA.md] [--platform-handoff .codex-tmp/platform-qa-handoff/current.json] [--out receipt.json]");
+  console.log("Usage: node scripts/validate-mac-manual-qa.mjs [--qa dist/morning-demo/MAC_MANUAL_QA.md] [--platform-handoff .codex-tmp/platform-qa-handoff/current.json] [--out receipt.json] [--require-claimable]");
   console.log("Validates a filled Mac manual QA receipt without converting pending NT rows into GUI dogfood evidence.");
 }
 
@@ -312,7 +315,12 @@ async function main() {
     await chmod(options.outPath, 0o600);
   }
   console.log(JSON.stringify(receipt, null, 2));
-  process.exitCode = receipt.summary.ok ? 0 : 1;
+  const modeErrors = [];
+  if (options.requireClaimable && receipt.claimBoundary.canClaimMacManualQaUsable !== true) {
+    modeErrors.push("Mac manual QA --require-claimable needs a full all-PASS real run with passing native build and browser smoke gates.");
+  }
+  modeErrors.forEach((error) => console.error(error));
+  process.exitCode = receipt.summary.ok && modeErrors.length === 0 ? 0 : 1;
 }
 
 await main();
