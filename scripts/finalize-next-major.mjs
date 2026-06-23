@@ -200,6 +200,8 @@ function buildFinalizePlan(options) {
 async function runFinalizePlan(plan) {
   await assertReadableFile(plan.options.external, "privacy-reviewed external KO evidence artifact");
   await assertReadableFile(plan.options.sourceApprovalRequest, "source approval request");
+  const externalClaim = await readJson(plan.options.external);
+  const sourceApprovalRequest = await readJson(plan.options.sourceApprovalRequest);
   for (const command of plan.commands) {
     if (command.output) await ensureParentDirectory(command.output);
     await runNodeCommand(command.argv, command.label);
@@ -217,7 +219,7 @@ async function runFinalizePlan(plan) {
   assert.equal(operator.releaseActionAuthorized, false, "operator packet must not authorize release");
   assert.equal(operator.readinessFreshness?.status, "CURRENT_CLEAN_NEXT_MAJOR_READINESS", "operator packet readiness freshness must be current");
   assert.equal(operator.platformHandoffFreshness?.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF", "operator packet platform handoff freshness must be current");
-  assertFinalizerOutputBindings(plan, { readiness, operator });
+  assertFinalizerOutputBindings(plan, { ko, externalClaim, sourceApprovalRequest, readiness, operator });
   console.log(buildSuccessSummary(plan, { ko, readiness, operator }));
 }
 
@@ -268,8 +270,9 @@ function buildSuccessSummary(plan, { ko, readiness, operator }) {
   return `${lines.join("\n")}\n`;
 }
 
-function assertFinalizerOutputBindings(plan, { readiness, operator }) {
+function assertFinalizerOutputBindings(plan, { ko, externalClaim, sourceApprovalRequest, readiness, operator }) {
   const { options } = plan;
+  assertFinalKoOutputBindings(options, { ko, externalClaim, sourceApprovalRequest });
   assert.equal(operator.inputs?.sourceApprovalRequestPath, options.sourceApprovalRequest, "operator packet source approval request path must match finalizer input");
   assert.equal(operator.inputs?.sourceApprovalMarkdownPath, options.sourceApprovalMarkdown, "operator packet source approval markdown path must match finalizer input");
   assert.equal(operator.inputs?.externalEvidencePath, options.external, "operator packet external evidence path must match finalizer input");
@@ -322,6 +325,80 @@ function assertFinalizerOutputBindings(plan, { readiness, operator }) {
     assertCommandHasFlagPath(finalAction.command, "--windows-static", options.windowsStatic, "operator critical-path final action");
     assertCommandHasFlagPath(finalAction.command, "--harmony-device", options.harmonyDevice, "operator critical-path final action");
   }
+}
+
+function assertFinalKoOutputBindings(options, { ko, externalClaim, sourceApprovalRequest }) {
+  const externalRequirement = (Array.isArray(ko.requirements) ? ko.requirements : [])
+    .find((item) => item.id === "approvedExternalReadingVideo") || {};
+  assert.equal(externalRequirement.evidencePath, options.external, "final KO external evidence path must match finalizer input");
+
+  [
+    ["nativeMacManualQa", options.macManual, "Mac"],
+    ["windowsStaticManualQa", options.windowsStatic, "Windows"],
+    ["harmonyDeviceQa", options.harmonyDevice, "HarmonyOS"]
+  ].forEach(([id, path, label]) => {
+    const requirement = (Array.isArray(ko.requirements) ? ko.requirements : []).find((item) => item.id === id) || {};
+    assert.equal(requirement.evidencePath, path, `final KO ${label} platform receipt path must match finalizer input`);
+  });
+
+  assert.equal(sourceApprovalRequest?.schema, "learning-companion.external-source-approval-request.v1", "source approval request schema");
+  assert.equal(sourceApprovalRequest?.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY", "source approval request evidence tier");
+  assert.equal(sourceApprovalRequest?.canClaimExternalKo, false, "source approval request must remain non-claiming");
+
+  assert.equal(externalClaim?.schema, "learning-companion.external-source-ko-evidence-review.v1", "external claim schema");
+  assert.equal(externalClaim?.evidenceTier, "APPROVED_SOURCE_PRIVACY_REVIEWED", "external claim evidence tier");
+  assert.equal(externalClaim?.canClaimExternalKo, true, "external claim must allow external KO claim");
+  assert.equal(externalClaim?.fixtureOnly, false, "external claim must not be fixture-only");
+  assert.equal(externalClaim?.reviewKind, "HUMAN_PRIVACY_REVIEW", "external claim review kind");
+
+  const externalClaimSourceApproval = externalClaim.sourceApprovalRequest || {};
+  assertResolvedPathEqual(externalClaimSourceApproval.requestPath, options.sourceApprovalRequest, "external claim source approval request path must match finalizer input");
+  assert.equal(externalClaimSourceApproval.requestedApprovalText, sourceApprovalRequest.requestedApprovalText, "external claim requested approval text must match source approval request");
+  assert.equal(externalClaimSourceApproval.approvedReadingUrl, sourceApprovalRequest.sources?.reading?.url, "external claim approved reading URL must match source approval request");
+  assert.equal(externalClaimSourceApproval.approvedVideoUrl, sourceApprovalRequest.sources?.video?.url, "external claim approved video URL must match source approval request");
+  assert.equal(externalClaimSourceApproval.approvedVideoTimestamp, sourceApprovalRequest.sources?.video?.timestamp, "external claim approved video timestamp must match source approval request");
+  assert.equal(externalClaimSourceApproval.basisGitHead, sourceApprovalRequest.basis?.priorDryRun?.gitHead, "external claim source approval basis git HEAD must match source approval request");
+  assert.equal(externalClaimSourceApproval.basisDirtyWorktree, sourceApprovalRequest.basis?.priorDryRun?.dirtyWorktree, "external claim source approval basis dirty worktree must match source approval request");
+  assert.equal(externalClaimSourceApproval.basisProfileCleanupOk, sourceApprovalRequest.basis?.priorDryRun?.profileCleanupOk, "external claim source approval basis profile cleanup must match source approval request");
+  assert.equal(externalClaimSourceApproval.basisProfileRetained, sourceApprovalRequest.basis?.priorDryRun?.profileRetained, "external claim source approval basis profile retention must match source approval request");
+  assertResolvedPathEqual(
+    externalClaimSourceApproval.basisReceiptPath,
+    sourceApprovalRequest.basis?.priorDryRunReceipt || sourceApprovalRequest.basis?.inputPath,
+    "external claim source approval basis receipt path must match source approval request"
+  );
+
+  const externalSourceApproval = ko.evidence?.approvedExternalReadingVideo?.sourceApprovalRequest || {};
+  assertResolvedPathEqual(externalSourceApproval.requestPath, options.sourceApprovalRequest, "final KO source approval request path must match finalizer input");
+  assert.equal(externalSourceApproval.requestedApprovalText, sourceApprovalRequest.requestedApprovalText, "final KO requested approval text must match source approval request");
+  assert.equal(externalSourceApproval.approvedReadingUrl, sourceApprovalRequest.sources?.reading?.url, "final KO approved reading URL must match source approval request");
+  assert.equal(externalSourceApproval.approvedVideoUrl, sourceApprovalRequest.sources?.video?.url, "final KO approved video URL must match source approval request");
+  assert.equal(externalSourceApproval.approvedVideoTimestamp, sourceApprovalRequest.sources?.video?.timestamp, "final KO approved video timestamp must match source approval request");
+  assert.equal(externalSourceApproval.basisGitHead, sourceApprovalRequest.basis?.priorDryRun?.gitHead, "final KO source approval basis git HEAD must match source approval request");
+  assert.equal(externalSourceApproval.basisDirtyWorktree, sourceApprovalRequest.basis?.priorDryRun?.dirtyWorktree, "final KO source approval basis dirty worktree must match source approval request");
+  assert.equal(externalSourceApproval.basisProfileCleanupOk, sourceApprovalRequest.basis?.priorDryRun?.profileCleanupOk, "final KO source approval basis profile cleanup must match source approval request");
+  assert.equal(externalSourceApproval.basisProfileRetained, sourceApprovalRequest.basis?.priorDryRun?.profileRetained, "final KO source approval basis profile retention must match source approval request");
+  assertResolvedPathEqual(
+    externalSourceApproval.basisReceiptPath,
+    sourceApprovalRequest.basis?.priorDryRunReceipt || sourceApprovalRequest.basis?.inputPath,
+    "final KO source approval basis receipt path must match source approval request"
+  );
+
+  assertResolvedPathEqual(externalSourceApproval.requestPath, externalClaimSourceApproval.requestPath, "final KO source approval request path must match external claim");
+  assert.equal(externalSourceApproval.requestedApprovalText, externalClaimSourceApproval.requestedApprovalText, "final KO requested approval text must match external claim");
+  assert.equal(externalSourceApproval.approvedReadingUrl, externalClaimSourceApproval.approvedReadingUrl, "final KO approved reading URL must match external claim");
+  assert.equal(externalSourceApproval.approvedVideoUrl, externalClaimSourceApproval.approvedVideoUrl, "final KO approved video URL must match external claim");
+  assert.equal(externalSourceApproval.approvedVideoTimestamp, externalClaimSourceApproval.approvedVideoTimestamp, "final KO approved video timestamp must match external claim");
+  assert.equal(externalSourceApproval.basisGitHead, externalClaimSourceApproval.basisGitHead, "final KO source approval basis git HEAD must match external claim");
+  assert.equal(externalSourceApproval.basisDirtyWorktree, externalClaimSourceApproval.basisDirtyWorktree, "final KO source approval basis dirty worktree must match external claim");
+  assert.equal(externalSourceApproval.basisProfileCleanupOk, externalClaimSourceApproval.basisProfileCleanupOk, "final KO source approval basis profile cleanup must match external claim");
+  assert.equal(externalSourceApproval.basisProfileRetained, externalClaimSourceApproval.basisProfileRetained, "final KO source approval basis profile retention must match external claim");
+  assertResolvedPathEqual(externalSourceApproval.basisReceiptPath, externalClaimSourceApproval.basisReceiptPath, "final KO source approval basis receipt path must match external claim");
+}
+
+function assertResolvedPathEqual(actual, expected, message) {
+  assert.notEqual(String(actual || "").trim(), "", `${message}: actual path must be present`);
+  assert.notEqual(String(expected || "").trim(), "", `${message}: expected path must be present`);
+  assert.equal(resolve(String(actual || "")), resolve(String(expected || "")), message);
 }
 
 function assertCommandHasFlagPath(command, flag, path, label) {
@@ -499,15 +576,156 @@ function runSelfTest() {
       }
     ]
   };
-  assertFinalizerOutputBindings(plan, { readiness: successfulReadiness, operator: successfulOperator });
+  const successfulSourceApprovalRequest = {
+    schema: "learning-companion.external-source-approval-request.v1",
+    evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+    canClaimExternalKo: false,
+    requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://example.org/reading video=https://example.org/video.mp4 timestamp=00:03",
+    sources: {
+      reading: { url: "https://example.org/reading" },
+      video: { url: "https://example.org/video.mp4", timestamp: "00:03" }
+    },
+    basis: {
+      priorDryRunReceipt: ".codex-tmp/selftest/public-dry-run.json",
+      priorDryRun: {
+        gitHead: "0123456789abcdef0123456789abcdef01234567",
+        dirtyWorktree: false,
+        profileCleanupOk: true,
+        profileRetained: false
+      }
+    }
+  };
+  const successfulKo = {
+    requirements: [
+      { id: "approvedExternalReadingVideo", evidencePath: "fixtures/external-ko.json" },
+      { id: "nativeMacManualQa", evidencePath: ".codex-tmp/selftest/mac-real.json" },
+      { id: "windowsStaticManualQa", evidencePath: ".codex-tmp/selftest/windows-real.json" },
+      { id: "harmonyDeviceQa", evidencePath: ".codex-tmp/selftest/harmony-real.json" }
+    ],
+    evidence: {
+      approvedExternalReadingVideo: {
+        sourceApprovalRequest: {
+          requestPath: ".codex-tmp/selftest/source-approval-request.json",
+          requestedApprovalText: successfulSourceApprovalRequest.requestedApprovalText,
+          approvedReadingUrl: successfulSourceApprovalRequest.sources.reading.url,
+          approvedVideoUrl: successfulSourceApprovalRequest.sources.video.url,
+          approvedVideoTimestamp: successfulSourceApprovalRequest.sources.video.timestamp,
+          basisGitHead: successfulSourceApprovalRequest.basis.priorDryRun.gitHead,
+          basisDirtyWorktree: successfulSourceApprovalRequest.basis.priorDryRun.dirtyWorktree,
+          basisReceiptPath: successfulSourceApprovalRequest.basis.priorDryRunReceipt,
+          basisProfileCleanupOk: successfulSourceApprovalRequest.basis.priorDryRun.profileCleanupOk,
+          basisProfileRetained: successfulSourceApprovalRequest.basis.priorDryRun.profileRetained
+        }
+      }
+    }
+  };
+  const successfulExternalClaim = {
+    schema: "learning-companion.external-source-ko-evidence-review.v1",
+    evidenceTier: "APPROVED_SOURCE_PRIVACY_REVIEWED",
+    canClaimExternalKo: true,
+    fixtureOnly: false,
+    reviewKind: "HUMAN_PRIVACY_REVIEW",
+    sourceApprovalRequest: successfulKo.evidence.approvedExternalReadingVideo.sourceApprovalRequest
+  };
+  const successfulBindings = {
+    ko: successfulKo,
+    externalClaim: successfulExternalClaim,
+    sourceApprovalRequest: successfulSourceApprovalRequest,
+    readiness: successfulReadiness,
+    operator: successfulOperator
+  };
+  assertFinalizerOutputBindings(plan, successfulBindings);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    ko: {
+      ...successfulKo,
+      evidence: {
+        approvedExternalReadingVideo: {
+          sourceApprovalRequest: {
+            ...successfulKo.evidence.approvedExternalReadingVideo.sourceApprovalRequest,
+            requestPath: ".codex-tmp/selftest/other-source-approval-request.json"
+          }
+        }
+      }
+    }
+  }), /final KO source approval request path must match finalizer input/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    sourceApprovalRequest: {
+      ...successfulSourceApprovalRequest,
+      requestedApprovalText: "I approve different sources."
+    }
+  }), /external claim requested approval text must match source approval request/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    ko: {
+      ...successfulKo,
+      evidence: {
+        approvedExternalReadingVideo: {
+          sourceApprovalRequest: {
+            ...successfulKo.evidence.approvedExternalReadingVideo.sourceApprovalRequest,
+            requestedApprovalText: "I approve different sources."
+          }
+        }
+      }
+    }
+  }), /final KO requested approval text must match source approval request/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    externalClaim: {
+      ...successfulExternalClaim,
+      sourceApprovalRequest: {
+        ...successfulExternalClaim.sourceApprovalRequest,
+        requestPath: ".codex-tmp/selftest/other-source-approval-request.json"
+      }
+    }
+  }), /external claim source approval request path must match finalizer input/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    externalClaim: {
+      ...successfulExternalClaim,
+      sourceApprovalRequest: {
+        ...successfulExternalClaim.sourceApprovalRequest,
+        approvedReadingUrl: "https://example.org/other-reading"
+      }
+    }
+  }), /external claim approved reading URL must match source approval request/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    externalClaim: {
+      ...successfulExternalClaim,
+      sourceApprovalRequest: {
+        ...successfulExternalClaim.sourceApprovalRequest,
+        basisGitHead: "abcdef0123456789abcdef0123456789abcdef01"
+      }
+    }
+  }), /external claim source approval basis git HEAD must match source approval request/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    externalClaim: {
+      ...successfulExternalClaim,
+      canClaimExternalKo: false
+    }
+  }), /external claim must allow external KO claim/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
+    externalClaim: {
+      ...successfulExternalClaim,
+      sourceApprovalRequest: {
+        ...successfulExternalClaim.sourceApprovalRequest,
+        basisReceiptPath: ""
+      }
+    }
+  }), /external claim source approval basis receipt path must match source approval request: actual path must be present/);
   assert.throws(() => assertFinalizerOutputBindings({
     ...plan,
     options: {
       ...plan.options,
       external: "fixtures/plan-swapped-external.json"
     }
-  }, { readiness: successfulReadiness, operator: successfulOperator }), /operator packet external evidence path must match finalizer input/);
+  }, successfulBindings), /final KO external evidence path must match finalizer input/);
   assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
     readiness: successfulReadiness,
     operator: {
       ...successfulOperator,
@@ -518,6 +736,7 @@ function runSelfTest() {
     }
   }), /external evidence path must match finalizer input/);
   assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
     readiness: {
       nextCommands: {
         ...successfulReadiness.nextCommands,
@@ -527,6 +746,7 @@ function runSelfTest() {
     operator: successfulOperator
   }), /readiness final KO command must include --external fixtures\/external-ko\.json as a complete shell argument/);
   assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
     readiness: {
       nextCommands: {
         ...successfulReadiness.nextCommands,
@@ -536,6 +756,7 @@ function runSelfTest() {
     operator: successfulOperator
   }), /readiness final KO command must include --external fixtures\/external-ko\.json as a complete shell argument/);
   assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
     readiness: successfulReadiness,
     operator: {
       ...successfulOperator,
@@ -548,6 +769,7 @@ function runSelfTest() {
     }
   }), /operator final lane readiness freshness must be current/);
   assert.throws(() => assertFinalizerOutputBindings(plan, {
+    ...successfulBindings,
     readiness: successfulReadiness,
     operator: {
       ...successfulOperator,
@@ -645,7 +867,53 @@ function runSelfTest() {
       }
     ]
   };
-  assertFinalizerOutputBindings(spacedPlan, { readiness: spacedReadiness, operator: spacedOperator });
+  const spacedSourceApprovalRequest = {
+    ...successfulSourceApprovalRequest,
+    requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://example.org/reading-spaced video=https://example.org/video-spaced.mp4 timestamp=00:04",
+    sources: {
+      reading: { url: "https://example.org/reading-spaced" },
+      video: { url: "https://example.org/video-spaced.mp4", timestamp: "00:04" }
+    },
+    basis: {
+      ...successfulSourceApprovalRequest.basis,
+      priorDryRunReceipt: ".codex-tmp/selftest/public dry run spaced.json"
+    }
+  };
+  const spacedKo = {
+    requirements: [
+      { id: "approvedExternalReadingVideo", evidencePath: spacedPlan.options.external },
+      { id: "nativeMacManualQa", evidencePath: spacedPlan.options.macManual },
+      { id: "windowsStaticManualQa", evidencePath: spacedPlan.options.windowsStatic },
+      { id: "harmonyDeviceQa", evidencePath: spacedPlan.options.harmonyDevice }
+    ],
+    evidence: {
+      approvedExternalReadingVideo: {
+        sourceApprovalRequest: {
+          requestPath: spacedPlan.options.sourceApprovalRequest,
+          requestedApprovalText: spacedSourceApprovalRequest.requestedApprovalText,
+          approvedReadingUrl: spacedSourceApprovalRequest.sources.reading.url,
+          approvedVideoUrl: spacedSourceApprovalRequest.sources.video.url,
+          approvedVideoTimestamp: spacedSourceApprovalRequest.sources.video.timestamp,
+          basisGitHead: spacedSourceApprovalRequest.basis.priorDryRun.gitHead,
+          basisDirtyWorktree: spacedSourceApprovalRequest.basis.priorDryRun.dirtyWorktree,
+          basisReceiptPath: spacedSourceApprovalRequest.basis.priorDryRunReceipt,
+          basisProfileCleanupOk: spacedSourceApprovalRequest.basis.priorDryRun.profileCleanupOk,
+          basisProfileRetained: spacedSourceApprovalRequest.basis.priorDryRun.profileRetained
+        }
+      }
+    }
+  };
+  const spacedExternalClaim = {
+    ...successfulExternalClaim,
+    sourceApprovalRequest: spacedKo.evidence.approvedExternalReadingVideo.sourceApprovalRequest
+  };
+  assertFinalizerOutputBindings(spacedPlan, {
+    ko: spacedKo,
+    externalClaim: spacedExternalClaim,
+    sourceApprovalRequest: spacedSourceApprovalRequest,
+    readiness: spacedReadiness,
+    operator: spacedOperator
+  });
   console.log("next_major_finalize_selftest_ok");
 }
 
