@@ -13,7 +13,15 @@ import {
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
 const DEFAULT_SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
+const DEFAULT_MAC_MANUAL_PATH = ".codex-tmp/mac-manual-qa/real-run-receipt.json";
+const DEFAULT_WINDOWS_STATIC_PATH = ".codex-tmp/windows-static-qa/real-run-receipt.json";
+const DEFAULT_HARMONY_DEVICE_PATH = ".codex-tmp/harmony-device-qa/real-run-receipt.json";
 const sourceApprovalRequestPath = args["source-approval-request"] || DEFAULT_SOURCE_APPROVAL_REQUEST_PATH;
+const platformReceiptPaths = {
+  macManual: args["mac-manual"] || DEFAULT_MAC_MANUAL_PATH,
+  windowsStatic: args["windows-static"] || DEFAULT_WINDOWS_STATIC_PATH,
+  harmonyDevice: args["harmony-device"] || DEFAULT_HARMONY_DEVICE_PATH
+};
 const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
 const PATH_ARGS = ["status", "source-approval-request", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
@@ -58,7 +66,8 @@ console.log(buildSummary(status, statusPath, {
   operatorPacket: operatorState.packet,
   operatorPath,
   operatorFreshness,
-  operatorWarning: operatorState.warning
+  operatorWarning: operatorState.warning,
+  platformReceiptPaths
 }));
 
 async function refreshKoStatus(outPath, parsedArgs) {
@@ -207,7 +216,7 @@ function requireSourceApprovalField(value, fieldName) {
   return text;
 }
 
-function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning }) {
+function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning, platformReceiptPaths }) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const platformQaStatus = Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [];
   const pass = requirements.filter((item) => item.status === "PASS");
@@ -243,7 +252,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorFreshness, operatorWarning),
     "",
     "Final gate after all evidence exists:",
-    ...formatFinalGateCommands(sourceApprovalRequestPath),
+    ...formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths),
     "",
     "Boundary:",
     "- Self-test and public dry-run evidence are useful checks, but they cannot fill approved external reading/video evidence rows.",
@@ -394,21 +403,37 @@ function formatSourceInputCommands(request, sourceApprovalFreshness, path) {
   ];
 }
 
-function formatFinalGateCommands(sourceApprovalRequestPath) {
+function formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths) {
   const sourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
     ? ""
     : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --source-approval-markdown ${shellQuote(markdownSiblingPath(sourceApprovalRequestPath))}`;
+  const platformArgs = buildPlatformReceiptArgs(platformReceiptPaths);
   const operatorSourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
     ? ""
     : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)}`;
   return [
     "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
-    `- One-command final refresh: npm run next:finalize -- --external <ko-evidence-review.json>${sourceArgs}`,
-    "- npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-    "- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json",
+    `- One-command final refresh: npm run next:finalize -- --external <ko-evidence-review.json>${sourceArgs}${platformArgs.finalize}`,
+    `- npm run ko:validate -- --external <ko-evidence-review.json>${platformArgs.validate} --out .codex-tmp/ko-evidence/final.json`,
+    `- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json>${platformArgs.explicit} --out .codex-tmp/ko-evidence/final.json`,
     `- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}`,
     `- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${operatorSourceArgs}`
   ];
+}
+
+function buildPlatformReceiptArgs(paths = {}) {
+  const macManual = paths.macManual || DEFAULT_MAC_MANUAL_PATH;
+  const windowsStatic = paths.windowsStatic || DEFAULT_WINDOWS_STATIC_PATH;
+  const harmonyDevice = paths.harmonyDevice || DEFAULT_HARMONY_DEVICE_PATH;
+  const explicit = ` --mac-manual ${shellQuote(macManual)} --windows-static ${shellQuote(windowsStatic)} --harmony-device ${shellQuote(harmonyDevice)}`;
+  const usesDefaults = macManual === DEFAULT_MAC_MANUAL_PATH
+    && windowsStatic === DEFAULT_WINDOWS_STATIC_PATH
+    && harmonyDevice === DEFAULT_HARMONY_DEVICE_PATH;
+  return {
+    finalize: usesDefaults ? "" : explicit,
+    validate: usesDefaults ? "" : explicit,
+    explicit
+  };
 }
 
 function markdownSiblingPath(jsonPath) {
