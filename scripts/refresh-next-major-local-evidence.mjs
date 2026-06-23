@@ -9,6 +9,7 @@ import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
 const execFileAsync = promisify(execFile);
 const SUBCOMMAND_TIMEOUT_MS = 180_000;
 const PUBLIC_DRY_RUN_RECEIPT_PATTERN = /external_source_validation_public_dry_run_ok\s+(.+\.json)\s*$/m;
+const STATIC_RETURN_RECEIPT_PATTERN = /static_return_loop_ok\s+(.+receipt\.json)\s*$/m;
 
 const DEFAULTS = Object.freeze({
   sourceApprovalRequest: ".codex-tmp/external-source-validation/source-approval-request.json",
@@ -25,6 +26,13 @@ const DEFAULTS = Object.freeze({
   windowsStatic: ".codex-tmp/windows-static-qa/real-run-receipt.json",
   harmonyDevice: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
   dryRunNote: "Refresh public source preflight for current clean HEAD via next:local-evidence."
+});
+const LOCAL_RECEIPT_PATHS = Object.freeze({
+  returnImport: ".codex-tmp/return-import-dry-run/receipt.json",
+  dogfood: ".codex-tmp/dogfood-runbook/receipt.json",
+  macPending: ".codex-tmp/mac-manual-qa/receipt.json",
+  windowsPending: ".codex-tmp/windows-static-qa/receipt.json",
+  harmonyPending: ".codex-tmp/harmony-device-qa/receipt.json"
 });
 const PATH_ARGS = [
   "source-approval-request",
@@ -139,7 +147,7 @@ async function buildLocalEvidencePlan(options) {
           "--return-file",
           "dist/morning-demo/patches/sample-review-progress-patch.json",
           "--out",
-          ".codex-tmp/return-import-dry-run/receipt.json"
+          LOCAL_RECEIPT_PATHS.returnImport
         ]
       },
       {
@@ -150,7 +158,7 @@ async function buildLocalEvidencePlan(options) {
           "--runbook",
           "dist/morning-demo/DOGFOOD_RUNBOOK.md",
           "--out",
-          ".codex-tmp/dogfood-runbook/receipt.json"
+          LOCAL_RECEIPT_PATHS.dogfood
         ]
       },
       {
@@ -161,7 +169,7 @@ async function buildLocalEvidencePlan(options) {
           "--qa",
           "dist/morning-demo/MAC_MANUAL_QA.md",
           "--out",
-          ".codex-tmp/mac-manual-qa/receipt.json"
+          LOCAL_RECEIPT_PATHS.macPending
         ]
       },
       {
@@ -172,7 +180,7 @@ async function buildLocalEvidencePlan(options) {
           "--qa",
           "dist/morning-demo/WINDOWS_STATIC_QA.md",
           "--out",
-          ".codex-tmp/windows-static-qa/receipt.json"
+          LOCAL_RECEIPT_PATHS.windowsPending
         ]
       },
       {
@@ -183,7 +191,7 @@ async function buildLocalEvidencePlan(options) {
           "--qa",
           "dist/morning-demo/HARMONY_DEVICE_QA.md",
           "--out",
-          ".codex-tmp/harmony-device-qa/receipt.json"
+          LOCAL_RECEIPT_PATHS.harmonyPending
         ]
       },
       {
@@ -328,7 +336,7 @@ async function runLocalEvidenceRefresh(plan) {
       if (!existsSync(publicDryRunReceipt)) throw new Error(`Public dry-run receipt was not written: ${publicDryRunReceipt}`);
     }
   }
-  console.log(buildSuccessSummary(plan, publicDryRunReceipt, outputs));
+  console.log(await buildSuccessSummary(plan, publicDryRunReceipt, outputs));
 }
 
 async function runNodeCommand(argv, label) {
@@ -356,8 +364,9 @@ async function readSourceApprovalRequest(path) {
   return request;
 }
 
-function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
+async function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
   const koNext = outputs.find((item) => item.id === "print-ko-next")?.stdout.trim() || "";
+  const localReceipts = await collectLocalReceiptSummaries(outputs);
   const lines = [
     "next_major_local_evidence_refresh_ok",
     `Git HEAD: ${plan.currentRevision.gitHead}`,
@@ -368,11 +377,60 @@ function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
     `Operator packet: ${plan.options.operatorOut}`,
     `KO next action summary: ${plan.options.koNextOut}`,
     "",
-    "Boundary:"
+    "Local receipt summary:"
   ];
+  for (const receipt of localReceipts) {
+    lines.push(`- ${receipt.id}: tier=${receipt.evidenceTier}; ok=${receipt.ok}; claim=${receipt.claim}; receipt=${receipt.path}`);
+  }
+  lines.push(
+    "",
+    "Boundary:"
+  );
   for (const item of plan.blockedOrNotExecuted) lines.push(`- ${item}`);
   if (koNext) lines.push("", "KO next summary:", "", koNext);
   return `${lines.join("\n")}\n`;
+}
+
+async function collectLocalReceiptSummaries(outputs) {
+  const staticOutput = outputs.find((item) => item.id === "refresh-static-return-contract")?.stdout || "";
+  const staticMatch = staticOutput.match(STATIC_RETURN_RECEIPT_PATTERN);
+  const staticPath = staticMatch?.[1]?.trim() || "";
+  const entries = [
+    { id: "staticReturn", path: staticPath },
+    { id: "returnImport", path: LOCAL_RECEIPT_PATHS.returnImport },
+    { id: "dogfoodPending", path: LOCAL_RECEIPT_PATHS.dogfood },
+    { id: "macManualPending", path: LOCAL_RECEIPT_PATHS.macPending },
+    { id: "windowsStaticPending", path: LOCAL_RECEIPT_PATHS.windowsPending },
+    { id: "harmonyDevicePending", path: LOCAL_RECEIPT_PATHS.harmonyPending }
+  ];
+  const summaries = [];
+  for (const entry of entries) {
+    if (!entry.path) throw new Error(`Missing local receipt path for ${entry.id}`);
+    if (!existsSync(entry.path)) throw new Error(`Local receipt was not written for ${entry.id}: ${entry.path}`);
+    const receipt = JSON.parse(await readFile(entry.path, "utf8"));
+    summaries.push({
+      id: entry.id,
+      path: entry.path,
+      evidenceTier: receipt.evidenceTier || "UNKNOWN",
+      ok: receipt.summary?.ok === true,
+      claim: summarizeClaimBoundary(receipt)
+    });
+  }
+  return summaries;
+}
+
+function summarizeClaimBoundary(receipt) {
+  const claim = receipt.claimBoundary || {};
+  if (claim.canClaimMacDogfoodUsable === false && claim.canClaimManualDeviceLoopUsable === false) {
+    return "no-dogfood-claim";
+  }
+  for (const [key, value] of Object.entries(claim)) {
+    if (/^canClaim/.test(key) && value === false) return `${key}=false`;
+  }
+  if (Array.isArray(receipt.boundaries?.doesNotProve) && receipt.boundaries.doesNotProve.length > 0) {
+    return `doesNotProve=${receipt.boundaries.doesNotProve.length}`;
+  }
+  return "TBD";
 }
 
 function buildDryRunSummary(plan) {
