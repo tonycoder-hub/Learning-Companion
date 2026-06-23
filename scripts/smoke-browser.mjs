@@ -9426,6 +9426,30 @@ async function assertReaderSelectionCapture(cdp) {
     let result = {};
     try {
       renderReaderContent(host, {
+        html: "",
+        url: "https://example.com/reader-fallback",
+        title: "Reader fallback",
+        lang: "en",
+        onQuoteCapture: (text) => captures.push(text)
+      });
+      const fallbackEn = {
+        hint: host.querySelector(".reader-paste-hint")?.textContent || "",
+        placeholder: host.querySelector(".reader-paste-area")?.getAttribute("placeholder") || ""
+      };
+
+      renderReaderContent(host, {
+        html: "",
+        url: "https://example.com/reader-fallback-zh",
+        title: "Reader fallback zh",
+        lang: "zh",
+        onQuoteCapture: (text) => captures.push(text)
+      });
+      const fallbackZh = {
+        hint: host.querySelector(".reader-paste-hint")?.textContent || "",
+        placeholder: host.querySelector(".reader-paste-area")?.getAttribute("placeholder") || ""
+      };
+
+      renderReaderContent(host, {
         html: '<h1>Reader smoke</h1><p id="readerSmokeQuote">Reader selection should stage clean quote text.</p>',
         url: "https://example.com/reader-smoke",
         title: "Reader smoke",
@@ -9482,6 +9506,8 @@ async function assertReaderSelectionCapture(cdp) {
       document.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       await nextFrame();
       result = {
+        fallbackEn,
+        fallbackZh,
         english,
         afterClick,
         zh,
@@ -9497,6 +9523,10 @@ async function assertReaderSelectionCapture(cdp) {
     return result;
   })()`, 15000);
 
+  assert.equal(readerSelection.fallbackEn.hint, "Can't load the content? Paste the article below.", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.fallbackEn.placeholder, "Paste article content...", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.fallbackZh.hint, "无法加载内容？请把文章粘贴到下方。", JSON.stringify(readerSelection));
+  assert.equal(readerSelection.fallbackZh.placeholder, "粘贴文章内容...", JSON.stringify(readerSelection));
   assert.equal(readerSelection.english.text, "Quote", JSON.stringify(readerSelection));
   assert.equal(readerSelection.english.aria, "Quote selected text into Quick Capture", JSON.stringify(readerSelection));
   assert.equal(readerSelection.english.type, "button", JSON.stringify(readerSelection));

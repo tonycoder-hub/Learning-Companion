@@ -388,13 +388,13 @@ export function renderReaderContent(container, options) {
     const hint = document.createElement("div");
     hint.className = "reader-paste-hint";
     hint.textContent = lang === "zh"
-      ? "无法加载内容？粘贴文章到下方 / Can't load? Paste content below"
-      : "无法加载内容？粘贴文章到下方 / Can't load? Paste content below";
+      ? "无法加载内容？请把文章粘贴到下方。"
+      : "Can't load the content? Paste the article below.";
     scroll.appendChild(hint);
 
     const textarea = document.createElement("textarea");
     textarea.className = "reader-paste-area";
-    textarea.placeholder = "粘贴文章内容... / Paste article content...";
+    textarea.placeholder = lang === "zh" ? "粘贴文章内容..." : "Paste article content...";
     scroll.appendChild(textarea);
 
     const preview = document.createElement("div");
