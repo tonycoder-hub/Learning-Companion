@@ -6,6 +6,11 @@ import { chmod, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { dirname, extname, join, resolve } from "node:path";
+import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
+import {
+  CURRENT_CLEAN_PUBLIC_DRY_RUN,
+  assessSourceApprovalFreshness
+} from "./lib/source-approval-freshness.mjs";
 
 const root = resolve("apps/companion-web");
 const startedAtMs = Date.now();
@@ -1098,7 +1103,10 @@ function buildApprovalRequiredBeforeKoEvidence(source) {
 
 async function validateApprovedRunSourceApprovalRequest(pathValue, run) {
   const request = await readJsonFile(pathValue, "--source-approval-request");
-  return validateApprovedRunSourceApprovalRequestObject(request, run);
+  validateApprovedRunSourceApprovalRequestObject(request, run);
+  const freshness = await assessSourceApprovalFreshness(request, readCurrentRevisionSync());
+  assertCurrentCleanSourceApprovalFreshness(freshness);
+  return request;
 }
 
 function validateApprovedRunSourceApprovalRequestObject(request, run) {
@@ -1124,6 +1132,15 @@ function validateApprovedRunSourceApprovalRequestObject(request, run) {
     throw new Error("--source-approval-request requested approval text does not match --approval-note.");
   }
   return request;
+}
+
+function assertCurrentCleanSourceApprovalFreshness(freshness) {
+  if (freshness.status !== CURRENT_CLEAN_PUBLIC_DRY_RUN) {
+    const detail = Array.isArray(freshness.problems) && freshness.problems.length
+      ? freshness.problems.join(" ")
+      : `status=${freshness.status || "TBD"}`;
+    throw new Error(`--source-approval-request freshness must be ${CURRENT_CLEAN_PUBLIC_DRY_RUN} before approved run. ${detail}`);
+  }
 }
 
 function buildSourceApprovalRequestMarkdown(request) {
@@ -1474,6 +1491,14 @@ function runApprovedUrlBoundarySelfChecks() {
     videoTimestamp: "00:03",
     approvalNote: "I approve a different source."
   }), /approval text/);
+  assert.doesNotThrow(() => assertCurrentCleanSourceApprovalFreshness({
+    status: CURRENT_CLEAN_PUBLIC_DRY_RUN,
+    problems: []
+  }));
+  assert.throws(() => assertCurrentCleanSourceApprovalFreshness({
+    status: "STALE_OR_DIRTY_PUBLIC_DRY_RUN",
+    problems: ["Current worktree is dirty."]
+  }), /freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN/);
   const approvalFromDryRunMarkdown = buildSourceApprovalRequestMarkdown(approvalFromDryRun);
   assert.match(approvalFromDryRunMarkdown, /External Source Approval Request/);
   assert.match(approvalFromDryRunMarkdown, /Freshness \/ Expiration/);
