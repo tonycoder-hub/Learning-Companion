@@ -17,6 +17,15 @@ const PLATFORM_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const SELFTEST_GIT_HEAD = "0123456789abcdef0123456789abcdef01234567";
+const SELFTEST_CURRENT_REVISION = Object.freeze({
+  gitAvailable: true,
+  gitHead: SELFTEST_GIT_HEAD,
+  dirtyWorktree: false,
+  statusLineCount: 0,
+  statusSummary: "",
+  statusTruncated: false
+});
 const MAC_MANUAL_QA_AREAS = [
   "Launch",
   "Morning pack shortcut",
@@ -158,13 +167,15 @@ async function buildKoReport({
   harmonyDevicePath,
   externalPath,
   allowMissing = false,
-  allowSelfTestFixtures = false
+  allowSelfTestFixtures = false,
+  currentRevision: providedCurrentRevision = null
 }) {
   const requirements = [];
   const blockers = [];
   const warnings = [];
   const evidence = {};
-  const currentRevision = readCurrentRevisionSync();
+  const currentRevision = providedCurrentRevision
+    || (allowSelfTestFixtures ? SELFTEST_CURRENT_REVISION : readCurrentRevisionSync());
   const platformQaStatus = summarizePlatformQaStatus([
     {
       id: "nativeMacManualQa",
@@ -287,7 +298,10 @@ async function buildKoReport({
       blockers,
       label: "approved external reading/video evidence",
       path: externalPath,
-      validate: (claim, claimPath) => validateExternalClaim(claim, claimPath, { allowSelfTestFixtures }),
+      validate: (claim, claimPath, context = {}) => validateExternalClaim(claim, claimPath, {
+        allowSelfTestFixtures,
+        currentRevision: context.currentRevision
+      }),
       evidenceKey: "approvedExternalReadingVideo",
       evidence,
       allowSelfTestFixtures,
@@ -853,7 +867,7 @@ function validateAgentLoopReceipt(receipt) {
   };
 }
 
-function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false } = {}) {
+function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false, currentRevision = {} } = {}) {
   assert.equal(claim.schema, EXTERNAL_CLAIM_SCHEMA, "external evidence schema mismatch");
   assert.equal(claim.evidenceTier, "APPROVED_SOURCE_PRIVACY_REVIEWED", "external evidence tier mismatch");
   assert.equal(claim.canClaimExternalKo, true, "external evidence must allow external KO claim");
@@ -869,7 +883,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   assertExternalSource(claim.reading, "reading", { allowSelfTestFixtures });
   assertExternalSource(claim.video, "video", { allowSelfTestFixtures });
   assertNonTbd(claim.video?.timestamp, "video timestamp");
-  assertExternalRunContext(claim.runContext);
+  assertExternalRunContext(claim.runContext, { currentRevision });
   return {
     detail: "Approved reading/video evidence has a privacy-reviewed external KO artifact.",
     evidence: {
@@ -956,14 +970,24 @@ function isSensitiveQueryKey(key) {
   ]).has(compact);
 }
 
-function assertExternalRunContext(runContext) {
+function assertExternalRunContext(runContext, { currentRevision = {} } = {}) {
   assert.equal(runContext?.schema, "learning-companion.external-source-run-context.v1", "external claim runContext schema mismatch");
   assertHttpUrl(runContext.app?.url, "external claim runContext.app.url");
   assertNonTbd(runContext.app?.root, "external claim runContext.app.root");
-  assertGitHead(runContext.appRevision?.gitHead, "external claim runContext.appRevision.gitHead");
-  assert.equal(typeof runContext.appRevision?.dirtyWorktree, "boolean", "external claim runContext dirtyWorktree must be boolean");
-  assert.equal(Number.isInteger(runContext.appRevision?.statusLineCount), true, "external claim runContext statusLineCount must be an integer");
-  assert.equal(typeof runContext.appRevision?.statusTruncated, "boolean", "external claim runContext statusTruncated must be boolean");
+  const appRevision = runContext.appRevision || {};
+  assert.equal(appRevision.gitHeadCaptured, true, "external claim runContext appRevision gitHead must be captured");
+  assertGitHead(appRevision.gitHead, "external claim runContext.appRevision.gitHead");
+  assert.equal(appRevision.dirtyWorktree, false, "external claim must be captured from a clean git worktree");
+  assert.equal(appRevision.statusCaptured, true, "external claim runContext git status must be captured");
+  assert.equal(appRevision.statusLineCount, 0, "external claim runContext clean status must have zero status lines");
+  assert.equal(Array.isArray(appRevision.statusShort), true, "external claim runContext statusShort must be listed");
+  assert.equal(appRevision.statusShort.length, 0, "external claim runContext clean statusShort must be empty");
+  assert.equal(appRevision.statusTruncated, false, "external claim runContext status must not be truncated");
+  assert.equal(currentRevision.gitAvailable, true, "external claim KO validation git state is unavailable");
+  assert.equal(currentRevision.dirtyWorktree, false, "external claim KO validation must run from a clean git worktree");
+  assert.equal(currentRevision.statusLineCount, 0, "external claim KO validation clean status must have zero status lines");
+  assertGitHead(currentRevision.gitHead, "external claim current KO validation gitHead");
+  assert.equal(appRevision.gitHead, currentRevision.gitHead, `external claim gitHead ${appRevision.gitHead} does not match current HEAD ${currentRevision.gitHead}`);
   assertNonTbd(runContext.browser?.chromePath, "external claim runContext.browser.chromePath");
   assert.equal(runContext.browser?.headless, true, "external claim runContext browser must be headless");
   assert.equal(runContext.browser?.profileMode, "throwaway-profile", "external claim runContext browser profile mode must be throwaway-profile");
@@ -1193,6 +1217,56 @@ async function runSelfTest() {
   });
   assert.equal(signedQueryExternalReport.canClaimKo, false);
   assert.ok(signedQueryExternalReport.blockers.some((item) => item.includes("query key X-Goog-Signature looks sensitive")));
+
+  const staleExternalRevisionPath = join(root, "stale-external-revision-claim.json");
+  await writeJson(staleExternalRevisionPath, {
+    ...fixtures.externalClaim,
+    runContext: {
+      ...fixtures.externalClaim.runContext,
+      appRevision: {
+        ...fixtures.externalClaim.runContext.appRevision,
+        gitHead: "ffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  });
+  const staleExternalRevisionReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: staleExternalRevisionPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(staleExternalRevisionReport.canClaimKo, false);
+  assert.ok(staleExternalRevisionReport.blockers.some((item) => item.includes("external claim gitHead ffffffffffffffffffffffffffffffffffffffff does not match current HEAD")));
+
+  const dirtyExternalRevisionPath = join(root, "dirty-external-revision-claim.json");
+  await writeJson(dirtyExternalRevisionPath, {
+    ...fixtures.externalClaim,
+    runContext: {
+      ...fixtures.externalClaim.runContext,
+      appRevision: {
+        ...fixtures.externalClaim.runContext.appRevision,
+        dirtyWorktree: true,
+        statusLineCount: 1,
+        statusShort: [" M apps/companion-web/src/app.js"]
+      }
+    }
+  });
+  const dirtyExternalRevisionReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: dirtyExternalRevisionPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(dirtyExternalRevisionReport.canClaimKo, false);
+  assert.ok(dirtyExternalRevisionReport.blockers.some((item) => item.includes("external claim must be captured from a clean git worktree")));
 
   const pendingPlatformPath = join(root, "pending-mac-manual-receipt.json");
   await writeJson(pendingPlatformPath, {
@@ -1663,6 +1737,8 @@ async function runSelfTest() {
       "IPv4-mapped IPv6 external source URL rejected",
       "sensitive external source query key rejected",
       "signed external source query key rejected",
+      "external stale git revision rejected",
+      "external dirty git revision rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
       "real-run platform receipt path selected before pending receipt path",
@@ -1762,7 +1838,7 @@ async function createKoFixtures(root) {
     schema: "learning-companion.platform-qa-run-context.v1",
     appRevision: {
       gitAvailable: true,
-      gitHead: "0123456789abcdef0123456789abcdef01234567",
+      gitHead: SELFTEST_GIT_HEAD,
       dirtyWorktree: false,
       statusLineCount: 0,
       statusSummary: "",
@@ -1921,9 +1997,12 @@ async function createKoFixtures(root) {
         root: "/tmp/learning-companion/apps/companion-web"
       },
       appRevision: {
-        gitHead: "0123456789abcdef0123456789abcdef01234567",
-        dirtyWorktree: true,
-        statusLineCount: 1,
+        gitHead: SELFTEST_GIT_HEAD,
+        gitHeadCaptured: true,
+        dirtyWorktree: false,
+        statusCaptured: true,
+        statusLineCount: 0,
+        statusShort: [],
         statusTruncated: false
       },
       browser: {

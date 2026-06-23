@@ -226,6 +226,9 @@ async function runSelfTest() {
   });
   assert.equal(claim.canClaimExternalKo, true);
   assert.equal(claim.evidenceTier, "APPROVED_SOURCE_PRIVACY_REVIEWED");
+  assert.equal(claim.runContext.appRevision.gitHeadCaptured, true);
+  assert.equal(claim.runContext.appRevision.statusCaptured, true);
+  assert.deepEqual(claim.runContext.appRevision.statusShort, fixture.receipt.runContext.appRevision.statusShort);
 
   assert.throws(() => validatePrivacyReview({
     receipt: fixture.receipt,
@@ -770,8 +773,11 @@ function summarizeRunContextForClaim(runContext) {
     },
     appRevision: {
       gitHead: runContext.appRevision.gitHead,
+      gitHeadCaptured: runContext.appRevision.gitHeadCaptured,
       dirtyWorktree: runContext.appRevision.dirtyWorktree,
+      statusCaptured: runContext.appRevision.statusCaptured,
       statusLineCount: runContext.appRevision.statusLineCount,
+      statusShort: runContext.appRevision.statusShort,
       statusTruncated: runContext.appRevision.statusTruncated
     },
     browser: {
