@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 
@@ -263,7 +264,10 @@ function buildReviewTemplate(receipt, receiptPath) {
       noPrivateOrSensitiveContent: false,
       noSecretsTokensSessionIds: false,
       noPrivateBrowserChrome: false,
-      screenshotsReviewed: files.map((file) => ({ file, status: "TBD" }))
+      screenshotsReviewed: files.map((file) => ({
+        ...screenshotEvidence(file),
+        status: "TBD"
+      }))
     },
     executionReview: {
       runContextReviewed: false,
@@ -289,6 +293,8 @@ async function runSelfTest() {
   assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN);
   assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestPath, fixture.receipt.sourceApprovalRequestBinding.requestPath);
   assert.equal(candidateTemplate.sourceApproval.requestedApprovalText, fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText);
+  assert.equal(Number.isInteger(candidateTemplate.privacyReview.screenshotsReviewed[0].bytes), true);
+  assert.match(candidateTemplate.privacyReview.screenshotsReviewed[0].sha256, /^[a-f0-9]{64}$/);
   assert.match(candidateTemplate.reviewedAt, /ISO date-time with timezone/);
   assert.match(candidateTemplate.notes, /concrete privacy-review notes/);
   const validReview = buildValidReview(fixture.receipt, fixture.receiptPath);
@@ -610,6 +616,38 @@ async function runSelfTest() {
     reviewPath: join(root, "failed-screenshot-review.json")
   }), /screenshot privacy review must be PASS/);
 
+  const mismatchedScreenshotBytesReview = {
+    ...validReview,
+    privacyReview: {
+      ...validReview.privacyReview,
+      screenshotsReviewed: validReview.privacyReview.screenshotsReviewed.map((item, index) => index === 0
+        ? { ...item, bytes: item.bytes + 1 }
+        : item)
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: mismatchedScreenshotBytesReview,
+    reviewPath: join(root, "mismatched-screenshot-bytes-review.json")
+  }), /screenshot privacy review bytes must match current file/);
+
+  const mismatchedScreenshotShaReview = {
+    ...validReview,
+    privacyReview: {
+      ...validReview.privacyReview,
+      screenshotsReviewed: validReview.privacyReview.screenshotsReviewed.map((item, index) => index === 0
+        ? { ...item, sha256: "0".repeat(64) }
+        : item)
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: mismatchedScreenshotShaReview,
+    reviewPath: join(root, "mismatched-screenshot-sha-review.json")
+  }), /screenshot privacy review sha256 must match current file/);
+
   const placeholderReviewerReview = {
     ...validReview,
     reviewer: "N/A"
@@ -848,6 +886,8 @@ async function runSelfTest() {
       "duplicate screenshot review entry rejected",
       "extra screenshot review file rejected",
       "failed screenshot review status rejected",
+      "mismatched screenshot review bytes rejected",
+      "mismatched screenshot review sha256 rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
       "placeholder approval reference rejected",
@@ -1081,6 +1121,7 @@ function validateScreenshotReviewCoverage(screenshotsReviewed, expectedFiles) {
   assert.equal(Array.isArray(screenshotsReviewed), true, "privacyReview.screenshotsReviewed must be an array");
   const expected = new Set(expectedFiles);
   assert.equal(expected.size, expectedFiles.length, "receipt evidence files must be unique");
+  const expectedEvidence = new Map(expectedFiles.map((file) => [file, screenshotEvidence(file)]));
   const seen = new Set();
   screenshotsReviewed.forEach((item, index) => {
     const label = `privacyReview.screenshotsReviewed[${index}]`;
@@ -1088,11 +1129,23 @@ function validateScreenshotReviewCoverage(screenshotsReviewed, expectedFiles) {
     assert.equal(expected.has(item.file), true, `unexpected screenshot privacy review file: ${item.file}`);
     assert.equal(seen.has(item.file), false, `duplicate screenshot privacy review entry: ${item.file}`);
     assert.equal(item.status, "PASS", `screenshot privacy review must be PASS for ${item.file}`);
+    const current = expectedEvidence.get(item.file);
+    assert.equal(item.bytes, current.bytes, `screenshot privacy review bytes must match current file for ${item.file}`);
+    assert.equal(item.sha256, current.sha256, `screenshot privacy review sha256 must match current file for ${item.file}`);
     seen.add(item.file);
   });
   for (const file of expectedFiles) {
     assert.equal(seen.has(file), true, `screenshot privacy review missing PASS for ${file}`);
   }
+}
+
+function screenshotEvidence(file) {
+  const data = readFileSync(file);
+  return {
+    file,
+    bytes: data.length,
+    sha256: createHash("sha256").update(data).digest("hex")
+  };
 }
 
 function validateRunContext(runContext) {
