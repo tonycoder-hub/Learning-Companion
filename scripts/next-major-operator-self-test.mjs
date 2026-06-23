@@ -163,6 +163,9 @@ try {
   assert.match(freshMarkdown, /get-current-turn-source-approval/);
   assert.match(freshMarkdown, /run-approved-external-source-candidate/);
   assert.match(freshMarkdown, /validate-final-ko/);
+  assert.match(freshMarkdown, /Exact approval text to request:\n\n```text\nFixture approval_text\.\n```/);
+  assert.match(freshMarkdown, /Exact approval text to copy:\n\n```text\nFixture approval_text\.\n```/);
+  assert.doesNotMatch(freshMarkdown, /```text\nFixture approval\\_text/);
   assert.match(freshMarkdown, /Approval request freshness: CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(freshMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
 
@@ -605,7 +608,7 @@ function buildApprovalRequest(gitHead, options = {}) {
         timestamp: "00:03"
       }
     },
-    requestedApprovalText: "Fixture approval text.",
+    requestedApprovalText: "Fixture approval_text.",
     nextCommands: {
       approvedCandidateAfterCurrentTurnApproval: "",
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
