@@ -56,6 +56,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
   assert.equal(review.sourceApproval?.approvedReadingUrl, receiptSummary.reading.source.url, "approved reading URL must match receipt");
   assert.equal(review.sourceApproval?.approvedVideoUrl, receiptSummary.video.source.url, "approved video URL must match receipt");
   assert.equal(review.sourceApproval?.sourceApprovalRequestPath, receiptSummary.sourceApprovalRequestBinding.requestPath, "source approval request path must match receipt binding");
+  assert.equal(review.sourceApproval?.requestedApprovalText, receiptSummary.sourceApprovalRequestBinding.requestedApprovalText, "requested approval text must match receipt binding");
   assert.equal(review.sourceApproval?.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN, "source approval request freshness must match current clean public dry-run status");
   assert.equal(review.sourceApproval?.sourceApprovalRequestCurrentGitHead, receiptSummary.sourceApprovalRequestBinding.currentGitHead, "source approval request current git HEAD must match receipt binding");
   assert.equal(review.sourceApproval?.sourceApprovalRequestBasisGitHead, receiptSummary.sourceApprovalRequestBinding.basisGitHead, "source approval request basis git HEAD must match receipt binding");
@@ -109,6 +110,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
       requestSchema: receiptSummary.sourceApprovalRequestBinding.requestSchema,
       evidenceTier: receiptSummary.sourceApprovalRequestBinding.evidenceTier,
       canClaimExternalKo: receiptSummary.sourceApprovalRequestBinding.canClaimExternalKo,
+      requestedApprovalText: receiptSummary.sourceApprovalRequestBinding.requestedApprovalText,
       freshnessStatus: receiptSummary.sourceApprovalRequestBinding.freshnessStatus,
       requestedApprovalTextMatched: receiptSummary.sourceApprovalRequestBinding.requestedApprovalTextMatched,
       approvedReadingUrl: receiptSummary.sourceApprovalRequestBinding.approvedReadingUrl,
@@ -208,7 +210,13 @@ function validateSourceApprovalRequestBinding(binding, { reading, video, runCont
   assert.equal(binding.requestSchema, "learning-companion.external-source-approval-request.v1", "sourceApprovalRequestBinding request schema mismatch");
   assert.equal(binding.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY", "sourceApprovalRequestBinding evidence tier mismatch");
   assert.equal(binding.canClaimExternalKo, false, "sourceApprovalRequestBinding must be non-claiming");
+  assertConcreteReviewText(binding.requestedApprovalText, "sourceApprovalRequestBinding.requestedApprovalText");
   assert.equal(binding.requestedApprovalTextMatched, true, "sourceApprovalRequestBinding must prove requested approval text matched the approved run");
+  assertRequestedApprovalTextCoversSources(binding.requestedApprovalText, {
+    readingUrl: reading.source.url,
+    videoUrl: video.source.url,
+    videoTimestamp: video.saved.captureTimestamp
+  });
   assert.equal(binding.approvedReadingUrl, reading.source.url, "sourceApprovalRequestBinding approved reading URL must match receipt");
   assert.equal(binding.approvedVideoUrl, video.source.url, "sourceApprovalRequestBinding approved video URL must match receipt");
   assert.equal(binding.approvedVideoTimestamp, video.saved.captureTimestamp, "sourceApprovalRequestBinding approved video timestamp must match captured video timestamp");
@@ -244,6 +252,7 @@ function buildReviewTemplate(receipt, receiptPath) {
       approvalReference: "TBD (current-turn approval message or link)",
       approvedReadingUrl: reading.source?.url || "TBD",
       approvedVideoUrl: video.source?.url || "TBD",
+      requestedApprovalText: receipt.sourceApprovalRequestBinding?.requestedApprovalText || "TBD",
       sourceApprovalRequestPath: receipt.sourceApprovalRequestBinding?.requestPath || "TBD",
       sourceApprovalRequestFreshness: receipt.sourceApprovalRequestBinding?.freshnessStatus || "TBD",
       sourceApprovalRequestCurrentGitHead: receipt.sourceApprovalRequestBinding?.currentGitHead || "TBD",
@@ -278,6 +287,7 @@ async function runSelfTest() {
   assert.equal(candidateTemplate.sourceApproval.approvedReadingUrl, fixture.receipt.runs.find((run) => run.source.type === "reading").source.url);
   assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN);
   assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestPath, fixture.receipt.sourceApprovalRequestBinding.requestPath);
+  assert.equal(candidateTemplate.sourceApproval.requestedApprovalText, fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText);
   assert.match(candidateTemplate.reviewedAt, /ISO date-time with timezone/);
   assert.match(candidateTemplate.notes, /concrete privacy-review notes/);
   const validReview = buildValidReview(fixture.receipt, fixture.receiptPath);
@@ -406,6 +416,44 @@ async function runSelfTest() {
     review: validReview,
     reviewPath: join(root, "valid-review.json")
   }), /approved video timestamp/);
+
+  const missingRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  delete missingRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText;
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: missingRequestedApprovalTextReceipt,
+    receiptPath: join(root, "missing-requested-approval-text-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /sourceApprovalRequestBinding\.requestedApprovalText must be a string/);
+
+  const incompleteRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  incompleteRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText = "I approve the learning sources for this turn.";
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: incompleteRequestedApprovalTextReceipt,
+    receiptPath: join(root, "incomplete-requested-approval-text-receipt.json"),
+    review: {
+      ...validReview,
+      sourceApproval: {
+        ...validReview.sourceApproval,
+        requestedApprovalText: "I approve the learning sources for this turn."
+      }
+    },
+    reviewPath: join(root, "incomplete-requested-approval-text-review.json")
+  }), /requested approval text must include the exact approved reading URL/);
+
+  const mismatchedRequestedApprovalTextReview = {
+    ...validReview,
+    sourceApproval: {
+      ...validReview.sourceApproval,
+      requestedApprovalText: "I approve a different set of sources."
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: mismatchedRequestedApprovalTextReview,
+    reviewPath: join(root, "mismatched-requested-approval-text-review.json")
+  }), /requested approval text must match receipt binding/);
 
   const failedReview = {
     ...validReview,
@@ -633,6 +681,9 @@ async function runSelfTest() {
       "stale source approval request binding rejected",
       "mismatched source approval request reading URL rejected",
       "mismatched source approval request video timestamp rejected",
+      "missing requested approval text in source approval binding rejected",
+      "incomplete requested approval text in source approval binding rejected",
+      "mismatched requested approval text in privacy review rejected",
       "failed privacy boolean rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
@@ -682,6 +733,7 @@ async function createCandidateFixture(root) {
       requestSchema: "learning-companion.external-source-approval-request.v1",
       evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
       canClaimExternalKo: false,
+      requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://www.wikipedia.org/learning-companion-approved-reading video=https://www.youtube.com/watch?v=learning-companion-approved-video timestamp=01:35. They may be used for Learning Companion external-source validation screenshots and privacy review.",
       requestedApprovalTextMatched: true,
       approvedReadingUrl: "https://www.wikipedia.org/learning-companion-approved-reading",
       approvedVideoUrl: "https://www.youtube.com/watch?v=learning-companion-approved-video",
@@ -947,6 +999,12 @@ function assertIsoDateTime(value, label) {
   assertConcreteReviewText(value, label);
   const text = String(value).trim();
   assert.ok(ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text)), `${label} must be an ISO date-time with timezone`);
+}
+
+function assertRequestedApprovalTextCoversSources(text, { readingUrl, videoUrl, videoTimestamp }) {
+  assert.equal(String(text).includes(`reading=${readingUrl}`), true, "requested approval text must include the exact approved reading URL");
+  assert.equal(String(text).includes(`video=${videoUrl}`), true, "requested approval text must include the exact approved video URL");
+  assert.equal(String(text).includes(`timestamp=${videoTimestamp}`), true, "requested approval text must include the exact approved video timestamp");
 }
 
 function normalizeReviewText(value) {

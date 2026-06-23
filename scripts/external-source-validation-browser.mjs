@@ -1139,6 +1139,7 @@ function buildSourceApprovalRequestBinding(request, freshness, pathValue) {
     requestSchema: request.schema,
     evidenceTier: request.evidenceTier,
     canClaimExternalKo: request.canClaimExternalKo,
+    requestedApprovalText: request.requestedApprovalText || "",
     requestedApprovalTextMatched: true,
     approvedReadingUrl: request.sources?.reading?.url || "",
     approvedVideoUrl: request.sources?.video?.url || "",
@@ -1174,10 +1175,28 @@ function validateApprovedRunSourceApprovalRequestObject(request, run) {
   if (!request.requestedApprovalText) {
     throw new Error("--source-approval-request requestedApprovalText is missing.");
   }
+  assertRequestedApprovalTextCoversSources(request.requestedApprovalText, {
+    readingUrl: run.readingUrl,
+    videoUrl: run.videoUrl,
+    videoTimestamp: run.videoTimestamp
+  });
   if (request.requestedApprovalText !== run.approvalNote) {
     throw new Error("--source-approval-request requested approval text does not match --approval-note.");
   }
   return request;
+}
+
+function assertRequestedApprovalTextCoversSources(text, { readingUrl, videoUrl, videoTimestamp }) {
+  const value = String(text || "");
+  if (!value.includes(`reading=${readingUrl}`)) {
+    throw new Error("--source-approval-request requestedApprovalText must include the exact approved reading URL.");
+  }
+  if (!value.includes(`video=${videoUrl}`)) {
+    throw new Error("--source-approval-request requestedApprovalText must include the exact approved video URL.");
+  }
+  if (!value.includes(`timestamp=${videoTimestamp}`)) {
+    throw new Error("--source-approval-request requestedApprovalText must include the exact approved video timestamp.");
+  }
 }
 
 function assertCurrentCleanSourceApprovalFreshness(freshness) {
@@ -1525,6 +1544,15 @@ function runApprovedUrlBoundarySelfChecks() {
     videoTimestamp: "00:03",
     approvalNote: approvalFromDryRun.requestedApprovalText
   }));
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: "I approve the learning sources for this turn."
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: "I approve the learning sources for this turn."
+  }), /requestedApprovalText must include the exact approved reading URL/);
   assert.throws(() => validateApprovedRunSourceApprovalRequestObject(approvalFromDryRun, {
     readingUrl: intake.readingUrl,
     videoUrl: intake.videoUrl,
