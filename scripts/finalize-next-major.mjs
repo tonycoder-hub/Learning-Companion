@@ -1,0 +1,315 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { constants } from "node:fs";
+import { access, mkdir, readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
+const SUBCOMMAND_TIMEOUT_MS = 120_000;
+
+const DEFAULTS = Object.freeze({
+  koOut: ".codex-tmp/ko-evidence/final.json",
+  readinessOut: ".codex-tmp/next-major-readiness/current.json",
+  platformHandoffOut: ".codex-tmp/platform-qa-handoff/current.json",
+  operatorOut: ".codex-tmp/next-major-operator/current.json",
+  sourceApprovalRequest: ".codex-tmp/external-source-validation/source-approval-request.json",
+  macManual: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
+  windowsStatic: ".codex-tmp/windows-static-qa/real-run-receipt.json",
+  harmonyDevice: ".codex-tmp/harmony-device-qa/real-run-receipt.json"
+});
+const PATH_ARGS = [
+  "external",
+  "ko-out",
+  "readiness-out",
+  "platform-handoff-out",
+  "operator-out",
+  "source-approval-request",
+  "mac-manual",
+  "windows-static",
+  "harmony-device"
+];
+
+const args = parseArgs(process.argv.slice(2));
+if (args.help) {
+  console.log(buildHelp());
+  process.exit(0);
+}
+for (const key of PATH_ARGS) {
+  if (args[key] === true) throw new Error(`--${key} requires a file path.`);
+}
+if (args["self-test"]) {
+  runSelfTest();
+} else {
+  const options = normalizeOptions(args);
+  const plan = buildFinalizePlan(options);
+  if (args["dry-run"]) {
+    console.log(buildDryRunSummary(plan));
+  } else {
+    await runFinalizePlan(plan);
+  }
+}
+
+function normalizeOptions(parsed) {
+  if (!parsed.external) {
+    throw new Error("--external is required and must point to a privacy-reviewed approved-source KO evidence artifact.");
+  }
+  return {
+    external: String(parsed.external),
+    koOut: String(parsed["ko-out"] || DEFAULTS.koOut),
+    readinessOut: String(parsed["readiness-out"] || DEFAULTS.readinessOut),
+    platformHandoffOut: String(parsed["platform-handoff-out"] || DEFAULTS.platformHandoffOut),
+    operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
+    sourceApprovalRequest: String(parsed["source-approval-request"] || DEFAULTS.sourceApprovalRequest),
+    macManual: String(parsed["mac-manual"] || DEFAULTS.macManual),
+    windowsStatic: String(parsed["windows-static"] || DEFAULTS.windowsStatic),
+    harmonyDevice: String(parsed["harmony-device"] || DEFAULTS.harmonyDevice)
+  };
+}
+
+function buildFinalizePlan(options) {
+  return {
+    options,
+    commands: [
+      {
+        id: "validate-final-ko",
+        label: "final KO evidence",
+        argv: [
+          "scripts/validate-ko-evidence.mjs",
+          "--external",
+          options.external,
+          "--mac-manual",
+          options.macManual,
+          "--windows-static",
+          options.windowsStatic,
+          "--harmony-device",
+          options.harmonyDevice,
+          "--out",
+          options.koOut
+        ],
+        output: options.koOut
+      },
+      {
+        id: "refresh-readiness",
+        label: "next-major readiness",
+        argv: [
+          "scripts/next-major-readiness.mjs",
+          "--status",
+          options.koOut,
+          "--out",
+          options.readinessOut,
+          "--markdown-out",
+          markdownSiblingPath(options.readinessOut)
+        ],
+        output: options.readinessOut
+      },
+      {
+        id: "refresh-platform-handoff",
+        label: "platform QA handoff",
+        argv: [
+          "scripts/platform-qa-handoff.mjs",
+          "--status",
+          options.koOut,
+          "--out",
+          options.platformHandoffOut,
+          "--markdown-out",
+          markdownSiblingPath(options.platformHandoffOut)
+        ],
+        output: options.platformHandoffOut
+      },
+      {
+        id: "refresh-operator-packet",
+        label: "next-major operator packet",
+        argv: [
+          "scripts/next-major-operator-packet.mjs",
+          "--status",
+          options.koOut,
+          "--readiness",
+          options.readinessOut,
+          "--platform-handoff",
+          options.platformHandoffOut,
+          "--source-approval-request",
+          options.sourceApprovalRequest,
+          "--out",
+          options.operatorOut,
+          "--markdown-out",
+          markdownSiblingPath(options.operatorOut)
+        ],
+        output: options.operatorOut
+      }
+    ],
+    blockedOrNotExecuted: [
+      "This finalizer does not grant current-turn source approval.",
+      "This finalizer does not perform human privacy review.",
+      "This finalizer does not run Mac, Windows, or HarmonyOS QA.",
+      "This finalizer does not build, package, deploy, check Mew-Test/main site, run remote acceptance, or authorize release."
+    ]
+  };
+}
+
+async function runFinalizePlan(plan) {
+  await assertReadableFile(plan.options.external, "privacy-reviewed external KO evidence artifact");
+  await assertReadableFile(plan.options.sourceApprovalRequest, "source approval request");
+  for (const command of plan.commands) {
+    await ensureParentDirectory(command.output);
+    await runNodeCommand(command.argv, command.label);
+  }
+  const ko = await readJson(plan.options.koOut);
+  const readiness = await readJson(plan.options.readinessOut);
+  const operator = await readJson(plan.options.operatorOut);
+  assert.equal(ko.schema, "learning-companion.ko-evidence-review.v1");
+  assert.equal(ko.canClaimKo, true, "final KO evidence must be claimable before finalizing next-major packets");
+  assert.equal(readiness.schema, "learning-companion.next-major-readiness.v1");
+  assert.equal(readiness.canClaimNextMajorPreReleaseReady, true, "readiness packet must be pre-release ready");
+  assert.equal(readiness.releaseActionAuthorized, false, "readiness packet must not authorize release");
+  assert.equal(operator.schema, "learning-companion.next-major-operator-packet.v1");
+  assert.equal(operator.canClaimNextMajorFromThisPacket, false, "operator packet must remain non-claiming");
+  assert.equal(operator.releaseActionAuthorized, false, "operator packet must not authorize release");
+  console.log(buildSuccessSummary(plan, { ko, readiness, operator }));
+}
+
+async function runNodeCommand(argv, label) {
+  try {
+    await execFileAsync(process.execPath, argv, {
+      cwd: process.cwd(),
+      maxBuffer: 1024 * 1024,
+      timeout: SUBCOMMAND_TIMEOUT_MS
+    });
+  } catch (error) {
+    const stderr = String(error.stderr || error.message || "").trim();
+    throw new Error(`Failed to finalize ${label}: ${stderr || "unknown error"}`);
+  }
+}
+
+async function assertReadableFile(path, label) {
+  try {
+    await access(path, constants.R_OK);
+  } catch {
+    throw new Error(`Missing readable ${label}: ${path}`);
+  }
+}
+
+async function ensureParentDirectory(path) {
+  const directory = resolve(dirname(path));
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+}
+
+async function readJson(path) {
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+function buildSuccessSummary(plan, { ko, readiness, operator }) {
+  const lines = [
+    "next_major_finalize_ok",
+    `Final KO: ${plan.options.koOut}`,
+    `KO claimable: ${ko.canClaimKo ? "YES" : "NO"}`,
+    `Readiness: ${plan.options.readinessOut}`,
+    `Readiness status: ${readiness.readinessStatus || "UNKNOWN"}`,
+    `Operator packet: ${plan.options.operatorOut}`,
+    `Operator remains non-claiming: ${operator.canClaimNextMajorFromThisPacket === false ? "YES" : "NO"}`,
+    "",
+    "Boundary:"
+  ];
+  for (const item of plan.blockedOrNotExecuted) lines.push(`- ${item}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function buildDryRunSummary(plan) {
+  const lines = [
+    "next_major_finalize_dry_run",
+    "Commands that would run, in order:",
+    "Dry-run boundary: no file readability, schema, KO, privacy, platform, readiness, or operator validation is performed."
+  ];
+  for (const command of plan.commands) {
+    lines.push(`- ${command.id}: ${formatNodeCommand(command.argv)}`);
+  }
+  lines.push("", "Boundary:");
+  for (const item of plan.blockedOrNotExecuted) lines.push(`- ${item}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function formatNodeCommand(argv) {
+  return ["node", ...argv].map(shellQuote).join(" ");
+}
+
+function shellQuote(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
+function markdownSiblingPath(jsonPath) {
+  const text = String(jsonPath);
+  return text.endsWith(".json") ? `${text.slice(0, -5)}.md` : `${text}.md`;
+}
+
+function runSelfTest() {
+  const plan = buildFinalizePlan({
+    external: "fixtures/external-ko.json",
+    koOut: ".codex-tmp/selftest/final.json",
+    readinessOut: ".codex-tmp/selftest/readiness.json",
+    platformHandoffOut: ".codex-tmp/selftest/platform.json",
+    operatorOut: ".codex-tmp/selftest/operator.json",
+    sourceApprovalRequest: ".codex-tmp/selftest/source-approval-request.json",
+    macManual: ".codex-tmp/selftest/mac-real.json",
+    windowsStatic: ".codex-tmp/selftest/windows-real.json",
+    harmonyDevice: ".codex-tmp/selftest/harmony-real.json"
+  });
+  const finalKo = plan.commands.find((command) => command.id === "validate-final-ko");
+  assert.ok(finalKo);
+  assert.equal(finalKo.argv.includes("--allow-missing"), false);
+  assert.deepEqual(finalKo.argv.slice(0, 1), ["scripts/validate-ko-evidence.mjs"]);
+  assert.equal(finalKo.argv.includes("--external"), true);
+  assert.equal(finalKo.argv.includes("fixtures/external-ko.json"), true);
+  assert.equal(finalKo.argv.includes(".codex-tmp/selftest/mac-real.json"), true);
+  assert.equal(finalKo.argv.includes(".codex-tmp/selftest/windows-real.json"), true);
+  assert.equal(finalKo.argv.includes(".codex-tmp/selftest/harmony-real.json"), true);
+
+  const readiness = plan.commands.find((command) => command.id === "refresh-readiness");
+  const platform = plan.commands.find((command) => command.id === "refresh-platform-handoff");
+  const operator = plan.commands.find((command) => command.id === "refresh-operator-packet");
+  assert.equal(readiness.argv.includes(".codex-tmp/selftest/final.json"), true);
+  assert.equal(platform.argv.includes(".codex-tmp/selftest/final.json"), true);
+  assert.equal(operator.argv.includes(".codex-tmp/selftest/source-approval-request.json"), true);
+  assert.equal(operator.argv.includes(".codex-tmp/selftest/operator.md"), true);
+
+  const dryRun = buildDryRunSummary(plan);
+  assert.match(dryRun, /next_major_finalize_dry_run/);
+  assert.match(dryRun, /node scripts\/validate-ko-evidence\.mjs/);
+  assert.match(dryRun, /node scripts\/next-major-readiness\.mjs/);
+  assert.match(dryRun, /node scripts\/platform-qa-handoff\.mjs/);
+  assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs/);
+  assert.match(dryRun, /Dry-run boundary: no file readability/);
+  assert.match(dryRun, /does not build, package, deploy/);
+  console.log("next_major_finalize_selftest_ok");
+}
+
+function buildHelp() {
+  return `Finalize Learning Companion next-major pre-release evidence after every required evidence artifact exists.
+
+Usage:
+  npm run next:finalize -- --external <ko-evidence-review.json>
+  npm run next:finalize -- --external <ko-evidence-review.json> --dry-run
+
+This command runs strict KO validation, then refreshes readiness, platform handoff, and operator packets.
+Dry-run only prints the command plan; it does not read or validate evidence files.
+This command does not grant approval, perform privacy review, run platform QA, build, package, deploy, remote-accept, or authorize release.`;
+}
+
+function parseArgs(argv) {
+  const parsed = {};
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (!arg.startsWith("--")) continue;
+    const key = arg.slice(2);
+    const next = argv[index + 1];
+    if (!next || next.startsWith("--")) {
+      parsed[key] = true;
+      continue;
+    }
+    parsed[key] = next;
+    index += 1;
+  }
+  return parsed;
+}

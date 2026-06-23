@@ -211,7 +211,7 @@ function buildNextActionSequence(lanes) {
       laneId: "finalKoGate",
       operatorState: finalLane.operatorState,
       action: "After approved external evidence and all real platform receipts exist, run the final KO gate and refresh readiness/operator packets.",
-      command: finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts || finalLane.nextCommands?.finalKoGate || "",
+      command: finalLane.nextCommands?.finalizeNextMajor || finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts || finalLane.nextCommands?.finalKoGate || "",
       produces: ".codex-tmp/ko-evidence/final.json plus refreshed readiness/operator artifacts.",
       claimBoundary: "Do not run or treat this as passing until every preceding lane has real PASS evidence."
     });
@@ -427,6 +427,7 @@ function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness
     platformHandoffFreshness,
     releaseActionAuthorized: readiness.releaseActionAuthorized === true,
     nextCommands: {
+      finalizeNextMajor: platformHandoff.nextCommands?.finalizeNextMajor || "npm run next:finalize -- --external <ko-evidence-review.json>",
       finalKoGate: platformHandoff.nextCommands?.finalKoGate || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
       finalKoGateWithExplicitPlatformReceipts: platformHandoff.nextCommands?.finalKoGateWithExplicitPlatformReceipts || ""
     },

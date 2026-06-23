@@ -130,6 +130,7 @@ const koNextActionSummaryJs = readFileSync("scripts/ko-next-action-summary.mjs",
 const platformQaHandoffJs = readFileSync("scripts/platform-qa-handoff.mjs", "utf8");
 const nextMajorReadinessJs = readFileSync("scripts/next-major-readiness.mjs", "utf8");
 const nextMajorOperatorPacketJs = readFileSync("scripts/next-major-operator-packet.mjs", "utf8");
+const finalizeNextMajorJs = readFileSync("scripts/finalize-next-major.mjs", "utf8");
 const macManualQaValidatorJs = readFileSync("scripts/validate-mac-manual-qa.mjs", "utf8");
 const windowsStaticQaValidatorJs = readFileSync("scripts/validate-windows-static-qa.mjs", "utf8");
 const harmonyDeviceQaValidatorJs = readFileSync("scripts/validate-harmony-device-qa.mjs", "utf8");
@@ -159,6 +160,8 @@ assert.equal(packageJson.scripts["next:readiness"], "node scripts/next-major-rea
 assert.equal(packageJson.scripts["next:readiness:selftest"], "node scripts/next-major-readiness-self-test.mjs");
 assert.equal(packageJson.scripts["next:operator"], "node scripts/next-major-operator-packet.mjs");
 assert.equal(packageJson.scripts["next:operator:selftest"], "node scripts/next-major-operator-self-test.mjs");
+assert.equal(packageJson.scripts["next:finalize"], "node scripts/finalize-next-major.mjs");
+assert.equal(packageJson.scripts["next:finalize:selftest"], "node scripts/finalize-next-major.mjs --self-test");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
 assert.equal(packageJson.scripts["mac:manual:validate"], "node scripts/validate-mac-manual-qa.mjs");
@@ -169,7 +172,7 @@ assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/valid
 assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
-assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/smoke-web.mjs");
+assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/smoke-web.mjs");
 assert.match(gitRevisionHelperJs, /export async function readCurrentRevision/);
 assert.match(gitRevisionHelperJs, /export function readCurrentRevisionSync/);
 assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);
@@ -873,6 +876,24 @@ assert.match(koEvidenceReviewJs, /MANUAL_PLATFORM_QA/);
 assert.match(koEvidenceReviewJs, /PARTIAL_PLATFORM_QA/);
 assert.match(koEvidenceReviewJs, /Date\/time must be an ISO date-time with timezone/);
 assert.match(koEvidenceReviewJs, /Reviewer must be filled with concrete platform QA evidence/);
+assert.match(finalizeNextMajorJs, /next_major_finalize_ok/);
+assert.match(finalizeNextMajorJs, /next_major_finalize_dry_run/);
+assert.match(finalizeNextMajorJs, /--external is required/);
+assert.match(finalizeNextMajorJs, /scripts\/validate-ko-evidence\.mjs/);
+assert.match(finalizeNextMajorJs, /scripts\/next-major-readiness\.mjs/);
+assert.match(finalizeNextMajorJs, /scripts\/platform-qa-handoff\.mjs/);
+assert.match(finalizeNextMajorJs, /scripts\/next-major-operator-packet\.mjs/);
+assert.match(finalizeNextMajorJs, /canClaimKo, true/);
+assert.match(finalizeNextMajorJs, /releaseActionAuthorized, false/);
+assert.match(finalizeNextMajorJs, /does not build, package, deploy/);
+assert.match(finalizeNextMajorJs, /finalKo\.argv\.includes\("--allow-missing"\), false/);
+assert.match(finalizeNextMajorJs, /SUBCOMMAND_TIMEOUT_MS = 120_000/);
+assert.match(finalizeNextMajorJs, /assertReadableFile\(plan\.options\.external/);
+assert.match(finalizeNextMajorJs, /assertReadableFile\(plan\.options\.sourceApprovalRequest/);
+assert.match(finalizeNextMajorJs, /constants\.R_OK/);
+assert.match(finalizeNextMajorJs, /Dry-run boundary: no file readability/);
+assert.match(finalizeNextMajorJs, /Dry-run only prints the command plan/);
+assert.doesNotMatch(finalizeNextMajorJs, /\bchmod\b/);
 [macManualQaValidatorJs, windowsStaticQaValidatorJs, harmonyDeviceQaValidatorJs].forEach((validatorJs) => {
   assert.match(validatorJs, /PLACEHOLDER_EVIDENCE_NOTES/);
   assert.match(validatorJs, /LEADING_EVIDENCE_DECORATION_PATTERN/);
@@ -1169,6 +1190,7 @@ try {
     evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
     canClaimKo: false,
     nextCommands: {
+      finalizeNextMajor: "npm run next:finalize -- --external <ko-evidence-review.json>",
       finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
       finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
     },

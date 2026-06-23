@@ -137,6 +137,7 @@ try {
   assert.match(cleanMarkdown, /Platform QA Execution Handoff/);
   assert.match(cleanMarkdown, /Can claim KO: false/);
   assert.match(cleanMarkdown, /KO status freshness: CURRENT\\_CLEAN\\_HEAD\\_KO\\_STATUS/);
+  assert.match(cleanMarkdown, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
   assert.match(cleanMarkdown, /Execution checklist/);
   assert.match(cleanMarkdown, /Before run/);
   assert.match(cleanMarkdown, /Not accepted as evidence/);

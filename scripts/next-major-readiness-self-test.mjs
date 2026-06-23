@@ -76,12 +76,14 @@ try {
   assert.equal(blocked.platformQaStatus[0].claimAllowed, false);
   assert.equal(blocked.platformQaStatus[0].gates.nativeBuild.pass, false);
   assert.equal(blocked.nextCommands.platformHandoff, "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md");
+  assert.equal(blocked.nextCommands.finalizeNextMajor, "npm run next:finalize -- --external <ko-evidence-review.json>");
   assert.equal(blocked.blockedOrNotExecuted.includes("No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet."), true);
   assert.equal((await stat(blockedRun.jsonPath)).mode & 0o777, 0o600);
   assert.equal((await stat(blockedRun.markdownPath)).mode & 0o777, 0o600);
   const blockedMarkdown = await readFile(blockedRun.markdownPath, "utf8");
   assert.match(blockedMarkdown, /Next Major Readiness Packet/);
   assert.match(blockedMarkdown, /Release action authorized: false/);
+  assert.match(blockedMarkdown, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
   assert.match(blockedMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
 
   const cannotClaimWithPassingRequirementsStatusPath = join(inputDir, "cannot-claim-with-passing-requirements.json");
