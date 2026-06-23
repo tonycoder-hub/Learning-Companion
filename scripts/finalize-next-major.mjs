@@ -14,6 +14,7 @@ const DEFAULTS = Object.freeze({
   readinessOut: ".codex-tmp/next-major-readiness/current.json",
   platformHandoffOut: ".codex-tmp/platform-qa-handoff/current.json",
   operatorOut: ".codex-tmp/next-major-operator/current.json",
+  localEvidence: ".codex-tmp/next-major-local-evidence/current.json",
   sourceApprovalRequest: ".codex-tmp/external-source-validation/source-approval-request.json",
   sourceApprovalMarkdown: ".codex-tmp/external-source-validation/source-approval-request.md",
   macManual: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
@@ -26,6 +27,7 @@ const PATH_ARGS = [
   "readiness-out",
   "platform-handoff-out",
   "operator-out",
+  "local-evidence",
   "source-approval-request",
   "source-approval-markdown",
   "mac-manual",
@@ -68,6 +70,7 @@ function normalizeOptions(parsed) {
     readinessOut: String(parsed["readiness-out"] || DEFAULTS.readinessOut),
     platformHandoffOut: String(parsed["platform-handoff-out"] || DEFAULTS.platformHandoffOut),
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
+    localEvidence: String(parsed["local-evidence"] || DEFAULTS.localEvidence),
     sourceApprovalRequest,
     sourceApprovalMarkdown,
     macManual: String(parsed["mac-manual"] || DEFAULTS.macManual),
@@ -80,6 +83,16 @@ function buildFinalizePlan(options) {
   return {
     options,
     commands: [
+      {
+        id: "check-local-evidence-snapshot",
+        label: "local evidence snapshot freshness",
+        argv: [
+          "scripts/refresh-next-major-local-evidence.mjs",
+          "--check",
+          "--local-evidence-out",
+          options.localEvidence
+        ]
+      },
       {
         id: "validate-final-ko",
         label: "final KO evidence",
@@ -188,7 +201,7 @@ async function runFinalizePlan(plan) {
   await assertReadableFile(plan.options.external, "privacy-reviewed external KO evidence artifact");
   await assertReadableFile(plan.options.sourceApprovalRequest, "source approval request");
   for (const command of plan.commands) {
-    await ensureParentDirectory(command.output);
+    if (command.output) await ensureParentDirectory(command.output);
     await runNodeCommand(command.argv, command.label);
   }
   const ko = await readJson(plan.options.koOut);
@@ -246,6 +259,7 @@ function buildSuccessSummary(plan, { ko, readiness, operator }) {
     `Readiness: ${plan.options.readinessOut}`,
     `Readiness status: ${readiness.readinessStatus || "UNKNOWN"}`,
     `Operator packet: ${plan.options.operatorOut}`,
+    `Local evidence snapshot checked: ${plan.options.localEvidence}`,
     `Operator remains non-claiming: ${operator.canClaimNextMajorFromThisPacket === false ? "YES" : "NO"}`,
     "",
     "Boundary:"
@@ -371,13 +385,24 @@ function runSelfTest() {
     operatorOut: ".codex-tmp/selftest/operator.json",
     sourceApprovalRequest: ".codex-tmp/selftest/source-approval-request.json",
     sourceApprovalMarkdown: ".codex-tmp/selftest/source-approval-request.md",
+    localEvidence: ".codex-tmp/selftest/local-evidence.json",
     macManual: ".codex-tmp/selftest/mac-real.json",
     windowsStatic: ".codex-tmp/selftest/windows-real.json",
     harmonyDevice: ".codex-tmp/selftest/harmony-real.json"
   });
   assert.equal(plan.options.external, "fixtures/external-ko.json");
   assert.equal(plan.options.sourceApprovalRequest, ".codex-tmp/selftest/source-approval-request.json");
+  assert.equal(plan.options.localEvidence, ".codex-tmp/selftest/local-evidence.json");
   assert.equal(plan.options.macManual, ".codex-tmp/selftest/mac-real.json");
+  const localEvidenceCheck = plan.commands.find((command) => command.id === "check-local-evidence-snapshot");
+  assert.ok(localEvidenceCheck);
+  assert.deepEqual(localEvidenceCheck.argv, [
+    "scripts/refresh-next-major-local-evidence.mjs",
+    "--check",
+    "--local-evidence-out",
+    ".codex-tmp/selftest/local-evidence.json"
+  ]);
+  assert.equal(localEvidenceCheck.output, undefined);
   const finalKo = plan.commands.find((command) => command.id === "validate-final-ko");
   assert.ok(finalKo);
   assert.equal(finalKo.argv.includes("--allow-missing"), false);
@@ -412,6 +437,7 @@ function runSelfTest() {
 
   const dryRun = buildDryRunSummary(plan);
   assert.match(dryRun, /next_major_finalize_dry_run/);
+  assert.match(dryRun, /node scripts\/refresh-next-major-local-evidence\.mjs --check --local-evidence-out \.codex-tmp\/selftest\/local-evidence\.json/);
   assert.match(dryRun, /node scripts\/validate-ko-evidence\.mjs/);
   assert.match(dryRun, /node scripts\/next-major-readiness\.mjs/);
   assert.match(dryRun, /--source-approval-request \.codex-tmp\/selftest\/source-approval-request\.json/);
@@ -540,6 +566,7 @@ function runSelfTest() {
     readinessOut: ".codex-tmp/selftest/readiness spaced.json",
     platformHandoffOut: ".codex-tmp/selftest/platform spaced.json",
     operatorOut: ".codex-tmp/selftest/operator spaced.json",
+    localEvidence: ".codex-tmp/selftest/local evidence spaced.json",
     sourceApprovalRequest: ".codex-tmp/selftest/source approval request.json",
     sourceApprovalMarkdown: ".codex-tmp/selftest/source approval note.md",
     macManual: ".codex-tmp/selftest/mac real.json",
@@ -635,7 +662,10 @@ Optional source approval path binding:
 Optional platform receipt path binding:
   --mac-manual <receipt.json> --windows-static <receipt.json> --harmony-device <receipt.json>
 
-This command runs strict KO validation, then refreshes readiness, platform handoff, and operator packets.
+Optional local evidence snapshot binding:
+  --local-evidence <snapshot.json>
+
+This command checks the local evidence snapshot, runs strict KO validation, then refreshes readiness, platform handoff, and operator packets.
 Dry-run only prints the command plan; it does not read or validate evidence files.
 This command does not grant approval, perform privacy review, run platform QA, build, package, deploy, remote-accept, or authorize release.`;
 }
