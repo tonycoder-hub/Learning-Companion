@@ -261,4 +261,4 @@ One successful reading run and one successful video run prove only that those ap
 - browser extension compatibility,
 - mobile or Windows compatibility.
 
-The final KO gate also requires the browser bilingual runtime receipt, the controlled learning-loop receipt, native Mac manual QA, Windows static/manual QA, and HarmonyOS device/toolchain QA. A privacy-reviewed approved-source artifact is necessary but not sufficient for `canClaimKo: true`.
+The final KO gate also requires the browser bilingual runtime receipt, the controlled learning-loop receipt, native Mac manual QA, Windows static/manual QA, and HarmonyOS device/toolchain QA. It rereads the privacy-review artifact referenced by the external KO claim and verifies the review schema, receipt path, `PASS` verdict, KO-use flag, source-approval fields, reviewer/reviewedAt, privacy/execution booleans, and reviewed screenshot `bytes` / `sha256`. A privacy-reviewed approved-source artifact is necessary but not sufficient for `canClaimKo: true`.
