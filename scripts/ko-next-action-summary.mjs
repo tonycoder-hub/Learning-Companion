@@ -32,6 +32,7 @@ const PATH_ARGS = ["status", "source-approval-request", "source-approval-markdow
 const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
 const STALE_OR_DIRTY_OPERATOR_PACKET = "STALE_OR_DIRTY_OPERATOR_PACKET";
 const CURRENT_CLEAN_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
+const CURRENT_CLEAN_NEXT_MAJOR_READINESS = "CURRENT_CLEAN_NEXT_MAJOR_READINESS";
 
 if (args.help) {
   console.log(buildHelp());
@@ -291,6 +292,7 @@ function formatOperatorCriticalPath(packet, path, freshness, warning) {
     `- Current operator packet freshness: ${freshness?.status || "TBD"}`,
     `- Operator packet git HEAD: ${freshness?.packetGitHead || "TBD"}`,
     `- Current git HEAD: ${freshness?.currentGitHead || "TBD"}`,
+    ...formatOperatorReadinessFreshness(packet.readinessFreshness),
     ...formatOperatorPlatformHandoffFreshness(packet.platformHandoffFreshness)
   ];
   if (freshness?.status === STALE_OR_DIRTY_OPERATOR_PACKET) {
@@ -308,6 +310,32 @@ function formatOperatorCriticalPath(packet, path, freshness, warning) {
     lines.push(`- ${step.order}. ${step.id}: ${step.operatorState} - ${step.action}`);
   }
   lines.push("- This operator packet still does not grant approval, run QA, perform privacy review, build, package, deploy, remote-accept, or satisfy KO evidence.");
+  return lines;
+}
+
+function formatOperatorReadinessFreshness(freshness) {
+  if (!freshness) {
+    return [
+      "- Operator readiness freshness: TBD",
+      "- Missing readiness freshness does not satisfy final KO evidence."
+    ];
+  }
+  const lines = [
+    `- Operator readiness freshness: ${freshness.status || "TBD"}`,
+    `- Readiness packet git HEAD: ${freshness.basisGitHead || "TBD"}`,
+    `- Readiness packet current git HEAD: ${freshness.currentGitHead || "TBD"}`
+  ];
+  if (freshness.status !== CURRENT_CLEAN_NEXT_MAJOR_READINESS) {
+    lines.push(
+      "- Refresh readiness packet command: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md"
+    );
+  }
+  if (freshness.currentDirtyWorktree === true) {
+    lines.push("- Readiness refresh prerequisite: resolve current worktree changes under current-turn authorization; do not discard changes unless explicitly asked.");
+  }
+  if (Array.isArray(freshness.problems)) {
+    for (const problem of freshness.problems) lines.push(`- Readiness freshness problem: ${problem}`);
+  }
   return lines;
 }
 

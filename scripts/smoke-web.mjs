@@ -1143,7 +1143,10 @@ assert.match(koNextActionSummaryJs, /Ignored invalid default operator packet/);
 assert.match(koNextActionSummaryJs, /Operator packet missing nextActionSequence/);
 assert.match(koNextActionSummaryJs, /Operator critical path/);
 assert.match(koNextActionSummaryJs, /Current operator packet freshness/);
+assert.match(koNextActionSummaryJs, /Operator readiness freshness/);
 assert.match(koNextActionSummaryJs, /Operator platform handoff freshness/);
+assert.match(koNextActionSummaryJs, /function formatOperatorReadinessFreshness/);
+assert.match(koNextActionSummaryJs, /Refresh readiness packet command/);
 assert.match(koNextActionSummaryJs, /Refresh operator packet command/);
 assert.match(koNextActionSummaryJs, /Refresh platform handoff command/);
 assert.match(koNextActionSummaryJs, /Refresh prerequisite/);
@@ -1372,6 +1375,11 @@ assert.match(nextMajorOperatorPacketJs, /produces: lane\.approvalRequest\?\.path
 assert.match(nextMajorOperatorPacketJs, /function shellQuote/);
 assert.match(nextMajorOperatorPacketJs, /CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorPacketJs, /STALE_OR_DIRTY_PLATFORM_QA_HANDOFF/);
+assert.match(nextMajorOperatorPacketJs, /CURRENT_CLEAN_NEXT_MAJOR_READINESS/);
+assert.match(nextMajorOperatorPacketJs, /STALE_OR_DIRTY_NEXT_MAJOR_READINESS/);
+assert.match(nextMajorOperatorPacketJs, /readinessFreshness/);
+assert.match(nextMajorOperatorPacketJs, /assessReadinessFreshness/);
+assert.match(nextMajorOperatorPacketJs, /refresh-readiness-packet/);
 assert.match(nextMajorOperatorPacketJs, /assessPlatformHandoffFreshness/);
 assert.doesNotMatch(nextMajorOperatorPacketJs, /after committing or stashing local changes/);
 assert.match(nextMajorOperatorPacketJs, /nextActionSequence/);
@@ -1415,6 +1423,7 @@ assert.match(nextMajorOperatorPacketJs, /function buildCustomPlatformReceiptArgv
 assert.match(nextMajorOperatorPacketJs, /function buildCustomPlatformReceiptCommandArgs/);
 assert.match(nextMajorOperatorPacketJs, /function buildOperatorMarkdown/);
 assert.match(nextMajorOperatorPacketJs, /Next Major Operator Packet/);
+assert.match(nextMajorOperatorPacketJs, /Readiness Freshness Problems/);
 assert.match(nextMajorOperatorPacketJs, /executionChecklist/);
 assert.match(nextMajorOperatorPacketJs, /Not accepted as evidence/);
 assert.match(nextMajorOperatorPacketJs, /function writePrivateFile/);
@@ -1550,19 +1559,24 @@ try {
   assert.equal(operatorPacket.canClaimNextMajorFromThisPacket, false);
   assert.equal(operatorPacket.releaseActionAuthorized, false);
   assert.equal(operatorPacket.inputs.sourceApprovalRequestAvailable, true);
+  assert.equal(operatorPacket.readinessFreshness.status, "STALE_OR_DIRTY_NEXT_MAJOR_READINESS");
   assert.equal(operatorPacket.platformHandoffFreshness.status, "STALE_OR_DIRTY_PLATFORM_QA_HANDOFF");
   assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST"), true);
   assert.equal(operatorPacket.lanes.some((lane) => lane.operatorState === "NEEDS_FRESH_PLATFORM_QA_HANDOFF"), true);
   assert.equal(operatorPacket.lanes.some((lane) => lane.nextCommands?.refreshPlatformHandoff), true);
   assert.equal(operatorPacket.nextActionSequence.some((step) => step.id === "refresh-public-source-dry-run"), true);
+  assert.equal(operatorPacket.nextActionSequence.some((step) => step.id === "refresh-readiness-packet"), true);
   assert.equal(operatorPacket.nextActionSequence.some((step) => step.id === "refresh-platform-qa-handoff"), true);
   assert.equal(operatorPacket.nextActionSequence.some((step) => step.id === "validate-final-ko"), true);
   assert.equal(operatorPacket.blockedOrNotExecuted.length, 5);
   assert.match(operatorConsole, /Can claim next-major from this packet: NO/);
   assert.match(operatorConsole, /NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST/);
+  assert.match(operatorConsole, /Readiness freshness: STALE_OR_DIRTY_NEXT_MAJOR_READINESS/);
   assert.match(operatorConsole, /NEEDS_FRESH_PLATFORM_QA_HANDOFF/);
   assert.match(operatorMarkdown, /Fixture approval text/);
   assert.match(operatorMarkdown, /## Critical Path/);
+  assert.match(operatorMarkdown, /Readiness freshness: STALE\\_OR\\_DIRTY\\_NEXT\\_MAJOR\\_READINESS/);
+  assert.match(operatorMarkdown, /Readiness packet gitHead is missing/);
   assert.match(operatorMarkdown, /Approval request freshness: STALE\\_OR\\_DIRTY\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(operatorMarkdown, /Platform handoff freshness: STALE\\_OR\\_DIRTY\\_PLATFORM\\_QA\\_HANDOFF/);
   assert.match(operatorMarkdown, /Platform handoff executionFreshness.status is TBD/);
@@ -1600,6 +1614,8 @@ try {
     ? "CURRENT_CLEAN_OPERATOR_PACKET"
     : "STALE_OR_DIRTY_OPERATOR_PACKET";
   assert.match(koNextConsole, new RegExp(`Current operator packet freshness: ${expectedOperatorFreshness}`));
+  assert.match(koNextConsole, /Operator readiness freshness: STALE_OR_DIRTY_NEXT_MAJOR_READINESS/);
+  assert.match(koNextConsole, /Refresh readiness packet command: npm run next:readiness -- --refresh/);
   assert.match(koNextConsole, /Operator platform handoff freshness: STALE_OR_DIRTY_PLATFORM_QA_HANDOFF/);
   assert.match(koNextConsole, /Refresh platform handoff command: npm run platform:qa-handoff -- --status/);
   assert.match(koNextConsole, /Platform handoff freshness problem: Platform handoff executionFreshness.status is TBD/);
@@ -1609,6 +1625,7 @@ try {
     assert.match(koNextConsole, /Operator packet freshness problem: Operator packet was not generated from a clean worktree/);
   }
   assert.match(koNextConsole, /refresh-public-source-dry-run/);
+  assert.match(koNextConsole, /refresh-readiness-packet/);
   assert.match(koNextConsole, /refresh-platform-qa-handoff/);
   assert.match(koNextConsole, /validate-final-ko/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--external .*custom external evidence\.json/);

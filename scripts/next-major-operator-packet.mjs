@@ -40,6 +40,9 @@ const PATH_ARGS = [
 ];
 const CURRENT_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF";
 const CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
+const CURRENT_READINESS_STATUS = "CURRENT_CLEAN_NEXT_MAJOR_READINESS";
+const STALE_OR_DIRTY_READINESS_STATUS = "STALE_OR_DIRTY_NEXT_MAJOR_READINESS";
+const CURRENT_KO_STATUS = "CURRENT_CLEAN_HEAD_KO_STATUS";
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help) {
@@ -177,13 +180,14 @@ async function buildOperatorPacket(paths) {
   }
 
   const currentRevision = await readCurrentRevision();
+  const readinessFreshness = assessReadinessFreshness(readiness, currentRevision);
   const platformHandoffFreshness = assessPlatformHandoffFreshness(platformHandoff, currentRevision);
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const requirementById = new Map(requirements.map((item) => [item.id || "UNKNOWN", item]));
   const lanes = [
     await buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
     ...buildPlatformLanes(platformHandoff, platformHandoffFreshness),
-    buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, {
+    buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, readinessFreshness, {
       sourceApprovalRequestPath: paths.sourceApprovalRequestPath,
       sourceApprovalMarkdownPath: paths.sourceApprovalMarkdownPath,
       externalEvidencePath: paths.externalEvidencePath || "",
@@ -220,6 +224,7 @@ async function buildOperatorPacket(paths) {
       koStatusFreshness: readiness.koStatusFreshness?.status || "UNKNOWN"
     },
     currentRevision,
+    readinessFreshness,
     platformHandoffFreshness,
     lanes,
     operatorOrder: lanes.map((lane) => lane.id),
@@ -268,6 +273,17 @@ function buildNextActionSequence(lanes) {
   }
   const finalLane = laneById.get("finalKoGate");
   if (finalLane) {
+    if (finalLane.readinessFreshness?.status !== CURRENT_READINESS_STATUS) {
+      sequence.push({
+        id: "refresh-readiness-packet",
+        laneId: "finalKoGate",
+        operatorState: "NEEDS_FRESH_NEXT_MAJOR_READINESS",
+        action: "Regenerate the next-major readiness packet on the exact clean HEAD before the final KO lane is treated as ready.",
+        command: finalLane.nextCommands?.refreshReadiness || "",
+        produces: "Fresh non-claiming next-major readiness packet.",
+        claimBoundary: "This refresh still does not run source approval, privacy review, platform QA, build, deploy, or remote acceptance."
+      });
+    }
     sequence.push({
       id: "validate-final-ko",
       laneId: "finalKoGate",
@@ -335,6 +351,42 @@ function appendSourceNextActions(sequence, lane) {
     produces: "learning-companion.external-source-ko-evidence-review.v1",
     claimBoundary: "Privacy templates without completed review cannot satisfy KO evidence."
   });
+}
+
+function assessReadinessFreshness(readiness, currentRevision) {
+  const basisRevision = readiness.currentRevision || {};
+  const koStatusFreshness = readiness.koStatusFreshness || {};
+  const problems = [];
+  if (koStatusFreshness.status !== CURRENT_KO_STATUS) {
+    problems.push(`Readiness KO status freshness is ${koStatusFreshness.status || "TBD"}, expected ${CURRENT_KO_STATUS}.`);
+  }
+  if (basisRevision.gitAvailable !== true) {
+    problems.push("Readiness packet did not prove git revision availability.");
+  }
+  if (!basisRevision.gitHead) {
+    problems.push("Readiness packet gitHead is missing.");
+  } else if (!currentRevision.gitHead) {
+    problems.push("Current gitHead is unavailable.");
+  } else if (basisRevision.gitHead !== currentRevision.gitHead) {
+    problems.push(`Readiness packet gitHead ${basisRevision.gitHead} does not match current HEAD ${currentRevision.gitHead}.`);
+  }
+  if (basisRevision.dirtyWorktree !== false) {
+    problems.push("Readiness packet did not prove it was generated from a clean worktree.");
+  }
+  if (currentRevision.dirtyWorktree !== false) {
+    problems.push("Current worktree is dirty; resolve current worktree changes under current-turn authorization, then regenerate the readiness packet. Do not discard changes unless explicitly asked.");
+  }
+  return {
+    status: problems.length ? STALE_OR_DIRTY_READINESS_STATUS : CURRENT_READINESS_STATUS,
+    currentGitHead: currentRevision.gitHead,
+    currentDirtyWorktree: currentRevision.dirtyWorktree,
+    basisGitHead: basisRevision.gitHead || "",
+    basisDirtyWorktree: basisRevision.dirtyWorktree,
+    basisKoStatusFreshnessStatus: koStatusFreshness.status || "",
+    basisStatusLineCount: basisRevision.statusLineCount ?? "TBD",
+    basisStatusTruncated: basisRevision.statusTruncated === true,
+    problems
+  };
 }
 
 function assessPlatformHandoffFreshness(platformHandoff, currentRevision) {
@@ -477,9 +529,12 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
   }));
 }
 
-function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, pathBindings = {}) {
+function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, readinessFreshness, pathBindings = {}) {
   const platformHandoffReady = platformHandoffFreshness.status === CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS;
+  const readinessReady = readinessFreshness.status === CURRENT_READINESS_STATUS;
   const fallbackCommands = {
+    refreshReadiness: readiness.nextCommands?.refreshReadiness
+      || "npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md",
     finalizeNextMajor: readiness.nextCommands?.finalizeNextMajor
       || platformHandoff.nextCommands?.finalizeNextMajor
       || "npm run next:finalize -- --external <ko-evidence-review.json>",
@@ -494,13 +549,16 @@ function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness
   return {
     id: "finalKoGate",
     label: "Final KO gate",
-    operatorState: readiness.canClaimNextMajorPreReleaseReady === true && platformHandoffReady ? "READY_TO_VALIDATE_FINAL_KO" : "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES",
+    operatorState: readiness.canClaimNextMajorPreReleaseReady === true && platformHandoffReady && readinessReady ? "READY_TO_VALIDATE_FINAL_KO" : "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES",
     currentReadinessStatus: readiness.readinessStatus || "UNKNOWN",
     sourceReadinessCanClaim: readiness.canClaimNextMajorPreReleaseReady === true,
+    readinessReady,
+    readinessFreshness,
     platformHandoffReady,
     platformHandoffFreshness,
     releaseActionAuthorized: readiness.releaseActionAuthorized === true,
     nextCommands: {
+      refreshReadiness: fallbackCommands.refreshReadiness,
       finalizeNextMajor: boundFinalCommands.finalizeNextMajor || fallbackCommands.finalizeNextMajor,
       finalKoGate: boundFinalCommands.finalKoGate || fallbackCommands.finalKoGate,
       finalKoGateWithExplicitPlatformReceipts: boundFinalCommands.finalKoGateWithExplicitPlatformReceipts || fallbackCommands.finalKoGateWithExplicitPlatformReceipts
@@ -659,6 +717,7 @@ function buildConsoleSummary(packet, { outPath, markdownPath }) {
     `Can claim next-major from this packet: ${packet.canClaimNextMajorFromThisPacket ? "YES" : "NO"}`,
     `Source readiness: ${packet.sourceReadiness.readinessStatus}`,
     `KO claimable: ${packet.sourceKoStatus.canClaimKo ? "YES" : "NO"}`,
+    `Readiness freshness: ${packet.readinessFreshness.status}`,
     `Platform handoff freshness: ${packet.platformHandoffFreshness.status}`
   ];
   if (outPath) lines.push(`Operator JSON: ${outPath}`);
@@ -691,9 +750,17 @@ function buildOperatorMarkdown(packet) {
     `KO claimable: ${packet.sourceKoStatus.canClaimKo ? "true" : "false"}`,
     `Current git HEAD: ${markdownInline(packet.currentRevision.gitHead || "TBD")}`,
     `Current worktree dirty: ${packet.currentRevision.dirtyWorktree ? "true" : "false"}`,
+    `Readiness freshness: ${markdownInline(packet.readinessFreshness.status)}`,
     `Platform handoff freshness: ${markdownInline(packet.platformHandoffFreshness.status)}`,
     ""
   ];
+  const readinessFreshnessProblems = packet.readinessFreshness.problems || [];
+  if (readinessFreshnessProblems.length) {
+    lines.push("", "## Readiness Freshness Problems", "");
+    for (const problem of readinessFreshnessProblems) {
+      lines.push(`- ${markdownInline(problem)}`);
+    }
+  }
   const platformFreshnessProblems = packet.platformHandoffFreshness.problems || [];
   if (platformFreshnessProblems.length) {
     lines.push("", "## Platform Handoff Freshness Problems", "");
