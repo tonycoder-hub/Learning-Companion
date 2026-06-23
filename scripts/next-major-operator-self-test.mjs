@@ -60,9 +60,13 @@ try {
   assert.equal(realPlatformOperatorRun.code, 0, realPlatformOperatorRun.stderr);
   const realPlatformPacket = await readJson(realPlatformOperatorRun.jsonPath);
   const realPlatformHandoffMarkdown = await readFile(realPlatformHandoffRun.markdownPath, "utf8");
+  const realPlatformOperatorMarkdown = await readFile(realPlatformOperatorRun.markdownPath, "utf8");
   assert.equal(realPlatformPacket.inputs.platformHandoffPath, realPlatformHandoffRun.jsonPath);
   assert.match(realPlatformHandoffMarkdown, /Platform QA Execution Handoff/);
+  assert.match(realPlatformHandoffMarkdown, /Execution checklist/);
   assert.match(realPlatformHandoffMarkdown, /windowsStaticManualQa/);
+  assert.match(realPlatformOperatorMarkdown, /Execution checklist/);
+  assert.match(realPlatformOperatorMarkdown, /Not accepted as evidence/);
   assert.deepEqual(realPlatformPacket.operatorOrder, [
     "approvedExternalReadingVideo",
     "nativeMacManualQa",
@@ -73,6 +77,9 @@ try {
   assert.equal(getLane(realPlatformPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
   assert.equal(getLane(realPlatformPacket, "windowsStaticManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.windowsStaticManualQa);
   assert.equal(getLane(realPlatformPacket, "harmonyDeviceQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.harmonyDeviceQa);
+  assert.match(getLane(realPlatformPacket, "nativeMacManualQa").executionChecklist.afterRun.join("\n"), /mac:manual:validate/);
+  assert.match(getLane(realPlatformPacket, "windowsStaticManualQa").executionChecklist.afterRun.join("\n"), /windows:static:validate/);
+  assert.match(getLane(realPlatformPacket, "harmonyDeviceQa").executionChecklist.afterRun.join("\n"), /harmony:device:validate/);
 
   const freshRun = await runOperator("fresh", { approval: approvalPath });
   assert.equal(freshRun.code, 0, freshRun.stderr);

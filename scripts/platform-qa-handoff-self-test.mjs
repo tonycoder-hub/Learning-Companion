@@ -119,6 +119,16 @@ try {
   assert.equal(windows.currentTemplateSummary.nt, 10);
   assert.equal(harmony.currentTemplateSummary.rows, 10);
   assert.equal(harmony.currentTemplateSummary.nt, 10);
+  assert.deepEqual(Object.keys(mac.executionChecklist), [
+    "beforeRun",
+    "duringRun",
+    "afterRun",
+    "notAcceptedEvidence"
+  ]);
+  assert.match(mac.executionChecklist.beforeRun.join("\n"), /exact clean git HEAD/);
+  assert.match(mac.executionChecklist.duringRun.join("\n"), /required session field/);
+  assert.match(mac.executionChecklist.afterRun.join("\n"), /mac:manual:validate/);
+  assert.equal(mac.executionChecklist.notAcceptedEvidence.includes("Fixture receipts"), true);
   assert.match(mac.nextRealRunSteps.join("\n"), /traceably produced from git HEAD [0-9a-f]{40}/);
   assert.match(mac.cannotBeFilledFrom.join("\n"), /Fixture receipts/);
   assert.equal((await stat(cleanRun.jsonPath)).mode & 0o777, 0o600);
@@ -127,6 +137,9 @@ try {
   assert.match(cleanMarkdown, /Platform QA Execution Handoff/);
   assert.match(cleanMarkdown, /Can claim KO: false/);
   assert.match(cleanMarkdown, /KO status freshness: CURRENT\\_CLEAN\\_HEAD\\_KO\\_STATUS/);
+  assert.match(cleanMarkdown, /Execution checklist/);
+  assert.match(cleanMarkdown, /Before run/);
+  assert.match(cleanMarkdown, /Not accepted as evidence/);
   assert.match(cleanMarkdown, /Cannot be filled from/);
   assert.match(cleanMarkdown, /No Mac GUI manual QA was run by this handoff/);
 
