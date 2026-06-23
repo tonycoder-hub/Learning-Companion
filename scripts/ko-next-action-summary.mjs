@@ -13,8 +13,9 @@ import {
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
 const sourceApprovalRequestPath = args["source-approval-request"] || ".codex-tmp/external-source-validation/source-approval-request.json";
+const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
-const PATH_ARGS = ["status", "source-approval-request", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
+const PATH_ARGS = ["status", "source-approval-request", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
 
 if (args.help) {
   console.log(buildHelp());
@@ -37,6 +38,7 @@ if (!existsSync(statusPath)) {
 
 const status = JSON.parse(await readFile(statusPath, "utf8"));
 const sourceApprovalRequestState = await readSourceApprovalRequest(sourceApprovalRequestPath, Boolean(args["source-approval-request"]));
+const operatorState = await readOperatorPacket(operatorPath, Boolean(args.operator));
 const currentRevision = sourceApprovalRequestState.request ? await readCurrentRevision() : null;
 const sourceApprovalFreshness = sourceApprovalRequestState.request
   ? await assessSourceApprovalFreshness(sourceApprovalRequestState.request, currentRevision)
@@ -45,7 +47,10 @@ console.log(buildSummary(status, statusPath, {
   sourceApprovalRequest: sourceApprovalRequestState.request,
   sourceApprovalRequestPath,
   sourceApprovalRequestWarning: sourceApprovalRequestState.warning,
-  sourceApprovalFreshness
+  sourceApprovalFreshness,
+  operatorPacket: operatorState.packet,
+  operatorPath,
+  operatorWarning: operatorState.warning
 }));
 
 async function refreshKoStatus(outPath, parsedArgs) {
@@ -73,6 +78,49 @@ async function refreshKoStatus(outPath, parsedArgs) {
     const stderr = String(error.stderr || error.message || "").trim();
     throw new Error(`Failed to refresh KO status: ${stderr || "unknown error"}`);
   }
+}
+
+async function readOperatorPacket(path, required) {
+  if (!existsSync(path)) {
+    if (required) throw new Error(`Missing operator packet JSON: ${path}`);
+    return { packet: null, warning: "" };
+  }
+  try {
+    const packet = JSON.parse(await readFile(path, "utf8"));
+    validateOperatorPacket(packet);
+    return { packet, warning: "" };
+  } catch (error) {
+    if (required) throw error;
+    return {
+      packet: null,
+      warning: `Ignored invalid default operator packet at ${path}: ${error.message}`
+    };
+  }
+}
+
+function validateOperatorPacket(packet) {
+  if (packet.schema !== "learning-companion.next-major-operator-packet.v1") {
+    throw new Error(`Operator packet schema mismatch: ${packet.schema || "missing"}`);
+  }
+  if (packet.evidenceTier !== "NEXT_MAJOR_OPERATOR_PACKET_ONLY" || packet.canClaimNextMajorFromThisPacket !== false || packet.releaseActionAuthorized !== false) {
+    throw new Error("Operator packet must be a non-claiming NEXT_MAJOR_OPERATOR_PACKET_ONLY artifact.");
+  }
+  if (!Array.isArray(packet.nextActionSequence) || !packet.nextActionSequence.length) {
+    throw new Error("Operator packet missing nextActionSequence.");
+  }
+  for (const step of packet.nextActionSequence) {
+    requireOperatorStepField(step.order, "order");
+    requireOperatorStepField(step.id, "id");
+    requireOperatorStepField(step.operatorState, "operatorState");
+    requireOperatorStepField(step.action, "action");
+    requireOperatorStepField(step.claimBoundary, "claimBoundary");
+  }
+}
+
+function requireOperatorStepField(value, fieldName) {
+  const text = String(value ?? "").trim();
+  if (!text) throw new Error(`Operator packet nextActionSequence step missing required ${fieldName}.`);
+  return text;
 }
 
 async function readSourceApprovalRequest(path, required) {
@@ -118,7 +166,7 @@ function requireSourceApprovalField(value, fieldName) {
   return text;
 }
 
-function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness }) {
+function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorWarning }) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const platformQaStatus = Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [];
   const pass = requirements.filter((item) => item.status === "PASS");
@@ -147,6 +195,9 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     "- Real-run platform receipts are auto-selected by ko:next/ko:validate when present: .codex-tmp/mac-manual-qa/real-run-receipt.json, .codex-tmp/windows-static-qa/real-run-receipt.json, .codex-tmp/harmony-device-qa/real-run-receipt.json.",
     ...formatPlatformList(platformPending),
     "",
+    "Operator critical path:",
+    ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorWarning),
+    "",
     "Final gate after all evidence exists:",
     "- npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
     "- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json",
@@ -161,6 +212,27 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     lines.splice(lines.indexOf("Next source evidence input:") + 1, 0, "- Approved external reading/video artifact is present in this status file.");
   }
   return `${lines.join("\n")}\n`;
+}
+
+function formatOperatorCriticalPath(packet, path, warning) {
+  if (!packet) {
+    const lines = [
+      `- Current operator packet: ${path}`,
+      "- Operator critical path unavailable; generate it with: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md",
+      "- Missing or invalid operator packets do not satisfy KO evidence."
+    ];
+    if (warning) lines.unshift(`- ${warning}`);
+    return lines;
+  }
+  const lines = [
+    `- Current operator packet: ${path}`,
+    `- Evidence tier: ${packet.evidenceTier || "UNKNOWN"}; can claim next-major: ${packet.canClaimNextMajorFromThisPacket === true ? "YES" : "NO"}; release authorized: ${packet.releaseActionAuthorized === true ? "YES" : "NO"}`
+  ];
+  for (const step of packet.nextActionSequence) {
+    lines.push(`- ${step.order}. ${step.id}: ${step.operatorState} - ${step.action}`);
+  }
+  lines.push("- This operator packet still does not grant approval, run QA, perform privacy review, build, package, deploy, remote-accept, or satisfy KO evidence.");
+  return lines;
 }
 
 function formatSourceApprovalRequest(request, path, warning, sourceApprovalFreshness) {
@@ -258,11 +330,13 @@ Usage:
   npm run ko:next -- --refresh
   node scripts/ko-next-action-summary.mjs --status .codex-tmp/ko-evidence/current-status.json
   node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json
+  node scripts/ko-next-action-summary.mjs --operator .codex-tmp/next-major-operator/current.json
 
 The summary explains:
 - which KO requirements already pass,
 - which evidence is still missing,
 - what approved reading/video learning-material URLs are needed or already staged for current-turn approval,
+- the current operator critical path when available,
 - which privacy-review and final KO commands to run next.`;
 }
 
