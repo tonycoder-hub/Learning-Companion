@@ -21,7 +21,7 @@ export async function assessSourceApprovalFreshness(sourceApprovalRequest, curre
       problems.push("Current gitHead is unavailable.");
     }
     if (revision.dirtyWorktree !== false) {
-      problems.push("Current worktree is dirty; regenerate the public dry-run after committing or stashing local changes.");
+      problems.push("Current worktree is dirty; resolve current worktree changes under current-turn authorization, then regenerate the public dry-run. Do not discard changes unless explicitly asked.");
     }
     return {
       status: STALE_OR_DIRTY_PUBLIC_DRY_RUN,
@@ -46,7 +46,7 @@ export async function assessSourceApprovalFreshness(sourceApprovalRequest, curre
     problems.push("Prior public dry-run was captured with a dirty worktree.");
   }
   if (revision.dirtyWorktree !== false) {
-    problems.push("Current worktree is dirty; regenerate the public dry-run after committing or stashing local changes.");
+    problems.push("Current worktree is dirty; resolve current worktree changes under current-turn authorization, then regenerate the public dry-run. Do not discard changes unless explicitly asked.");
   }
   if (prior.profileRetained === true) {
     problems.push("Prior public dry-run retained its browser profile.");
