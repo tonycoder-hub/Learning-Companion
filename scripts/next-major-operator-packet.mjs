@@ -230,7 +230,7 @@ function appendSourceNextActions(sequence, lane) {
       operatorState: lane.operatorState,
       action: "Collect one public reading URL, one public video URL, and one video timestamp, then generate a source approval request.",
       command: [lane.nextCommands?.sourceIntake, lane.nextCommands?.sourceApprovalRequest].filter(Boolean).join(" && "),
-      produces: ".codex-tmp/external-source-validation/source-approval-request.json",
+      produces: lane.approvalRequest?.path || SOURCE_APPROVAL_REQUEST_PATH,
       claimBoundary: "Source input and approval requests do not grant approval or create KO evidence."
     });
     return;
@@ -359,8 +359,8 @@ async function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, 
         }
       : {
           sourceIntake: "npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\" --out .codex-tmp/external-source-validation/source-intake-handoff.json",
-          sourceApprovalRequest: "npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
-          approvedCandidateAfterCurrentTurnApproval: "npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note \"<current-turn approval>\"",
+          sourceApprovalRequest: `npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(sourceApprovalRequestPath)} --markdown-out ${shellQuote(markdownSiblingPath(sourceApprovalRequestPath))}`,
+          approvedCandidateAfterCurrentTurnApproval: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --approval-note "<current-turn approval>"`,
           privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
           privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
         },
@@ -637,6 +637,12 @@ function markdownInline(value) {
     .replace(/\]/g, "\\]")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function shellQuote(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
 function buildHelp() {
