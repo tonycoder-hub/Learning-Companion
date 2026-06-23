@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
@@ -38,6 +39,10 @@ const CURRENT_CLEAN_NEXT_MAJOR_READINESS = "CURRENT_CLEAN_NEXT_MAJOR_READINESS";
 
 if (args.help) {
   console.log(buildHelp());
+  process.exit(0);
+}
+if (args["self-test"]) {
+  runSelfTest();
   process.exit(0);
 }
 
@@ -438,7 +443,7 @@ function buildOperatorArtifact({ packet, path, freshness, warning }) {
       id: lane.id || "UNKNOWN",
       label: lane.label || lane.id || "UNKNOWN",
       operatorState: lane.operatorState || "UNKNOWN",
-      currentKoStatus: lane.currentKoStatus || null
+      currentKoStatus: normalizeLaneCurrentKoStatus(lane)
     })),
     nextActionSequence: (Array.isArray(packet.nextActionSequence) ? packet.nextActionSequence : []).map((step) => ({
       order: step.order,
@@ -450,6 +455,17 @@ function buildOperatorArtifact({ packet, path, freshness, warning }) {
       produces: step.produces || "",
       claimBoundary: step.claimBoundary || ""
     }))
+  };
+}
+
+function normalizeLaneCurrentKoStatus(lane = {}) {
+  if (lane.currentKoStatus) return lane.currentKoStatus;
+  return {
+    status: lane.operatorState || "UNKNOWN",
+    detail: lane.id === "finalKoGate"
+      ? "Final KO gate has no single requirement row; it waits until approved external evidence and all real platform QA receipts pass."
+      : "No direct KO requirement row is attached to this operator lane.",
+    evidencePath: ""
   };
 }
 
@@ -704,6 +720,68 @@ function shellQuote(value) {
   const text = String(value);
   if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
   return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
+function runSelfTest() {
+  const artifact = buildNextActionArtifact({
+    evidenceTier: "KO_MISSING_EVIDENCE",
+    canClaimKo: false,
+    requirements: [],
+    platformQaStatus: []
+  }, ".codex-tmp/ko-evidence/current-status.json", {
+    sourceApprovalRequest: null,
+    sourceApprovalRequestPath: DEFAULT_SOURCE_APPROVAL_REQUEST_PATH,
+    sourceApprovalMarkdownPath: DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH,
+    sourceApprovalRequestWarning: "",
+    sourceApprovalFreshness: null,
+    operatorPacket: {
+      evidenceTier: "NEXT_MAJOR_OPERATOR_PACKET_ONLY",
+      canClaimNextMajorFromThisPacket: false,
+      releaseActionAuthorized: false,
+      lanes: [
+        {
+          id: "approvedExternalReadingVideo",
+          label: "Approved external reading/video evidence",
+          operatorState: "NEEDS_CURRENT_TURN_APPROVAL",
+          currentKoStatus: {
+            status: "MISSING",
+            detail: "Requires external KO evidence.",
+            evidencePath: ""
+          }
+        },
+        {
+          id: "customDiagnosticLane",
+          label: "Custom diagnostic lane",
+          operatorState: "WAITING_FOR_OPERATOR"
+        },
+        {
+          id: "finalKoGate",
+          label: "Final KO gate",
+          operatorState: "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES"
+        }
+      ],
+      nextActionSequence: []
+    },
+    operatorPath: ".codex-tmp/next-major-operator/current.json",
+    operatorFreshness: null,
+    operatorWarning: "",
+    platformReceiptPaths,
+    cliExternalPath: ""
+  });
+  const sourceLane = artifact.operator.lanes.find((lane) => lane.id === "approvedExternalReadingVideo");
+  assert.deepEqual(sourceLane.currentKoStatus, {
+    status: "MISSING",
+    detail: "Requires external KO evidence.",
+    evidencePath: ""
+  });
+  const genericLane = artifact.operator.lanes.find((lane) => lane.id === "customDiagnosticLane");
+  assert.equal(genericLane.currentKoStatus.status, "WAITING_FOR_OPERATOR");
+  assert.match(genericLane.currentKoStatus.detail, /No direct KO requirement row/);
+  const finalLane = artifact.operator.lanes.find((lane) => lane.id === "finalKoGate");
+  assert.equal(finalLane.currentKoStatus.status, "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES");
+  assert.match(finalLane.currentKoStatus.detail, /waits until approved external evidence/);
+  assert.equal(finalLane.currentKoStatus.evidencePath, "");
+  console.log("ko_next_action_summary_selftest_ok");
 }
 
 async function writePrivateFile(path, content) {
