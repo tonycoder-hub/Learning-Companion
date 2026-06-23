@@ -41,6 +41,14 @@ npm run ko:next -- --source-approval-request .codex-tmp/external-source-validati
 npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
 ```
 
+`npm run morning:receipts` validates the currently materialized default
+`dist/morning-demo` pack. If you intentionally generate a pack into a separate
+directory, validate that exact root instead:
+
+```bash
+npm run morning:receipts -- --root <generated-morning-pack-root>
+```
+
 In the `ko:next` output, treat `Current operator packet freshness:
 CURRENT_CLEAN_OPERATOR_PACKET` as the only current operator handoff state. If it
 prints `STALE_OR_DIRTY_OPERATOR_PACKET`, do not use that packet as the current
