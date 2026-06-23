@@ -128,6 +128,53 @@ try {
   assert.ok(sourceMismatchFreshness.problems.some((problem) => problem.includes("reading URL")));
   assert.ok(sourceMismatchFreshness.problems.some((problem) => problem.includes("video timestamp")));
 
+  const genericApprovalTextRequest = buildRequest(receiptPath);
+  genericApprovalTextRequest.requestedApprovalText = "I approve the learning sources for this turn.";
+  genericApprovalTextRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(genericApprovalTextRequest);
+  const genericApprovalTextFreshness = await assessSourceApprovalFreshness(genericApprovalTextRequest, currentRevision);
+  assert.equal(genericApprovalTextFreshness.status, STALE_OR_DIRTY_PUBLIC_DRY_RUN);
+  assert.ok(genericApprovalTextFreshness.problems.some((problem) => problem.includes("exactly one reading= token")));
+
+  const suffixApprovalTextRequest = buildRequest(receiptPath);
+  suffixApprovalTextRequest.requestedApprovalText = suffixApprovalTextRequest.requestedApprovalText
+    .replace("reading=https://example.com/reading", "reading=https://example.com/reading-extra")
+    .replace("video=https://example.com/video.mp4", "video=https://example.com/video.mp4?extra=true")
+    .replace("timestamp=00:03", "timestamp=00:03Z");
+  suffixApprovalTextRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(suffixApprovalTextRequest);
+  const suffixApprovalTextFreshness = await assessSourceApprovalFreshness(suffixApprovalTextRequest, currentRevision);
+  assert.equal(suffixApprovalTextFreshness.status, STALE_OR_DIRTY_PUBLIC_DRY_RUN);
+  assert.ok(suffixApprovalTextFreshness.problems.some((problem) => problem.includes("exact approved reading URL")));
+  assert.ok(suffixApprovalTextFreshness.problems.some((problem) => problem.includes("exact approved video URL")));
+  assert.ok(suffixApprovalTextFreshness.problems.some((problem) => problem.includes("exact approved video timestamp")));
+
+  const conflictingApprovalTextRequest = buildRequest(receiptPath);
+  conflictingApprovalTextRequest.requestedApprovalText = `${conflictingApprovalTextRequest.requestedApprovalText} reading=https://example.com/other-reading`;
+  conflictingApprovalTextRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(conflictingApprovalTextRequest);
+  const conflictingApprovalTextFreshness = await assessSourceApprovalFreshness(conflictingApprovalTextRequest, currentRevision);
+  assert.equal(conflictingApprovalTextFreshness.status, STALE_OR_DIRTY_PUBLIC_DRY_RUN);
+  assert.ok(conflictingApprovalTextFreshness.problems.some((problem) => problem.includes("exactly one reading= token")));
+
+  const conflictingVideoApprovalTextRequest = buildRequest(receiptPath);
+  conflictingVideoApprovalTextRequest.requestedApprovalText = `${conflictingVideoApprovalTextRequest.requestedApprovalText} video=https://example.com/other-video.mp4`;
+  conflictingVideoApprovalTextRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(conflictingVideoApprovalTextRequest);
+  const conflictingVideoApprovalTextFreshness = await assessSourceApprovalFreshness(conflictingVideoApprovalTextRequest, currentRevision);
+  assert.equal(conflictingVideoApprovalTextFreshness.status, STALE_OR_DIRTY_PUBLIC_DRY_RUN);
+  assert.ok(conflictingVideoApprovalTextFreshness.problems.some((problem) => problem.includes("exactly one video= token")));
+
+  const conflictingTimestampApprovalTextRequest = buildRequest(receiptPath);
+  conflictingTimestampApprovalTextRequest.requestedApprovalText = `${conflictingTimestampApprovalTextRequest.requestedApprovalText} timestamp=00:04`;
+  conflictingTimestampApprovalTextRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(conflictingTimestampApprovalTextRequest);
+  const conflictingTimestampApprovalTextFreshness = await assessSourceApprovalFreshness(conflictingTimestampApprovalTextRequest, currentRevision);
+  assert.equal(conflictingTimestampApprovalTextFreshness.status, STALE_OR_DIRTY_PUBLIC_DRY_RUN);
+  assert.ok(conflictingTimestampApprovalTextFreshness.problems.some((problem) => problem.includes("exactly one timestamp= token")));
+
+  const missingApprovalTextRequest = buildRequest(receiptPath);
+  missingApprovalTextRequest.requestedApprovalText = "";
+  missingApprovalTextRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(missingApprovalTextRequest);
+  const missingApprovalTextFreshness = await assessSourceApprovalFreshness(missingApprovalTextRequest, currentRevision);
+  assert.equal(missingApprovalTextFreshness.status, STALE_OR_DIRTY_PUBLIC_DRY_RUN);
+  assert.ok(missingApprovalTextFreshness.problems.some((problem) => problem.includes("approval text is missing")));
+
   const invalidJsonReceiptPath = join(tmp, "invalid-json-receipt.json");
   await writeFile(invalidJsonReceiptPath, "{not-json}\n");
   const invalidJsonRequest = buildRequest(invalidJsonReceiptPath);
@@ -230,7 +277,7 @@ function buildRequest(receiptPath) {
         timestamp: "00:03"
       }
     },
-    requestedApprovalText: "I approve the exact test sources.",
+    requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://example.com/reading video=https://example.com/video.mp4 timestamp=00:03 They may be used for Learning Companion external-source validation screenshots and privacy review.",
     nextCommands: {
       approvedCandidateAfterCurrentTurnApproval: ""
     }

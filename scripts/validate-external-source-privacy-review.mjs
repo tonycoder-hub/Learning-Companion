@@ -439,7 +439,97 @@ async function runSelfTest() {
       }
     },
     reviewPath: join(root, "incomplete-requested-approval-text-review.json")
+  }), /requested approval text must contain exactly one reading= token/);
+
+  const mismatchedSingleRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  mismatchedSingleRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText = fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText.replace(
+    `reading=${fixture.receipt.sourceApprovalRequestBinding.approvedReadingUrl}`,
+    "reading=https://www.wikipedia.org/other-reading"
+  );
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: mismatchedSingleRequestedApprovalTextReceipt,
+    receiptPath: join(root, "mismatched-single-requested-approval-text-receipt.json"),
+    review: {
+      ...validReview,
+      sourceApproval: {
+        ...validReview.sourceApproval,
+        requestedApprovalText: mismatchedSingleRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText
+      }
+    },
+    reviewPath: join(root, "mismatched-single-requested-approval-text-review.json")
   }), /requested approval text must include the exact approved reading URL/);
+
+  const suffixRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  suffixRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText = fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText
+    .replace(
+      `reading=${fixture.receipt.sourceApprovalRequestBinding.approvedReadingUrl}`,
+      `reading=${fixture.receipt.sourceApprovalRequestBinding.approvedReadingUrl}-extra`
+    )
+    .replace(
+      `video=${fixture.receipt.sourceApprovalRequestBinding.approvedVideoUrl}`,
+      `video=${fixture.receipt.sourceApprovalRequestBinding.approvedVideoUrl}&extra=true`
+    )
+    .replace(
+      `timestamp=${fixture.receipt.sourceApprovalRequestBinding.approvedVideoTimestamp}`,
+      `timestamp=${fixture.receipt.sourceApprovalRequestBinding.approvedVideoTimestamp}Z`
+    );
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: suffixRequestedApprovalTextReceipt,
+    receiptPath: join(root, "suffix-requested-approval-text-receipt.json"),
+    review: {
+      ...validReview,
+      sourceApproval: {
+        ...validReview.sourceApproval,
+        requestedApprovalText: suffixRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText
+      }
+    },
+    reviewPath: join(root, "suffix-requested-approval-text-review.json")
+  }), /requested approval text must include the exact approved reading URL/);
+
+  const conflictingRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  conflictingRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText = `${fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText} reading=https://www.wikipedia.org/other-reading`;
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: conflictingRequestedApprovalTextReceipt,
+    receiptPath: join(root, "conflicting-requested-approval-text-receipt.json"),
+    review: {
+      ...validReview,
+      sourceApproval: {
+        ...validReview.sourceApproval,
+        requestedApprovalText: conflictingRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText
+      }
+    },
+    reviewPath: join(root, "conflicting-requested-approval-text-review.json")
+  }), /requested approval text must contain exactly one reading= token/);
+
+  const conflictingVideoRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  conflictingVideoRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText = `${fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText} video=https://www.youtube.com/watch?v=other-video`;
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: conflictingVideoRequestedApprovalTextReceipt,
+    receiptPath: join(root, "conflicting-video-requested-approval-text-receipt.json"),
+    review: {
+      ...validReview,
+      sourceApproval: {
+        ...validReview.sourceApproval,
+        requestedApprovalText: conflictingVideoRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText
+      }
+    },
+    reviewPath: join(root, "conflicting-video-requested-approval-text-review.json")
+  }), /requested approval text must contain exactly one video= token/);
+
+  const conflictingTimestampRequestedApprovalTextReceipt = cloneFixtureReceipt();
+  conflictingTimestampRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText = `${fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText} timestamp=01:36`;
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: conflictingTimestampRequestedApprovalTextReceipt,
+    receiptPath: join(root, "conflicting-timestamp-requested-approval-text-receipt.json"),
+    review: {
+      ...validReview,
+      sourceApproval: {
+        ...validReview.sourceApproval,
+        requestedApprovalText: conflictingTimestampRequestedApprovalTextReceipt.sourceApprovalRequestBinding.requestedApprovalText
+      }
+    },
+    reviewPath: join(root, "conflicting-timestamp-requested-approval-text-review.json")
+  }), /requested approval text must contain exactly one timestamp= token/);
 
   const mismatchedRequestedApprovalTextReview = {
     ...validReview,
@@ -683,6 +773,11 @@ async function runSelfTest() {
       "mismatched source approval request video timestamp rejected",
       "missing requested approval text in source approval binding rejected",
       "incomplete requested approval text in source approval binding rejected",
+      "mismatched single-token requested approval text in source approval binding rejected",
+      "suffix requested approval text in source approval binding rejected",
+      "conflicting requested approval text in source approval binding rejected",
+      "conflicting video requested approval text in source approval binding rejected",
+      "conflicting timestamp requested approval text in source approval binding rejected",
       "mismatched requested approval text in privacy review rejected",
       "failed privacy boolean rejected",
       "placeholder reviewer rejected",
@@ -733,7 +828,7 @@ async function createCandidateFixture(root) {
       requestSchema: "learning-companion.external-source-approval-request.v1",
       evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
       canClaimExternalKo: false,
-      requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://www.wikipedia.org/learning-companion-approved-reading video=https://www.youtube.com/watch?v=learning-companion-approved-video timestamp=01:35. They may be used for Learning Companion external-source validation screenshots and privacy review.",
+      requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://www.wikipedia.org/learning-companion-approved-reading video=https://www.youtube.com/watch?v=learning-companion-approved-video timestamp=01:35 They may be used for Learning Companion external-source validation screenshots and privacy review.",
       requestedApprovalTextMatched: true,
       approvedReadingUrl: "https://www.wikipedia.org/learning-companion-approved-reading",
       approvedVideoUrl: "https://www.youtube.com/watch?v=learning-companion-approved-video",
@@ -1002,9 +1097,24 @@ function assertIsoDateTime(value, label) {
 }
 
 function assertRequestedApprovalTextCoversSources(text, { readingUrl, videoUrl, videoTimestamp }) {
-  assert.equal(String(text).includes(`reading=${readingUrl}`), true, "requested approval text must include the exact approved reading URL");
-  assert.equal(String(text).includes(`video=${videoUrl}`), true, "requested approval text must include the exact approved video URL");
-  assert.equal(String(text).includes(`timestamp=${videoTimestamp}`), true, "requested approval text must include the exact approved video timestamp");
+  const tokens = parseApprovalTokens(text);
+  assert.equal(tokens.reading.count, 1, "requested approval text must contain exactly one reading= token");
+  assert.equal(tokens.video.count, 1, "requested approval text must contain exactly one video= token");
+  assert.equal(tokens.timestamp.count, 1, "requested approval text must contain exactly one timestamp= token");
+  assert.equal(tokens.reading.value, readingUrl, "requested approval text must include the exact approved reading URL");
+  assert.equal(tokens.video.value, videoUrl, "requested approval text must include the exact approved video URL");
+  assert.equal(tokens.timestamp.value, videoTimestamp, "requested approval text must include the exact approved video timestamp");
+}
+
+function parseApprovalTokens(text) {
+  const value = String(text || "");
+  return Object.fromEntries(["reading", "video", "timestamp"].map((token) => {
+    const matches = Array.from(value.matchAll(new RegExp(`(^|\\s)${token}=([^\\s]+)`, "g")));
+    return [token, {
+      count: matches.length,
+      value: matches[0]?.[2] || ""
+    }];
+  }));
 }
 
 function normalizeReviewText(value) {

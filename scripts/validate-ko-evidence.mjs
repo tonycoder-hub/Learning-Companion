@@ -1019,9 +1019,24 @@ function assertExternalSourceApprovalRequest(sourceApprovalRequest, claim, { cur
 }
 
 function assertRequestedApprovalTextCoversClaim(text, claim) {
-  assert.equal(String(text).includes(`reading=${claim.reading.url}`), true, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved reading URL");
-  assert.equal(String(text).includes(`video=${claim.video.url}`), true, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved video URL");
-  assert.equal(String(text).includes(`timestamp=${claim.video.timestamp}`), true, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved video timestamp");
+  const tokens = parseApprovalTokens(text);
+  assert.equal(tokens.reading.count, 1, "external claim sourceApprovalRequest.requestedApprovalText must contain exactly one reading= token");
+  assert.equal(tokens.video.count, 1, "external claim sourceApprovalRequest.requestedApprovalText must contain exactly one video= token");
+  assert.equal(tokens.timestamp.count, 1, "external claim sourceApprovalRequest.requestedApprovalText must contain exactly one timestamp= token");
+  assert.equal(tokens.reading.value, claim.reading.url, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved reading URL");
+  assert.equal(tokens.video.value, claim.video.url, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved video URL");
+  assert.equal(tokens.timestamp.value, claim.video.timestamp, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved video timestamp");
+}
+
+function parseApprovalTokens(text) {
+  const value = String(text || "");
+  return Object.fromEntries(["reading", "video", "timestamp"].map((token) => {
+    const matches = Array.from(value.matchAll(new RegExp(`(^|\\s)${token}=([^\\s]+)`, "g")));
+    return [token, {
+      count: matches.length,
+      value: matches[0]?.[2] || ""
+    }];
+  }));
 }
 
 function assertExternalSource(source, label, { allowSelfTestFixtures = false } = {}) {
@@ -1511,7 +1526,127 @@ async function runSelfTest() {
     allowSelfTestFixtures: true
   });
   assert.equal(incompleteRequestedApprovalTextReport.canClaimKo, false);
-  assert.ok(incompleteRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must include the exact approved reading URL")));
+  assert.ok(incompleteRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must contain exactly one reading= token")));
+
+  const mismatchedSingleRequestedApprovalTextPath = join(root, "mismatched-single-external-source-approval-requested-text.json");
+  await writeJson(mismatchedSingleRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: fixtures.externalClaim.sourceApprovalRequest.requestedApprovalText.replace(
+        `reading=${fixtures.externalClaim.reading.url}`,
+        "reading=https://www.wikipedia.org/other-approved-reading"
+      )
+    }
+  });
+  const mismatchedSingleRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: mismatchedSingleRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedSingleRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(mismatchedSingleRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must include the exact approved reading URL")));
+
+  const suffixRequestedApprovalTextPath = join(root, "suffix-external-source-approval-requested-text.json");
+  await writeJson(suffixRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: fixtures.externalClaim.sourceApprovalRequest.requestedApprovalText
+        .replace(
+          `reading=${fixtures.externalClaim.reading.url}`,
+          `reading=${fixtures.externalClaim.reading.url}-extra`
+        )
+        .replace(
+          `video=${fixtures.externalClaim.video.url}`,
+          `video=${fixtures.externalClaim.video.url}&extra=true`
+        )
+        .replace(
+          `timestamp=${fixtures.externalClaim.video.timestamp}`,
+          `timestamp=${fixtures.externalClaim.video.timestamp}Z`
+        )
+    }
+  });
+  const suffixRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: suffixRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(suffixRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(suffixRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must include the exact approved reading URL")));
+
+  const conflictingRequestedApprovalTextPath = join(root, "conflicting-external-source-approval-requested-text.json");
+  await writeJson(conflictingRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: `${fixtures.externalClaim.sourceApprovalRequest.requestedApprovalText} reading=https://www.wikipedia.org/other-approved-reading`
+    }
+  });
+  const conflictingRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: conflictingRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(conflictingRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(conflictingRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must contain exactly one reading= token")));
+
+  const conflictingVideoRequestedApprovalTextPath = join(root, "conflicting-video-external-source-approval-requested-text.json");
+  await writeJson(conflictingVideoRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: `${fixtures.externalClaim.sourceApprovalRequest.requestedApprovalText} video=https://www.youtube.com/watch?v=other-video`
+    }
+  });
+  const conflictingVideoRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: conflictingVideoRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(conflictingVideoRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(conflictingVideoRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must contain exactly one video= token")));
+
+  const conflictingTimestampRequestedApprovalTextPath = join(root, "conflicting-timestamp-external-source-approval-requested-text.json");
+  await writeJson(conflictingTimestampRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: `${fixtures.externalClaim.sourceApprovalRequest.requestedApprovalText} timestamp=01:36`
+    }
+  });
+  const conflictingTimestampRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: conflictingTimestampRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(conflictingTimestampRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(conflictingTimestampRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must contain exactly one timestamp= token")));
 
   const mismatchedExternalSourceApprovalRequestUrlPath = join(root, "mismatched-external-source-approval-request-url.json");
   await writeJson(mismatchedExternalSourceApprovalRequestUrlPath, {
@@ -2469,7 +2604,7 @@ async function createKoFixtures(root) {
       evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
       canClaimExternalKo: false,
       freshnessStatus: CURRENT_CLEAN_PUBLIC_DRY_RUN,
-      requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://www.wikipedia.org/learning-companion-approved-reading video=https://www.youtube.com/watch?v=learning-companion-approved-video timestamp=01:35. They may be used for Learning Companion external-source validation screenshots and privacy review.",
+      requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://www.wikipedia.org/learning-companion-approved-reading video=https://www.youtube.com/watch?v=learning-companion-approved-video timestamp=01:35 They may be used for Learning Companion external-source validation screenshots and privacy review.",
       requestedApprovalTextMatched: true,
       approvedReadingUrl: "https://www.wikipedia.org/learning-companion-approved-reading",
       approvedVideoUrl: "https://www.youtube.com/watch?v=learning-companion-approved-video",
