@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { promisify } from "node:util";
 
 const MAC_MANUAL_QA_RECEIPT_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -9,6 +11,9 @@ const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = 27;
+const MAX_STATUS_SUMMARY_LINES = 20;
+const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
+const execFileAsync = promisify(execFile);
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
   ["reviewer", "Reviewer"],
@@ -120,7 +125,46 @@ function isPass(value) {
   return normalizeResult(value) === "PASS";
 }
 
-function validateMacManualQa(markdown, qaPath) {
+async function readCurrentRevision() {
+  try {
+    const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
+      execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 128 * 1024 }),
+      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES })
+    ]);
+    const statusLines = parseGitStatusLines(statusStdout);
+    return {
+      gitAvailable: true,
+      gitHead: headStdout.trim() || "TBD",
+      dirtyWorktree: statusLines.length > 0,
+      statusLineCount: statusLines.length,
+      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
+      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
+    };
+  } catch (error) {
+    return {
+      gitAvailable: false,
+      gitHead: "TBD",
+      dirtyWorktree: true,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false,
+      error: String(error?.message || error || "TBD")
+    };
+  }
+}
+
+function parseGitStatusLines(statusStdout) {
+  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
+  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
+}
+
+function revisionCanClaim(currentRevision) {
+  return currentRevision.gitAvailable === true
+    && currentRevision.dirtyWorktree === false
+    && /^[0-9a-f]{40}$/i.test(String(currentRevision.gitHead || ""));
+}
+
+function validateMacManualQa(markdown, qaPath, currentRevision) {
   const errors = [];
   if (!/^# Learning Companion Mac Manual QA Receipt$/m.test(markdown)) {
     errors.push("missing Mac manual QA heading");
@@ -207,6 +251,9 @@ function validateMacManualQa(markdown, qaPath) {
   }
   const nativeBuildGatePass = isPass(sessionFields.nativeBuildGateResult);
   const browserSmokeGatePass = isPass(sessionFields.browserSmokeGateResult);
+  if (anyRealRowsFilled && !revisionCanClaim(currentRevision)) {
+    errors.push("Mac manual QA has filled rows but the validator did not run from a clean git HEAD");
+  }
 
   const canClaimMacManualQaUsable = errors.length === 0 && allRowsPass && nativeBuildGatePass && browserSmokeGatePass;
   const evidenceTier = canClaimMacManualQaUsable
@@ -217,6 +264,10 @@ function validateMacManualQa(markdown, qaPath) {
     evidenceTier,
     generatedAt: new Date().toISOString(),
     qaPath,
+    runContext: {
+      schema: "learning-companion.platform-qa-run-context.v1",
+      appRevision: currentRevision
+    },
     summary: {
       ok: errors.length === 0,
       rows: rows.length,
@@ -232,6 +283,7 @@ function validateMacManualQa(markdown, qaPath) {
     errors,
     claimBoundary: {
       canClaimMacManualQaUsable,
+      requiresCurrentCleanRevision: true,
       doesNotProve: [
         "Signed or notarized Mac packaging",
         "Production update or install flow",
@@ -258,7 +310,8 @@ function summarizeRows(rows) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const markdown = await readFile(options.qaPath, "utf8");
-  const receipt = validateMacManualQa(markdown, options.qaPath);
+  const currentRevision = await readCurrentRevision();
+  const receipt = validateMacManualQa(markdown, options.qaPath, currentRevision);
   assert.equal(receipt.schema, MAC_MANUAL_QA_RECEIPT_SCHEMA);
   if (options.outPath) {
     await mkdir(dirname(options.outPath), { recursive: true, mode: 0o700 });

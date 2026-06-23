@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -16,6 +17,8 @@ const PLATFORM_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const MAX_STATUS_SUMMARY_LINES = 20;
+const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
 const MAC_MANUAL_QA_AREAS = [
   "Launch",
   "Morning pack shortcut",
@@ -163,6 +166,7 @@ async function buildKoReport({
   const blockers = [];
   const warnings = [];
   const evidence = {};
+  const currentRevision = readCurrentRevision();
   const platformQaStatus = summarizePlatformQaStatus([
     {
       id: "nativeMacManualQa",
@@ -209,7 +213,7 @@ async function buildKoReport({
         ["macReturnFilesImportPass", "Mac Return Files import gate"]
       ]
     }
-  ]);
+  ], { currentRevision, allowSelfTestFixtures });
 
   collectRequirement({
     requirements,
@@ -219,7 +223,8 @@ async function buildKoReport({
     validate: validateBilingualReceipt,
     evidenceKey: "bilingualRuntime",
     evidence,
-    allowSelfTestFixtures
+    allowSelfTestFixtures,
+    currentRevision
   });
 
   collectRequirement({
@@ -230,7 +235,8 @@ async function buildKoReport({
     validate: validateAgentLoopReceipt,
     evidenceKey: "controlledLearningLoop",
     evidence,
-    allowSelfTestFixtures
+    allowSelfTestFixtures,
+    currentRevision
   });
 
   collectRequirement({
@@ -241,7 +247,8 @@ async function buildKoReport({
     validate: validateMacManualQaReceipt,
     evidenceKey: "nativeMacManualQa",
     evidence,
-    allowSelfTestFixtures
+    allowSelfTestFixtures,
+    currentRevision
   });
 
   collectRequirement({
@@ -252,7 +259,8 @@ async function buildKoReport({
     validate: validateWindowsStaticQaReceipt,
     evidenceKey: "windowsStaticManualQa",
     evidence,
-    allowSelfTestFixtures
+    allowSelfTestFixtures,
+    currentRevision
   });
 
   collectRequirement({
@@ -263,7 +271,8 @@ async function buildKoReport({
     validate: validateHarmonyDeviceQaReceipt,
     evidenceKey: "harmonyDeviceQa",
     evidence,
-    allowSelfTestFixtures
+    allowSelfTestFixtures,
+    currentRevision
   });
 
   if (!externalPath) {
@@ -283,7 +292,8 @@ async function buildKoReport({
       validate: (claim, claimPath) => validateExternalClaim(claim, claimPath, { allowSelfTestFixtures }),
       evidenceKey: "approvedExternalReadingVideo",
       evidence,
-      allowSelfTestFixtures
+      allowSelfTestFixtures,
+      currentRevision
     });
   }
 
@@ -299,6 +309,7 @@ async function buildKoReport({
     blockers,
     warnings,
     platformQaStatus,
+    currentRevision,
     evidence,
     allowMissing,
     claimBoundary: {
@@ -318,13 +329,13 @@ async function buildKoReport({
   };
 }
 
-function collectRequirement({ requirements, blockers, label, path, validate, evidenceKey, evidence, allowSelfTestFixtures = false }) {
+function collectRequirement({ requirements, blockers, label, path, validate, evidenceKey, evidence, allowSelfTestFixtures = false, currentRevision }) {
   try {
     assertNonTbd(path, `${label} evidence path`);
     if (!allowSelfTestFixtures) rejectSelfTestPath(path, `${label} evidence path`);
     assert.equal(existsSync(path), true, `${label} evidence file missing: ${path}`);
     const parsed = readJsonSync(path, label);
-    const summary = validate(parsed, path);
+    const summary = validate(parsed, path, { allowSelfTestFixtures, currentRevision });
     requirements.push({
       id: evidenceKey,
       status: "PASS",
@@ -347,7 +358,46 @@ function selectPlatformReceiptPath({ realRunPath, pendingPath }) {
   return existsSync(realRunPath) ? realRunPath : pendingPath;
 }
 
-function summarizePlatformQaStatus(items) {
+function readCurrentRevision() {
+  try {
+    const headStdout = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      maxBuffer: 128 * 1024
+    });
+    const statusStdout = execFileSync("git", ["status", "--short"], {
+      cwd: process.cwd(),
+      encoding: "utf8",
+      maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES
+    });
+    const statusLines = parseGitStatusLines(statusStdout);
+    return {
+      gitAvailable: true,
+      gitHead: headStdout.trim() || "TBD",
+      dirtyWorktree: statusLines.length > 0,
+      statusLineCount: statusLines.length,
+      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
+      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
+    };
+  } catch (error) {
+    return {
+      gitAvailable: false,
+      gitHead: "TBD",
+      dirtyWorktree: "TBD",
+      statusLineCount: "TBD",
+      statusSummary: "",
+      statusTruncated: "TBD",
+      error: String(error?.message || error || "TBD")
+    };
+  }
+}
+
+function parseGitStatusLines(statusStdout) {
+  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
+  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
+}
+
+function summarizePlatformQaStatus(items, context = {}) {
   return items.map((item) => {
     const evidencePath = item.path || "";
     const base = {
@@ -385,7 +435,7 @@ function summarizePlatformQaStatus(items) {
       const claimAllowed = receipt.claimBoundary?.[item.claimKey] === true;
       const platformEvidenceErrors = [
         ...platformRowEvidenceErrors(receipt, item),
-        ...platformClaimEvidenceErrors(receipt, item)
+        ...platformClaimEvidenceErrors(receipt, item, context)
       ];
       const blockingReasons = summarizePlatformBlockingReasons({ summary, gates, claimAllowed, platformEvidenceErrors });
       return {
@@ -454,10 +504,14 @@ function classifyPlatformQaStatus({ summary, gates, claimAllowed, platformEviden
   return "INVALID_OR_INCOMPLETE";
 }
 
-function platformClaimEvidenceErrors(receipt, item) {
+function platformClaimEvidenceErrors(receipt, item, context = {}) {
   const errors = [];
   const rowSummary = derivePlatformRowSummary(receipt.rows, item.expectedAreas?.length || 0);
   const receiptErrors = Array.isArray(receipt.errors) ? receipt.errors : [];
+  const runContextErrors = rowSummary.anyRealRowsFilled === true || receipt.claimBoundary?.[item.claimKey] === true
+    ? platformRunContextErrors(receipt, item, context)
+    : [];
+  errors.push(...runContextErrors);
   if (!Array.isArray(receipt.errors)) {
     errors.push(`${item.label} receipt errors must be listed`);
   }
@@ -493,7 +547,8 @@ function platformClaimEvidenceErrors(receipt, item) {
   const expectedClaimAllowed = receiptErrors.length === 0
     && rowSummary.allRowsPass === true
     && gatesPass
-    && fullRunFieldsConcrete;
+    && fullRunFieldsConcrete
+    && runContextErrors.length === 0;
   const claimAllowed = receipt.claimBoundary?.[item.claimKey] === true;
   if (claimAllowed !== expectedClaimAllowed) {
     errors.push(`${item.label} claim boundary must match derived platform evidence: expected ${expectedClaimAllowed}`);
@@ -509,6 +564,57 @@ function platformClaimEvidenceErrors(receipt, item) {
   }
   if (rowSummary.anyRealRowsFilled && !expectedClaimAllowed && receipt.evidenceTier !== "PARTIAL_PLATFORM_QA") {
     errors.push(`${item.label} evidenceTier must be PARTIAL_PLATFORM_QA for non-claimable filled platform rows`);
+  }
+  return errors;
+}
+
+function platformRunContextErrors(receipt, item, { currentRevision = {}, allowSelfTestFixtures = false } = {}) {
+  const errors = [];
+  const runContext = receipt.runContext || {};
+  const appRevision = runContext.appRevision || {};
+  const fixtureBypass = allowSelfTestFixtures && receipt.fixtureOnly === true;
+  if (runContext.schema !== "learning-companion.platform-qa-run-context.v1") {
+    errors.push(`${item.label} runContext schema must be learning-companion.platform-qa-run-context.v1`);
+  }
+  if (appRevision.gitAvailable !== true) {
+    errors.push(`${item.label} runContext.appRevision.gitAvailable must be true`);
+  }
+  if (!/^[0-9a-f]{40}$/i.test(String(appRevision.gitHead || ""))) {
+    errors.push(`${item.label} runContext.appRevision.gitHead must be a full git SHA`);
+  }
+  if (typeof appRevision.dirtyWorktree !== "boolean") {
+    errors.push(`${item.label} runContext.appRevision.dirtyWorktree must be boolean`);
+  }
+  if (!Number.isInteger(appRevision.statusLineCount) || appRevision.statusLineCount < 0) {
+    errors.push(`${item.label} runContext.appRevision.statusLineCount must be a non-negative integer`);
+  }
+  if (typeof appRevision.statusSummary !== "string") {
+    errors.push(`${item.label} runContext.appRevision.statusSummary must be a string`);
+  }
+  if (typeof appRevision.statusTruncated !== "boolean") {
+    errors.push(`${item.label} runContext.appRevision.statusTruncated must be boolean`);
+  }
+  if (appRevision.dirtyWorktree === false && appRevision.statusLineCount !== 0) {
+    errors.push(`${item.label} runContext.appRevision clean status must have zero status lines`);
+  }
+  if (appRevision.dirtyWorktree === true && appRevision.statusLineCount === 0) {
+    errors.push(`${item.label} runContext.appRevision dirty status must name at least one status line`);
+  }
+  if (fixtureBypass) return errors;
+  if (appRevision.dirtyWorktree !== false) {
+    errors.push(`${item.label} platform QA validator must run from a clean git worktree`);
+  }
+  if (currentRevision.gitAvailable !== true) {
+    errors.push(`${item.label} KO validation git state is unavailable`);
+  } else if (currentRevision.dirtyWorktree !== false) {
+    errors.push(`${item.label} KO validation must run from a clean git worktree`);
+  } else if (currentRevision.statusLineCount !== 0) {
+    errors.push(`${item.label} KO validation clean status must have zero status lines`);
+  }
+  if (!currentRevision.gitHead || !/^[0-9a-f]{40}$/i.test(String(currentRevision.gitHead))) {
+    errors.push(`${item.label} current KO validation gitHead is unavailable`);
+  } else if (appRevision.gitHead && appRevision.gitHead !== currentRevision.gitHead) {
+    errors.push(`${item.label} platform QA receipt gitHead ${appRevision.gitHead} does not match current HEAD ${currentRevision.gitHead}`);
   }
   return errors;
 }
@@ -652,7 +758,7 @@ function validateBilingualReceipt(receipt) {
   };
 }
 
-function validateMacManualQaReceipt(receipt) {
+function validateMacManualQaReceipt(receipt, _path = "", context = {}) {
   assert.equal(receipt.schema, MAC_MANUAL_QA_SCHEMA, "Mac manual QA receipt schema mismatch");
   const item = {
     label: "Mac manual QA",
@@ -667,7 +773,7 @@ function validateMacManualQaReceipt(receipt) {
     claimKey: "canClaimMacManualQaUsable"
   };
   assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Mac manual QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item), [], "Mac manual QA session fields, tier, errors, and claim boundary must match derived evidence");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, context), [], "Mac manual QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "Mac manual QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Mac manual QA rows must all PASS");
   assertTrue(receipt.summary?.nativeBuildGatePass, "Mac native build gate must PASS");
@@ -683,12 +789,13 @@ function validateMacManualQaReceipt(receipt) {
       rows: receipt.summary.rows,
       pass: receipt.summary.pass,
       reviewer: receipt.sessionFields?.reviewer,
-      macosVersion: receipt.sessionFields?.macosVersion
+      macosVersion: receipt.sessionFields?.macosVersion,
+      runContext: receipt.runContext
     }
   };
 }
 
-function validateWindowsStaticQaReceipt(receipt) {
+function validateWindowsStaticQaReceipt(receipt, _path = "", context = {}) {
   assert.equal(receipt.schema, WINDOWS_STATIC_QA_SCHEMA, "Windows static QA receipt schema mismatch");
   const item = {
     label: "Windows static QA",
@@ -703,7 +810,7 @@ function validateWindowsStaticQaReceipt(receipt) {
     claimKey: "canClaimWindowsStaticLoopUsable"
   };
   assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Windows static QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item), [], "Windows static QA session fields, tier, errors, and claim boundary must match derived evidence");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, context), [], "Windows static QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "Windows static QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Windows static QA rows must all PASS");
   assertTrue(receipt.summary?.staticReturnContractGatePass, "Windows static-return contract gate must PASS");
@@ -719,12 +826,13 @@ function validateWindowsStaticQaReceipt(receipt) {
       rows: receipt.summary.rows,
       pass: receipt.summary.pass,
       reviewer: receipt.sessionFields?.reviewer,
-      windowsBrowserDevice: receipt.sessionFields?.windowsBrowserDevice
+      windowsBrowserDevice: receipt.sessionFields?.windowsBrowserDevice,
+      runContext: receipt.runContext
     }
   };
 }
 
-function validateHarmonyDeviceQaReceipt(receipt) {
+function validateHarmonyDeviceQaReceipt(receipt, _path = "", context = {}) {
   assert.equal(receipt.schema, HARMONY_DEVICE_QA_SCHEMA, "HarmonyOS device QA receipt schema mismatch");
   const item = {
     label: "HarmonyOS device QA",
@@ -739,7 +847,7 @@ function validateHarmonyDeviceQaReceipt(receipt) {
     claimKey: "canClaimHarmonyDeviceRoundtripUsable"
   };
   assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "HarmonyOS device QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item), [], "HarmonyOS device QA session fields, tier, errors, and claim boundary must match derived evidence");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, context), [], "HarmonyOS device QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "HarmonyOS device QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "HarmonyOS device QA rows must all PASS");
   assertTrue(receipt.summary?.devEcoToolchainGatePass, "HarmonyOS DevEco/toolchain gate must PASS");
@@ -755,7 +863,8 @@ function validateHarmonyDeviceQaReceipt(receipt) {
       rows: receipt.summary.rows,
       pass: receipt.summary.pass,
       reviewer: receipt.sessionFields?.reviewer,
-      harmonyDeviceBuild: receipt.sessionFields?.harmonyDeviceBuild
+      harmonyDeviceBuild: receipt.sessionFields?.harmonyDeviceBuild,
+      runContext: receipt.runContext
     }
   };
 }
@@ -1456,6 +1565,131 @@ async function runSelfTest() {
   const nonClaimableManualTierStatus = nonClaimableManualTierReport.platformQaStatus.find((item) => item.id === "harmonyDeviceQa");
   assert.equal(nonClaimableManualTierStatus?.status, "INVALID_OR_INCOMPLETE");
 
+  const stalePlatformRevisionPath = join(root, "stale-platform-revision-receipt.json");
+  await writeJson(stalePlatformRevisionPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    runContext: {
+      ...fixtures.macManualReceipt.runContext,
+      appRevision: {
+        ...fixtures.macManualReceipt.runContext.appRevision,
+        gitHead: "ffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  });
+  const stalePlatformRevisionReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: stalePlatformRevisionPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(stalePlatformRevisionReport.canClaimKo, false);
+  assert.ok(stalePlatformRevisionReport.blockers.some((item) => item.includes("platform QA receipt gitHead ffffffffffffffffffffffffffffffffffffffff does not match current HEAD")));
+  const staleRevisionMacStatus = stalePlatformRevisionReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(staleRevisionMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const dirtyPlatformRevisionPath = join(root, "dirty-platform-revision-receipt.json");
+  await writeJson(dirtyPlatformRevisionPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    runContext: {
+      ...fixtures.macManualReceipt.runContext,
+      appRevision: {
+        ...fixtures.macManualReceipt.runContext.appRevision,
+        dirtyWorktree: true,
+        statusLineCount: 1,
+        statusSummary: " M scripts/example.mjs"
+      }
+    }
+  });
+  const dirtyPlatformRevisionReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: dirtyPlatformRevisionPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(dirtyPlatformRevisionReport.canClaimKo, false);
+  assert.ok(dirtyPlatformRevisionReport.blockers.some((item) => item.includes("platform QA validator must run from a clean git worktree")));
+
+  const missingRunContextPath = join(root, "missing-platform-run-context-receipt.json");
+  await writeJson(missingRunContextPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    runContext: undefined
+  });
+  const missingPlatformRunContextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: missingRunContextPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingPlatformRunContextReport.canClaimKo, false);
+  assert.ok(missingPlatformRunContextReport.blockers.some((item) => item.includes("runContext schema must be learning-companion.platform-qa-run-context.v1")));
+
+  const gitUnavailablePlatformRevisionPath = join(root, "git-unavailable-platform-revision-receipt.json");
+  await writeJson(gitUnavailablePlatformRevisionPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    runContext: {
+      ...fixtures.macManualReceipt.runContext,
+      appRevision: {
+        ...fixtures.macManualReceipt.runContext.appRevision,
+        gitAvailable: false
+      }
+    }
+  });
+  const gitUnavailablePlatformRevisionReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: gitUnavailablePlatformRevisionPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(gitUnavailablePlatformRevisionReport.canClaimKo, false);
+  assert.ok(gitUnavailablePlatformRevisionReport.blockers.some((item) => item.includes("runContext.appRevision.gitAvailable must be true")));
+
+  const contradictoryPlatformRevisionPath = join(root, "contradictory-platform-revision-receipt.json");
+  await writeJson(contradictoryPlatformRevisionPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    runContext: {
+      ...fixtures.macManualReceipt.runContext,
+      appRevision: {
+        ...fixtures.macManualReceipt.runContext.appRevision,
+        dirtyWorktree: false,
+        statusLineCount: 2,
+        statusSummary: " M scripts/example-a.mjs\n M scripts/example-b.mjs"
+      }
+    }
+  });
+  const contradictoryPlatformRevisionReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: contradictoryPlatformRevisionPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(contradictoryPlatformRevisionReport.canClaimKo, false);
+  assert.ok(contradictoryPlatformRevisionReport.blockers.some((item) => item.includes("runContext.appRevision clean status must have zero status lines")));
+
   const summary = {
     schema: SELFTEST_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -1483,7 +1717,12 @@ async function runSelfTest() {
       "platform summary/row mismatch rejected",
       "platform truncated row set rejected",
       "platform receipt errors rejected",
-      "platform nonclaimable manual tier rejected"
+      "platform nonclaimable manual tier rejected",
+      "platform stale git revision rejected",
+      "platform dirty git revision rejected",
+      "platform missing run context rejected",
+      "platform git unavailable revision rejected",
+      "platform contradictory clean revision rejected"
     ]
   };
   const outPath = join(root, "selftest-summary.json");
@@ -1560,10 +1799,23 @@ async function createKoFixtures(root) {
       noHorizontalOverflow: true
     }
   });
+  const platformFixtureRunContext = {
+    schema: "learning-companion.platform-qa-run-context.v1",
+    appRevision: {
+      gitAvailable: true,
+      gitHead: "0123456789abcdef0123456789abcdef01234567",
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    }
+  };
   const macManualReceipt = {
     schema: MAC_MANUAL_QA_SCHEMA,
+    fixtureOnly: true,
     evidenceTier: "MANUAL_PLATFORM_QA",
     generatedAt: new Date().toISOString(),
+    runContext: platformFixtureRunContext,
     summary: {
       ok: true,
       rows: MAC_MANUAL_QA_AREAS.length,
@@ -1599,8 +1851,10 @@ async function createKoFixtures(root) {
   };
   const windowsStaticReceipt = {
     schema: WINDOWS_STATIC_QA_SCHEMA,
+    fixtureOnly: true,
     evidenceTier: "MANUAL_PLATFORM_QA",
     generatedAt: new Date().toISOString(),
+    runContext: platformFixtureRunContext,
     summary: {
       ok: true,
       rows: WINDOWS_STATIC_QA_AREAS.length,
@@ -1637,8 +1891,10 @@ async function createKoFixtures(root) {
   };
   const harmonyDeviceReceipt = {
     schema: HARMONY_DEVICE_QA_SCHEMA,
+    fixtureOnly: true,
     evidenceTier: "MANUAL_PLATFORM_QA",
     generatedAt: new Date().toISOString(),
+    runContext: platformFixtureRunContext,
     summary: {
       ok: true,
       rows: HARMONY_DEVICE_QA_AREAS.length,
