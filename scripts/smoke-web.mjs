@@ -215,6 +215,7 @@ assert.match(nextMajorOperatorSelfTestJs, /NEEDS_FRESH_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorSelfTestJs, /NEEDS_SOURCE_INPUT/);
 assert.match(nextMajorOperatorSelfTestJs, /windowsStaticManualQa/);
 assert.match(nextMajorOperatorSelfTestJs, /harmonyDeviceQa/);
+assert.match(nextMajorOperatorSelfTestJs, /real-platform-operator/);
 assert.match(nextMajorOperatorSelfTestJs, /CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorSelfTestJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
 assert.match(nextMajorOperatorSelfTestJs, /releaseActionAuthorized mismatch/);
