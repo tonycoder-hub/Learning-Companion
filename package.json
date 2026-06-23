@@ -60,6 +60,7 @@
     "next:finalize": "node scripts/finalize-next-major.mjs",
     "next:finalize:selftest": "node scripts/finalize-next-major.mjs --self-test",
     "next:local-evidence": "node scripts/refresh-next-major-local-evidence.mjs",
+    "next:local-evidence:check": "node scripts/refresh-next-major-local-evidence.mjs --check",
     "next:local-evidence:selftest": "node scripts/refresh-next-major-local-evidence.mjs --self-test",
     "mac:build": "bash scripts/mac-build.sh",
     "mirror:integrity": "node scripts/mirror-integrity-check.mjs",

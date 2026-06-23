@@ -174,6 +174,7 @@ assert.equal(packageJson.scripts["next:operator:selftest"], "node scripts/next-m
 assert.equal(packageJson.scripts["next:finalize"], "node scripts/finalize-next-major.mjs");
 assert.equal(packageJson.scripts["next:finalize:selftest"], "node scripts/finalize-next-major.mjs --self-test");
 assert.equal(packageJson.scripts["next:local-evidence"], "node scripts/refresh-next-major-local-evidence.mjs");
+assert.equal(packageJson.scripts["next:local-evidence:check"], "node scripts/refresh-next-major-local-evidence.mjs --check");
 assert.equal(packageJson.scripts["next:local-evidence:selftest"], "node scripts/refresh-next-major-local-evidence.mjs --self-test");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
@@ -1116,6 +1117,12 @@ assert.match(refreshNextMajorLocalEvidenceJs, /learning-companion\.next-major-lo
 assert.match(refreshNextMajorLocalEvidenceJs, /NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY/);
 assert.match(refreshNextMajorLocalEvidenceJs, /buildLocalEvidenceSnapshot/);
 assert.match(refreshNextMajorLocalEvidenceJs, /buildLocalEvidenceSnapshotMarkdown/);
+assert.match(refreshNextMajorLocalEvidenceJs, /runLocalEvidenceSnapshotCheck/);
+assert.match(refreshNextMajorLocalEvidenceJs, /assertLocalEvidenceSnapshotFresh/);
+assert.match(refreshNextMajorLocalEvidenceJs, /next_major_local_evidence_snapshot_check_ok/);
+assert.match(refreshNextMajorLocalEvidenceJs, /EXPECTED_LOCAL_RECEIPT_IDS/);
+assert.match(refreshNextMajorLocalEvidenceJs, /SNAPSHOT_REQUIRED_OUTPUTS/);
+assert.match(refreshNextMajorLocalEvidenceJs, /LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED/);
 assert.match(refreshNextMajorLocalEvidenceJs, /writePrivateFile/);
 assert.match(refreshNextMajorLocalEvidenceJs, /localEvidenceOut/);
 assert.match(refreshNextMajorLocalEvidenceJs, /localEvidenceMarkdownOut/);

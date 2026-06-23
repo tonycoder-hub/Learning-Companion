@@ -38,6 +38,33 @@ const LOCAL_RECEIPT_PATHS = Object.freeze({
   windowsPending: ".codex-tmp/windows-static-qa/receipt.json",
   harmonyPending: ".codex-tmp/harmony-device-qa/receipt.json"
 });
+const EXPECTED_LOCAL_RECEIPT_IDS = Object.freeze([
+  "staticReturn",
+  "returnImport",
+  "dogfoodPending",
+  "macManualPending",
+  "windowsStaticPending",
+  "harmonyDevicePending"
+]);
+const SNAPSHOT_REQUIRED_OUTPUTS = Object.freeze([
+  ["publicDryRunReceipt", "public dry-run receipt"],
+  ["sourceApprovalRequest", "source approval request"],
+  ["sourceApprovalMarkdown", "source approval markdown"],
+  ["readinessPacket", "readiness packet"],
+  ["readinessMarkdown", "readiness markdown"],
+  ["platformQaHandoff", "platform QA handoff"],
+  ["platformQaHandoffMarkdown", "platform QA handoff markdown"],
+  ["operatorPacket", "operator packet"],
+  ["operatorMarkdown", "operator markdown"],
+  ["koNextActionSummary", "KO next action summary"]
+]);
+const LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED = Object.freeze([
+  "Does not grant current-turn source approval.",
+  "Does not run approved-source browser capture.",
+  "Does not perform human privacy review.",
+  "Does not run Mac, Windows, or HarmonyOS real platform QA.",
+  "Does not build, package, deploy, check Mew-Test/main site, run remote acceptance, or authorize release."
+]);
 const PATH_ARGS = [
   "source-approval-request",
   "source-approval-markdown",
@@ -69,6 +96,9 @@ assertSupportedOptions(args);
 
 if (args["self-test"]) {
   runSelfTest();
+} else if (args.check) {
+  const options = normalizeOptions(args);
+  await runLocalEvidenceSnapshotCheck(options);
 } else {
   const options = normalizeOptions(args);
   const plan = await buildLocalEvidencePlan(options);
@@ -308,13 +338,7 @@ async function buildLocalEvidencePlan(options) {
         ]
       }
     ],
-    blockedOrNotExecuted: [
-      "Does not grant current-turn source approval.",
-      "Does not run approved-source browser capture.",
-      "Does not perform human privacy review.",
-      "Does not run Mac, Windows, or HarmonyOS real platform QA.",
-      "Does not build, package, deploy, check Mew-Test/main site, run remote acceptance, or authorize release."
-    ]
+    blockedOrNotExecuted: [...LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED]
   };
 }
 
@@ -450,6 +474,64 @@ function buildLocalEvidenceSnapshotMarkdown(snapshot) {
   return `${lines.join("\n")}\n`;
 }
 
+async function runLocalEvidenceSnapshotCheck(options) {
+  const snapshotPath = options.localEvidenceOut;
+  if (!existsSync(snapshotPath)) {
+    throw new Error(`Missing local evidence snapshot: ${snapshotPath}. Run npm run next:local-evidence first.`);
+  }
+  const snapshot = JSON.parse(await readFile(snapshotPath, "utf8"));
+  const currentRevision = readCurrentRevisionSync();
+  assertLocalEvidenceSnapshotFresh(snapshot, currentRevision);
+  console.log(`next_major_local_evidence_snapshot_check_ok ${snapshotPath}`);
+}
+
+function assertLocalEvidenceSnapshotFresh(snapshot, currentRevision) {
+  assert.equal(snapshot.schema, LOCAL_EVIDENCE_SNAPSHOT_SCHEMA, "local evidence snapshot schema");
+  assert.equal(snapshot.evidenceTier, "NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY", "local evidence snapshot evidence tier");
+  assert.equal(snapshot.canClaimNextMajorFromThisSnapshot, false, "local evidence snapshot must not claim next-major readiness");
+  assert.equal(snapshot.releaseActionAuthorized, false, "local evidence snapshot must not authorize release");
+  assert.equal(currentRevision.gitAvailable, true, "git revision must be available for local evidence snapshot check");
+  assert.equal(currentRevision.dirtyWorktree, false, "local evidence snapshot check must run from a clean worktree");
+  assert.equal(currentRevision.statusLineCount, 0, "local evidence snapshot check must run from a clean git status");
+  assert.equal(snapshot.currentRevision?.gitHead, currentRevision.gitHead, "local evidence snapshot git HEAD must match current HEAD");
+  assert.equal(snapshot.currentRevision?.dirtyWorktree, false, "local evidence snapshot must have been created from a clean worktree");
+  assert.equal(snapshot.currentRevision?.statusLineCount, 0, "local evidence snapshot must have been created from a clean git status");
+  for (const [key, label] of SNAPSHOT_REQUIRED_OUTPUTS) {
+    const outputPath = snapshot.outputs?.[key] || "";
+    assert.ok(outputPath && outputPath !== "TBD", `local evidence snapshot ${label} output path must be present`);
+    assert.ok(existsSync(outputPath), `local evidence snapshot ${label} output does not exist: ${outputPath}`);
+  }
+  assert.deepEqual(
+    (Array.isArray(snapshot.blockedOrNotExecuted) ? snapshot.blockedOrNotExecuted : []),
+    LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED,
+    "local evidence snapshot boundary list must remain explicit and non-claiming"
+  );
+  const receipts = Array.isArray(snapshot.localReceipts) ? snapshot.localReceipts : [];
+  assert.equal(
+    receipts.length,
+    EXPECTED_LOCAL_RECEIPT_IDS.length,
+    "local evidence snapshot must not contain duplicate or extra local receipts"
+  );
+  const receiptById = new Map(receipts.map((receipt) => [receipt.id, receipt]));
+  assert.deepEqual(
+    [...receiptById.keys()].sort(),
+    [...EXPECTED_LOCAL_RECEIPT_IDS].sort(),
+    "local evidence snapshot must list exactly the expected local receipts"
+  );
+  for (const id of EXPECTED_LOCAL_RECEIPT_IDS) {
+    const receipt = receiptById.get(id);
+    assert.equal(receipt.ok, true, `${id} receipt must be ok`);
+    assert.ok(receipt.path, `${id} receipt path must be present`);
+    assert.ok(existsSync(receipt.path), `${id} receipt path does not exist: ${receipt.path}`);
+    assert.ok(receipt.evidenceTier, `${id} receipt evidence tier must be present`);
+    assert.match(
+      String(receipt.claim || ""),
+      /^(?:doesNotProve=\d+|no-dogfood-claim|canClaim[A-Za-z0-9]+=false)$/,
+      `${id} receipt claim boundary must be explicit and non-claiming`
+    );
+  }
+}
+
 function buildSuccessSummary(plan, publicDryRunReceipt, outputs, localReceipts) {
   const koNext = outputs.find((item) => item.id === "print-ko-next")?.stdout.trim() || "";
   const lines = [
@@ -583,7 +665,10 @@ function runSelfTest() {
   };
   const plan = {
     currentRevision: {
-      gitHead: "0123456789abcdef0123456789abcdef01234567"
+      gitAvailable: true,
+      gitHead: "0123456789abcdef0123456789abcdef01234567",
+      dirtyWorktree: false,
+      statusLineCount: 0
     },
     options: normalizeOptions({
       "mac-manual": "custom mac.json",
@@ -698,6 +783,28 @@ function runSelfTest() {
   assert.match(snapshotMarkdown, /NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY/);
   assert.match(snapshotMarkdown, /no-dogfood-claim/);
   assert.match(snapshotMarkdown, /Does not run approved-source browser capture/);
+  assert.throws(
+    () => assertLocalEvidenceSnapshotFresh(snapshot, { gitAvailable: true, gitHead: "different", dirtyWorktree: false, statusLineCount: 0 }),
+    /git HEAD must match current HEAD/
+  );
+  const outputBackedSnapshot = {
+    ...snapshot,
+    outputs: Object.fromEntries(SNAPSHOT_REQUIRED_OUTPUTS.map(([key]) => [key, "scripts/refresh-next-major-local-evidence.mjs"])),
+    localReceipts: EXPECTED_LOCAL_RECEIPT_IDS.map((id) => ({
+      id,
+      path: "scripts/refresh-next-major-local-evidence.mjs",
+      evidenceTier: id.endsWith("Pending") ? "PENDING_USER_GATE" : "EXECUTED_LOCAL_DRY_RUN",
+      ok: true,
+      claim: id === "dogfoodPending" ? "no-dogfood-claim" : id.endsWith("Pending") ? "canClaimExample=false" : "doesNotProve=1"
+    })),
+    blockedOrNotExecuted: [...LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED]
+  };
+  assert.doesNotThrow(() => assertLocalEvidenceSnapshotFresh(outputBackedSnapshot, {
+    gitAvailable: true,
+    gitHead: plan.currentRevision.gitHead,
+    dirtyWorktree: false,
+    statusLineCount: 0
+  }));
   console.log("next_major_local_evidence_refresh_selftest_ok");
 }
 
@@ -710,6 +817,7 @@ Usage:
   npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
   npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json
   npm run next:local-evidence -- --local-evidence-out .codex-tmp/next-major-local-evidence/current.json --local-evidence-markdown-out .codex-tmp/next-major-local-evidence/current.md
+  npm run next:local-evidence:check
 
 This command runs local bilingual/browser, controlled-loop, static-return,
 return-import, dogfood, and pending platform QA receipts first. It then
