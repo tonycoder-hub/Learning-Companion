@@ -2101,6 +2101,14 @@ try {
     };
     document.querySelector("#sourceUrl").dispatchEvent(new Event("change", { bubbles: true }));
     sourceTimestampStage.sourceUrlInputAfterChange = document.querySelector("#sourceUrl").value;
+    setValue("#timestampInput", "");
+    const sourceUntimed = {
+      contextTimeHidden: document.querySelector("#captureContextTime").hidden,
+      contextTimeState: document.querySelector("#captureContext").dataset.timeState,
+      contextOpenText: document.querySelector("#captureContextOpenBtn").textContent,
+      contextOpenTitle: document.querySelector("#captureContextOpenBtn").title,
+      contextOpenAria: document.querySelector("#captureContextOpenBtn").getAttribute("aria-label")
+    };
     setValue("#timestampInput", "12:30");
     let typedTimestampContextOpened = "";
     const nativeTypedWindowOpen = window.open;
@@ -3110,6 +3118,7 @@ try {
           draftActivity,
           sourceTimestampStage,
           sourceContextShown,
+          sourceUntimed,
           sourceTimestampTyped,
           sourceTimestampNudge,
           todayDraftBeforeResume,
@@ -3432,8 +3441,8 @@ try {
   );
   assert.equal(result.sourceTimestampStage.contextOpenDisabled, false);
   assert.equal(result.sourceTimestampStage.contextOpenText, "Resume @ 08:12");
-  assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12");
-  assert.equal(result.sourceTimestampStage.contextOpenAria, "Open source at 08:12");
+  assert.equal(result.sourceTimestampStage.contextOpenTitle, "Open source at 08:12; Quick Capture stays ready");
+  assert.equal(result.sourceTimestampStage.contextOpenAria, "Open source at 08:12; Quick Capture stays ready");
   assert.equal(result.sourceTimestampStage.contextOpened, "");
   assert.deepEqual(result.sourceContextShown, {
     activeElement: "sourceTitle",
@@ -3442,11 +3451,18 @@ try {
     sourceStripPulsed: true,
     ariaLabel: "Show capture source: RustConf ownership talk"
   });
+  assert.deepEqual(result.sourceUntimed, {
+    contextTimeHidden: true,
+    contextTimeState: "unset",
+    contextOpenText: "Open source",
+    contextOpenTitle: "Open source; Quick Capture stays ready",
+    contextOpenAria: "Open source; Quick Capture stays ready"
+  });
   assert.equal(result.sourceTimestampTyped.timestamp, "12:30");
   assert.equal(result.sourceTimestampTyped.contextTime, "@ 12:30");
   assert.equal(result.sourceTimestampTyped.contextOpenText, "Resume @ 12:30");
-  assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30");
-  assert.equal(result.sourceTimestampTyped.contextOpenAria, "Open source at 12:30");
+  assert.equal(result.sourceTimestampTyped.contextOpenTitle, "Open source at 12:30; Quick Capture stays ready");
+  assert.equal(result.sourceTimestampTyped.contextOpenAria, "Open source at 12:30; Quick Capture stays ready");
   assert.equal(result.sourceTimestampTyped.contextOpened, "");
   assert.deepEqual(result.sourceTimestampNudge.afterTimeBack, {
     timestamp: "12:15",

@@ -2919,9 +2919,7 @@ function renderViewerPane() {
 function renderCaptureContext(session) {
   const resume = buildResumeSource(session, dom.timestampInput.value);
   const sourceLabel = resume.title || readableSourceHost(resume.url) || langText("No source", "无来源");
-  const title = resume.timestamp
-    ? langText(`Open source at ${resume.timestamp}`, `打开来源到 ${resume.timestamp}`)
-    : langText("Open source", "打开来源");
+  const title = captureContextOpenTitle(resume);
   const openLabel = captureContextOpenLabel(resume);
   const targetLabel = langText(`To ${session.title || "current topic"}`, `到${session.title || "当前主题"}`);
   const hasSource = Boolean(resume.href);
@@ -2994,6 +2992,17 @@ function captureContextOpenLabel(resume) {
   if (!resume?.href) return langText("Set source", "设置来源");
   if (resume.timestamp) return langText(`Resume @ ${resume.timestamp}`, `从 ${resume.timestamp} 继续`);
   return langText("Open source", "打开来源");
+}
+
+function captureContextOpenTitle(resume) {
+  if (resume?.timestamp) return langText(
+    `Open source at ${resume.timestamp}; Quick Capture stays ready`,
+    `打开来源到 ${resume.timestamp}；快速摘录保持可用`
+  );
+  return langText(
+    "Open source; Quick Capture stays ready",
+    "打开来源；快速摘录保持可用"
+  );
 }
 
 function captureDraftIntent(session) {
