@@ -137,6 +137,7 @@ const gitRevisionHelperJs = readFileSync("scripts/lib/git-revision.mjs", "utf8")
 const gitRevisionSelfTestJs = readFileSync("scripts/git-revision-self-test.mjs", "utf8");
 const sourceApprovalFreshnessHelperJs = readFileSync("scripts/lib/source-approval-freshness.mjs", "utf8");
 const sourceApprovalFreshnessSelfTestJs = readFileSync("scripts/source-approval-freshness-self-test.mjs", "utf8");
+const platformQaHandoffSelfTestJs = readFileSync("scripts/platform-qa-handoff-self-test.mjs", "utf8");
 assert.equal(packageJson.scripts.dev, "node scripts/dev-server.mjs");
 assert.equal(packageJson.scripts["external:validate"], "node scripts/external-source-validation-browser.mjs");
 assert.equal(packageJson.scripts["external:source-help"], "node scripts/external-source-validation-browser.mjs --help");
@@ -153,9 +154,10 @@ assert.equal(packageJson.scripts["ko:validate:selftest"], "node scripts/validate
 assert.equal(packageJson.scripts["next:readiness"], "node scripts/next-major-readiness.mjs");
 assert.equal(packageJson.scripts["next:operator"], "node scripts/next-major-operator-packet.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
+assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
-assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/smoke-web.mjs");
+assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/smoke-web.mjs");
 assert.match(gitRevisionHelperJs, /export async function readCurrentRevision/);
 assert.match(gitRevisionHelperJs, /export function readCurrentRevisionSync/);
 assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);
@@ -181,6 +183,14 @@ assert.match(sourceApprovalFreshnessHelperJs, /does not match receipt-validated 
 assert.match(sourceApprovalFreshnessSelfTestJs, /source_approval_freshness_selftest_ok/);
 assert.match(sourceApprovalFreshnessSelfTestJs, /mismatchedCommand/);
 assert.match(sourceApprovalFreshnessSelfTestJs, /profileRetained/);
+assert.match(platformQaHandoffSelfTestJs, /platform_qa_handoff_selftest_ok/);
+assert.match(platformQaHandoffSelfTestJs, /PLATFORM_QA_HANDOFF_ONLY/);
+assert.match(platformQaHandoffSelfTestJs, /CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF/);
+assert.match(platformQaHandoffSelfTestJs, /REVISION_REFRESH_REQUIRED_BEFORE_PLATFORM_QA/);
+assert.match(platformQaHandoffSelfTestJs, /rowsNeedingConcreteNotes/);
+assert.match(platformQaHandoffSelfTestJs, /--out requires a file path/);
+assert.match(platformQaHandoffSelfTestJs, /--markdown-out requires a file path/);
+assert.match(platformQaHandoffSelfTestJs, /Missing KO status file/);
 assert.match(devServerJs, /--port/);
 assert.match(devServerJs, /--strict-port/);
 assert.match(devServerJs, /Port \$\{requestedPort\} unavailable; using \$\{selectedPort\}\./);
