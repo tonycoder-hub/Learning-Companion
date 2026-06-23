@@ -944,6 +944,9 @@ assert.match(finalizeNextMajorJs, /finalKo\.argv\.includes\("--allow-missing"\),
 assert.match(finalizeNextMajorJs, /SUBCOMMAND_TIMEOUT_MS = 120_000/);
 assert.match(finalizeNextMajorJs, /assertReadableFile\(plan\.options\.external/);
 assert.match(finalizeNextMajorJs, /assertReadableFile\(plan\.options\.sourceApprovalRequest/);
+assert.match(finalizeNextMajorJs, /sourceApprovalMarkdown/);
+assert.match(finalizeNextMajorJs, /"--source-approval-request",\s*options\.sourceApprovalRequest/);
+assert.match(finalizeNextMajorJs, /"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
 assert.match(finalizeNextMajorJs, /constants\.R_OK/);
 assert.match(finalizeNextMajorJs, /Dry-run boundary: no file readability/);
 assert.match(finalizeNextMajorJs, /Dry-run only prints the command plan/);

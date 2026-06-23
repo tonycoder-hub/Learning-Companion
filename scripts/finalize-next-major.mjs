@@ -15,6 +15,7 @@ const DEFAULTS = Object.freeze({
   platformHandoffOut: ".codex-tmp/platform-qa-handoff/current.json",
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   sourceApprovalRequest: ".codex-tmp/external-source-validation/source-approval-request.json",
+  sourceApprovalMarkdown: ".codex-tmp/external-source-validation/source-approval-request.md",
   macManual: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
   windowsStatic: ".codex-tmp/windows-static-qa/real-run-receipt.json",
   harmonyDevice: ".codex-tmp/harmony-device-qa/real-run-receipt.json"
@@ -26,6 +27,7 @@ const PATH_ARGS = [
   "platform-handoff-out",
   "operator-out",
   "source-approval-request",
+  "source-approval-markdown",
   "mac-manual",
   "windows-static",
   "harmony-device"
@@ -55,13 +57,19 @@ function normalizeOptions(parsed) {
   if (!parsed.external) {
     throw new Error("--external is required and must point to a privacy-reviewed approved-source KO evidence artifact.");
   }
+  const sourceApprovalRequest = String(parsed["source-approval-request"] || DEFAULTS.sourceApprovalRequest);
+  const sourceApprovalMarkdown = String(
+    parsed["source-approval-markdown"]
+      || (sourceApprovalRequest === DEFAULTS.sourceApprovalRequest ? DEFAULTS.sourceApprovalMarkdown : markdownSiblingPath(sourceApprovalRequest))
+  );
   return {
     external: String(parsed.external),
     koOut: String(parsed["ko-out"] || DEFAULTS.koOut),
     readinessOut: String(parsed["readiness-out"] || DEFAULTS.readinessOut),
     platformHandoffOut: String(parsed["platform-handoff-out"] || DEFAULTS.platformHandoffOut),
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
-    sourceApprovalRequest: String(parsed["source-approval-request"] || DEFAULTS.sourceApprovalRequest),
+    sourceApprovalRequest,
+    sourceApprovalMarkdown,
     macManual: String(parsed["mac-manual"] || DEFAULTS.macManual),
     windowsStatic: String(parsed["windows-static"] || DEFAULTS.windowsStatic),
     harmonyDevice: String(parsed["harmony-device"] || DEFAULTS.harmonyDevice)
@@ -100,7 +108,11 @@ function buildFinalizePlan(options) {
           "--out",
           options.readinessOut,
           "--markdown-out",
-          markdownSiblingPath(options.readinessOut)
+          markdownSiblingPath(options.readinessOut),
+          "--source-approval-request",
+          options.sourceApprovalRequest,
+          "--source-approval-markdown",
+          options.sourceApprovalMarkdown
         ],
         output: options.readinessOut
       },
@@ -245,6 +257,18 @@ function markdownSiblingPath(jsonPath) {
 }
 
 function runSelfTest() {
+  const customSourceOptions = normalizeOptions({
+    external: "fixtures/external-ko.json",
+    "source-approval-request": ".codex-tmp/selftest/custom source approval.json"
+  });
+  assert.equal(customSourceOptions.sourceApprovalMarkdown, ".codex-tmp/selftest/custom source approval.md");
+  const explicitMarkdownOptions = normalizeOptions({
+    external: "fixtures/external-ko.json",
+    "source-approval-request": ".codex-tmp/selftest/custom source approval.json",
+    "source-approval-markdown": ".codex-tmp/selftest/custom source approval note.md"
+  });
+  assert.equal(explicitMarkdownOptions.sourceApprovalMarkdown, ".codex-tmp/selftest/custom source approval note.md");
+
   const plan = buildFinalizePlan({
     external: "fixtures/external-ko.json",
     koOut: ".codex-tmp/selftest/final.json",
@@ -252,6 +276,7 @@ function runSelfTest() {
     platformHandoffOut: ".codex-tmp/selftest/platform.json",
     operatorOut: ".codex-tmp/selftest/operator.json",
     sourceApprovalRequest: ".codex-tmp/selftest/source-approval-request.json",
+    sourceApprovalMarkdown: ".codex-tmp/selftest/source-approval-request.md",
     macManual: ".codex-tmp/selftest/mac-real.json",
     windowsStatic: ".codex-tmp/selftest/windows-real.json",
     harmonyDevice: ".codex-tmp/selftest/harmony-real.json"
@@ -270,6 +295,8 @@ function runSelfTest() {
   const platform = plan.commands.find((command) => command.id === "refresh-platform-handoff");
   const operator = plan.commands.find((command) => command.id === "refresh-operator-packet");
   assert.equal(readiness.argv.includes(".codex-tmp/selftest/final.json"), true);
+  assert.equal(readiness.argv.includes(".codex-tmp/selftest/source-approval-request.json"), true);
+  assert.equal(readiness.argv.includes(".codex-tmp/selftest/source-approval-request.md"), true);
   assert.equal(platform.argv.includes(".codex-tmp/selftest/final.json"), true);
   assert.equal(operator.argv.includes(".codex-tmp/selftest/source-approval-request.json"), true);
   assert.equal(operator.argv.includes(".codex-tmp/selftest/operator.md"), true);
@@ -278,6 +305,8 @@ function runSelfTest() {
   assert.match(dryRun, /next_major_finalize_dry_run/);
   assert.match(dryRun, /node scripts\/validate-ko-evidence\.mjs/);
   assert.match(dryRun, /node scripts\/next-major-readiness\.mjs/);
+  assert.match(dryRun, /--source-approval-request \.codex-tmp\/selftest\/source-approval-request\.json/);
+  assert.match(dryRun, /--source-approval-markdown \.codex-tmp\/selftest\/source-approval-request\.md/);
   assert.match(dryRun, /node scripts\/platform-qa-handoff\.mjs/);
   assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs/);
   assert.match(dryRun, /Dry-run boundary: no file readability/);
@@ -291,6 +320,9 @@ function buildHelp() {
 Usage:
   npm run next:finalize -- --external <ko-evidence-review.json>
   npm run next:finalize -- --external <ko-evidence-review.json> --dry-run
+
+Optional source approval path binding:
+  --source-approval-request <path> --source-approval-markdown <path>
 
 This command runs strict KO validation, then refreshes readiness, platform handoff, and operator packets.
 Dry-run only prints the command plan; it does not read or validate evidence files.
