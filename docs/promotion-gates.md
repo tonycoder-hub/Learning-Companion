@@ -15,7 +15,7 @@ For the single operator view of all remaining next-major gates, run `npm run nex
 | Stage | Meaning | Current Evidence | Promotion Gate |
 | --- | --- | --- | --- |
 | Local internal shell | SwiftPM WKWebView shell runs the web app and exposes native capture/window/file commands. | `npm run check:morning:native`, plus offline pack evidence from `npm run check:morning` | Keep iterating. |
-| Tony dogfood build | Tony can use the shell for a real study session without terminal-only workarounds. | Missing live GUI matrix; `npm run mac:manual:validate:smoke` only proves the pending receipt stays non-claiming. | Manual QA for sidecar, clipboard capture, selected-text capture, browser context, import/export, relaunch, then `npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json`. |
+| Tony dogfood build | Tony can use the shell for a real study session without terminal-only workarounds. | Missing live GUI matrix; `npm run mac:manual:validate:smoke` only proves the pending receipt stays non-claiming. | Manual QA for sidecar, clipboard capture, selected-text capture, browser context, import/export, relaunch, then `npm run mac:manual:validate:real`. |
 | Signed package | Installable `.app` suitable for repeated daily use. | Not started. | App bundle, signing/notarization decision, permission onboarding, update/export safety. |
 
 Current wording: "Mac shell internal build", not "production Mac app".
@@ -25,7 +25,7 @@ Current wording: "Mac shell internal build", not "production Mac app".
 | Stage | Meaning | Current Evidence | Promotion Gate |
 | --- | --- | --- | --- |
 | Portable static mirror | Generated local folder/ZIP can be inspected as a manual Windows route candidate. | `npm run check:static-return`, `WINDOWS_STATIC_QA.md` pending receipt, and `npm run windows:static:validate:smoke` only prove the receipt stays non-claiming. | Keep using for contract checks. |
-| Windows static loop | A real Windows Edge/Chrome local-folder run can review, capture in Inbox, return JSON files to Mac, and import them without workspace overwrite. | Not verified. | Fill `dist/morning-demo/WINDOWS_STATIC_QA.md` from a real Windows run, then `npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json`. |
+| Windows static loop | A real Windows Edge/Chrome local-folder run can review, capture in Inbox, return JSON files to Mac, and import them without workspace overwrite. | Not verified. | Fill `dist/morning-demo/WINDOWS_STATIC_QA.md` from a real Windows run, then `npm run windows:static:validate:real`. |
 
 Current wording: "Windows static mirror pending receipt", not "Windows compatibility".
 
@@ -48,7 +48,7 @@ Current wording: "Feishu local upload plan/dry-run", not "Feishu sync".
 | Schema reader prototype | Plain JS reader turns workspace or mirror bundle into read-only phone view model with active topic, due review, recent captures, and open questions. | `npm run smoke:harmony`, `learning-companion.harmony-reader-view.v1` | Use this as ArkTS view-model reference. |
 | ArkTS scaffold handoff | DevEco-shaped project files, schema constants, page names, import boundary, reader session, and append-only patch service names exist for review. | `apps/companion-harmony-dev/`, `HARMONY_SCAFFOLD_REPORT.json`, and `npm run smoke:harmony`; HANDOFF_ONLY, no SDK compile. | Keep schema/page contracts aligned with the JS prototype. |
 | DevEco compile | Minimal HarmonyOS app compiles in DevEco or HarmonyOS command-line toolchain. | Not verified; `HARMONY_DEVICE_QA.md` and `npm run harmony:device:validate:smoke` only keep the pending receipt non-claiming. | Fill the DevEco/toolchain row and session fields from a real toolchain run, then validate the receipt. |
-| Device roundtrip | Real phone can read mirror, create inbox/review patches, and Mac imports them. | Not verified; `HARMONY_DEVICE_QA.md` is all `NT` until a real phone/emulator run fills it. | Fill `dist/morning-demo/HARMONY_DEVICE_QA.md` from a real run, then `npm run harmony:device:validate -- --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json`. |
+| Device roundtrip | Real phone can read mirror, create inbox/review patches, and Mac imports them. | Not verified; `HARMONY_DEVICE_QA.md` is all `NT` until a real phone/emulator run fills it. | Fill `dist/morning-demo/HARMONY_DEVICE_QA.md` from a real run, then `npm run harmony:device:validate:real`. |
 | Feishu-backed phone workflow | Phone gets mirror from Feishu and returns append-only patches safely. | Not implemented. | Live Feishu folder access plus patch transport policy. |
 
 Current wording: "HarmonyOS schema reader prototype + ArkTS scaffold handoff", not "compiled HarmonyOS app" or "device-verified HarmonyOS app".

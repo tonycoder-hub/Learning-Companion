@@ -145,6 +145,11 @@ const sourceApprovalFreshnessSelfTestJs = readFileSync("scripts/source-approval-
 const platformQaHandoffSelfTestJs = readFileSync("scripts/platform-qa-handoff-self-test.mjs", "utf8");
 const nextMajorReadinessSelfTestJs = readFileSync("scripts/next-major-readiness-self-test.mjs", "utf8");
 const nextMajorOperatorSelfTestJs = readFileSync("scripts/next-major-operator-self-test.mjs", "utf8");
+const nextAgentPromptMd = readFileSync("NEXT_AGENT_PROMPT.md", "utf8");
+const promotionGatesMd = readFileSync("docs/promotion-gates.md", "utf8");
+const macManualQaMd = readFileSync("docs/mac-manual-qa.md", "utf8");
+const thirdPartyContinuationPromptMd = readFileSync("docs/third-party-continuation-prompt.md", "utf8");
+const userFlowAuditMd = readFileSync("docs/user-flow-audit.md", "utf8");
 assert.equal(packageJson.scripts.dev, "node scripts/dev-server.mjs");
 assert.equal(packageJson.scripts["external:validate"], "node scripts/external-source-validation-browser.mjs");
 assert.equal(packageJson.scripts["external:source-help"], "node scripts/external-source-validation-browser.mjs --help");
@@ -1055,6 +1060,14 @@ assert.match(morningDemoBuilderJs, /Every `PASS`, `FAIL`, or `BLOCKED` row must 
 assert.match(morningDemoBuilderJs, /npm run mac:manual:validate:real/);
 assert.match(morningDemoBuilderJs, /npm run windows:static:validate:real/);
 assert.match(morningDemoBuilderJs, /npm run harmony:device:validate:real/);
+assert.doesNotMatch(morningDemoBuilderJs, /npm run mac:manual:validate(?!:(?:smoke|real))/);
+assert.doesNotMatch(morningDemoBuilderJs, /npm run windows:static:validate(?!:(?:smoke|real))/);
+assert.doesNotMatch(morningDemoBuilderJs, /npm run harmony:device:validate(?!:(?:smoke|real))/);
+[nextAgentPromptMd, promotionGatesMd, macManualQaMd, thirdPartyContinuationPromptMd, userFlowAuditMd].forEach((markdown) => {
+  assert.doesNotMatch(markdown, /npm run mac:manual:validate(?!:(?:smoke|real))/);
+  assert.doesNotMatch(markdown, /npm run windows:static:validate(?!:(?:smoke|real))/);
+  assert.doesNotMatch(markdown, /npm run harmony:device:validate(?!:(?:smoke|real))/);
+});
 assert.match(koNextActionSummaryJs, /Learning Companion KO next actions/);
 assert.match(koNextActionSummaryJs, /execFileAsync\(process\.execPath/);
 assert.match(koNextActionSummaryJs, /--refresh/);

@@ -87,9 +87,9 @@ required before the external-source row can satisfy KO evidence.
 Real platform QA is still separate from local smoke:
 
 ```bash
-npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json
-npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json
-npm run harmony:device:validate -- --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json
+npm run mac:manual:validate:real
+npm run windows:static:validate:real
+npm run harmony:device:validate:real
 ```
 
 Only receipts filled from real named-platform runs with all rows `PASS` can

@@ -65,5 +65,5 @@ Cannot be filled from controlled browser smoke, SwiftPM build success, or fixtur
 Validate a filled generated receipt with:
 
 ```bash
-npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json
+npm run mac:manual:validate:real
 ```
