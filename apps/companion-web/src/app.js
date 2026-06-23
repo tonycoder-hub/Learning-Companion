@@ -1653,13 +1653,20 @@ function applyUrlCapture() {
     });
     showToast(langText("Browser capture saved", "浏览器摘录已保存"));
   } else {
-    setCaptureDraft(target.session.id, {
+    const updated = getActiveSession(workspace);
+    const draftSnapshot = draftSourceSnapshotFor(
+      updated.id,
+      sourceTitle || updated.sourceTitle,
+      cleanSourceUrl || updated.sourceUrl,
+      updated.materialType
+    );
+    setCaptureDraft(updated.id, {
       quote: quote || "",
       thought: thought || "",
-      timestamp: timestamp || ""
+      timestamp: timestamp || "",
+      ...draftSnapshot
     });
-    renderCaptureDraft(getActiveSession(workspace));
-    const updated = getActiveSession(workspace);
+    renderCaptureDraft(updated);
     setActivity(updated, {
       title: quote || thought ? langText("Browser clip staged", "浏览器片段已暂存") : langText("Browser source updated", "浏览器来源已更新"),
       detail: `${sourceTitle || updated.sourceTitle || langText("Source", "来源")}${timestamp ? ` @ ${timestamp}` : ""} · ${formatInboundResolution(target.resolution, activeFallbackSourceUpdated)}`,
