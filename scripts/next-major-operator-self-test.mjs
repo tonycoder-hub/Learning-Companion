@@ -169,6 +169,21 @@ try {
   assert.match(freshMarkdown, /Approval request freshness: CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(freshMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
 
+  await writeJson(readinessPath, buildReadiness(false, {
+    finalizeNextMajor: "npm run next:finalize -- --external 'custom external.json' --mac-manual 'custom mac.json' --windows-static 'custom windows.json' --harmony-device 'custom harmony.json'",
+    finalKoGate: "npm run ko:validate -- --external 'custom external.json' --out .codex-tmp/ko-evidence/final.json",
+    finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external 'custom external.json' --mac-manual 'custom mac.json' --windows-static 'custom windows.json' --harmony-device 'custom harmony.json' --out .codex-tmp/ko-evidence/final.json"
+  }));
+  const customReadinessCommandRun = await runOperator("custom-readiness-final-commands", { approval: approvalPath });
+  assert.equal(customReadinessCommandRun.code, 0, customReadinessCommandRun.stderr);
+  const customReadinessCommandPacket = await readJson(customReadinessCommandRun.jsonPath);
+  const customFinalLane = getLane(customReadinessCommandPacket, "finalKoGate");
+  assert.match(customFinalLane.nextCommands.finalizeNextMajor, /custom external\.json/);
+  assert.match(customFinalLane.nextCommands.finalizeNextMajor, /custom mac\.json/);
+  assert.match(customFinalLane.nextCommands.finalKoGateWithExplicitPlatformReceipts, /custom harmony\.json/);
+  assert.match(customReadinessCommandPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").command, /custom external\.json/);
+  await writeJson(readinessPath, buildReadiness(false));
+
   await writeJson(approvalPath, buildApprovalRequest(currentHead, {
     priorGitHead: "0000000000000000000000000000000000000000"
   }));
@@ -470,13 +485,14 @@ function buildStatus(gitHead) {
   };
 }
 
-function buildReadiness(releaseActionAuthorized) {
+function buildReadiness(releaseActionAuthorized, nextCommands = null) {
   return {
     schema: "learning-companion.next-major-readiness.v1",
     evidenceTier: "NEXT_MAJOR_READINESS_SUMMARY_ONLY",
     canClaimNextMajorPreReleaseReady: false,
     releaseActionAuthorized,
-    readinessStatus: "NOT_READY_MISSING_EVIDENCE"
+    readinessStatus: "NOT_READY_MISSING_EVIDENCE",
+    ...(nextCommands ? { nextCommands } : {})
   };
 }
 
