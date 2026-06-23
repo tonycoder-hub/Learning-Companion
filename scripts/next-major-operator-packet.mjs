@@ -13,6 +13,10 @@ const READINESS_PATH = ".codex-tmp/next-major-readiness/current.json";
 const PLATFORM_HANDOFF_PATH = ".codex-tmp/platform-qa-handoff/current.json";
 const SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
 const PATH_ARGS = ["status", "readiness", "platform-handoff", "source-approval-request", "out", "markdown-out"];
+const MAX_STATUS_SUMMARY_LINES = 20;
+const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
+const CURRENT_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF";
+const CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
 
 const args = parseArgs(process.argv.slice(2));
 if (args.help) {
@@ -84,21 +88,33 @@ async function readCurrentRevision() {
   try {
     const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
       execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 1024 * 128 }),
-      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: 1024 * 128 })
+      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES })
     ]);
+    const statusLines = parseGitStatusLines(statusStdout);
     return {
+      gitAvailable: true,
       gitHead: headStdout.trim(),
-      dirtyWorktree: statusStdout.trim().length > 0,
-      statusSummary: statusStdout.trim()
+      dirtyWorktree: statusLines.length > 0,
+      statusLineCount: statusLines.length,
+      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
+      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
     };
   } catch (error) {
     return {
+      gitAvailable: false,
       gitHead: "",
       dirtyWorktree: true,
+      statusLineCount: 0,
       statusSummary: "",
+      statusTruncated: false,
       error: String(error.message || error)
     };
   }
+}
+
+function parseGitStatusLines(statusStdout) {
+  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
+  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
 }
 
 async function buildOperatorPacket(paths) {
@@ -120,12 +136,13 @@ async function buildOperatorPacket(paths) {
   }
 
   const currentRevision = await readCurrentRevision();
+  const platformHandoffFreshness = assessPlatformHandoffFreshness(platformHandoff, currentRevision);
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const requirementById = new Map(requirements.map((item) => [item.id || "UNKNOWN", item]));
   const lanes = [
     buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
-    ...buildPlatformLanes(platformHandoff),
-    buildFinalGateLane(readiness, platformHandoff)
+    ...buildPlatformLanes(platformHandoff, platformHandoffFreshness),
+    buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness)
   ];
   return {
     schema: OPERATOR_SCHEMA,
@@ -152,6 +169,7 @@ async function buildOperatorPacket(paths) {
       releaseActionAuthorized: readiness.releaseActionAuthorized === true
     },
     currentRevision,
+    platformHandoffFreshness,
     lanes,
     operatorOrder: lanes.map((lane) => lane.id),
     blockedOrNotExecuted: [
@@ -161,6 +179,42 @@ async function buildOperatorPacket(paths) {
       "No Mac, Windows, or HarmonyOS real platform QA was run by this operator packet.",
       "No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet."
     ]
+  };
+}
+
+function assessPlatformHandoffFreshness(platformHandoff, currentRevision) {
+  const basisRevision = platformHandoff.currentRevision || {};
+  const executionFreshness = platformHandoff.executionFreshness || {};
+  const problems = [];
+  if (executionFreshness.status !== CURRENT_PLATFORM_HANDOFF_STATUS) {
+    problems.push(`Platform handoff executionFreshness.status is ${executionFreshness.status || "TBD"}, expected ${CURRENT_PLATFORM_HANDOFF_STATUS}.`);
+  }
+  if (basisRevision.gitAvailable !== true) {
+    problems.push("Platform handoff did not prove git revision availability.");
+  }
+  if (!basisRevision.gitHead) {
+    problems.push("Platform handoff gitHead is missing.");
+  } else if (!currentRevision.gitHead) {
+    problems.push("Current gitHead is unavailable.");
+  } else if (basisRevision.gitHead !== currentRevision.gitHead) {
+    problems.push(`Platform handoff gitHead ${basisRevision.gitHead} does not match current HEAD ${currentRevision.gitHead}.`);
+  }
+  if (basisRevision.dirtyWorktree !== false) {
+    problems.push("Platform handoff did not prove it was generated from a clean worktree.");
+  }
+  if (currentRevision.dirtyWorktree !== false) {
+    problems.push("Current worktree is dirty; regenerate the platform handoff after committing or stashing local changes.");
+  }
+  return {
+    status: problems.length ? "STALE_OR_DIRTY_PLATFORM_QA_HANDOFF" : CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS,
+    currentGitHead: currentRevision.gitHead,
+    currentDirtyWorktree: currentRevision.dirtyWorktree,
+    basisGitHead: basisRevision.gitHead || "",
+    basisDirtyWorktree: basisRevision.dirtyWorktree,
+    basisExecutionFreshnessStatus: executionFreshness.status || "",
+    basisStatusLineCount: basisRevision.statusLineCount ?? "TBD",
+    basisStatusTruncated: basisRevision.statusTruncated === true,
+    problems
   };
 }
 
@@ -291,11 +345,17 @@ function buildFreshSourceCommands(sourceApprovalRequest) {
   };
 }
 
-function buildPlatformLanes(platformHandoff) {
+function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
+  const needsFreshPlatformHandoff = platformHandoffFreshness.status !== CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS;
   return (Array.isArray(platformHandoff.platforms) ? platformHandoff.platforms : []).map((platform) => ({
     id: platform.id || "UNKNOWN",
     label: platform.label || platform.id || "UNKNOWN",
-    operatorState: platform.currentKoStatus?.status === "PASSING_REAL_RUN" ? "READY_FOR_FINAL_KO_GATE" : "NEEDS_REAL_PLATFORM_RUN",
+    operatorState: needsFreshPlatformHandoff
+      ? "NEEDS_FRESH_PLATFORM_QA_HANDOFF"
+      : platform.currentKoStatus?.status === "PASSING_REAL_RUN"
+        ? "READY_FOR_FINAL_KO_GATE"
+        : "NEEDS_REAL_PLATFORM_RUN",
+    platformHandoffFreshness,
     currentKoStatus: {
       status: platform.currentKoStatus?.status || "UNKNOWN",
       detail: platform.currentKoStatus?.detail || "",
@@ -315,18 +375,27 @@ function buildPlatformLanes(platformHandoff) {
       rowsNeedingConcreteNotes: platform.currentTemplateSummary?.rowsNeedingConcreteNotes || 0
     },
     requiredSessionFields: platform.currentTemplateSummary?.requiredSessionFields || [],
+    nextCommands: needsFreshPlatformHandoff
+      ? {
+          refreshPlatformHandoff: "npm run platform:qa-handoff -- --status .codex-tmp/ko-evidence/current-status.json --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
+          refreshOperatorPacket: "npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md"
+        }
+      : {},
     nextRealRunSteps: platform.nextRealRunSteps || [],
     cannotBeFilledFrom: platform.cannotBeFilledFrom || []
   }));
 }
 
-function buildFinalGateLane(readiness, platformHandoff) {
+function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness) {
+  const platformHandoffReady = platformHandoffFreshness.status === CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS;
   return {
     id: "finalKoGate",
     label: "Final KO gate",
-    operatorState: readiness.canClaimNextMajorPreReleaseReady === true ? "READY_TO_VALIDATE_FINAL_KO" : "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES",
+    operatorState: readiness.canClaimNextMajorPreReleaseReady === true && platformHandoffReady ? "READY_TO_VALIDATE_FINAL_KO" : "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES",
     currentReadinessStatus: readiness.readinessStatus || "UNKNOWN",
     sourceReadinessCanClaim: readiness.canClaimNextMajorPreReleaseReady === true,
+    platformHandoffReady,
+    platformHandoffFreshness,
     releaseActionAuthorized: readiness.releaseActionAuthorized === true,
     nextCommands: {
       finalKoGate: platformHandoff.nextCommands?.finalKoGate || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
@@ -372,7 +441,8 @@ function buildConsoleSummary(packet, { outPath, markdownPath }) {
     `Evidence tier: ${packet.evidenceTier}`,
     `Can claim next-major from this packet: ${packet.canClaimNextMajorFromThisPacket ? "YES" : "NO"}`,
     `Source readiness: ${packet.sourceReadiness.readinessStatus}`,
-    `KO claimable: ${packet.sourceKoStatus.canClaimKo ? "YES" : "NO"}`
+    `KO claimable: ${packet.sourceKoStatus.canClaimKo ? "YES" : "NO"}`,
+    `Platform handoff freshness: ${packet.platformHandoffFreshness.status}`
   ];
   if (outPath) lines.push(`Operator JSON: ${outPath}`);
   if (markdownPath) lines.push(`Operator Markdown: ${markdownPath}`);
@@ -400,10 +470,17 @@ function buildOperatorMarkdown(packet) {
     `KO claimable: ${packet.sourceKoStatus.canClaimKo ? "true" : "false"}`,
     `Current git HEAD: ${markdownInline(packet.currentRevision.gitHead || "TBD")}`,
     `Current worktree dirty: ${packet.currentRevision.dirtyWorktree ? "true" : "false"}`,
-    "",
-    "## Inputs",
+    `Platform handoff freshness: ${markdownInline(packet.platformHandoffFreshness.status)}`,
     ""
   ];
+  const platformFreshnessProblems = packet.platformHandoffFreshness.problems || [];
+  if (platformFreshnessProblems.length) {
+    lines.push("", "## Platform Handoff Freshness Problems", "");
+    for (const problem of platformFreshnessProblems) {
+      lines.push(`- ${markdownInline(problem)}`);
+    }
+  }
+  lines.push("", "## Inputs", "");
   for (const [key, value] of Object.entries(packet.inputs)) {
     lines.push(`- ${markdownInline(key)}: ${markdownInline(value)}`);
   }
