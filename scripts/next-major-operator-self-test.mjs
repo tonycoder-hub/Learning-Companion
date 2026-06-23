@@ -40,7 +40,7 @@ try {
 
   const currentHead = (await git(["rev-parse", "HEAD"])).stdout.trim();
   await writeJson(statusPath, buildStatus(currentHead));
-  await writeJson(readinessPath, buildReadiness(false));
+  await writeJson(readinessPath, buildReadiness(false, null, currentHead));
   await writeJson(receiptPath, buildPublicDryRunReceipt(currentHead));
   await writeJson(platformPath, buildPlatformHandoff(currentHead));
   await writeJson(approvalPath, buildApprovalRequest(currentHead));
@@ -62,6 +62,7 @@ try {
   const realPlatformHandoffMarkdown = await readFile(realPlatformHandoffRun.markdownPath, "utf8");
   const realPlatformOperatorMarkdown = await readFile(realPlatformOperatorRun.markdownPath, "utf8");
   assert.equal(realPlatformPacket.inputs.platformHandoffPath, realPlatformHandoffRun.jsonPath);
+  assert.equal(realPlatformPacket.readinessFreshness.status, "CURRENT_CLEAN_NEXT_MAJOR_READINESS");
   assert.match(realPlatformHandoffMarkdown, /Platform QA Execution Handoff/);
   assert.match(realPlatformHandoffMarkdown, /Execution checklist/);
   assert.match(realPlatformHandoffMarkdown, /windowsStaticManualQa/);
@@ -103,6 +104,7 @@ try {
   assert.equal(freshPacket.canClaimNextMajorFromThisPacket, false);
   assert.equal(freshPacket.releaseActionAuthorized, false);
   assert.equal(freshPacket.inputs.sourceApprovalRequestAvailable, true);
+  assert.equal(freshPacket.readinessFreshness.status, "CURRENT_CLEAN_NEXT_MAJOR_READINESS");
   assert.equal(freshPacket.platformHandoffFreshness.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF");
   assert.equal(freshPacket.platformHandoffFreshness.problems.length, 0);
   assert.deepEqual(freshPacket.operatorOrder, [
@@ -121,6 +123,7 @@ try {
     "run-harmonyDeviceQa",
     "validate-final-ko"
   ]);
+  assert.equal(freshPacket.nextActionSequence.some((step) => step.id === "refresh-readiness-packet"), false);
   assert.equal(freshPacket.nextActionSequence[0].claimBoundary, "This operator packet cannot grant approval on the user's behalf.");
   assert.match(freshPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").claimBoundary, /every preceding lane has real PASS evidence/);
   const sourceLane = getLane(freshPacket, "approvedExternalReadingVideo");
@@ -192,7 +195,7 @@ try {
     finalizeNextMajor: 'npm run next:finalize -- --external <ko-evidence-review.json> --source-approval-request "old source approval request.json" --source-approval-markdown "old source approval note.md"',
     finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
     finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
-  }));
+  }, currentHead));
   const doubleQuotedFallbackRun = await runOperator("double-quoted-source-fallback", {
     approval: sourceOnlyApprovalPath
   });
@@ -204,7 +207,7 @@ try {
   assert.match(doubleQuotedFallbackCommand, /--source-approval-request '.*custom source only approval\.json'/);
   assert.match(doubleQuotedFallbackCommand, /--source-approval-markdown '.*custom source only approval\.md'/);
   assert.doesNotMatch(doubleQuotedFallbackCommand, /old source approval/);
-  await writeJson(readinessPath, buildReadiness(false));
+  await writeJson(readinessPath, buildReadiness(false, null, currentHead));
 
   const directFinalBindingRun = await runOperator("direct-final-binding", {
     approval: approvalPath,
@@ -231,7 +234,7 @@ try {
     finalizeNextMajor: "npm run next:finalize -- --external 'custom external.json' --mac-manual 'custom mac.json' --windows-static 'custom windows.json' --harmony-device 'custom harmony.json'",
     finalKoGate: "npm run ko:validate -- --external 'custom external.json' --out .codex-tmp/ko-evidence/final.json",
     finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external 'custom external.json' --mac-manual 'custom mac.json' --windows-static 'custom windows.json' --harmony-device 'custom harmony.json' --out .codex-tmp/ko-evidence/final.json"
-  }));
+  }, currentHead));
   const customReadinessCommandRun = await runOperator("custom-readiness-final-commands", { approval: approvalPath });
   assert.equal(customReadinessCommandRun.code, 0, customReadinessCommandRun.stderr);
   const customReadinessCommandPacket = await readJson(customReadinessCommandRun.jsonPath);
@@ -240,7 +243,7 @@ try {
   assert.match(customFinalLane.nextCommands.finalizeNextMajor, /custom mac\.json/);
   assert.match(customFinalLane.nextCommands.finalKoGateWithExplicitPlatformReceipts, /custom harmony\.json/);
   assert.match(customReadinessCommandPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").command, /custom external\.json/);
-  await writeJson(readinessPath, buildReadiness(false));
+  await writeJson(readinessPath, buildReadiness(false, null, currentHead));
 
   await writeJson(approvalPath, buildApprovalRequest(currentHead, {
     priorGitHead: "0000000000000000000000000000000000000000"
@@ -273,6 +276,17 @@ try {
   assert.match(getLane(stalePlatformPacket, "harmonyDeviceQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
 
   await writeJson(platformPath, buildPlatformHandoff(currentHead));
+  await writeJson(readinessPath, buildReadiness(false, null, "0000000000000000000000000000000000000000"));
+  const staleReadinessRun = await runOperator("stale-readiness", { approval: approvalPath });
+  assert.equal(staleReadinessRun.code, 0, staleReadinessRun.stderr);
+  const staleReadinessPacket = await readJson(staleReadinessRun.jsonPath);
+  assert.equal(staleReadinessPacket.readinessFreshness.status, "STALE_OR_DIRTY_NEXT_MAJOR_READINESS");
+  assert.ok(staleReadinessPacket.readinessFreshness.problems.some((problem) => problem.includes("does not match current HEAD")));
+  assert.equal(getLane(staleReadinessPacket, "finalKoGate").readinessReady, false);
+  assert.equal(staleReadinessPacket.nextActionSequence.some((step) => step.id === "refresh-readiness-packet"), true);
+  assert.match(staleReadinessPacket.nextActionSequence.find((step) => step.id === "refresh-readiness-packet").command, /next:readiness/);
+
+  await writeJson(readinessPath, buildReadiness(false, null, currentHead));
   const missingSourceRun = await runOperator("missing-source", { approval: join(tmp, "missing-approval.json") });
   assert.equal(missingSourceRun.code, 0, missingSourceRun.stderr);
   const missingSourcePacket = await readJson(missingSourceRun.jsonPath);
@@ -313,6 +327,7 @@ try {
   assert.equal(countOccurrences(getLane(refreshedInputPacket, "finalKoGate").nextCommands.finalizeNextMajor, "--source-approval-request"), 1);
   assert.equal(countOccurrences(getLane(refreshedInputPacket, "finalKoGate").nextCommands.finalizeNextMajor, "--source-approval-markdown"), 1);
   assert.equal(refreshedInputPacket.sourceReadiness.koStatusFreshness, "CURRENT_CLEAN_HEAD_KO_STATUS");
+  assert.equal(refreshedInputPacket.readinessFreshness.status, "CURRENT_CLEAN_NEXT_MAJOR_READINESS");
   assert.equal(refreshedInputPacket.platformHandoffFreshness.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF");
   assert.equal(getLane(refreshedInputPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
   assert.equal((await stat(markdownSiblingPath(readinessPath))).mode & 0o777, 0o600);
@@ -353,7 +368,7 @@ try {
   assert.match(await readFile(markdownSiblingPath(extensionlessReadinessPath), "utf8"), /Next Major Readiness Packet/);
   assert.match(await readFile(markdownSiblingPath(extensionlessPlatformPath), "utf8"), /Platform QA Execution Handoff/);
 
-  await writeJson(readinessPath, buildReadiness(true));
+  await writeJson(readinessPath, buildReadiness(true, null, currentHead));
   const releaseAuthorizedRun = await runOperator("release-authorized", { approval: approvalPath });
   assert.notEqual(releaseAuthorizedRun.code, 0);
   assert.match(`${releaseAuthorizedRun.stdout}\n${releaseAuthorizedRun.stderr}`, /releaseActionAuthorized mismatch/);
@@ -573,13 +588,27 @@ function buildStatus(gitHead) {
   };
 }
 
-function buildReadiness(releaseActionAuthorized, nextCommands = null) {
+function buildReadiness(releaseActionAuthorized, nextCommands = null, gitHead = "") {
   return {
     schema: "learning-companion.next-major-readiness.v1",
     evidenceTier: "NEXT_MAJOR_READINESS_SUMMARY_ONLY",
     canClaimNextMajorPreReleaseReady: false,
     releaseActionAuthorized,
     readinessStatus: "NOT_READY_MISSING_EVIDENCE",
+    currentRevision: {
+      gitAvailable: Boolean(gitHead),
+      gitHead,
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    },
+    koStatusFreshness: {
+      status: "CURRENT_CLEAN_HEAD_KO_STATUS",
+      currentGitHead: gitHead,
+      statusGitHead: gitHead,
+      problems: []
+    },
     ...(nextCommands ? { nextCommands } : {})
   };
 }
