@@ -143,6 +143,7 @@ try {
   assert.ok(mismatchedCommand.problems.some((problem) => problem.includes("does not match receipt-validated sources")));
   const expectedCandidateCommand = buildApprovedCandidateCommand(mismatchedCommandRequest);
   assert.match(expectedCandidateCommand, /example\.com\/reading/);
+  assert.match(expectedCandidateCommand, /--source-approval-request '.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
   assert.doesNotMatch(expectedCandidateCommand, /example\.com\/wrong/);
   const freshSourceCommands = buildFreshSourceCommands(mismatchedCommandRequest);
   assert.match(freshSourceCommands.refreshPublicDryRun, /example\.com\/reading/);
@@ -197,6 +198,7 @@ function buildReceipt() {
 
 function buildRequest(receiptPath) {
   return {
+    approvalRequestPath: ".codex-tmp/external-source-validation/source-approval-request.json",
     basis: {
       type: "PUBLIC_SOURCE_DRY_RUN_RECEIPT",
       inputPath: receiptPath,

@@ -36,6 +36,7 @@ const selfTest = Boolean(args["self-test"]);
 const approvedCurrentTurn = Boolean(args["approved-current-turn"]);
 const publicSourceDryRun = Boolean(args["public-source-dry-run"]);
 if (args["out-root"] === true) throw new Error("--out-root requires a directory path.");
+if (args["source-approval-request"] === true) throw new Error("--source-approval-request requires a file path.");
 const outputRoot = resolve(args["out-root"] || ".codex-tmp/external-source-validation");
 const runSlug = selfTest
   ? "selftest-local-fixtures"
@@ -91,7 +92,7 @@ const listenPort = await new Promise((resolvePort) => {
   server.listen(0, "127.0.0.1", () => resolvePort(server.address().port));
 });
 const appUrl = `http://127.0.0.1:${listenPort}/`;
-const sourceSet = buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args });
+const sourceSet = await buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args });
 const debuggingPort = await allocateTcpPort();
 const runContext = await buildRunContext({
   appUrl,
@@ -523,7 +524,7 @@ async function assertSourcePageUsable(cdp, source) {
   return page;
 }
 
-function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
+async function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
   if (selfTest) {
     const readingPath = "/external-fixtures/reading.html";
     const videoPath = "/external-fixtures/video.html";
@@ -568,6 +569,14 @@ function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
     "video-timestamp",
     "External video validation requires --video-timestamp for timestamp/resume evidence."
   );
+  if (!publicSourceDryRun && args["source-approval-request"]) {
+    await validateApprovedRunSourceApprovalRequest(args["source-approval-request"], {
+      readingUrl,
+      videoUrl,
+      videoTimestamp,
+      approvalNote: approvalSource
+    });
+  }
   const approvalMarker = publicSourceDryRun ? "PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED" : "APPROVED_IN_CURRENT_TURN";
   const sourceApproval = publicSourceDryRun ? `dry-run only: ${approvalSource}` : approvalSource;
   return [
@@ -847,7 +856,9 @@ async function runSourceApprovalRequest(args) {
   const source = hasIntake
     ? buildApprovalRequestSourceFromIntake(await readJsonFile(args["intake-handoff"], "--intake-handoff"), args["intake-handoff"])
     : buildApprovalRequestSourceFromDryRun(await readJsonFile(args["dry-run-receipt"], "--dry-run-receipt"), args["dry-run-receipt"]);
-  const request = buildSourceApprovalRequest(source);
+  const request = buildSourceApprovalRequest(source, {
+    approvalRequestPath: args.out ? String(args.out) : ""
+  });
   if (args.out) {
     const outPath = resolve(String(args.out));
     await writePrivateFile(outPath, `${JSON.stringify(request, null, 2)}\n`);
@@ -974,7 +985,7 @@ function buildApprovalRequestSourceFromDryRun(receipt, inputPath) {
   };
 }
 
-function buildSourceApprovalRequest(source) {
+function buildSourceApprovalRequest(source, options = {}) {
   const requestedApprovalText = [
     "I approve these exact public learning-material sources for the current turn:",
     `reading=${source.readingUrl}`,
@@ -988,6 +999,7 @@ function buildSourceApprovalRequest(source) {
     evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
     canClaimExternalKo: false,
     claimBoundary: "Approval request only. It does not grant current-turn approval, launch browser evidence, perform privacy review, or satisfy KO evidence.",
+    approvalRequestPath: options.approvalRequestPath || "",
     basis: {
       type: source.basis,
       inputPath: source.inputPath,
@@ -1013,6 +1025,7 @@ function buildSourceApprovalRequest(source) {
         readingUrl: source.readingUrl,
         videoUrl: source.videoUrl,
         videoTimestamp: source.videoTimestamp,
+        sourceApprovalRequest: options.approvalRequestPath || "",
         note: requestedApprovalText
       }),
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
@@ -1081,6 +1094,36 @@ function buildApprovalRequiredBeforeKoEvidence(source) {
     );
   }
   return requirements;
+}
+
+async function validateApprovedRunSourceApprovalRequest(pathValue, run) {
+  const request = await readJsonFile(pathValue, "--source-approval-request");
+  return validateApprovedRunSourceApprovalRequestObject(request, run);
+}
+
+function validateApprovedRunSourceApprovalRequestObject(request, run) {
+  if (request.schema !== "learning-companion.external-source-approval-request.v1") {
+    throw new Error(`--source-approval-request schema mismatch: ${request.schema || "missing"}`);
+  }
+  if (request.evidenceTier !== "SOURCE_APPROVAL_REQUEST_ONLY" || request.canClaimExternalKo !== false) {
+    throw new Error("--source-approval-request must be a non-claiming SOURCE_APPROVAL_REQUEST_ONLY artifact.");
+  }
+  if (request.sources?.reading?.url !== run.readingUrl) {
+    throw new Error("--source-approval-request reading URL does not match --reading-url.");
+  }
+  if (request.sources?.video?.url !== run.videoUrl) {
+    throw new Error("--source-approval-request video URL does not match --video-url.");
+  }
+  if (request.sources?.video?.timestamp !== run.videoTimestamp) {
+    throw new Error("--source-approval-request video timestamp does not match --video-timestamp.");
+  }
+  if (!request.requestedApprovalText) {
+    throw new Error("--source-approval-request requestedApprovalText is missing.");
+  }
+  if (request.requestedApprovalText !== run.approvalNote) {
+    throw new Error("--source-approval-request requested approval text does not match --approval-note.");
+  }
+  return request;
 }
 
 function buildSourceApprovalRequestMarkdown(request) {
@@ -1207,22 +1250,25 @@ function normalizeVideoTimestamp(value) {
   return parts.map((part) => String(part).padStart(2, "0")).join(":");
 }
 
-function buildSourceValidationCommand({ mode, readingUrl, videoUrl, videoTimestamp, note }) {
+function buildSourceValidationCommand({ mode, readingUrl, videoUrl, videoTimestamp, note, sourceApprovalRequest = "" }) {
   const prefix = mode === "approved"
     ? "npm run external:validate -- --approved-current-turn"
     : "npm run external:validate:public-dry-run --";
   const noteFlag = mode === "approved" ? "--approval-note" : "--dry-run-note";
-  return [
+  const parts = [
     prefix,
     "--reading-url",
     shellQuote(readingUrl),
     "--video-url",
     shellQuote(videoUrl),
     "--video-timestamp",
-    shellQuote(videoTimestamp),
-    noteFlag,
-    shellQuote(note)
-  ].join(" ");
+    shellQuote(videoTimestamp)
+  ];
+  if (mode === "approved" && sourceApprovalRequest) {
+    parts.push("--source-approval-request", shellQuote(sourceApprovalRequest));
+  }
+  parts.push(noteFlag, shellQuote(note));
+  return parts.join(" ");
 }
 
 function shellQuote(value) {
@@ -1289,6 +1335,7 @@ Modes:
 
 - npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note "<current-turn approval>"
   Approved-source candidate. Still requires human privacy review before KO use.
+  Prefer adding --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json so the run fails if URL, timestamp, or approval text drift from the current request.
 
 Do not use authenticated/private pages, localhost, private IPs, intranet hosts, reserved example domains, or URLs with token/session/signature query keys.`;
 }
@@ -1393,7 +1440,9 @@ function runApprovedUrlBoundarySelfChecks() {
         }
       }
     ]
-  }, ".codex-tmp/external-source-validation/public-dry-run/receipt.json"));
+  }, ".codex-tmp/external-source-validation/public-dry-run/receipt.json"), {
+    approvalRequestPath: ".codex-tmp/external-source-validation/source-approval-request.json"
+  });
   assert.equal(approvalFromDryRun.basis.type, "PUBLIC_SOURCE_DRY_RUN_RECEIPT");
   assert.equal(approvalFromDryRun.basis.priorDryRun.gitHead, "fixture-git-head");
   assert.equal(approvalFromDryRun.basis.priorDryRun.dirtyWorktree, false);
@@ -1405,6 +1454,26 @@ function runApprovedUrlBoundarySelfChecks() {
   assert.ok(approvalFromDryRun.approvalFreshness.invalidatesWhen.some((item) => item.includes("current git HEAD differs")));
   assert.ok(approvalFromDryRun.approvalRequiredBeforeKoEvidence.some((item) => item.includes("CURRENT_CLEAN_PUBLIC_DRY_RUN")));
   assert.equal(approvalFromDryRun.sources.video.timestamp, "00:03");
+  assert.equal(approvalFromDryRun.approvalRequestPath, ".codex-tmp/external-source-validation/source-approval-request.json");
+  assert.match(approvalFromDryRun.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '\.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
+  assert.doesNotThrow(() => validateApprovedRunSourceApprovalRequestObject(approvalFromDryRun, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: approvalFromDryRun.requestedApprovalText
+  }));
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject(approvalFromDryRun, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:04",
+    approvalNote: approvalFromDryRun.requestedApprovalText
+  }), /video timestamp/);
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject(approvalFromDryRun, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: "I approve a different source."
+  }), /approval text/);
   const approvalFromDryRunMarkdown = buildSourceApprovalRequestMarkdown(approvalFromDryRun);
   assert.match(approvalFromDryRunMarkdown, /External Source Approval Request/);
   assert.match(approvalFromDryRunMarkdown, /Freshness \/ Expiration/);

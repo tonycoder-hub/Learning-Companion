@@ -72,17 +72,20 @@ export async function assessSourceApprovalFreshness(sourceApprovalRequest, curre
 }
 
 export function buildApprovedCandidateCommand(sourceApprovalRequest) {
-  return [
+  const parts = [
     "npm run external:validate -- --approved-current-turn",
     "--reading-url",
     shellQuote(sourceApprovalRequest.sources?.reading?.url || ""),
     "--video-url",
     shellQuote(sourceApprovalRequest.sources?.video?.url || ""),
     "--video-timestamp",
-    shellQuote(sourceApprovalRequest.sources?.video?.timestamp || ""),
-    "--approval-note",
-    shellQuote(sourceApprovalRequest.requestedApprovalText || "")
-  ].join(" ");
+    shellQuote(sourceApprovalRequest.sources?.video?.timestamp || "")
+  ];
+  if (sourceApprovalRequest.approvalRequestPath) {
+    parts.push("--source-approval-request", shellQuote(sourceApprovalRequest.approvalRequestPath));
+  }
+  parts.push("--approval-note", shellQuote(sourceApprovalRequest.requestedApprovalText || ""));
+  return parts.join(" ");
 }
 
 export function buildFreshSourceCommands(sourceApprovalRequest) {
