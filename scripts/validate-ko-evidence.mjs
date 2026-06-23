@@ -371,7 +371,7 @@ function summarizePlatformQaStatus(items, context = {}) {
       const claimAllowed = receipt.claimBoundary?.[item.claimKey] === true;
       const platformEvidenceErrors = [
         ...platformRowEvidenceErrors(receipt, item),
-        ...platformClaimEvidenceErrors(receipt, item, context)
+        ...platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath })
       ];
       const blockingReasons = summarizePlatformBlockingReasons({ summary, gates, claimAllowed, platformEvidenceErrors });
       return {
@@ -509,7 +509,7 @@ function platformClaimEvidenceErrors(receipt, item, context = {}) {
   return errors;
 }
 
-function platformHandoffBindingErrors(receipt, item, { currentRevision = {} } = {}) {
+function platformHandoffBindingErrors(receipt, item, { currentRevision = {}, evidencePath = "" } = {}) {
   const errors = [];
   const binding = receipt.platformHandoffBinding || {};
   if (binding.schema !== PLATFORM_QA_HANDOFF_BINDING_SCHEMA) {
@@ -518,6 +518,14 @@ function platformHandoffBindingErrors(receipt, item, { currentRevision = {} } = 
   }
   if (!binding.handoffPath) {
     errors.push(`${item.label} platformHandoffBinding handoffPath is missing`);
+  } else if (!existsSync(binding.handoffPath)) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact missing: ${binding.handoffPath}`);
+  } else {
+    try {
+      errors.push(...platformHandoffArtifactErrors(readJsonSync(binding.handoffPath, `${item.label} platform handoff`), binding, item));
+    } catch (error) {
+      errors.push(`${item.label} platformHandoffBinding handoff artifact unreadable: ${error.message}`);
+    }
   }
   if (binding.handoffSchema !== PLATFORM_QA_HANDOFF_SCHEMA) {
     errors.push(`${item.label} platformHandoffBinding handoff schema mismatch`);
@@ -530,6 +538,11 @@ function platformHandoffBindingErrors(receipt, item, { currentRevision = {} } = 
   }
   if (binding.qaPath !== receipt.qaPath) {
     errors.push(`${item.label} platformHandoffBinding qaPath must match receipt qaPath`);
+  }
+  if (!binding.receiptPath) {
+    errors.push(`${item.label} platformHandoffBinding receiptPath is missing`);
+  } else if (evidencePath && resolve(binding.receiptPath) !== resolve(evidencePath)) {
+    errors.push(`${item.label} platformHandoffBinding receiptPath must match actual receipt path`);
   }
   if (binding.executionFreshnessStatus !== CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF) {
     errors.push(`${item.label} platformHandoffBinding freshness must be ${CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF}`);
@@ -563,6 +576,54 @@ function platformHandoffBindingErrors(receipt, item, { currentRevision = {} } = 
     errors.push(`${item.label} platformHandoffBinding problems must be listed`);
   } else if (binding.problems.length > 0) {
     errors.push(`${item.label} platformHandoffBinding must have no freshness problems`);
+  }
+  return errors;
+}
+
+function platformHandoffArtifactErrors(handoff, binding, item) {
+  const errors = [];
+  if (handoff.schema !== PLATFORM_QA_HANDOFF_SCHEMA) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact schema mismatch`);
+  }
+  if (handoff.evidenceTier !== "PLATFORM_QA_HANDOFF_ONLY" || handoff.canClaimKo !== false) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact must be non-claiming PLATFORM_QA_HANDOFF_ONLY`);
+  }
+  if (handoff.executionFreshness?.status !== binding.executionFreshnessStatus) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact freshness must match binding`);
+  }
+  if (handoff.koStatusFreshness?.status !== binding.koStatusFreshnessStatus) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact KO status freshness must match binding`);
+  }
+  if (handoff.currentRevision?.gitHead !== binding.handoffGitHead) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact git HEAD must match binding`);
+  }
+  if (handoff.currentRevision?.dirtyWorktree !== binding.handoffDirtyWorktree) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact dirtyWorktree must match binding`);
+  }
+  if (handoff.currentRevision?.statusLineCount !== binding.handoffStatusLineCount) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact statusLineCount must match binding`);
+  }
+  const platform = (Array.isArray(handoff.platforms) ? handoff.platforms : []).find((candidate) => candidate.id === item.id);
+  if (!platform) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact missing platform ${item.id}`);
+    return errors;
+  }
+  if (platform.evidenceTier !== "PLATFORM_QA_HANDOFF_ONLY" || platform.canClaimPlatform !== false) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact platform must be non-claiming`);
+  }
+  if (platform.qaPath !== binding.qaPath) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact qaPath must match binding`);
+  }
+  if (!platform.receiptPath) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact platform receiptPath is missing`);
+  } else if (platform.receiptPath !== binding.receiptPath) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact receiptPath must match binding`);
+  }
+  if (platform.validateCommand !== binding.validateCommand) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact validateCommand must match binding`);
+  }
+  if (platform.expectedRows !== item.expectedAreas.length) {
+    errors.push(`${item.label} platformHandoffBinding handoff artifact expectedRows must match platform matrix`);
   }
   return errors;
 }
@@ -763,7 +824,7 @@ function validateBilingualReceipt(receipt, _path = "", context = {}) {
   };
 }
 
-function validateMacManualQaReceipt(receipt, _path = "", context = {}) {
+function validateMacManualQaReceipt(receipt, path = "", context = {}) {
   assert.equal(receipt.schema, MAC_MANUAL_QA_SCHEMA, "Mac manual QA receipt schema mismatch");
   const item = {
     id: "nativeMacManualQa",
@@ -779,7 +840,7 @@ function validateMacManualQaReceipt(receipt, _path = "", context = {}) {
     claimKey: "canClaimMacManualQaUsable"
   };
   assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Mac manual QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, context), [], "Mac manual QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path }), [], "Mac manual QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "Mac manual QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Mac manual QA rows must all PASS");
   assertTrue(receipt.summary?.nativeBuildGatePass, "Mac native build gate must PASS");
@@ -801,7 +862,7 @@ function validateMacManualQaReceipt(receipt, _path = "", context = {}) {
   };
 }
 
-function validateWindowsStaticQaReceipt(receipt, _path = "", context = {}) {
+function validateWindowsStaticQaReceipt(receipt, path = "", context = {}) {
   assert.equal(receipt.schema, WINDOWS_STATIC_QA_SCHEMA, "Windows static QA receipt schema mismatch");
   const item = {
     id: "windowsStaticManualQa",
@@ -817,7 +878,7 @@ function validateWindowsStaticQaReceipt(receipt, _path = "", context = {}) {
     claimKey: "canClaimWindowsStaticLoopUsable"
   };
   assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Windows static QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, context), [], "Windows static QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path }), [], "Windows static QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "Windows static QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Windows static QA rows must all PASS");
   assertTrue(receipt.summary?.staticReturnContractGatePass, "Windows static-return contract gate must PASS");
@@ -839,7 +900,7 @@ function validateWindowsStaticQaReceipt(receipt, _path = "", context = {}) {
   };
 }
 
-function validateHarmonyDeviceQaReceipt(receipt, _path = "", context = {}) {
+function validateHarmonyDeviceQaReceipt(receipt, path = "", context = {}) {
   assert.equal(receipt.schema, HARMONY_DEVICE_QA_SCHEMA, "HarmonyOS device QA receipt schema mismatch");
   const item = {
     id: "harmonyDeviceQa",
@@ -855,7 +916,7 @@ function validateHarmonyDeviceQaReceipt(receipt, _path = "", context = {}) {
     claimKey: "canClaimHarmonyDeviceRoundtripUsable"
   };
   assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "HarmonyOS device QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, context), [], "HarmonyOS device QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
+  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path }), [], "HarmonyOS device QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
   assertTrue(receipt.summary?.ok, "HarmonyOS device QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "HarmonyOS device QA rows must all PASS");
   assertTrue(receipt.summary?.devEcoToolchainGatePass, "HarmonyOS DevEco/toolchain gate must PASS");
@@ -2540,6 +2601,76 @@ async function runSelfTest() {
   assert.equal(missingPlatformHandoffBindingReport.canClaimKo, false);
   assert.ok(missingPlatformHandoffBindingReport.blockers.some((item) => item.includes("platformHandoffBinding schema mismatch")));
 
+  const missingPlatformHandoffArtifactPath = join(root, "missing-platform-handoff-artifact-receipt.json");
+  await writeJson(missingPlatformHandoffArtifactPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    platformHandoffBinding: {
+      ...fixtures.macManualReceipt.platformHandoffBinding,
+      handoffPath: join(root, "missing-platform-qa-handoff.json")
+    }
+  });
+  const missingPlatformHandoffArtifactReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: missingPlatformHandoffArtifactPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingPlatformHandoffArtifactReport.canClaimKo, false);
+  assert.ok(missingPlatformHandoffArtifactReport.blockers.some((item) => item.includes("platformHandoffBinding handoff artifact missing")));
+
+  const copiedPlatformReceiptPath = join(root, "copied-platform-receipt-with-stale-binding-path.json");
+  await writeJson(copiedPlatformReceiptPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false
+  });
+  const copiedPlatformReceiptReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: copiedPlatformReceiptPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(copiedPlatformReceiptReport.canClaimKo, false);
+  assert.ok(copiedPlatformReceiptReport.blockers.some((item) => item.includes("platformHandoffBinding receiptPath must match actual receipt path")));
+
+  const missingPlatformReceiptPathBindingReceiptPath = join(root, "missing-platform-receipt-path-binding-receipt.json");
+  const missingPlatformReceiptPathHandoffPath = join(root, "missing-platform-receipt-path-handoff.json");
+  await writeJson(missingPlatformReceiptPathHandoffPath, {
+    ...fixtures.platformHandoff,
+    platforms: fixtures.platformHandoff.platforms.map((platform) => platform.id === "nativeMacManualQa"
+      ? { ...platform, receiptPath: undefined }
+      : platform)
+  });
+  await writeJson(missingPlatformReceiptPathBindingReceiptPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    platformHandoffBinding: {
+      ...fixtures.macManualReceipt.platformHandoffBinding,
+      handoffPath: missingPlatformReceiptPathHandoffPath,
+      receiptPath: undefined
+    }
+  });
+  const missingPlatformReceiptPathBindingReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: missingPlatformReceiptPathBindingReceiptPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingPlatformReceiptPathBindingReport.canClaimKo, false);
+  assert.ok(missingPlatformReceiptPathBindingReport.blockers.some((item) => item.includes("platformHandoffBinding receiptPath is missing")));
+
   const stalePlatformHandoffBindingPath = join(root, "stale-platform-handoff-binding-receipt.json");
   await writeJson(stalePlatformHandoffBindingPath, {
     ...fixtures.macManualReceipt,
@@ -2628,6 +2759,35 @@ async function runSelfTest() {
   assert.equal(mismatchedPlatformHandoffBindingGitReport.canClaimKo, false);
   assert.ok(mismatchedPlatformHandoffBindingGitReport.blockers.some((item) => item.includes("platformHandoffBinding handoff git HEAD must match receipt runContext")));
 
+  const mismatchedPlatformHandoffArtifactReceiptPath = join(root, "mismatched-platform-handoff-artifact-receipt.json");
+  const mismatchedPlatformHandoffArtifactPath = join(root, "mismatched-platform-qa-handoff.json");
+  await writeJson(mismatchedPlatformHandoffArtifactPath, {
+    ...fixtures.platformHandoff,
+    platforms: fixtures.platformHandoff.platforms.map((platform) => platform.id === "nativeMacManualQa"
+      ? { ...platform, receiptPath: ".codex-tmp/mac-manual-qa/other-real-run-receipt.json" }
+      : platform)
+  });
+  await writeJson(mismatchedPlatformHandoffArtifactReceiptPath, {
+    ...fixtures.macManualReceipt,
+    fixtureOnly: false,
+    platformHandoffBinding: {
+      ...fixtures.macManualReceipt.platformHandoffBinding,
+      handoffPath: mismatchedPlatformHandoffArtifactPath
+    }
+  });
+  const mismatchedPlatformHandoffArtifactReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: mismatchedPlatformHandoffArtifactReceiptPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedPlatformHandoffArtifactReport.canClaimKo, false);
+  assert.ok(mismatchedPlatformHandoffArtifactReport.blockers.some((item) => item.includes("platformHandoffBinding handoff artifact receiptPath must match binding")));
+
   const summary = {
     schema: SELFTEST_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -2681,10 +2841,14 @@ async function runSelfTest() {
       "platform git unavailable revision rejected",
       "platform contradictory clean revision rejected",
       "missing platform handoff binding rejected",
+      "missing platform handoff artifact rejected",
+      "copied platform receipt with stale binding path rejected",
+      "missing platform handoff receipt path rejected",
       "stale platform handoff binding rejected",
       "problem platform handoff binding rejected",
       "mismatched platform handoff binding id rejected",
-      "mismatched platform handoff binding git rejected"
+      "mismatched platform handoff binding git rejected",
+      "mismatched platform handoff artifact receipt path rejected"
     ]
   };
   const outPath = join(root, "selftest-summary.json");
@@ -2698,6 +2862,7 @@ async function createKoFixtures(root) {
   const macManualPath = join(root, "mac-manual-qa-receipt.json");
   const windowsStaticPath = join(root, "windows-static-qa-receipt.json");
   const harmonyDevicePath = join(root, "harmony-device-qa-receipt.json");
+  const platformHandoffPath = join(root, "platform-qa-handoff.json");
   const externalPath = join(root, "external-claim.json");
   const evidenceFiles = [
     join(root, "external", "reading", "01-source-and-app-before-capture.png"),
@@ -2801,7 +2966,7 @@ async function createKoFixtures(root) {
   };
   const platformHandoffBinding = ({ platformId, qaPath, receiptPath, validateCommand }) => ({
     schema: PLATFORM_QA_HANDOFF_BINDING_SCHEMA,
-    handoffPath: join(root, "platform-qa-handoff.json"),
+    handoffPath: platformHandoffPath,
     handoffSchema: PLATFORM_QA_HANDOFF_SCHEMA,
     evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
     canClaimKo: false,
@@ -2857,7 +3022,7 @@ async function createKoFixtures(root) {
     platformHandoffBinding: platformHandoffBinding({
       platformId: "nativeMacManualQa",
       qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
-      receiptPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
+      receiptPath: macManualPath,
       validateCommand: "npm run mac:manual:validate:real"
     }),
     claimBoundary: {
@@ -2904,7 +3069,7 @@ async function createKoFixtures(root) {
     platformHandoffBinding: platformHandoffBinding({
       platformId: "windowsStaticManualQa",
       qaPath: "dist/morning-demo/WINDOWS_STATIC_QA.md",
-      receiptPath: ".codex-tmp/windows-static-qa/real-run-receipt.json",
+      receiptPath: windowsStaticPath,
       validateCommand: "npm run windows:static:validate:real"
     }),
     claimBoundary: {
@@ -2952,13 +3117,73 @@ async function createKoFixtures(root) {
     platformHandoffBinding: platformHandoffBinding({
       platformId: "harmonyDeviceQa",
       qaPath: "dist/morning-demo/HARMONY_DEVICE_QA.md",
-      receiptPath: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
+      receiptPath: harmonyDevicePath,
       validateCommand: "npm run harmony:device:validate:real"
     }),
     claimBoundary: {
       canClaimHarmonyDeviceRoundtripUsable: true
     }
   };
+  const platformHandoff = {
+    schema: PLATFORM_QA_HANDOFF_SCHEMA,
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+    canClaimKo: false,
+    claimBoundary: "Self-test handoff only. It does not run platform QA.",
+    currentRevision: {
+      gitAvailable: true,
+      gitHead: SELFTEST_GIT_HEAD,
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    },
+    koStatusFreshness: {
+      status: CURRENT_CLEAN_HEAD_KO_STATUS,
+      currentGitHead: SELFTEST_GIT_HEAD,
+      statusGitHead: SELFTEST_GIT_HEAD,
+      problems: []
+    },
+    executionFreshness: {
+      status: CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF
+    },
+    platforms: [
+      {
+        id: "nativeMacManualQa",
+        label: "Native Mac manual QA",
+        qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
+        receiptPath: macManualPath,
+        evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+        canClaimPlatform: false,
+        validateCommand: "npm run mac:manual:validate:real",
+        expectedRows: MAC_MANUAL_QA_AREAS.length
+      },
+      {
+        id: "windowsStaticManualQa",
+        label: "Windows static/manual QA",
+        qaPath: "dist/morning-demo/WINDOWS_STATIC_QA.md",
+        receiptPath: windowsStaticPath,
+        evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+        canClaimPlatform: false,
+        validateCommand: "npm run windows:static:validate:real",
+        expectedRows: WINDOWS_STATIC_QA_AREAS.length
+      },
+      {
+        id: "harmonyDeviceQa",
+        label: "HarmonyOS device/toolchain QA",
+        qaPath: "dist/morning-demo/HARMONY_DEVICE_QA.md",
+        receiptPath: harmonyDevicePath,
+        evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+        canClaimPlatform: false,
+        validateCommand: "npm run harmony:device:validate:real",
+        expectedRows: HARMONY_DEVICE_QA_AREAS.length
+      }
+    ],
+    blockedOrNotExecuted: [
+      "No platform QA was run by this self-test handoff."
+    ]
+  };
+  await writeJson(platformHandoffPath, platformHandoff);
   await writeJson(macManualPath, macManualReceipt);
   await writeJson(windowsStaticPath, windowsStaticReceipt);
   await writeJson(harmonyDevicePath, harmonyDeviceReceipt);
@@ -3115,6 +3340,8 @@ async function createKoFixtures(root) {
     windowsStaticReceipt,
     harmonyDevicePath,
     harmonyDeviceReceipt,
+    platformHandoffPath,
+    platformHandoff,
     externalPath,
     externalClaim,
     externalReview
