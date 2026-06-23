@@ -6,8 +6,9 @@ import { promisify } from "node:util";
 
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
+const sourceApprovalRequestPath = args["source-approval-request"] || ".codex-tmp/external-source-validation/source-approval-request.json";
 const execFileAsync = promisify(execFile);
-const PATH_ARGS = ["status", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
+const PATH_ARGS = ["status", "source-approval-request", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
 
 if (args.help) {
   console.log(buildHelp());
@@ -29,7 +30,12 @@ if (!existsSync(statusPath)) {
 }
 
 const status = JSON.parse(await readFile(statusPath, "utf8"));
-console.log(buildSummary(status, statusPath));
+const sourceApprovalRequestState = await readSourceApprovalRequest(sourceApprovalRequestPath, Boolean(args["source-approval-request"]));
+console.log(buildSummary(status, statusPath, {
+  sourceApprovalRequest: sourceApprovalRequestState.request,
+  sourceApprovalRequestPath,
+  sourceApprovalRequestWarning: sourceApprovalRequestState.warning
+}));
 
 async function refreshKoStatus(outPath, parsedArgs) {
   const refreshArgs = ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", outPath];
@@ -58,7 +64,50 @@ async function refreshKoStatus(outPath, parsedArgs) {
   }
 }
 
-function buildSummary(status, statusPath) {
+async function readSourceApprovalRequest(path, required) {
+  if (!existsSync(path)) {
+    if (required) throw new Error(`Missing source approval request file: ${path}`);
+    return { request: null, warning: "" };
+  }
+  try {
+    const request = JSON.parse(await readFile(path, "utf8"));
+    validateSourceApprovalRequest(request);
+    return { request, warning: "" };
+  } catch (error) {
+    if (required) throw error;
+    return {
+      request: null,
+      warning: `Ignored invalid default source approval request at ${path}: ${error.message}`
+    };
+  }
+}
+
+function validateSourceApprovalRequest(request) {
+  if (request.schema !== "learning-companion.external-source-approval-request.v1") {
+    throw new Error(`Source approval request schema mismatch: ${request.schema || "missing"}`);
+  }
+  if (request.evidenceTier !== "SOURCE_APPROVAL_REQUEST_ONLY" || request.canClaimExternalKo !== false) {
+    throw new Error("Source approval request must be a non-claiming SOURCE_APPROVAL_REQUEST_ONLY artifact.");
+  }
+  requireSourceApprovalField(request.sources?.reading?.url, "sources.reading.url");
+  requireSourceApprovalField(request.sources?.video?.url, "sources.video.url");
+  requireSourceApprovalField(request.sources?.video?.timestamp, "sources.video.timestamp");
+  requireSourceApprovalField(request.requestedApprovalText, "requestedApprovalText");
+  const approvedCandidateCommand = requireSourceApprovalField(request.nextCommands?.approvedCandidateAfterCurrentTurnApproval, "nextCommands.approvedCandidateAfterCurrentTurnApproval");
+  requireSourceApprovalField(request.nextCommands?.privacyTemplate, "nextCommands.privacyTemplate");
+  requireSourceApprovalField(request.nextCommands?.privacyReview, "nextCommands.privacyReview");
+  if (/<[^>]+>/.test(approvedCandidateCommand)) {
+    throw new Error("Source approval request approved candidate command still contains placeholder tokens.");
+  }
+}
+
+function requireSourceApprovalField(value, fieldName) {
+  const text = String(value || "").trim();
+  if (!text) throw new Error(`Source approval request missing required ${fieldName}.`);
+  return text;
+}
+
+function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning }) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const platformQaStatus = Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [];
   const pass = requirements.filter((item) => item.status === "PASS");
@@ -79,16 +128,8 @@ function buildSummary(status, statusPath) {
     ...formatRequirementList(missing, "MISSING"),
     "",
     "Next source evidence input:",
-    "- URL here means a public learning-material link, not a repo, build, deployment, localhost, or private/internal page.",
-    "- 中文：URL 就是网页链接；这里要的是公开学习材料链接，不是仓库、部署地址、本机地址或内部页面。",
-    "- You can send it as: 阅读：https://... / 视频：https://... / 时间：00:15",
-    "- Needed: one approved reading material URL, one approved video material URL, and the video timestamp to capture, e.g. 00:15.",
-    "- Show input help: npm run external:source-help",
-    "- Validate pasted input before running browser evidence: npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
-    "- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
-    "- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note \"<current-turn approval>\"",
-    "- Privacy review template: npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
-    "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
+    ...formatSourceApprovalRequest(sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning),
+    ...formatSourceInputCommands(sourceApprovalRequest),
     "",
     "Platform QA still required:",
     "- Generate the non-claiming platform QA handoff: npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
@@ -111,6 +152,51 @@ function buildSummary(status, statusPath) {
   return `${lines.join("\n")}\n`;
 }
 
+function formatSourceApprovalRequest(request, path, warning) {
+  if (!request) {
+    const lines = [
+      "- URL here means a public learning-material link, not a repo, build, deployment, localhost, or private/internal page.",
+      "- 中文：URL 就是网页链接；这里要的是公开学习材料链接，不是仓库、部署地址、本机地址或内部页面。",
+      "- You can send it as: 阅读：https://... / 视频：https://... / 时间：00:15",
+      "- Needed: one approved reading material URL, one approved video material URL, and the video timestamp to capture, e.g. 00:15."
+    ];
+    if (warning) lines.unshift(`- ${warning}`);
+    return lines;
+  }
+  const freshness = request.approvalFreshness || {};
+  const nextCommands = request.nextCommands || {};
+  return [
+    `- Current approval request: ${path}`,
+    `- Reading URL: ${request.sources?.reading?.url || "TBD"}`,
+    `- Reading title: ${request.sources?.reading?.title || "TBD"}`,
+    `- Video URL: ${request.sources?.video?.url || "TBD"}`,
+    `- Video title: ${request.sources?.video?.title || "TBD"}`,
+    `- Video timestamp: ${request.sources?.video?.timestamp || "TBD"}`,
+    `- Approval freshness basis: ${freshness.status || "TBD"}; required operator freshness: ${freshness.requiredOperatorFreshness || "TBD"}`,
+    `- Approval text to copy exactly: ${request.requestedApprovalText || "TBD"}`,
+    `- Approved candidate command after exact current-turn approval: ${nextCommands.approvedCandidateAfterCurrentTurnApproval || "TBD"}`,
+    `- Privacy template command: ${nextCommands.privacyTemplate || "TBD"}`,
+    `- Privacy review validation command: ${nextCommands.privacyReview || "TBD"}`,
+    "- This approval request still does not grant source approval, launch approved evidence, or satisfy privacy-reviewed KO evidence."
+  ];
+}
+
+function formatSourceInputCommands(request) {
+  if (request) {
+    return [
+      "- To replace these sources, regenerate source intake and approval request before asking for current-turn approval."
+    ];
+  }
+  return [
+    "- Show input help: npm run external:source-help",
+    "- Validate pasted input before running browser evidence: npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
+    "- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
+    "- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note \"<current-turn approval>\"",
+    "- Privacy review template: npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+    "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+  ];
+}
+
 function formatRequirementList(items, fallbackStatus) {
   if (!items.length) return [`- none (${fallbackStatus})`];
   return items.map((item) => `- ${item.id}: ${item.status || fallbackStatus}${item.detail ? ` - ${item.detail}` : ""}`);
@@ -128,11 +214,12 @@ Usage:
   npm run ko:next
   npm run ko:next -- --refresh
   node scripts/ko-next-action-summary.mjs --status .codex-tmp/ko-evidence/current-status.json
+  node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json
 
 The summary explains:
 - which KO requirements already pass,
 - which evidence is still missing,
-- what approved reading/video learning-material URLs are needed,
+- what approved reading/video learning-material URLs are needed or already staged for current-turn approval,
 - which privacy-review and final KO commands to run next.`;
 }
 
