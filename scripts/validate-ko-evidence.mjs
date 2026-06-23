@@ -22,6 +22,8 @@ const SELFTEST_SCHEMA = "learning-companion.ko-evidence-selftest.v1";
 const BILINGUAL_SCHEMA = "learning-companion.bilingual-browser-smoke.v1";
 const AGENT_LOOP_SCHEMA = "learning-companion.agent-study-loop-smoke.v1";
 const EXTERNAL_CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-review.v1";
+const EXTERNAL_PRIVACY_REVIEW_SCHEMA = "learning-companion.external-source-privacy-review.v1";
+const EXTERNAL_RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
 const SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA = "learning-companion.source-approval-request-binding.v1";
 const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
 const MAC_MANUAL_QA_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
@@ -945,6 +947,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   }
   assert.equal(existsSync(claim.receiptPath), true, `external receipt missing: ${claim.receiptPath}`);
   assert.equal(existsSync(claim.reviewPath), true, `external review missing: ${claim.reviewPath}`);
+  const review = readJsonSync(claim.reviewPath, "external privacy review");
   assertExternalSource(claim.reading, "reading", { allowSelfTestFixtures });
   assertExternalSource(claim.video, "video", { allowSelfTestFixtures });
   assertExternalRequiredEvidenceFiles(claim.reading, "reading", [
@@ -963,6 +966,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   assertExternalRunContext(claim.runContext, { currentRevision });
   assertExternalSourceApprovalRequest(claim.sourceApprovalRequest, claim, { currentRevision });
   assertExternalReviewedScreenshots(claim.reviewedScreenshots, claim, { allowSelfTestFixtures });
+  assertExternalPrivacyReviewArtifact(review, claim);
   return {
     detail: "Approved reading/video evidence has a privacy-reviewed external KO artifact.",
     evidence: {
@@ -1033,6 +1037,61 @@ function assertExternalSourceApprovalRequest(sourceApprovalRequest, claim, { cur
   assert.equal(sourceApprovalRequest.basisProfileRetained, false, "external claim sourceApprovalRequest public dry-run basis must not retain the browser profile");
   assert.equal(Array.isArray(sourceApprovalRequest.problems), true, "external claim sourceApprovalRequest problems must be listed");
   assert.equal(sourceApprovalRequest.problems.length, 0, "external claim sourceApprovalRequest must have no freshness problems");
+}
+
+function assertExternalPrivacyReviewArtifact(review, claim) {
+  assert.equal(review?.schema, EXTERNAL_PRIVACY_REVIEW_SCHEMA, "external claim review schema mismatch");
+  assert.equal(review?.receiptSchema, EXTERNAL_RECEIPT_SCHEMA, "external claim review receipt schema mismatch");
+  assert.equal(review?.receiptPath, claim.receiptPath, "external claim review receipt path must match claim");
+  assert.equal(review?.reviewer, claim.reviewer, "external claim reviewer must match review artifact");
+  assert.equal(review?.reviewedAt, claim.reviewedAt, "external claim reviewedAt must match review artifact");
+  assert.equal(review.sourceApproval?.currentTurnApprovalConfirmed, true, "external claim review current-turn source approval must be confirmed");
+  assertConcreteReviewText(review.sourceApproval?.approvalReference, "external claim review approvalReference");
+  assert.equal(review.sourceApproval?.approvedReadingUrl, claim.reading.url, "external claim review reading URL must match claim");
+  assert.equal(review.sourceApproval?.approvedVideoUrl, claim.video.url, "external claim review video URL must match claim");
+  assert.equal(review.sourceApproval?.approvedVideoTimestamp, claim.video.timestamp, "external claim review video timestamp must match claim");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestPath, claim.sourceApprovalRequest.requestPath, "external claim review source approval request path must match claim");
+  assert.equal(review.sourceApproval?.requestedApprovalText, claim.sourceApprovalRequest.requestedApprovalText, "external claim review requested approval text must match claim");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN, "external claim review source approval freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestCurrentGitHead, claim.sourceApprovalRequest.currentGitHead, "external claim review current git HEAD must match claim");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestBasisGitHead, claim.sourceApprovalRequest.basisGitHead, "external claim review basis git HEAD must match claim");
+  [
+    ["privacyReview.noVisibleAccountIdentity", review.privacyReview?.noVisibleAccountIdentity],
+    ["privacyReview.noPrivateOrSensitiveContent", review.privacyReview?.noPrivateOrSensitiveContent],
+    ["privacyReview.noSecretsTokensSessionIds", review.privacyReview?.noSecretsTokensSessionIds],
+    ["privacyReview.noPrivateBrowserChrome", review.privacyReview?.noPrivateBrowserChrome],
+    ["executionReview.runContextReviewed", review.executionReview?.runContextReviewed],
+    ["executionReview.appRevisionRecorded", review.executionReview?.appRevisionRecorded],
+    ["executionReview.readingSourceContextPass", review.executionReview?.readingSourceContextPass],
+    ["executionReview.videoSourceContextPass", review.executionReview?.videoSourceContextPass],
+    ["executionReview.videoTimestampPass", review.executionReview?.videoTimestampPass],
+    ["executionReview.videoLearningToolsPass", review.executionReview?.videoLearningToolsPass]
+  ].forEach(([label, value]) => assert.equal(value, true, `external claim review ${label} must be true`));
+  assertExternalPrivacyReviewScreenshots(review.privacyReview?.screenshotsReviewed, claim.reviewedScreenshots);
+  assert.equal(review.verdict, "PASS", "external claim review verdict must be PASS");
+  assert.equal(review.canUseForKo, true, "external claim review must explicitly allow KO use");
+  assertConcreteReviewText(review.notes, "external claim review notes");
+}
+
+function assertExternalPrivacyReviewScreenshots(screenshotsReviewed, claimScreenshots) {
+  assert.equal(Array.isArray(screenshotsReviewed), true, "external claim review screenshotsReviewed must be an array");
+  const expected = new Map(claimScreenshots.map((item) => [item.file, item]));
+  assert.equal(expected.size, claimScreenshots.length, "external claim review claim screenshots must be unique");
+  const seen = new Set();
+  screenshotsReviewed.forEach((item, index) => {
+    const label = `external claim review screenshotsReviewed[${index}]`;
+    assertNonTbd(item?.file, `${label}.file`);
+    assert.equal(expected.has(item.file), true, `external claim review screenshotsReviewed unexpected file: ${item.file}`);
+    assert.equal(seen.has(item.file), false, `external claim review screenshotsReviewed duplicate file: ${item.file}`);
+    assert.equal(item.status, "PASS", `external claim review screenshotsReviewed status must be PASS for ${item.file}`);
+    const expectedItem = expected.get(item.file);
+    assert.equal(item.bytes, expectedItem.bytes, `external claim review screenshot bytes must match claim for ${item.file}`);
+    assert.equal(item.sha256, expectedItem.sha256, `external claim review screenshot sha256 must match claim for ${item.file}`);
+    seen.add(item.file);
+  });
+  claimScreenshots.forEach((item) => {
+    assert.equal(seen.has(item.file), true, `external claim review screenshotsReviewed missing file: ${item.file}`);
+  });
 }
 
 function assertRequestedApprovalTextCoversClaim(text, claim) {
@@ -1933,6 +1992,80 @@ async function runSelfTest() {
   assert.equal(relativeExternalReviewedAtReport.canClaimKo, false);
   assert.ok(relativeExternalReviewedAtReport.blockers.some((item) => item.includes("external claim reviewedAt must be an ISO date-time with timezone")));
 
+  const failedExternalReviewArtifactPath = join(root, "failed-external-review-artifact.json");
+  const failedExternalReviewPath = join(root, "failed-privacy-review.json");
+  await writeJson(failedExternalReviewPath, {
+    ...fixtures.externalReview,
+    verdict: "FAIL"
+  });
+  await writeJson(failedExternalReviewArtifactPath, {
+    ...fixtures.externalClaim,
+    reviewPath: failedExternalReviewPath
+  });
+  const failedExternalReviewArtifactReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: failedExternalReviewArtifactPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(failedExternalReviewArtifactReport.canClaimKo, false);
+  assert.ok(failedExternalReviewArtifactReport.blockers.some((item) => item.includes("external claim review verdict must be PASS")));
+
+  const mismatchedExternalReviewReceiptPathClaimPath = join(root, "mismatched-external-review-receipt-path.json");
+  const mismatchedExternalReviewReceiptPath = join(root, "mismatched-privacy-review-receipt-path.json");
+  await writeJson(mismatchedExternalReviewReceiptPath, {
+    ...fixtures.externalReview,
+    receiptPath: join(root, "other-candidate-receipt.json")
+  });
+  await writeJson(mismatchedExternalReviewReceiptPathClaimPath, {
+    ...fixtures.externalClaim,
+    reviewPath: mismatchedExternalReviewReceiptPath
+  });
+  const mismatchedExternalReviewReceiptPathReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: mismatchedExternalReviewReceiptPathClaimPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedExternalReviewReceiptPathReport.canClaimKo, false);
+  assert.ok(mismatchedExternalReviewReceiptPathReport.blockers.some((item) => item.includes("external claim review receipt path must match claim")));
+
+  const mismatchedExternalReviewScreenshotPath = join(root, "mismatched-external-review-screenshot.json");
+  const mismatchedExternalReviewPath = join(root, "mismatched-privacy-review-screenshot.json");
+  await writeJson(mismatchedExternalReviewPath, {
+    ...fixtures.externalReview,
+    privacyReview: {
+      ...fixtures.externalReview.privacyReview,
+      screenshotsReviewed: fixtures.externalReview.privacyReview.screenshotsReviewed.map((item, index) => index === 0
+        ? { ...item, sha256: "0".repeat(64) }
+        : item)
+    }
+  });
+  await writeJson(mismatchedExternalReviewScreenshotPath, {
+    ...fixtures.externalClaim,
+    reviewPath: mismatchedExternalReviewPath
+  });
+  const mismatchedExternalReviewScreenshotReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: mismatchedExternalReviewScreenshotPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedExternalReviewScreenshotReport.canClaimKo, false);
+  assert.ok(mismatchedExternalReviewScreenshotReport.blockers.some((item) => item.includes("external claim review screenshot sha256 must match claim")));
+
   const pendingPlatformPath = join(root, "pending-mac-manual-receipt.json");
   await writeJson(pendingPlatformPath, {
     ...fixtures.macManualReceipt,
@@ -2525,6 +2658,9 @@ async function runSelfTest() {
       "mismatched external reviewed screenshot sha256 rejected",
       "placeholder external reviewer rejected",
       "relative external reviewedAt timestamp rejected",
+      "failed external privacy review artifact rejected",
+      "mismatched external privacy review receipt path rejected",
+      "mismatched external privacy review screenshot rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
       "real-run platform receipt path selected before pending receipt path",
@@ -2580,7 +2716,6 @@ async function createKoFixtures(root) {
   const receiptPath = join(root, "candidate-receipt.json");
   const reviewPath = join(root, "privacy-review.json");
   await writeJson(receiptPath, { schema: "fixture.receipt" });
-  await writeJson(reviewPath, { schema: "fixture.review" });
   const localBrowserFixtureRunContext = {
     schema: "learning-companion.local-browser-smoke-run-context.v1",
     app: {
@@ -2932,6 +3067,44 @@ async function createKoFixtures(root) {
       }
     }
   };
+  const externalReview = {
+    schema: EXTERNAL_PRIVACY_REVIEW_SCHEMA,
+    receiptSchema: EXTERNAL_RECEIPT_SCHEMA,
+    receiptPath,
+    reviewer: externalClaim.reviewer,
+    reviewedAt: externalClaim.reviewedAt,
+    sourceApproval: {
+      currentTurnApprovalConfirmed: true,
+      approvalReference: "self-test approval fixture",
+      approvedReadingUrl: externalClaim.reading.url,
+      approvedVideoUrl: externalClaim.video.url,
+      approvedVideoTimestamp: externalClaim.video.timestamp,
+      requestedApprovalText: externalClaim.sourceApprovalRequest.requestedApprovalText,
+      sourceApprovalRequestPath: externalClaim.sourceApprovalRequest.requestPath,
+      sourceApprovalRequestFreshness: externalClaim.sourceApprovalRequest.freshnessStatus,
+      sourceApprovalRequestCurrentGitHead: externalClaim.sourceApprovalRequest.currentGitHead,
+      sourceApprovalRequestBasisGitHead: externalClaim.sourceApprovalRequest.basisGitHead
+    },
+    privacyReview: {
+      noVisibleAccountIdentity: true,
+      noPrivateOrSensitiveContent: true,
+      noSecretsTokensSessionIds: true,
+      noPrivateBrowserChrome: true,
+      screenshotsReviewed: externalClaim.reviewedScreenshots
+    },
+    executionReview: {
+      runContextReviewed: true,
+      appRevisionRecorded: true,
+      readingSourceContextPass: true,
+      videoSourceContextPass: true,
+      videoTimestampPass: true,
+      videoLearningToolsPass: true
+    },
+    verdict: "PASS",
+    canUseForKo: true,
+    notes: "Self-test privacy review fixture."
+  };
+  await writeJson(reviewPath, externalReview);
   await writeJson(externalPath, externalClaim);
   return {
     bilingualPath,
@@ -2943,7 +3116,8 @@ async function createKoFixtures(root) {
     harmonyDevicePath,
     harmonyDeviceReceipt,
     externalPath,
-    externalClaim
+    externalClaim,
+    externalReview
   };
 }
 
