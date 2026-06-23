@@ -196,6 +196,7 @@ async function runFinalizePlan(plan) {
   assert.equal(operator.schema, "learning-companion.next-major-operator-packet.v1");
   assert.equal(operator.canClaimNextMajorFromThisPacket, false, "operator packet must remain non-claiming");
   assert.equal(operator.releaseActionAuthorized, false, "operator packet must not authorize release");
+  assertFinalizerOutputBindings(plan, { readiness, operator });
   console.log(buildSuccessSummary(plan, { ko, readiness, operator }));
 }
 
@@ -243,6 +244,68 @@ function buildSuccessSummary(plan, { ko, readiness, operator }) {
   ];
   for (const item of plan.blockedOrNotExecuted) lines.push(`- ${item}`);
   return `${lines.join("\n")}\n`;
+}
+
+function assertFinalizerOutputBindings(plan, { readiness, operator }) {
+  const { options } = plan;
+  assert.equal(operator.inputs?.sourceApprovalRequestPath, options.sourceApprovalRequest, "operator packet source approval request path must match finalizer input");
+  assert.equal(operator.inputs?.sourceApprovalMarkdownPath, options.sourceApprovalMarkdown, "operator packet source approval markdown path must match finalizer input");
+  assert.equal(operator.inputs?.externalEvidencePath, options.external, "operator packet external evidence path must match finalizer input");
+  assert.equal(operator.inputs?.platformReceiptPaths?.macManual, options.macManual, "operator packet Mac receipt path must match finalizer input");
+  assert.equal(operator.inputs?.platformReceiptPaths?.windowsStatic, options.windowsStatic, "operator packet Windows receipt path must match finalizer input");
+  assert.equal(operator.inputs?.platformReceiptPaths?.harmonyDevice, options.harmonyDevice, "operator packet Harmony receipt path must match finalizer input");
+
+  assertCommandHasFlagPath(readiness.nextCommands?.finalizeNextMajor, "--external", options.external, "readiness finalize command");
+  assertCommandHasFlagPath(readiness.nextCommands?.finalKoGate, "--external", options.external, "readiness final KO command");
+  assertCommandHasFlagPath(readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--external", options.external, "readiness explicit final KO command");
+  assertCommandHasFlagPath(readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--mac-manual", options.macManual, "readiness explicit final KO command");
+  assertCommandHasFlagPath(readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--windows-static", options.windowsStatic, "readiness explicit final KO command");
+  assertCommandHasFlagPath(readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--harmony-device", options.harmonyDevice, "readiness explicit final KO command");
+
+  const finalLane = (Array.isArray(operator.lanes) ? operator.lanes : []).find((lane) => lane.id === "finalKoGate") || {};
+  assertCommandHasFlagPath(finalLane.nextCommands?.finalizeNextMajor, "--external", options.external, "operator finalize command");
+  assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGate, "--external", options.external, "operator final KO command");
+  assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--external", options.external, "operator explicit final KO command");
+  assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--mac-manual", options.macManual, "operator explicit final KO command");
+  assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--windows-static", options.windowsStatic, "operator explicit final KO command");
+  assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--harmony-device", options.harmonyDevice, "operator explicit final KO command");
+
+  const hasSourceOverride = options.sourceApprovalRequest !== DEFAULTS.sourceApprovalRequest
+    || options.sourceApprovalMarkdown !== DEFAULTS.sourceApprovalMarkdown;
+  if (hasSourceOverride) {
+    assertCommandHasFlagPath(readiness.nextCommands?.finalizeNextMajor, "--source-approval-request", options.sourceApprovalRequest, "readiness finalize command");
+    assertCommandHasFlagPath(readiness.nextCommands?.finalizeNextMajor, "--source-approval-markdown", options.sourceApprovalMarkdown, "readiness finalize command");
+    assertCommandHasFlagPath(finalLane.nextCommands?.finalizeNextMajor, "--source-approval-request", options.sourceApprovalRequest, "operator finalize command");
+    assertCommandHasFlagPath(finalLane.nextCommands?.finalizeNextMajor, "--source-approval-markdown", options.sourceApprovalMarkdown, "operator finalize command");
+  }
+
+  const hasPlatformOverride = options.macManual !== DEFAULTS.macManual
+    || options.windowsStatic !== DEFAULTS.windowsStatic
+    || options.harmonyDevice !== DEFAULTS.harmonyDevice;
+
+  const finalAction = (Array.isArray(operator.nextActionSequence) ? operator.nextActionSequence : [])
+    .find((step) => step.id === "validate-final-ko") || {};
+  assertCommandHasFlagPath(finalAction.command, "--external", options.external, "operator critical-path final action");
+  if (hasSourceOverride) {
+    assertCommandHasFlagPath(finalAction.command, "--source-approval-request", options.sourceApprovalRequest, "operator critical-path final action");
+    assertCommandHasFlagPath(finalAction.command, "--source-approval-markdown", options.sourceApprovalMarkdown, "operator critical-path final action");
+  }
+  if (hasPlatformOverride) {
+    assertCommandHasFlagPath(finalAction.command, "--mac-manual", options.macManual, "operator critical-path final action");
+    assertCommandHasFlagPath(finalAction.command, "--windows-static", options.windowsStatic, "operator critical-path final action");
+    assertCommandHasFlagPath(finalAction.command, "--harmony-device", options.harmonyDevice, "operator critical-path final action");
+  }
+}
+
+function assertCommandHasFlagPath(command, flag, path, label) {
+  const text = String(command || "");
+  const expected = `${flag} ${shellQuote(path)}`;
+  const boundaryPattern = new RegExp(`(?:^|\\s)${escapeRegExp(expected)}(?=$|\\s)`);
+  assert.match(text, boundaryPattern, `${label} must include ${expected} as a complete shell argument`);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
 
 function buildDryRunSummary(plan) {
@@ -299,6 +362,9 @@ function runSelfTest() {
     windowsStatic: ".codex-tmp/selftest/windows-real.json",
     harmonyDevice: ".codex-tmp/selftest/harmony-real.json"
   });
+  assert.equal(plan.options.external, "fixtures/external-ko.json");
+  assert.equal(plan.options.sourceApprovalRequest, ".codex-tmp/selftest/source-approval-request.json");
+  assert.equal(plan.options.macManual, ".codex-tmp/selftest/mac-real.json");
   const finalKo = plan.commands.find((command) => command.id === "validate-final-ko");
   assert.ok(finalKo);
   assert.equal(finalKo.argv.includes("--allow-missing"), false);
@@ -347,6 +413,171 @@ function runSelfTest() {
   assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs .*--harmony-device \.codex-tmp\/selftest\/harmony-real\.json/);
   assert.match(dryRun, /Dry-run boundary: no file readability/);
   assert.match(dryRun, /does not build, package, deploy/);
+
+  const successfulReadiness = {
+    nextCommands: {
+      finalizeNextMajor: "npm run next:finalize -- --external fixtures/external-ko.json --source-approval-request .codex-tmp/selftest/source-approval-request.json --source-approval-markdown .codex-tmp/selftest/source-approval-request.md --mac-manual .codex-tmp/selftest/mac-real.json --windows-static .codex-tmp/selftest/windows-real.json --harmony-device .codex-tmp/selftest/harmony-real.json",
+      finalKoGate: "npm run ko:validate -- --external fixtures/external-ko.json --out .codex-tmp/ko-evidence/final.json",
+      finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external fixtures/external-ko.json --mac-manual .codex-tmp/selftest/mac-real.json --windows-static .codex-tmp/selftest/windows-real.json --harmony-device .codex-tmp/selftest/harmony-real.json --out .codex-tmp/ko-evidence/final.json"
+    }
+  };
+  const successfulOperator = {
+    inputs: {
+      sourceApprovalRequestPath: ".codex-tmp/selftest/source-approval-request.json",
+      sourceApprovalMarkdownPath: ".codex-tmp/selftest/source-approval-request.md",
+      externalEvidencePath: "fixtures/external-ko.json",
+      platformReceiptPaths: {
+        macManual: ".codex-tmp/selftest/mac-real.json",
+        windowsStatic: ".codex-tmp/selftest/windows-real.json",
+        harmonyDevice: ".codex-tmp/selftest/harmony-real.json"
+      }
+    },
+    lanes: [
+      {
+        id: "finalKoGate",
+        nextCommands: {
+          finalizeNextMajor: successfulReadiness.nextCommands.finalizeNextMajor,
+          finalKoGate: successfulReadiness.nextCommands.finalKoGate,
+          finalKoGateWithExplicitPlatformReceipts: successfulReadiness.nextCommands.finalKoGateWithExplicitPlatformReceipts
+        }
+      }
+    ],
+    nextActionSequence: [
+      {
+        id: "validate-final-ko",
+        command: successfulReadiness.nextCommands.finalizeNextMajor
+      }
+    ]
+  };
+  assertFinalizerOutputBindings(plan, { readiness: successfulReadiness, operator: successfulOperator });
+  assert.throws(() => assertFinalizerOutputBindings({
+    ...plan,
+    options: {
+      ...plan.options,
+      external: "fixtures/plan-swapped-external.json"
+    }
+  }, { readiness: successfulReadiness, operator: successfulOperator }), /operator packet external evidence path must match finalizer input/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    readiness: successfulReadiness,
+    operator: {
+      ...successfulOperator,
+      inputs: {
+        ...successfulOperator.inputs,
+        externalEvidencePath: "fixtures/wrong-external.json"
+      }
+    }
+  }), /external evidence path must match finalizer input/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    readiness: {
+      nextCommands: {
+        ...successfulReadiness.nextCommands,
+        finalKoGate: "npm run ko:validate -- --external fixtures/external-ko.json.bak --out .codex-tmp/ko-evidence/final.json"
+      }
+    },
+    operator: successfulOperator
+  }), /readiness final KO command must include --external fixtures\/external-ko\.json as a complete shell argument/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    readiness: {
+      nextCommands: {
+        ...successfulReadiness.nextCommands,
+        finalKoGate: "npm run ko:validate -- --bad--external fixtures/external-ko.json --out .codex-tmp/ko-evidence/final.json"
+      }
+    },
+    operator: successfulOperator
+  }), /readiness final KO command must include --external fixtures\/external-ko\.json as a complete shell argument/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    readiness: successfulReadiness,
+    operator: {
+      ...successfulOperator,
+      nextActionSequence: [
+        {
+          id: "validate-final-ko",
+          command: "npm run next:finalize -- --external fixtures/external-ko.json --source-approval-request .codex-tmp/selftest/source-approval-request.json --source-approval-markdown .codex-tmp/selftest/source-approval-request.md"
+        }
+      ]
+    }
+  }), /operator critical-path final action must include --mac-manual \.codex-tmp\/selftest\/mac-real\.json as a complete shell argument/);
+
+  const spacedPlan = buildFinalizePlan({
+    external: "fixtures/external ko.json",
+    koOut: ".codex-tmp/selftest/final spaced.json",
+    readinessOut: ".codex-tmp/selftest/readiness spaced.json",
+    platformHandoffOut: ".codex-tmp/selftest/platform spaced.json",
+    operatorOut: ".codex-tmp/selftest/operator spaced.json",
+    sourceApprovalRequest: ".codex-tmp/selftest/source approval request.json",
+    sourceApprovalMarkdown: ".codex-tmp/selftest/source approval note.md",
+    macManual: ".codex-tmp/selftest/mac real.json",
+    windowsStatic: ".codex-tmp/selftest/windows real.json",
+    harmonyDevice: ".codex-tmp/selftest/harmony real.json"
+  });
+  const spacedFinalizeCommand = [
+    "npm run next:finalize -- --external",
+    shellQuote(spacedPlan.options.external),
+    "--source-approval-request",
+    shellQuote(spacedPlan.options.sourceApprovalRequest),
+    "--source-approval-markdown",
+    shellQuote(spacedPlan.options.sourceApprovalMarkdown),
+    "--mac-manual",
+    shellQuote(spacedPlan.options.macManual),
+    "--windows-static",
+    shellQuote(spacedPlan.options.windowsStatic),
+    "--harmony-device",
+    shellQuote(spacedPlan.options.harmonyDevice)
+  ].join(" ");
+  const spacedFinalKoCommand = [
+    "npm run ko:validate -- --external",
+    shellQuote(spacedPlan.options.external),
+    "--out",
+    ".codex-tmp/ko-evidence/final.json"
+  ].join(" ");
+  const spacedExplicitFinalKoCommand = [
+    "npm run ko:validate -- --external",
+    shellQuote(spacedPlan.options.external),
+    "--mac-manual",
+    shellQuote(spacedPlan.options.macManual),
+    "--windows-static",
+    shellQuote(spacedPlan.options.windowsStatic),
+    "--harmony-device",
+    shellQuote(spacedPlan.options.harmonyDevice),
+    "--out",
+    ".codex-tmp/ko-evidence/final.json"
+  ].join(" ");
+  const spacedReadiness = {
+    nextCommands: {
+      finalizeNextMajor: spacedFinalizeCommand,
+      finalKoGate: spacedFinalKoCommand,
+      finalKoGateWithExplicitPlatformReceipts: spacedExplicitFinalKoCommand
+    }
+  };
+  const spacedOperator = {
+    inputs: {
+      sourceApprovalRequestPath: spacedPlan.options.sourceApprovalRequest,
+      sourceApprovalMarkdownPath: spacedPlan.options.sourceApprovalMarkdown,
+      externalEvidencePath: spacedPlan.options.external,
+      platformReceiptPaths: {
+        macManual: spacedPlan.options.macManual,
+        windowsStatic: spacedPlan.options.windowsStatic,
+        harmonyDevice: spacedPlan.options.harmonyDevice
+      }
+    },
+    lanes: [
+      {
+        id: "finalKoGate",
+        nextCommands: {
+          finalizeNextMajor: spacedFinalizeCommand,
+          finalKoGate: spacedFinalKoCommand,
+          finalKoGateWithExplicitPlatformReceipts: spacedExplicitFinalKoCommand
+        }
+      }
+    ],
+    nextActionSequence: [
+      {
+        id: "validate-final-ko",
+        command: spacedFinalizeCommand
+      }
+    ]
+  };
+  assertFinalizerOutputBindings(spacedPlan, { readiness: spacedReadiness, operator: spacedOperator });
   console.log("next_major_finalize_selftest_ok");
 }
 
