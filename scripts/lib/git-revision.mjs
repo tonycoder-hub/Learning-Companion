@@ -57,7 +57,7 @@ export function revisionCanClaim(revision) {
     && /^[0-9a-f]{40}$/i.test(String(revision.gitHead || ""));
 }
 
-function buildRevisionFromGitOutput(headStdout, statusStdout, options = {}) {
+export function buildRevisionFromGitOutput(headStdout, statusStdout, options = {}) {
   const maxStatusSummaryLines = options.maxStatusSummaryLines || DEFAULT_MAX_STATUS_SUMMARY_LINES;
   const statusLines = parseGitStatusLines(statusStdout);
   return {
@@ -70,7 +70,7 @@ function buildRevisionFromGitOutput(headStdout, statusStdout, options = {}) {
   };
 }
 
-function buildUnavailableRevision(error, options = {}) {
+export function buildUnavailableRevision(error, options = {}) {
   return {
     gitAvailable: false,
     gitHead: "TBD",
