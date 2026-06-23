@@ -209,8 +209,23 @@ try {
   assert.equal(missingSourceLane.approvalRequest.freshness.status, "MISSING_SOURCE_APPROVAL_REQUEST");
   assert.match(missingSourceLane.nextCommands.sourceIntake, /external:source-intake/);
   assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /external:approval-request/);
+  assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /missing-approval\.json/);
+  assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /missing-approval\.md/);
+  assert.match(missingSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request/);
+  assert.match(missingSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /missing-approval\.json/);
   assert.equal(missingSourcePacket.nextActionSequence[0].id, "collect-source-input");
+  assert.equal(missingSourcePacket.nextActionSequence[0].produces, join(tmp, "missing-approval.json"));
   assert.match(missingSourcePacket.nextActionSequence[0].command, /external:source-intake/);
+
+  const missingSpacedApprovalPath = join(tmp, "missing approval request.json");
+  const missingSpacedSourceRun = await runOperator("missing-spaced-source", { approval: missingSpacedApprovalPath });
+  assert.equal(missingSpacedSourceRun.code, 0, missingSpacedSourceRun.stderr);
+  const missingSpacedSourcePacket = await readJson(missingSpacedSourceRun.jsonPath);
+  const missingSpacedSourceLane = getLane(missingSpacedSourcePacket, "approvedExternalReadingVideo");
+  assert.equal(missingSpacedSourcePacket.nextActionSequence[0].produces, missingSpacedApprovalPath);
+  assert.match(missingSpacedSourceLane.nextCommands.sourceApprovalRequest, /--out '.*missing approval request\.json'/);
+  assert.match(missingSpacedSourceLane.nextCommands.sourceApprovalRequest, /--markdown-out '.*missing approval request\.md'/);
+  assert.match(missingSpacedSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '.*missing approval request\.json'/);
 
   await writeJson(approvalPath, buildApprovalRequest(currentHead));
   const refreshInputsRun = await runOperatorRefresh("refresh-inputs", { approval: approvalPath });
