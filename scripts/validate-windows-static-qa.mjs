@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 import { WINDOWS_STATIC_QA_AREAS } from "./lib/platform-qa-areas.mjs";
+import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
 
 const WINDOWS_STATIC_QA_RECEIPT_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -29,7 +30,8 @@ const REQUIRED_FULL_RUN_FIELDS = [
 function parseArgs(argv) {
   const options = {
     qaPath: "dist/morning-demo/WINDOWS_STATIC_QA.md",
-    outPath: ""
+    outPath: "",
+    platformHandoffPath: ""
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -43,6 +45,11 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--out requires a receipt JSON path.");
       options.outPath = value;
       index += 1;
+    } else if (arg === "--platform-handoff") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("--platform-handoff requires a platform handoff JSON path.");
+      options.platformHandoffPath = value;
+      index += 1;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -52,7 +59,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log("Usage: node scripts/validate-windows-static-qa.mjs [--qa dist/morning-demo/WINDOWS_STATIC_QA.md] [--out receipt.json]");
+  console.log("Usage: node scripts/validate-windows-static-qa.mjs [--qa dist/morning-demo/WINDOWS_STATIC_QA.md] [--platform-handoff .codex-tmp/platform-qa-handoff/current.json] [--out receipt.json]");
   console.log("Validates a filled Windows static QA receipt without converting pending NT rows into Windows compatibility evidence.");
 }
 
@@ -123,7 +130,7 @@ function isPass(value) {
   return normalizeResult(value) === "PASS";
 }
 
-function validateWindowsStaticQa(markdown, qaPath, currentRevision) {
+function validateWindowsStaticQa(markdown, qaPath, currentRevision, { platformHandoffBinding = null, platformHandoffErrors = [] } = {}) {
   const errors = [];
   if (!/^# Learning Companion Windows Static QA Receipt$/m.test(markdown)) {
     errors.push("missing Windows static QA heading");
@@ -219,6 +226,14 @@ function validateWindowsStaticQa(markdown, qaPath, currentRevision) {
   if (anyRealRowsFilled && !revisionCanClaim(currentRevision)) {
     errors.push("Windows static QA has filled rows but the validator did not run from a clean git HEAD");
   }
+  if (anyRealRowsFilled) {
+    if (!platformHandoffBinding) {
+      errors.push("Windows static QA has filled rows but --platform-handoff is required");
+    }
+    platformHandoffErrors.forEach((error) => {
+      errors.push(`Windows static QA platform handoff: ${error}`);
+    });
+  }
   const canClaimWindowsStaticLoopUsable = errors.length === 0 && allRowsPass && staticReturnContractGatePass && macReturnFilesImportPass;
   const evidenceTier = canClaimWindowsStaticLoopUsable
     ? "MANUAL_PLATFORM_QA"
@@ -232,6 +247,7 @@ function validateWindowsStaticQa(markdown, qaPath, currentRevision) {
       schema: "learning-companion.platform-qa-run-context.v1",
       appRevision: currentRevision
     },
+    platformHandoffBinding,
     summary: {
       ok: errors.length === 0,
       rows: rows.length,
@@ -248,6 +264,7 @@ function validateWindowsStaticQa(markdown, qaPath, currentRevision) {
     claimBoundary: {
       canClaimWindowsStaticLoopUsable,
       requiresCurrentCleanRevision: true,
+      requiresCurrentPlatformHandoff: true,
       doesNotProve: [
         "Feishu live sync or remote Drive writes",
         "HarmonyOS app/device behavior",
@@ -275,7 +292,18 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const markdown = await readFile(options.qaPath, "utf8");
   const currentRevision = await readCurrentRevision();
-  const receipt = validateWindowsStaticQa(markdown, options.qaPath, currentRevision);
+  const handoffResult = options.platformHandoffPath
+    ? await readPlatformHandoffBinding({
+      handoffPath: options.platformHandoffPath,
+      platformId: "windowsStaticManualQa",
+      qaPath: options.qaPath,
+      currentRevision
+    })
+    : { binding: null, errors: [] };
+  const receipt = validateWindowsStaticQa(markdown, options.qaPath, currentRevision, {
+    platformHandoffBinding: handoffResult.binding,
+    platformHandoffErrors: handoffResult.errors
+  });
   assert.equal(receipt.schema, WINDOWS_STATIC_QA_RECEIPT_SCHEMA);
   if (options.outPath) {
     await mkdir(dirname(options.outPath), { recursive: true, mode: 0o700 });
