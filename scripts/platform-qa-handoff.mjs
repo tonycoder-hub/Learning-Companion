@@ -1,7 +1,9 @@
 #!/usr/bin/env node
+import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { promisify } from "node:util";
 
 const PLATFORM_QA_HANDOFF_SCHEMA = "learning-companion.platform-qa-handoff.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -9,6 +11,9 @@ const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
+const MAX_STATUS_SUMMARY_LINES = 20;
+const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
+const execFileAsync = promisify(execFile);
 
 const PLATFORMS = [
   {
@@ -140,11 +145,12 @@ async function buildPlatformQaHandoff(statusPath) {
   if (!existsSync(statusPath)) {
     throw new Error(`Missing KO status file: ${statusPath}. Run: node scripts/validate-ko-evidence.mjs --allow-missing --out ${statusPath}`);
   }
+  const currentRevision = await readCurrentRevision();
   const status = JSON.parse(await readFile(statusPath, "utf8"));
   const platformStatusById = new Map((Array.isArray(status.platformQaStatus) ? status.platformQaStatus : []).map((item) => [item.id, item]));
   const platforms = [];
   for (const config of PLATFORMS) {
-    platforms.push(await summarizePlatform(config, platformStatusById.get(config.id)));
+    platforms.push(await summarizePlatform(config, platformStatusById.get(config.id), currentRevision));
   }
   return {
     schema: PLATFORM_QA_HANDOFF_SCHEMA,
@@ -154,6 +160,20 @@ async function buildPlatformQaHandoff(statusPath) {
     claimBoundary: "This handoff only summarizes pending real platform QA work. It does not run Mac, Windows, or HarmonyOS QA and cannot satisfy KO evidence.",
     rawQaMarkdownRetained: false,
     rowNotesRetained: false,
+    currentRevision,
+    executionFreshness: {
+      status: currentRevision.gitAvailable && currentRevision.dirtyWorktree === false
+        ? "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF"
+        : "REVISION_REFRESH_REQUIRED_BEFORE_PLATFORM_QA",
+      scope: "currentRevision records the source checkout state. The local KO status file and generated QA templates must still be regenerated or verified for the same git HEAD before real platform QA.",
+      requiredForRealRun: "Regenerate this handoff on the exact clean git HEAD used for real Mac, Windows, and HarmonyOS QA before filling platform receipts.",
+      invalidatesWhen: [
+        "git HEAD changes after this handoff is generated",
+        "the worktree is dirty when this handoff is generated",
+        "the KO status file or generated QA templates were not regenerated or verified for currentRevision.gitHead",
+        "the app, mirror, or native build under test is not traceably produced from currentRevision.gitHead"
+      ]
+    },
     statusPath,
     koStatus: {
       canClaimKo: status.canClaimKo === true,
@@ -182,7 +202,39 @@ async function buildPlatformQaHandoff(statusPath) {
   };
 }
 
-async function summarizePlatform(config, currentStatus = {}) {
+async function readCurrentRevision() {
+  try {
+    const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
+      execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 128 * 1024 }),
+      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES })
+    ]);
+    const statusLines = parseGitStatusLines(statusStdout);
+    return {
+      gitAvailable: true,
+      gitHead: headStdout.trim() || "TBD",
+      dirtyWorktree: statusLines.length > 0,
+      statusLineCount: statusLines.length,
+      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
+      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
+    };
+  } catch (error) {
+    return {
+      gitAvailable: false,
+      gitHead: "TBD",
+      dirtyWorktree: "TBD",
+      statusLineCount: "TBD",
+      statusSummary: `git revision unavailable: ${error?.message || "TBD"}`,
+      statusTruncated: false
+    };
+  }
+}
+
+function parseGitStatusLines(statusStdout) {
+  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
+  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
+}
+
+async function summarizePlatform(config, currentStatus = {}, currentRevision = {}) {
   const templateAvailable = existsSync(config.qaPath);
   const parsed = templateAvailable
     ? parseTables(await readFile(config.qaPath, "utf8"))
@@ -221,6 +273,7 @@ async function summarizePlatform(config, currentStatus = {}) {
       rowAreas: parsed.rows.map((row) => row.area).filter(Boolean)
     },
     nextRealRunSteps: [
+      `Before filling this receipt, confirm the app, mirror, or native build under test is traceably produced from git HEAD ${currentRevision.gitHead || "TBD"} and that this handoff was regenerated from a clean worktree.`,
       `Fill ${config.qaPath} during a real ${config.label} run.`,
       "Use ISO Date/time with timezone, a concrete reviewer, and a concrete platform environment.",
       "Set every executed row to PASS, FAIL, or BLOCKED; full KO platform evidence requires all rows PASS.",
@@ -303,7 +356,11 @@ function buildConsoleSummary(handoff, outPath, markdownPath = "") {
     `Status file: ${handoff.statusPath}`,
     `KO claimable: ${handoff.koStatus.canClaimKo ? "YES" : "NO"}`,
     `Evidence tier: ${handoff.evidenceTier}`,
-    `Can claim KO from this handoff: ${handoff.canClaimKo ? "YES" : "NO"}`
+    `Can claim KO from this handoff: ${handoff.canClaimKo ? "YES" : "NO"}`,
+    `Current git HEAD: ${handoff.currentRevision.gitHead}`,
+    `Current worktree dirty: ${String(handoff.currentRevision.dirtyWorktree)}`,
+    `Platform handoff freshness: ${handoff.executionFreshness.status}`,
+    `Freshness scope: ${handoff.executionFreshness.scope}`
   ];
   if (outPath) {
     lines.push(`Handoff JSON: ${outPath}`);
@@ -331,10 +388,23 @@ function buildPlatformQaHandoffMarkdown(handoff) {
     `Can claim KO: ${handoff.canClaimKo ? "true" : "false"}`,
     `Status file: ${markdownInline(handoff.statusPath)}`,
     `KO claimable before this handoff: ${handoff.koStatus.canClaimKo ? "YES" : "NO"}`,
+    `Current git HEAD: ${markdownInline(handoff.currentRevision.gitHead)}`,
+    `Current worktree dirty: ${markdownInline(String(handoff.currentRevision.dirtyWorktree))}`,
+    `Handoff freshness: ${markdownInline(handoff.executionFreshness.status)}`,
+    `Freshness scope: ${markdownInline(handoff.executionFreshness.scope)}`,
+    `Required before real platform QA: ${markdownInline(handoff.executionFreshness.requiredForRealRun)}`,
+    "",
+    "Invalidates when:",
+    ""
+  ];
+  for (const item of handoff.executionFreshness.invalidatesWhen) {
+    lines.push(`- ${markdownInline(item)}`);
+  }
+  lines.push(
     "",
     "## Missing KO Requirements",
     ""
-  ];
+  );
   if (handoff.koStatus.missingRequirements.length) {
     for (const requirement of handoff.koStatus.missingRequirements) {
       lines.push(`- ${markdownInline(requirement.id)}: ${markdownInline(requirement.status)} - ${markdownInline(requirement.detail || "TBD")}`);
