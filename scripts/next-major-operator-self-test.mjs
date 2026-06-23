@@ -179,6 +179,11 @@ try {
   assert.match(freshMarkdown, /Exact approval text to copy:\n\n```text\nI approve these exact public learning-material sources/);
   assert.match(freshMarkdown, /Fixture approval_text\./);
   assert.doesNotMatch(freshMarkdown, /```text\n[^`]*Fixture approval\\_text\.[^`]*```/);
+  assert.doesNotMatch(freshMarkdown, /\[object Object\]/);
+  assert.match(freshMarkdown, /- platformReceiptPaths:/);
+  assert.match(freshMarkdown, /- macManual: \.codex-tmp\/mac-manual-qa\/real-run-receipt\.json/);
+  assert.match(freshMarkdown, /- windowsStatic: \.codex-tmp\/windows-static-qa\/real-run-receipt\.json/);
+  assert.match(freshMarkdown, /- harmonyDevice: \.codex-tmp\/harmony-device-qa\/real-run-receipt\.json/);
   assert.match(freshMarkdown, /Approval request freshness: CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(freshMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
 

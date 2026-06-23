@@ -850,7 +850,7 @@ function buildOperatorMarkdown(packet) {
   }
   lines.push("", "## Inputs", "");
   for (const [key, value] of Object.entries(packet.inputs)) {
-    lines.push(`- ${markdownInline(key)}: ${markdownInline(value)}`);
+    appendMarkdownInput(lines, key, value);
   }
   lines.push("", "## Critical Path", "");
   for (const step of packet.nextActionSequence) {
@@ -934,6 +934,34 @@ function buildOperatorMarkdown(packet) {
   return `${lines.join("\n")}\n`;
 }
 
+function appendMarkdownInput(lines, key, value) {
+  appendMarkdownValue(lines, 0, key, value, new WeakSet());
+}
+
+function appendMarkdownValue(lines, depth, key, value, seen) {
+  const indent = "  ".repeat(depth);
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    if (seen.has(value)) {
+      lines.push(`${indent}- ${markdownInline(key)}: ${markdownInline("[circular object]")}`);
+      return;
+    }
+    seen.add(value);
+    const entries = Object.entries(value);
+    if (!entries.length) {
+      lines.push(`${indent}- ${markdownInline(key)}: TBD`);
+      seen.delete(value);
+      return;
+    }
+    lines.push(`${indent}- ${markdownInline(key)}:`);
+    for (const [childKey, childValue] of entries) {
+      appendMarkdownValue(lines, depth + 1, childKey, childValue, seen);
+    }
+    seen.delete(value);
+    return;
+  }
+  lines.push(`${indent}- ${markdownInline(key)}: ${markdownInline(value)}`);
+}
+
 function appendExecutionChecklistMarkdown(lines, checklist = {}) {
   const sections = [
     ["Before run", checklist.beforeRun],
@@ -961,6 +989,13 @@ async function writePrivateFile(path, content) {
 }
 
 function markdownInline(value) {
+  if (value && typeof value === "object") {
+    try {
+      return markdownInline(JSON.stringify(value));
+    } catch {
+      return markdownInline("[unserializable object]");
+    }
+  }
   const text = String(value ?? "TBD").replace(/\s+/g, " ").trim() || "TBD";
   return text
     .replace(/\\/g, "\\\\")
