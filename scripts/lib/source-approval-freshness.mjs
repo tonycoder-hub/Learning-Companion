@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 export const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
 export const STALE_OR_DIRTY_PUBLIC_DRY_RUN = "STALE_OR_DIRTY_PUBLIC_DRY_RUN";
+const DEFAULT_SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
 
 export async function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision = {}) {
   const revision = currentRevision || {};
@@ -92,10 +93,11 @@ export function buildFreshSourceCommands(sourceApprovalRequest) {
   const readingUrl = sourceApprovalRequest.sources?.reading?.url || "<approved-reading-url>";
   const videoUrl = sourceApprovalRequest.sources?.video?.url || "<approved-video-url>";
   const videoTimestamp = sourceApprovalRequest.sources?.video?.timestamp || "<captured-timestamp>";
+  const approvalRequestPath = sourceApprovalRequest.approvalRequestPath || DEFAULT_SOURCE_APPROVAL_REQUEST_PATH;
   return {
     refreshPublicDryRun: `npm run external:validate:public-dry-run -- --reading-url ${shellQuote(readingUrl)} --video-url ${shellQuote(videoUrl)} --video-timestamp ${shellQuote(videoTimestamp)} --dry-run-note ${shellQuote("Refresh public source preflight for current clean HEAD before approval request.")}`,
-    refreshedApprovalRequest: "npm run external:approval-request -- --dry-run-receipt <fresh-public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
-    approvedCandidateAfterCurrentTurnApproval: "npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --approval-note \"<current-turn approval from refreshed request>\"",
+    refreshedApprovalRequest: `npm run external:approval-request -- --dry-run-receipt <fresh-public-dry-run-receipt.json> --out ${shellQuote(approvalRequestPath)} --markdown-out ${shellQuote(markdownSiblingPath(approvalRequestPath))}`,
+    approvedCandidateAfterCurrentTurnApproval: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(approvalRequestPath)} --approval-note "<current-turn approval from refreshed request>"`,
     privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
     privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
   };
@@ -171,4 +173,9 @@ function formatMaybeBoolean(value) {
 
 function shellQuote(value) {
   return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+function markdownSiblingPath(jsonPath) {
+  const text = String(jsonPath);
+  return text.endsWith(".json") ? `${text.slice(0, -5)}.md` : `${text}.md`;
 }

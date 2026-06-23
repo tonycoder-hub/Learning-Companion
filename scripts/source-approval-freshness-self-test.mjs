@@ -148,7 +148,18 @@ try {
   const freshSourceCommands = buildFreshSourceCommands(mismatchedCommandRequest);
   assert.match(freshSourceCommands.refreshPublicDryRun, /example\.com\/reading/);
   assert.doesNotMatch(freshSourceCommands.refreshPublicDryRun, /example\.com\/wrong/);
+  assert.match(freshSourceCommands.refreshedApprovalRequest, /--out '.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
+  assert.match(freshSourceCommands.refreshedApprovalRequest, /--markdown-out '.codex-tmp\/external-source-validation\/source-approval-request\.md'/);
+  assert.match(freshSourceCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
   assert.match(freshSourceCommands.approvedCandidateAfterCurrentTurnApproval, /<approved-reading-url>/);
+
+  const customApprovalPathRequest = buildRequest(receiptPath);
+  customApprovalPathRequest.approvalRequestPath = join(tmp, "custom approval request.json");
+  customApprovalPathRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(customApprovalPathRequest);
+  const customFreshSourceCommands = buildFreshSourceCommands(customApprovalPathRequest);
+  assert.match(customFreshSourceCommands.refreshedApprovalRequest, /--out '.*custom approval request\.json'/);
+  assert.match(customFreshSourceCommands.refreshedApprovalRequest, /--markdown-out '.*custom approval request\.md'/);
+  assert.match(customFreshSourceCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '.*custom approval request\.json'/);
 
   const missing = await assessSourceApprovalFreshness(null, currentRevision);
   assert.equal(missing.status, "MISSING_SOURCE_APPROVAL_REQUEST");
