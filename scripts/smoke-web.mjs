@@ -131,6 +131,7 @@ const platformQaHandoffJs = readFileSync("scripts/platform-qa-handoff.mjs", "utf
 const nextMajorReadinessJs = readFileSync("scripts/next-major-readiness.mjs", "utf8");
 const nextMajorOperatorPacketJs = readFileSync("scripts/next-major-operator-packet.mjs", "utf8");
 const finalizeNextMajorJs = readFileSync("scripts/finalize-next-major.mjs", "utf8");
+const refreshNextMajorLocalEvidenceJs = readFileSync("scripts/refresh-next-major-local-evidence.mjs", "utf8");
 const macManualQaValidatorJs = readFileSync("scripts/validate-mac-manual-qa.mjs", "utf8");
 const windowsStaticQaValidatorJs = readFileSync("scripts/validate-windows-static-qa.mjs", "utf8");
 const harmonyDeviceQaValidatorJs = readFileSync("scripts/validate-harmony-device-qa.mjs", "utf8");
@@ -162,6 +163,8 @@ assert.equal(packageJson.scripts["next:operator"], "node scripts/next-major-oper
 assert.equal(packageJson.scripts["next:operator:selftest"], "node scripts/next-major-operator-self-test.mjs");
 assert.equal(packageJson.scripts["next:finalize"], "node scripts/finalize-next-major.mjs");
 assert.equal(packageJson.scripts["next:finalize:selftest"], "node scripts/finalize-next-major.mjs --self-test");
+assert.equal(packageJson.scripts["next:local-evidence"], "node scripts/refresh-next-major-local-evidence.mjs");
+assert.equal(packageJson.scripts["next:local-evidence:selftest"], "node scripts/refresh-next-major-local-evidence.mjs --self-test");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
 assert.equal(packageJson.scripts["mac:manual:validate"], "node scripts/validate-mac-manual-qa.mjs");
@@ -172,7 +175,7 @@ assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/valid
 assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
-assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/smoke-web.mjs");
+assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/refresh-next-major-local-evidence.mjs --self-test && node scripts/smoke-web.mjs");
 assert.match(gitRevisionHelperJs, /export async function readCurrentRevision/);
 assert.match(gitRevisionHelperJs, /export function readCurrentRevisionSync/);
 assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);
@@ -894,6 +897,18 @@ assert.match(finalizeNextMajorJs, /constants\.R_OK/);
 assert.match(finalizeNextMajorJs, /Dry-run boundary: no file readability/);
 assert.match(finalizeNextMajorJs, /Dry-run only prints the command plan/);
 assert.doesNotMatch(finalizeNextMajorJs, /\bchmod\b/);
+assert.match(refreshNextMajorLocalEvidenceJs, /next_major_local_evidence_refresh_ok/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-bilingual-runtime/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-controlled-loop/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-public-source-dry-run/);
+assert.match(refreshNextMajorLocalEvidenceJs, /regenerate-source-approval-request/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-operator-packet/);
+assert.match(refreshNextMajorLocalEvidenceJs, /print-ko-next/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Does not run approved-source browser capture/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Does not perform human privacy review/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Does not run Mac, Windows, or HarmonyOS real platform QA/);
+assert.doesNotMatch(refreshNextMajorLocalEvidenceJs, /"--approved-current-turn"/);
+assert.match(koNextActionSummaryJs, /npm run next:local-evidence/);
 [macManualQaValidatorJs, windowsStaticQaValidatorJs, harmonyDeviceQaValidatorJs].forEach((validatorJs) => {
   assert.match(validatorJs, /PLACEHOLDER_EVIDENCE_NOTES/);
   assert.match(validatorJs, /LEADING_EVIDENCE_DECORATION_PATTERN/);
