@@ -899,6 +899,8 @@ assert.match(koEvidenceReviewJs, /external-source-run-context\.v1/);
 assert.match(koEvidenceReviewJs, /function assertExternalReviewedScreenshots/);
 assert.match(koEvidenceReviewJs, /function screenshotEvidence/);
 assert.match(koEvidenceReviewJs, /reviewedScreenshots/);
+assert.match(koEvidenceReviewJs, /external claim reviewer must be filled with concrete review evidence/);
+assert.match(koEvidenceReviewJs, /external claim reviewedAt must be an ISO date-time with timezone/);
 assert.match(koEvidenceReviewJs, /external claim reviewedScreenshots bytes must match current file/);
 assert.match(koEvidenceReviewJs, /external claim reviewedScreenshots sha256 must match current file/);
 assert.match(koEvidenceReviewJs, /source-approval-request-binding\.v1/);
@@ -921,6 +923,8 @@ assert.match(koEvidenceReviewJs, /mismatched external source approval request vi
 assert.match(koEvidenceReviewJs, /missing external reviewed screenshots rejected/);
 assert.match(koEvidenceReviewJs, /duplicate external reviewed screenshot rejected/);
 assert.match(koEvidenceReviewJs, /mismatched external reviewed screenshot sha256 rejected/);
+assert.match(koEvidenceReviewJs, /placeholder external reviewer rejected/);
+assert.match(koEvidenceReviewJs, /relative external reviewedAt timestamp rejected/);
 assert.match(koEvidenceReviewJs, /external claim gitHead .* does not match current HEAD/);
 assert.match(koEvidenceReviewJs, /external claim must be captured from a clean git worktree/);
 assert.match(koEvidenceReviewJs, /X-Goog-Signature/);
