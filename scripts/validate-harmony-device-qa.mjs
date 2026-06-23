@@ -1,9 +1,8 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { promisify } from "node:util";
+import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 
 const HARMONY_DEVICE_QA_RECEIPT_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -11,9 +10,6 @@ const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = 10;
-const MAX_STATUS_SUMMARY_LINES = 20;
-const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
-const execFileAsync = promisify(execFile);
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
   ["reviewer", "Reviewer"],
@@ -125,45 +121,6 @@ function isPlaceholderEvidenceText(text) {
 
 function isPass(value) {
   return normalizeResult(value) === "PASS";
-}
-
-async function readCurrentRevision() {
-  try {
-    const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
-      execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 128 * 1024 }),
-      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES })
-    ]);
-    const statusLines = parseGitStatusLines(statusStdout);
-    return {
-      gitAvailable: true,
-      gitHead: headStdout.trim() || "TBD",
-      dirtyWorktree: statusLines.length > 0,
-      statusLineCount: statusLines.length,
-      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
-      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
-    };
-  } catch (error) {
-    return {
-      gitAvailable: false,
-      gitHead: "TBD",
-      dirtyWorktree: true,
-      statusLineCount: 0,
-      statusSummary: "",
-      statusTruncated: false,
-      error: String(error?.message || error || "TBD")
-    };
-  }
-}
-
-function parseGitStatusLines(statusStdout) {
-  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
-  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
-}
-
-function revisionCanClaim(currentRevision) {
-  return currentRevision.gitAvailable === true
-    && currentRevision.dirtyWorktree === false
-    && /^[0-9a-f]{40}$/i.test(String(currentRevision.gitHead || ""));
 }
 
 function validateHarmonyDeviceQa(markdown, qaPath, currentRevision) {

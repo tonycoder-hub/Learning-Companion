@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
+import { readCurrentRevision } from "./lib/git-revision.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -13,8 +14,6 @@ const READINESS_PATH = ".codex-tmp/next-major-readiness/current.json";
 const PLATFORM_HANDOFF_PATH = ".codex-tmp/platform-qa-handoff/current.json";
 const SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
 const PATH_ARGS = ["status", "readiness", "platform-handoff", "source-approval-request", "out", "markdown-out"];
-const MAX_STATUS_SUMMARY_LINES = 20;
-const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
 const CURRENT_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF";
 const CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
 
@@ -82,39 +81,6 @@ async function runNodeScript(argv, label) {
     const stderr = String(error.stderr || error.message || "").trim();
     throw new Error(`Failed to refresh ${label}: ${stderr || "unknown error"}`);
   }
-}
-
-async function readCurrentRevision() {
-  try {
-    const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
-      execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 1024 * 128 }),
-      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES })
-    ]);
-    const statusLines = parseGitStatusLines(statusStdout);
-    return {
-      gitAvailable: true,
-      gitHead: headStdout.trim(),
-      dirtyWorktree: statusLines.length > 0,
-      statusLineCount: statusLines.length,
-      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
-      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
-    };
-  } catch (error) {
-    return {
-      gitAvailable: false,
-      gitHead: "",
-      dirtyWorktree: true,
-      statusLineCount: 0,
-      statusSummary: "",
-      statusTruncated: false,
-      error: String(error.message || error)
-    };
-  }
-}
-
-function parseGitStatusLines(statusStdout) {
-  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
-  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
 }
 
 async function buildOperatorPacket(paths) {

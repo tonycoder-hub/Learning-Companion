@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
 
 const KO_SCHEMA = "learning-companion.ko-evidence-review.v1";
 const SELFTEST_SCHEMA = "learning-companion.ko-evidence-selftest.v1";
@@ -17,8 +17,6 @@ const PLATFORM_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const MAX_STATUS_SUMMARY_LINES = 20;
-const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
 const MAC_MANUAL_QA_AREAS = [
   "Launch",
   "Morning pack shortcut",
@@ -166,7 +164,7 @@ async function buildKoReport({
   const blockers = [];
   const warnings = [];
   const evidence = {};
-  const currentRevision = readCurrentRevision();
+  const currentRevision = readCurrentRevisionSync();
   const platformQaStatus = summarizePlatformQaStatus([
     {
       id: "nativeMacManualQa",
@@ -356,45 +354,6 @@ function collectRequirement({ requirements, blockers, label, path, validate, evi
 
 function selectPlatformReceiptPath({ realRunPath, pendingPath }) {
   return existsSync(realRunPath) ? realRunPath : pendingPath;
-}
-
-function readCurrentRevision() {
-  try {
-    const headStdout = execFileSync("git", ["rev-parse", "HEAD"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      maxBuffer: 128 * 1024
-    });
-    const statusStdout = execFileSync("git", ["status", "--short"], {
-      cwd: process.cwd(),
-      encoding: "utf8",
-      maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES
-    });
-    const statusLines = parseGitStatusLines(statusStdout);
-    return {
-      gitAvailable: true,
-      gitHead: headStdout.trim() || "TBD",
-      dirtyWorktree: statusLines.length > 0,
-      statusLineCount: statusLines.length,
-      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
-      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
-    };
-  } catch (error) {
-    return {
-      gitAvailable: false,
-      gitHead: "TBD",
-      dirtyWorktree: "TBD",
-      statusLineCount: "TBD",
-      statusSummary: "",
-      statusTruncated: "TBD",
-      error: String(error?.message || error || "TBD")
-    };
-  }
-}
-
-function parseGitStatusLines(statusStdout) {
-  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
-  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
 }
 
 function summarizePlatformQaStatus(items, context = {}) {
