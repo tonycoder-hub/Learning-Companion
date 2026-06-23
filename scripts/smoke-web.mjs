@@ -1565,6 +1565,9 @@ assert.match(nextMajorOperatorPacketJs, /readinessArgv\.push\("--external", exte
 assert.match(nextMajorOperatorPacketJs, /function buildBoundFinalGateCommands/);
 assert.match(nextMajorOperatorPacketJs, /function buildPlatformRefreshCommands/);
 assert.match(nextMajorOperatorPacketJs, /buildPlatformLanes\(platformHandoff, platformHandoffFreshness, paths\)/);
+assert.match(nextMajorOperatorPacketJs, /suggestedEvidenceRoot/);
+assert.match(nextMajorOperatorPacketJs, /rowEvidenceHints/);
+assert.match(nextMajorOperatorPacketJs, /Evidence note templates/);
 assert.match(nextMajorOperatorPacketJs, /refreshOperatorParts\.push\([\s\S]*\.\.\.customPlatformArgs/);
 assert.match(nextMajorOperatorPacketJs, /!hasSourceOverride && !hasExternalOverride && !hasPlatformOverride/);
 assert.match(nextMajorOperatorPacketJs, /function appendSourceApprovalArgs/);
