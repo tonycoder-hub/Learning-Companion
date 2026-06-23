@@ -4976,6 +4976,25 @@ try {
     };
     const initialReturnButtonsDisabled = ["copyPatchBtn", "downloadPatchBtn", "selectPatchBtn", "clearDraftsBtn"].map((id) => document.querySelector("#" + id)?.disabled === true);
     const initialNextStep = document.querySelector("#returnNextStep").textContent;
+    const initialPlaceholders = {
+      quote: document.querySelector("#quoteInput").placeholder,
+      thought: document.querySelector("#thoughtInput").placeholder,
+      sourceTitle: document.querySelector("#sourceTitleInput").placeholder
+    };
+    document.querySelector("#mirrorLangZh").click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const zhPlaceholders = {
+      quote: document.querySelector("#quoteInput").placeholder,
+      thought: document.querySelector("#thoughtInput").placeholder,
+      sourceTitle: document.querySelector("#sourceTitleInput").placeholder
+    };
+    document.querySelector("#mirrorLangEn").click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const enAfterSwitchPlaceholders = {
+      quote: document.querySelector("#quoteInput").placeholder,
+      thought: document.querySelector("#thoughtInput").placeholder,
+      sourceTitle: document.querySelector("#sourceTitleInput").placeholder
+    };
     const emptyGuardButton = document.querySelector("#copyPatchBtn");
     emptyGuardButton.disabled = false;
     emptyGuardButton.click();
@@ -5027,6 +5046,9 @@ try {
       heading: document.querySelector("h1").textContent,
       initialReturnButtonsDisabled,
       initialNextStep,
+      initialPlaceholders,
+      zhPlaceholders,
+      enAfterSwitchPlaceholders,
       emptyGuardStatus,
       readyReturnButtonsDisabled,
       topicOptions: document.querySelectorAll("#topicSelect option").length,
@@ -5075,6 +5097,17 @@ try {
   assert.match(inboxRuntime.heading, /学习伴侣收件箱/);
   assert.deepEqual(inboxRuntime.initialReturnButtonsDisabled, [true, true, true, true]);
   assert.match(inboxRuntime.initialNextStep, /No draft captures for this topic yet/);
+  assert.deepEqual(inboxRuntime.initialPlaceholders, {
+    quote: "Paste a quote or transcript line",
+    thought: "Your thought, question, or takeaway",
+    sourceTitle: "Page or video title"
+  });
+  assert.deepEqual(inboxRuntime.zhPlaceholders, {
+    quote: "粘贴引文或转写行",
+    thought: "你的想法、问题或收获",
+    sourceTitle: "页面或视频标题"
+  });
+  assert.deepEqual(inboxRuntime.enAfterSwitchPlaceholders, inboxRuntime.initialPlaceholders);
   assert.match(inboxRuntime.emptyGuardStatus, /No draft captures for this topic yet/);
   assert.deepEqual(inboxRuntime.readyReturnButtonsDisabled, [false, false, false, false]);
   assert.ok(inboxRuntime.topicOptions >= 1);
@@ -5249,6 +5282,20 @@ try {
     answerQuestionPreview: document.querySelector("#answerQuestionPreview").textContent,
     answerContextText: document.querySelector("#answerContextText").textContent
   }))()`);
+  const inboxAnswerPlaceholderRuntime = await cdp.evaluate(`(async () => {
+    const readPlaceholders = () => ({
+      quote: document.querySelector("#quoteInput").placeholder,
+      thought: document.querySelector("#thoughtInput").placeholder,
+      sourceTitle: document.querySelector("#sourceTitleInput").placeholder,
+      quoteReadOnly: document.querySelector("#quoteInput").readOnly
+    });
+    document.querySelector("#mirrorLangZh").click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const zh = readPlaceholders();
+    document.querySelector("#mirrorLangEn").click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return { zh, en: readPlaceholders() };
+  })()`);
 
   assert.match(inboxAnswerRuntime.status, /Answer draft loaded from mirror link/);
   assert.equal(inboxAnswerRuntime.selectedTopicId, inboxRuntime.selectedTopicId);
@@ -5263,6 +5310,18 @@ try {
   assert.match(inboxAnswerRuntime.thoughtLabel, /Answer to return/);
   assert.match(inboxAnswerRuntime.quotePlaceholder, /Question carried from the Mac mirror/);
   assert.match(inboxAnswerRuntime.thoughtPlaceholder, /Write the answer to bring back to Mac/);
+  assert.deepEqual(inboxAnswerPlaceholderRuntime.zh, {
+    quote: "从 Mac 镜像带来的问题",
+    thought: "写下要带回 Mac 的回答",
+    sourceTitle: "页面或视频标题",
+    quoteReadOnly: true
+  });
+  assert.deepEqual(inboxAnswerPlaceholderRuntime.en, {
+    quote: "Question carried from the Mac mirror",
+    thought: "Write the answer to bring back to Mac",
+    sourceTitle: "Page or video title",
+    quoteReadOnly: true
+  });
   assert.equal(inboxAnswerRuntime.quoteReadOnly, true);
   assert.equal(inboxAnswerRuntime.quoteAriaReadonly, "true");
   assert.equal(inboxAnswerRuntime.answerContextHidden, false);
