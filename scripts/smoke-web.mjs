@@ -901,9 +901,17 @@ assert.match(refreshNextMajorLocalEvidenceJs, /next_major_local_evidence_refresh
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-bilingual-runtime/);
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-controlled-loop/);
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-public-source-dry-run/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-ko-status/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-readiness/);
+assert.match(refreshNextMajorLocalEvidenceJs, /refresh-platform-qa-handoff/);
+assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/validate-ko-evidence\.mjs/);
+assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/next-major-readiness\.mjs/);
+assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/platform-qa-handoff\.mjs/);
 assert.match(refreshNextMajorLocalEvidenceJs, /regenerate-source-approval-request/);
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-operator-packet/);
 assert.match(refreshNextMajorLocalEvidenceJs, /print-ko-next/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Readiness packet:/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Platform QA handoff:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run approved-source browser capture/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not perform human privacy review/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run Mac, Windows, or HarmonyOS real platform QA/);
