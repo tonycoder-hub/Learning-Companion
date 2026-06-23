@@ -164,6 +164,7 @@ assert.equal(packageJson.scripts["external:privacy-template"], "node scripts/val
 assert.equal(packageJson.scripts["external:privacy-review"], "node scripts/validate-external-source-privacy-review.mjs");
 assert.equal(packageJson.scripts["external:privacy-review:selftest"], "node scripts/validate-external-source-privacy-review.mjs --self-test");
 assert.equal(packageJson.scripts["ko:next"], "node scripts/ko-next-action-summary.mjs");
+assert.equal(packageJson.scripts["ko:next:selftest"], "node scripts/ko-next-action-summary.mjs --self-test");
 assert.equal(packageJson.scripts["ko:validate"], "node scripts/validate-ko-evidence.mjs");
 assert.equal(packageJson.scripts["ko:validate:selftest"], "node scripts/validate-ko-evidence.mjs --self-test");
 assert.equal(packageJson.scripts["next:readiness"], "node scripts/next-major-readiness.mjs");
@@ -185,7 +186,7 @@ assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/valid
 assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --platform-handoff .codex-tmp/platform-qa-handoff/current.json --out .codex-tmp/harmony-device-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
-assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/refresh-next-major-local-evidence.mjs --self-test && node scripts/smoke-web.mjs");
+assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/finalize-next-major.mjs --self-test && node scripts/ko-next-action-summary.mjs --self-test && node scripts/refresh-next-major-local-evidence.mjs --self-test && node scripts/smoke-web.mjs");
 assert.match(validateMorningReceiptsJs, /const DEFAULT_ROOT = "dist\/morning-demo"/);
 assert.match(validateMorningReceiptsJs, /process\.env\.MORNING_DEMO_OUT_DIR \|\| DEFAULT_ROOT/);
 assert.match(validateMorningReceiptsJs, /--root=/);
