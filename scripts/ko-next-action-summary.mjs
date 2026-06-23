@@ -243,12 +243,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorFreshness, operatorWarning),
     "",
     "Final gate after all evidence exists:",
-    "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
-    "- One-command final refresh: npm run next:finalize -- --external <ko-evidence-review.json>",
-    "- npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-    "- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json",
-    "- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md",
-    "- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md",
+    ...formatFinalGateCommands(sourceApprovalRequestPath),
     "",
     "Boundary:",
     "- Self-test and public dry-run evidence are useful checks, but they cannot fill approved external reading/video evidence rows.",
@@ -396,6 +391,23 @@ function formatSourceInputCommands(request, sourceApprovalFreshness, path) {
     `- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>"`,
     "- Privacy review template: npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
     "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+  ];
+}
+
+function formatFinalGateCommands(sourceApprovalRequestPath) {
+  const sourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
+    ? ""
+    : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --source-approval-markdown ${shellQuote(markdownSiblingPath(sourceApprovalRequestPath))}`;
+  const operatorSourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
+    ? ""
+    : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)}`;
+  return [
+    "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
+    `- One-command final refresh: npm run next:finalize -- --external <ko-evidence-review.json>${sourceArgs}`,
+    "- npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
+    "- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json",
+    `- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}`,
+    `- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${operatorSourceArgs}`
   ];
 }
 

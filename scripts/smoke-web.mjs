@@ -1065,6 +1065,9 @@ assert.match(koNextActionSummaryJs, /npm run external:validate -- --approved-cur
 assert.match(koNextActionSummaryJs, /--out \$\{shellQuote\(path\)\}/);
 assert.match(koNextActionSummaryJs, /--markdown-out \$\{shellQuote\(markdownSiblingPath\(path\)\)\}/);
 assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(path\)\}/);
+assert.match(koNextActionSummaryJs, /function formatFinalGateCommands/);
+assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(sourceApprovalRequestPath\)\}/);
+assert.match(koNextActionSummaryJs, /--source-approval-markdown \$\{shellQuote\(markdownSiblingPath\(sourceApprovalRequestPath\)\)\}/);
 assert.match(koNextActionSummaryJs, /function shellQuote/);
 assert.match(koNextActionSummaryJs, /npm run platform:qa-handoff -- --out \.codex-tmp\/platform-qa-handoff\/current\.json --markdown-out \.codex-tmp\/platform-qa-handoff\/current\.md/);
 assert.match(koNextActionSummaryJs, /Real-run platform receipts are auto-selected by ko:next\/ko:validate when present/);
@@ -1432,6 +1435,11 @@ try {
   assert.match(koNextConsole, /refresh-public-source-dry-run/);
   assert.match(koNextConsole, /refresh-platform-qa-handoff/);
   assert.match(koNextConsole, /validate-final-ko/);
+  assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-request .*approval\.json/);
+  assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-markdown .*approval\.md/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--source-approval-request .*approval\.json/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--source-approval-markdown .*approval\.md/);
+  assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--source-approval-request .*approval\.json/);
   assert.match(koNextConsole, /This operator packet still does not grant approval/);
   const staleKoNextConsole = execFileSync(process.execPath, [
     "scripts/ko-next-action-summary.mjs",
@@ -1464,6 +1472,7 @@ try {
   ], { cwd: operatorSmokeDir, encoding: "utf8" });
   assert.match(missingSourceKoNextConsole, /Generate an approval request packet: .*--out \.codex-tmp\/external-source-validation\/source-approval-request\.json --markdown-out \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
   assert.match(missingSourceKoNextConsole, /Approved candidate command: .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
+  assert.match(missingSourceKoNextConsole, /One-command final refresh: npm run next:finalize -- --external <ko-evidence-review\.json>$/m);
 } finally {
   if (cleanupSmokeArtifacts) rmSync(operatorSmokeDir, { recursive: true, force: true });
 }
