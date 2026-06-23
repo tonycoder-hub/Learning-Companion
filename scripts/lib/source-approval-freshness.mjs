@@ -58,6 +58,7 @@ export async function assessSourceApprovalFreshness(sourceApprovalRequest, curre
   if (prior.profileCleanupOk !== true) {
     problems.push("Prior public dry-run profile cleanup was not proven.");
   }
+  problems.push(...validateRequestedApprovalText(sourceApprovalRequest));
   problems.push(...validateApprovedCandidateCommand(sourceApprovalRequest));
   return {
     status: problems.length ? STALE_OR_DIRTY_PUBLIC_DRY_RUN : CURRENT_CLEAN_PUBLIC_DRY_RUN,
@@ -165,6 +166,49 @@ function validateApprovedCandidateCommand(sourceApprovalRequest) {
     return ["Approved candidate command does not match receipt-validated sources, timestamp, and approval text."];
   }
   return [];
+}
+
+function validateRequestedApprovalText(sourceApprovalRequest) {
+  const text = String(sourceApprovalRequest.requestedApprovalText || "");
+  const readingUrl = sourceApprovalRequest.sources?.reading?.url || "";
+  const videoUrl = sourceApprovalRequest.sources?.video?.url || "";
+  const videoTimestamp = sourceApprovalRequest.sources?.video?.timestamp || "";
+  const problems = [];
+  const tokens = parseApprovalTokens(text);
+  if (!text.trim()) {
+    problems.push("Requested approval text is missing from source approval request.");
+    return problems;
+  }
+  if (tokens.reading.count !== 1) {
+    problems.push("Requested approval text must contain exactly one reading= token.");
+  }
+  if (tokens.video.count !== 1) {
+    problems.push("Requested approval text must contain exactly one video= token.");
+  }
+  if (tokens.timestamp.count !== 1) {
+    problems.push("Requested approval text must contain exactly one timestamp= token.");
+  }
+  if (tokens.reading.count === 1 && tokens.reading.value !== readingUrl) {
+    problems.push("Requested approval text must include the exact approved reading URL.");
+  }
+  if (tokens.video.count === 1 && tokens.video.value !== videoUrl) {
+    problems.push("Requested approval text must include the exact approved video URL.");
+  }
+  if (tokens.timestamp.count === 1 && tokens.timestamp.value !== videoTimestamp) {
+    problems.push("Requested approval text must include the exact approved video timestamp.");
+  }
+  return problems;
+}
+
+function parseApprovalTokens(text) {
+  const value = String(text || "");
+  return Object.fromEntries(["reading", "video", "timestamp"].map((token) => {
+    const matches = Array.from(value.matchAll(new RegExp(`(^|\\s)${token}=([^\\s]+)`, "g")));
+    return [token, {
+      count: matches.length,
+      value: matches[0]?.[2] || ""
+    }];
+  }));
 }
 
 function formatMaybeBoolean(value) {

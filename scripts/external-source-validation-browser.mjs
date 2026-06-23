@@ -1014,7 +1014,7 @@ function buildSourceApprovalRequest(source, options = {}) {
     "I approve these exact public learning-material sources for the current turn:",
     `reading=${source.readingUrl}`,
     `video=${source.videoUrl}`,
-    `timestamp=${source.videoTimestamp}.`,
+    `timestamp=${source.videoTimestamp}`,
     "They may be used for Learning Companion external-source validation screenshots and privacy review."
   ].join(" ");
   return {
@@ -1188,15 +1188,36 @@ function validateApprovedRunSourceApprovalRequestObject(request, run) {
 
 function assertRequestedApprovalTextCoversSources(text, { readingUrl, videoUrl, videoTimestamp }) {
   const value = String(text || "");
-  if (!value.includes(`reading=${readingUrl}`)) {
+  const tokens = parseApprovalTokens(value);
+  if (tokens.reading.count !== 1) {
+    throw new Error("--source-approval-request requestedApprovalText must contain exactly one reading= token.");
+  }
+  if (tokens.video.count !== 1) {
+    throw new Error("--source-approval-request requestedApprovalText must contain exactly one video= token.");
+  }
+  if (tokens.timestamp.count !== 1) {
+    throw new Error("--source-approval-request requestedApprovalText must contain exactly one timestamp= token.");
+  }
+  if (tokens.reading.value !== readingUrl) {
     throw new Error("--source-approval-request requestedApprovalText must include the exact approved reading URL.");
   }
-  if (!value.includes(`video=${videoUrl}`)) {
+  if (tokens.video.value !== videoUrl) {
     throw new Error("--source-approval-request requestedApprovalText must include the exact approved video URL.");
   }
-  if (!value.includes(`timestamp=${videoTimestamp}`)) {
+  if (tokens.timestamp.value !== videoTimestamp) {
     throw new Error("--source-approval-request requestedApprovalText must include the exact approved video timestamp.");
   }
+}
+
+function parseApprovalTokens(text) {
+  const value = String(text || "");
+  return Object.fromEntries(["reading", "video", "timestamp"].map((token) => {
+    const matches = Array.from(value.matchAll(new RegExp(`(^|\\s)${token}=([^\\s]+)`, "g")));
+    return [token, {
+      count: matches.length,
+      value: matches[0]?.[2] || ""
+    }];
+  }));
 }
 
 function assertCurrentCleanSourceApprovalFreshness(freshness) {
@@ -1552,7 +1573,89 @@ function runApprovedUrlBoundarySelfChecks() {
     videoUrl: intake.videoUrl,
     videoTimestamp: "00:03",
     approvalNote: "I approve the learning sources for this turn."
+  }), /requestedApprovalText must contain exactly one reading= token/);
+  const mismatchedSingleReadingApprovalText = approvalFromDryRun.requestedApprovalText.replace(
+    `reading=${intake.readingUrl}`,
+    "reading=https://example.com/other-reading"
+  );
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: mismatchedSingleReadingApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: mismatchedSingleReadingApprovalText
   }), /requestedApprovalText must include the exact approved reading URL/);
+  const suffixReadingApprovalText = approvalFromDryRun.requestedApprovalText.replace(
+    `reading=${intake.readingUrl}`,
+    `reading=${intake.readingUrl}-extra`
+  );
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: suffixReadingApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: suffixReadingApprovalText
+  }), /requestedApprovalText must include the exact approved reading URL/);
+  const suffixVideoApprovalText = approvalFromDryRun.requestedApprovalText.replace(
+    `video=${intake.videoUrl}`,
+    `video=${intake.videoUrl}?extra=true`
+  );
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: suffixVideoApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: suffixVideoApprovalText
+  }), /requestedApprovalText must include the exact approved video URL/);
+  const suffixTimestampApprovalText = approvalFromDryRun.requestedApprovalText.replace(
+    "timestamp=00:03",
+    "timestamp=00:03Z"
+  );
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: suffixTimestampApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: suffixTimestampApprovalText
+  }), /requestedApprovalText must include the exact approved video timestamp/);
+  const conflictingApprovalText = `${approvalFromDryRun.requestedApprovalText} reading=https://example.com/other-reading`;
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: conflictingApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: conflictingApprovalText
+  }), /requestedApprovalText must contain exactly one reading= token/);
+  const conflictingVideoApprovalText = `${approvalFromDryRun.requestedApprovalText} video=https://example.com/other-video.mp4`;
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: conflictingVideoApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: conflictingVideoApprovalText
+  }), /requestedApprovalText must contain exactly one video= token/);
+  const conflictingTimestampApprovalText = `${approvalFromDryRun.requestedApprovalText} timestamp=00:04`;
+  assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
+    ...approvalFromDryRun,
+    requestedApprovalText: conflictingTimestampApprovalText
+  }, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: "00:03",
+    approvalNote: conflictingTimestampApprovalText
+  }), /requestedApprovalText must contain exactly one timestamp= token/);
   assert.throws(() => validateApprovedRunSourceApprovalRequestObject(approvalFromDryRun, {
     readingUrl: intake.readingUrl,
     videoUrl: intake.videoUrl,

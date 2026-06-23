@@ -202,6 +202,10 @@ assert.match(sourceApprovalFreshnessHelperJs, /export async function assessSourc
 assert.match(sourceApprovalFreshnessHelperJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
 assert.match(sourceApprovalFreshnessHelperJs, /STALE_OR_DIRTY_PUBLIC_DRY_RUN/);
 assert.match(sourceApprovalFreshnessHelperJs, /export function buildApprovedCandidateCommand/);
+assert.match(sourceApprovalFreshnessHelperJs, /function validateRequestedApprovalText/);
+assert.match(sourceApprovalFreshnessHelperJs, /function parseApprovalTokens/);
+assert.match(sourceApprovalFreshnessHelperJs, /Requested approval text must include the exact approved reading URL/);
+assert.match(sourceApprovalFreshnessSelfTestJs, /genericApprovalTextRequest/);
 assert.match(sourceApprovalFreshnessHelperJs, /export function buildFreshSourceCommands/);
 assert.match(sourceApprovalFreshnessHelperJs, /refreshPublicDryRun/);
 assert.match(sourceApprovalFreshnessHelperJs, /validatePublicDryRunReceiptBasis/);
@@ -770,6 +774,7 @@ assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestBinding freshn
 assert.match(externalSourcePrivacyReviewJs, /requested approval text must match receipt binding/);
 assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestBinding\.requestedApprovalText/);
 assert.match(externalSourcePrivacyReviewJs, /function assertRequestedApprovalTextCoversSources/);
+assert.match(externalSourcePrivacyReviewJs, /function parseApprovalTokens/);
 assert.match(externalSourcePrivacyReviewJs, /requestedApprovalTextMatched/);
 assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestPath/);
 assert.match(externalSourcePrivacyReviewJs, /approvedReadingUrl: receiptSummary\.sourceApprovalRequestBinding\.approvedReadingUrl/);
@@ -780,6 +785,7 @@ assert.match(externalSourcePrivacyReviewJs, /statusShort: runContext\.appRevisio
 assert.match(koEvidenceReviewJs, /sourceApprovalRequest\.requestedApprovalText/);
 assert.match(koEvidenceReviewJs, /external claim sourceApprovalRequest\.requestedApprovalText/);
 assert.match(koEvidenceReviewJs, /function assertRequestedApprovalTextCoversClaim/);
+assert.match(koEvidenceReviewJs, /function parseApprovalTokens/);
 assert.match(externalSourcePrivacyReviewJs, /mode: 0o600/);
 assert.match(externalSourcePrivacyReviewJs, /error\?\.code !== "ENOENT"/);
 assert.match(externalSourcePrivacyReviewJs, /chmod\(path, 0o600\)/);
@@ -1650,6 +1656,7 @@ assert.match(externalSourceValidationBrowserJs, /function buildSourceApprovalReq
 assert.match(externalSourceValidationBrowserJs, /source-approval-request-binding\.v1/);
 assert.match(externalSourceValidationBrowserJs, /requestedApprovalText: request\.requestedApprovalText/);
 assert.match(externalSourceValidationBrowserJs, /function assertRequestedApprovalTextCoversSources/);
+assert.match(externalSourceValidationBrowserJs, /function parseApprovalTokens/);
 assert.match(externalSourceValidationBrowserJs, /requestedApprovalTextMatched/);
 assert.match(externalSourceValidationBrowserJs, /function assertCurrentCleanSourceApprovalFreshness/);
 assert.match(externalSourceValidationBrowserJs, /freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN/);
