@@ -156,7 +156,10 @@ async function buildNextMajorReadiness(statusPath, {
       approvedSourceCandidate: buildApprovedSourceCandidateCommand(sourceApprovalRequestPath),
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
-      platformHandoff: "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
+      platformHandoff: buildPlatformHandoffCommand({
+        statusPath,
+        platformReceiptPaths
+      }),
       finalizeNextMajor: buildFinalizeNextMajorCommand({
         externalEvidencePath,
         sourceApprovalRequestPath,
@@ -266,6 +269,24 @@ function buildApprovedSourceCandidateCommand(sourceApprovalRequestPath) {
     shellQuote(sourceApprovalRequestPath),
     '--approval-note "<current-turn approval>"'
   ].join(" ");
+}
+
+function buildPlatformHandoffCommand({ statusPath, platformReceiptPaths }) {
+  const parts = [
+    "npm run platform:qa-handoff --"
+  ];
+  if (statusPath !== STATUS_PATH) {
+    parts.push("--status", shellQuote(statusPath));
+  }
+  parts.push(
+    "--out",
+    ".codex-tmp/platform-qa-handoff/current.json",
+    "--markdown-out",
+    ".codex-tmp/platform-qa-handoff/current.md"
+  );
+  const platformArgs = formatPlatformReceiptArgs(platformReceiptPaths, { includeDefaults: false });
+  if (platformArgs) parts.push(platformArgs);
+  return parts.join(" ");
 }
 
 function buildFinalizeNextMajorCommand({

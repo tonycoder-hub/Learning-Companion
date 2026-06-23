@@ -136,7 +136,8 @@ async function refreshInputs({
     "--out",
     platformHandoffPath,
     "--markdown-out",
-    markdownSiblingPath(platformHandoffPath)
+    markdownSiblingPath(platformHandoffPath),
+    ...buildCustomPlatformReceiptArgv(platformReceiptPaths)
   ], "platform QA handoff");
 }
 
@@ -186,7 +187,7 @@ async function buildOperatorPacket(paths) {
   const requirementById = new Map(requirements.map((item) => [item.id || "UNKNOWN", item]));
   const lanes = [
     await buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
-    ...buildPlatformLanes(platformHandoff, platformHandoffFreshness),
+    ...buildPlatformLanes(platformHandoff, platformHandoffFreshness, paths),
     buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, readinessFreshness, {
       sourceApprovalRequestPath: paths.sourceApprovalRequestPath,
       sourceApprovalMarkdownPath: paths.sourceApprovalMarkdownPath,
@@ -487,8 +488,9 @@ async function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, 
   };
 }
 
-function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
+function buildPlatformLanes(platformHandoff, platformHandoffFreshness, pathBindings = {}) {
   const needsFreshPlatformHandoff = platformHandoffFreshness.status !== CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS;
+  const refreshCommands = buildPlatformRefreshCommands(pathBindings);
   return (Array.isArray(platformHandoff.platforms) ? platformHandoff.platforms : []).map((platform) => ({
     id: platform.id || "UNKNOWN",
     label: platform.label || platform.id || "UNKNOWN",
@@ -518,15 +520,60 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
     },
     requiredSessionFields: platform.currentTemplateSummary?.requiredSessionFields || [],
     nextCommands: needsFreshPlatformHandoff
-      ? {
-          refreshPlatformHandoff: "npm run platform:qa-handoff -- --status .codex-tmp/ko-evidence/current-status.json --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
-          refreshOperatorPacket: "npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md"
-        }
+      ? refreshCommands
       : {},
     executionChecklist: platform.executionChecklist || {},
     nextRealRunSteps: platform.nextRealRunSteps || [],
     cannotBeFilledFrom: platform.cannotBeFilledFrom || []
   }));
+}
+
+function buildPlatformRefreshCommands({
+  statusPath = STATUS_PATH,
+  readinessPath = READINESS_PATH,
+  platformHandoffPath = PLATFORM_HANDOFF_PATH,
+  sourceApprovalRequestPath = SOURCE_APPROVAL_REQUEST_PATH,
+  sourceApprovalMarkdownPath = SOURCE_APPROVAL_MARKDOWN_PATH,
+  externalEvidencePath = "",
+  platformReceiptPaths = {}
+} = {}) {
+  const customPlatformArgs = buildCustomPlatformReceiptCommandArgs(platformReceiptPaths);
+  const refreshPlatformParts = [
+    "npm run platform:qa-handoff -- --status",
+    shellQuote(statusPath),
+    "--out",
+    shellQuote(platformHandoffPath),
+    "--markdown-out",
+    shellQuote(markdownSiblingPath(platformHandoffPath)),
+    ...customPlatformArgs
+  ];
+  const refreshOperatorParts = [
+    "npm run next:operator -- --refresh",
+    "--status",
+    shellQuote(statusPath),
+    "--readiness",
+    shellQuote(readinessPath),
+    "--platform-handoff",
+    shellQuote(platformHandoffPath),
+    "--source-approval-request",
+    shellQuote(sourceApprovalRequestPath),
+    "--source-approval-markdown",
+    shellQuote(sourceApprovalMarkdownPath)
+  ];
+  if (externalEvidencePath) {
+    refreshOperatorParts.push("--external", shellQuote(externalEvidencePath));
+  }
+  refreshOperatorParts.push(
+    ...customPlatformArgs,
+    "--out",
+    ".codex-tmp/next-major-operator/current.json",
+    "--markdown-out",
+    ".codex-tmp/next-major-operator/current.md"
+  );
+  return {
+    refreshPlatformHandoff: refreshPlatformParts.join(" "),
+    refreshOperatorPacket: refreshOperatorParts.join(" ")
+  };
 }
 
 function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, readinessFreshness, pathBindings = {}) {

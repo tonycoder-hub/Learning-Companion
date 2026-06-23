@@ -105,10 +105,15 @@ try {
     "harmonyDeviceQa",
     "approvedExternalReadingVideo"
   ]);
+  assert.equal(cleanHandoff.nextCommands.finalizeNextMajor, "npm run next:finalize -- --external <ko-evidence-review.json>");
+  assert.equal(cleanHandoff.nextCommands.finalKoGateWithExplicitPlatformReceipts, "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json");
 
   const mac = cleanHandoff.platforms.find((platform) => platform.id === "nativeMacManualQa");
   const windows = cleanHandoff.platforms.find((platform) => platform.id === "windowsStaticManualQa");
   const harmony = cleanHandoff.platforms.find((platform) => platform.id === "harmonyDeviceQa");
+  assert.equal(mac.receiptPath, ".codex-tmp/mac-manual-qa/real-run-receipt.json");
+  assert.equal(windows.receiptPath, ".codex-tmp/windows-static-qa/real-run-receipt.json");
+  assert.equal(harmony.receiptPath, ".codex-tmp/harmony-device-qa/real-run-receipt.json");
   assert.equal(mac.currentKoStatus.status, "PENDING_NOT_RUN");
   assert.equal(mac.canClaimPlatform, false);
   assert.equal(mac.currentTemplateSummary.rows, 27);
@@ -143,6 +148,30 @@ try {
   assert.match(cleanMarkdown, /Not accepted as evidence/);
   assert.match(cleanMarkdown, /Cannot be filled from/);
   assert.match(cleanMarkdown, /No Mac GUI manual QA was run by this handoff/);
+
+  const customPathRun = await runPlatformHandoff("custom-receipt-paths", [
+    "--mac-manual",
+    "custom/mac real.json",
+    "--windows-static",
+    "custom/windows real.json",
+    "--harmony-device",
+    "custom/harmony real.json"
+  ]);
+  assert.equal(customPathRun.code, 0, customPathRun.stderr);
+  const customPathHandoff = await readJson(customPathRun.jsonPath);
+  assert.equal(customPathHandoff.platforms.find((platform) => platform.id === "nativeMacManualQa").receiptPath, "custom/mac real.json");
+  assert.equal(customPathHandoff.platforms.find((platform) => platform.id === "windowsStaticManualQa").receiptPath, "custom/windows real.json");
+  assert.equal(customPathHandoff.platforms.find((platform) => platform.id === "harmonyDeviceQa").receiptPath, "custom/harmony real.json");
+  assert.match(customPathHandoff.nextCommands.finalizeNextMajor, /--mac-manual 'custom\/mac real\.json'/);
+  assert.match(customPathHandoff.nextCommands.finalizeNextMajor, /--windows-static 'custom\/windows real\.json'/);
+  assert.match(customPathHandoff.nextCommands.finalizeNextMajor, /--harmony-device 'custom\/harmony real\.json'/);
+  assert.match(customPathHandoff.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--mac-manual 'custom\/mac real\.json'/);
+  assert.match(customPathHandoff.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--windows-static 'custom\/windows real\.json'/);
+  assert.match(customPathHandoff.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--harmony-device 'custom\/harmony real\.json'/);
+  const customPathMarkdown = await readFile(customPathRun.markdownPath, "utf8");
+  assert.match(customPathMarkdown, /custom\/mac real\.json/);
+  assert.match(customPathMarkdown, /custom\/windows real\.json/);
+  assert.match(customPathMarkdown, /custom\/harmony real\.json/);
 
   await writeFile(statusPath, `${JSON.stringify(buildStatus({
     currentRevision: {
@@ -195,6 +224,18 @@ try {
   assert.notEqual(missingMarkdownPath.code, 0);
   assert.match(`${missingMarkdownPath.stdout}\n${missingMarkdownPath.stderr}`, /--markdown-out requires a file path/);
 
+  const missingMacManualPath = await runNode([platformHandoffScript, "--mac-manual"], fixtureRoot);
+  assert.notEqual(missingMacManualPath.code, 0);
+  assert.match(`${missingMacManualPath.stdout}\n${missingMacManualPath.stderr}`, /--mac-manual requires a Mac manual QA receipt path/);
+
+  const missingWindowsStaticPath = await runNode([platformHandoffScript, "--windows-static"], fixtureRoot);
+  assert.notEqual(missingWindowsStaticPath.code, 0);
+  assert.match(`${missingWindowsStaticPath.stdout}\n${missingWindowsStaticPath.stderr}`, /--windows-static requires a Windows static\/manual QA receipt path/);
+
+  const missingHarmonyDevicePath = await runNode([platformHandoffScript, "--harmony-device"], fixtureRoot);
+  assert.notEqual(missingHarmonyDevicePath.code, 0);
+  assert.match(`${missingHarmonyDevicePath.stdout}\n${missingHarmonyDevicePath.stderr}`, /--harmony-device requires a HarmonyOS device QA receipt path/);
+
   console.log("platform_qa_handoff_selftest_ok");
 } finally {
   await rm(tmp, { recursive: true, force: true });
@@ -231,7 +272,7 @@ async function gitCommit(message) {
   ]);
 }
 
-async function runPlatformHandoff(label) {
+async function runPlatformHandoff(label, extraArgs = []) {
   const jsonPath = join(outDir, `${label}.json`);
   const markdownPath = join(outDir, `${label}.md`);
   const result = await runNode([
@@ -241,7 +282,8 @@ async function runPlatformHandoff(label) {
     "--out",
     jsonPath,
     "--markdown-out",
-    markdownPath
+    markdownPath,
+    ...extraArgs
   ], fixtureRoot);
   return {
     ...result,

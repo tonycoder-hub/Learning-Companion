@@ -75,7 +75,7 @@ try {
   assert.equal(blocked.platformQaStatus[0].rows.nt, 27);
   assert.equal(blocked.platformQaStatus[0].claimAllowed, false);
   assert.equal(blocked.platformQaStatus[0].gates.nativeBuild.pass, false);
-  assert.equal(blocked.nextCommands.platformHandoff, "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md");
+  assert.match(blocked.nextCommands.platformHandoff, /npm run platform:qa-handoff -- --status .*blocked-status\.json --out \.codex-tmp\/platform-qa-handoff\/current\.json --markdown-out \.codex-tmp\/platform-qa-handoff\/current\.md/);
   assert.equal(blocked.nextCommands.finalizeNextMajor, "npm run next:finalize -- --external <ko-evidence-review.json>");
   assert.match(blocked.nextCommands.approvedSourceCandidate, /--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.equal(blocked.blockedOrNotExecuted.includes("No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet."), true);
@@ -116,6 +116,10 @@ try {
   assert.match(customPathReadiness.nextCommands.refreshReadiness, /--mac-manual '.*custom mac receipt\.json'/);
   assert.match(customPathReadiness.nextCommands.refreshReadiness, /--windows-static '.*custom windows receipt\.json'/);
   assert.match(customPathReadiness.nextCommands.refreshReadiness, /--harmony-device '.*custom harmony receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.platformHandoff, /--status .*blocked-status\.json/);
+  assert.match(customPathReadiness.nextCommands.platformHandoff, /--mac-manual '.*custom mac receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.platformHandoff, /--windows-static '.*custom windows receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.platformHandoff, /--harmony-device '.*custom harmony receipt\.json'/);
   assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--out '.*custom source approval request\.json'/);
   assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--markdown-out '.*custom source approval request\.md'/);
   assert.match(customPathReadiness.nextCommands.approvedSourceCandidate, /--source-approval-request '.*custom source approval request\.json'/);
