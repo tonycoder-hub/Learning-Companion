@@ -25,6 +25,8 @@ const EXTERNAL_CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-re
 const EXTERNAL_PRIVACY_REVIEW_SCHEMA = "learning-companion.external-source-privacy-review.v1";
 const EXTERNAL_RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
 const SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA = "learning-companion.source-approval-request-binding.v1";
+const SOURCE_APPROVAL_CHECK_SCHEMA = "learning-companion.source-approval-check.v1";
+const SOURCE_APPROVAL_CHECK_TIER = "SOURCE_APPROVAL_CHECK_ONLY";
 const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
 const MAC_MANUAL_QA_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const WINDOWS_STATIC_QA_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
@@ -994,6 +996,7 @@ function assertLocalBrowserSmokeRunContext(runContext, label, { currentRevision 
 }
 
 function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false, currentRevision = {} } = {}) {
+  rejectApprovalCheckOnlyArtifact(claim, "external evidence");
   assert.equal(claim.schema, EXTERNAL_CLAIM_SCHEMA, "external evidence schema mismatch");
   assert.equal(claim.evidenceTier, "APPROVED_SOURCE_PRIVACY_REVIEWED", "external evidence tier mismatch");
   assert.equal(claim.canClaimExternalKo, true, "external evidence must allow external KO claim");
@@ -1068,6 +1071,12 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
       }
     }
   };
+}
+
+function rejectApprovalCheckOnlyArtifact(artifact, label) {
+  if (artifact?.schema === SOURCE_APPROVAL_CHECK_SCHEMA || artifact?.evidenceTier === SOURCE_APPROVAL_CHECK_TIER) {
+    throw new Error(`${label} approval-check artifacts are pre-check only and cannot be used as privacy-reviewed KO evidence`);
+  }
 }
 
 function assertExternalSourceApprovalRequest(sourceApprovalRequest, claim, { currentRevision = {} } = {}) {
@@ -1374,6 +1383,26 @@ async function runSelfTest() {
   });
   assert.equal(rejectedReport.canClaimKo, false);
   assert.ok(rejectedReport.blockers.some((item) => item.includes("fixture-only")));
+
+  const approvalCheckOnlyExternalPath = join(root, "source-approval-check-external.json");
+  await writeJson(approvalCheckOnlyExternalPath, {
+    schema: SOURCE_APPROVAL_CHECK_SCHEMA,
+    evidenceTier: SOURCE_APPROVAL_CHECK_TIER,
+    canClaimExternalKo: false,
+    sourceApprovalGranted: false
+  });
+  const approvalCheckOnlyExternalReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: approvalCheckOnlyExternalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(approvalCheckOnlyExternalReport.canClaimKo, false);
+  assert.ok(approvalCheckOnlyExternalReport.blockers.some((item) => item.includes("approval-check artifacts are pre-check only")));
 
   const bilingualFixture = readJsonSync(fixtures.bilingualPath, "bilingual fixture");
   const staleBilingualPath = join(root, "stale-bilingual-receipt.json");
@@ -2797,6 +2826,7 @@ async function runSelfTest() {
     negativeCases: [
       "missing external evidence rejected",
       "fixture-only external evidence rejected",
+      "source approval check external evidence rejected",
       "local browser smoke stale git revision rejected",
       "agent study loop missing run context rejected",
       "external run context missing rejected",

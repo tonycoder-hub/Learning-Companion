@@ -94,6 +94,14 @@ npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.j
 
 The approval request uses `schema: learning-companion.external-source-approval-request.v1`, `evidenceTier: SOURCE_APPROVAL_REQUEST_ONLY`, and `canClaimExternalKo: false`. It contains the exact reading URL, video URL, timestamp, requested current-turn approval text, and the approved-candidate command to run only after that exact approval appears in the current turn. It does not grant approval, launch a browser, capture screenshots, perform privacy review, or satisfy KO evidence.
 
+After the exact current-turn approval text is available, run the approval pre-check before launching the approved browser candidate:
+
+```bash
+npm run external:approval-check -- --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --approval-note "<exact current-turn approval text>" --out .codex-tmp/external-source-validation/source-approval-check.json
+```
+
+The approval check uses `schema: learning-companion.source-approval-check.v1`, `evidenceTier: SOURCE_APPROVAL_CHECK_ONLY`, and `canClaimExternalKo: false`. It proves only that the approval note matches the request packet at the current clean revision. It does not launch a browser, capture screenshots, perform privacy review, or satisfy KO evidence. The privacy-review template/review validator and the top-level KO validator reject approval-check artifacts explicitly.
+
 When exact approval is not available yet, a real public-source preflight can exercise the same browser/source/resume mechanics without creating approved evidence:
 
 ```bash
@@ -118,7 +126,7 @@ After a real approved-source candidate run, generate a privacy-review template:
 npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>
 ```
 
-Template generation is candidate-only. Local fixture self-tests and `PUBLIC_SOURCE_DRY_RUN` receipts are rejected before a privacy template is written. Fill every `TBD` / `false` field from a human artifact review. Then validate the completed review:
+Template generation is candidate-only. Local fixture self-tests, `PUBLIC_SOURCE_DRY_RUN` receipts, and `SOURCE_APPROVAL_CHECK_ONLY` artifacts are rejected before a privacy template is written. Fill every `TBD` / `false` field from a human artifact review. Then validate the completed review:
 
 ```bash
 npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>
