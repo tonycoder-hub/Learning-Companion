@@ -114,14 +114,25 @@ try {
   assert.equal(mac.receiptPath, ".codex-tmp/mac-manual-qa/real-run-receipt.json");
   assert.equal(windows.receiptPath, ".codex-tmp/windows-static-qa/real-run-receipt.json");
   assert.equal(harmony.receiptPath, ".codex-tmp/harmony-device-qa/real-run-receipt.json");
+  assert.equal(mac.suggestedEvidenceRoot, `.codex-tmp/platform-qa-evidence/nativeMacManualQa/${cleanRevision.gitHead}`);
+  assert.equal(windows.suggestedEvidenceRoot, `.codex-tmp/platform-qa-evidence/windowsStaticManualQa/${cleanRevision.gitHead}`);
+  assert.equal(harmony.suggestedEvidenceRoot, `.codex-tmp/platform-qa-evidence/harmonyDeviceQa/${cleanRevision.gitHead}`);
   assert.equal(mac.currentKoStatus.status, "PENDING_NOT_RUN");
   assert.equal(mac.canClaimPlatform, false);
   assert.equal(mac.currentTemplateSummary.rows, 27);
   assert.equal(mac.currentTemplateSummary.nt, 27);
   assert.equal(mac.currentTemplateSummary.anyRealRowsFilled, false);
   assert.equal(mac.currentTemplateSummary.requiredSessionFields.every((field) => field.filled === false), true);
+  assert.equal(mac.currentTemplateSummary.rowEvidenceHints.length, 27);
+  assert.deepEqual(mac.currentTemplateSummary.rowEvidenceHints[0], {
+    row: 1,
+    area: "Mac area 1",
+    evidenceDir: `.codex-tmp/platform-qa-evidence/nativeMacManualQa/${cleanRevision.gitHead}/01-mac-area-1`,
+    suggestedNote: `template only - replace before use: evidence: .codex-tmp/platform-qa-evidence/nativeMacManualQa/${cleanRevision.gitHead}/01-mac-area-1/notes.md; screenshot: .codex-tmp/platform-qa-evidence/nativeMacManualQa/${cleanRevision.gitHead}/01-mac-area-1/screenshot.png; result: <actual-result>; observed: <observed-summary>`
+  });
   assert.equal(windows.currentTemplateSummary.rows, 10);
   assert.equal(windows.currentTemplateSummary.nt, 10);
+  assert.equal(windows.currentTemplateSummary.rowEvidenceHints.at(-1).evidenceDir, `.codex-tmp/platform-qa-evidence/windowsStaticManualQa/${cleanRevision.gitHead}/10-windows-area-10`);
   assert.equal(harmony.currentTemplateSummary.rows, 10);
   assert.equal(harmony.currentTemplateSummary.nt, 10);
   assert.deepEqual(Object.keys(mac.executionChecklist), [
@@ -145,6 +156,9 @@ try {
   assert.match(cleanMarkdown, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
   assert.match(cleanMarkdown, /Execution checklist/);
   assert.match(cleanMarkdown, /Before run/);
+  assert.match(cleanMarkdown, /Suggested evidence root/);
+  assert.match(cleanMarkdown, /Evidence note templates/);
+  assert.match(cleanMarkdown, /01-mac-area-1\/notes\.md/);
   assert.match(cleanMarkdown, /Not accepted as evidence/);
   assert.match(cleanMarkdown, /Cannot be filled from/);
   assert.match(cleanMarkdown, /No Mac GUI manual QA was run by this handoff/);
@@ -189,7 +203,7 @@ try {
 
   await writeFile(macQaPath, buildQaMarkdown("Mac", 27, MAC_FIELDS, {
     firstResult: "PASS",
-    firstNotes: ""
+    firstNotes: "template only - replace before use: evidence: .codex-tmp/platform-qa-evidence/nativeMacManualQa/0000000000000000000000000000000000000000/01-mac-area-1/notes.md; screenshot: .codex-tmp/platform-qa-evidence/nativeMacManualQa/0000000000000000000000000000000000000000/01-mac-area-1/screenshot.png; result: <actual-result>; observed: <observed-summary>"
   }));
   await git(["add", "dist/morning-demo/MAC_MANUAL_QA.md"]);
   await gitCommit("record fixture partial Mac QA");

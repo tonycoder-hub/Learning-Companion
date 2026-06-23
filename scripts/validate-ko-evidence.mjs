@@ -779,7 +779,13 @@ function isPlaceholderEvidenceNote(value) {
 }
 
 function isPlaceholderEvidenceText(text) {
-  return PLACEHOLDER_EVIDENCE_NOTES.has(text) || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text)
+    || isEvidenceNoteTemplateText(text);
+}
+
+function isEvidenceNoteTemplateText(text) {
+  return /(?:\btemplate only\b|\breplace before use\b|<actual-result>|<observed-summary>|\bpass\s*\|\s*fail\s*\|\s*blocked\b)/.test(text);
 }
 
 function validateBilingualReceipt(receipt, _path = "", context = {}) {
@@ -2270,6 +2276,33 @@ async function runSelfTest() {
   assert.ok(decoratedPlaceholderPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
   const decoratedPlaceholderNotesMacStatus = decoratedPlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
   assert.equal(decoratedPlaceholderNotesMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const templatePlaceholderPlatformNotesPath = join(root, "template-placeholder-platform-row-notes-receipt.json");
+  await writeJson(templatePlaceholderPlatformNotesPath, {
+    ...fixtures.macManualReceipt,
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0
+        ? {
+            ...row,
+            notes: "template only - replace before use: evidence: .codex-tmp/platform-qa-evidence/nativeMacManualQa/HEAD/01-launch/notes.md; screenshot: .codex-tmp/platform-qa-evidence/nativeMacManualQa/HEAD/01-launch/screenshot.png; result: <actual-result>; observed: <observed-summary>"
+          }
+        : row
+    ))
+  });
+  const templatePlaceholderPlatformNotesReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: templatePlaceholderPlatformNotesPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(templatePlaceholderPlatformNotesReport.canClaimKo, false);
+  assert.ok(templatePlaceholderPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
+  const templatePlaceholderNotesMacStatus = templatePlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(templatePlaceholderNotesMacStatus?.status, "INVALID_OR_INCOMPLETE");
 
   const windowsPlaceholderPlatformNotesPath = join(root, "windows-placeholder-platform-row-notes-receipt.json");
   await writeJson(windowsPlaceholderPlatformNotesPath, {
