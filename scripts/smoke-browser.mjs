@@ -7093,6 +7093,7 @@ try {
   assert.ok(mobileLayout.documentWidth <= mobileLayout.innerWidth + 2);
   assert.ok(mobileLayout.bodyWidth <= mobileLayout.innerWidth + 2);
   await assertDraftSourceSnapshotCommit(cdp);
+  await assertInboundDraftSourceSnapshotCommit(cdp);
   await assertReturnFilesImportModeGuard(cdp);
   await assertPasteReturnFileFromClipboard(cdp);
   await assertFirstCaptureLoopDecision(cdp);
@@ -7434,6 +7435,100 @@ async function assertDraftSourceSnapshotCommit(cdp) {
   assert.equal(result.committedAnswer.materialType, "video");
   assert.equal(result.committedAnswer.sourceProvenance, "snapshot");
   assert.equal(result.committedAnswer.answersQuestionCaptureId, "question_original_source");
+}
+
+async function assertInboundDraftSourceSnapshotCommit(cdp) {
+  const setup = await cdp.evaluate(`(() => {
+    const beforeWorkspaceJson = window.learningCompanionNative.exportWorkspaceJson();
+    const beforePrefsJson = localStorage.getItem("learning-companion.ui.v1");
+    const beforeWorkspace = JSON.parse(beforeWorkspaceJson);
+    const baseSession = beforeWorkspace.sessions.find((item) => item.id === beforeWorkspace.activeSessionId)
+      || beforeWorkspace.sessions[0];
+    const inboundSession = {
+      ...baseSession,
+      id: "browser_inbound_draft_source_flow",
+      title: "Browser inbound draft source flow",
+      sourceTitle: "",
+      sourceUrl: "",
+      materialType: "article",
+      notesMarkdown: "",
+      captures: [],
+      reviewCards: [],
+      focusMode: "capture"
+    };
+    window.learningCompanionNative.importWorkspaceJson(JSON.stringify({
+      ...beforeWorkspace,
+      activeSessionId: inboundSession.id,
+      sessions: [inboundSession],
+      importedPatches: [],
+      importedReviewPatches: []
+    }));
+    return { beforeWorkspaceJson, beforePrefsJson };
+  })()`);
+  const inboundUrl = `${appUrl}?sourceTitle=${encodeURIComponent("Inbound original")}&sourceUrl=${encodeURIComponent("https://example.com/inbound-original")}&quote=${encodeURIComponent("Inbound quote should keep source")}&thought=${encodeURIComponent("Save after changing the current source")}&t=00:42`;
+  await cdp.send("Page.navigate", { url: inboundUrl });
+  await waitForCdpValue(cdp, `(() => ({
+    quote: document.querySelector("#quoteInput")?.value || "",
+    thought: document.querySelector("#thoughtInput")?.value || "",
+    timestamp: document.querySelector("#timestampInput")?.value || ""
+  }))()`, (value) => value.quote === "Inbound quote should keep source"
+    && value.thought === "Save after changing the current source"
+    && value.timestamp === "00:42");
+
+  const result = await cdp.evaluate(`(() => {
+    const setValue = (selector, value) => {
+      const node = document.querySelector(selector);
+      node.value = value;
+      node.dispatchEvent(new Event("input", { bubbles: true }));
+      node.dispatchEvent(new Event("change", { bubbles: true }));
+    };
+    const activeSession = () => {
+      const workspace = JSON.parse(window.learningCompanionNative.exportWorkspaceJson());
+      return workspace.sessions.find((item) => item.id === workspace.activeSessionId) || workspace.sessions[0];
+    };
+    const prefsBeforeDrift = JSON.parse(localStorage.getItem("learning-companion.ui.v1") || "{}");
+    const sessionBeforeDrift = activeSession();
+    const draftBeforeDrift = prefsBeforeDrift.captureDrafts?.[sessionBeforeDrift.id] || {};
+    setValue("#sourceTitle", "Inbound changed current");
+    setValue("#sourceUrl", "https://example.com/inbound-changed");
+    setValue("#materialType", "doc");
+    const statusBeforeSave = document.querySelector("#captureDraftStatus")?.textContent || "";
+    const draftSourceStateBeforeSave = document.querySelector("#captureContext")?.dataset.draftSourceState || "";
+    const reanchorVisibleBeforeSave = document.querySelector("#reanchorCaptureDraftBtn")?.hidden === false;
+    document.querySelector("#captureBtn")?.click();
+    const savedSession = activeSession();
+    const saved = savedSession.captures[0] || {};
+    window.learningCompanionNative.importWorkspaceJson(${JSON.stringify(setup.beforeWorkspaceJson)});
+    const beforePrefsJson = ${JSON.stringify(setup.beforePrefsJson)};
+    if (beforePrefsJson === null) localStorage.removeItem("learning-companion.ui.v1");
+    else localStorage.setItem("learning-companion.ui.v1", beforePrefsJson);
+    return {
+      draftBeforeDrift,
+      statusBeforeSave,
+      draftSourceStateBeforeSave,
+      reanchorVisibleBeforeSave,
+      saved
+    };
+  })()`);
+  await cdp.send("Page.navigate", { url: appUrl });
+  await sleep(500);
+
+  assert.equal(result.draftBeforeDrift.quote, "Inbound quote should keep source");
+  assert.equal(result.draftBeforeDrift.thought, "Save after changing the current source");
+  assert.equal(result.draftBeforeDrift.timestamp, "00:42");
+  assert.equal(result.draftBeforeDrift.sourceTitle, "Inbound original");
+  assert.equal(result.draftBeforeDrift.sourceUrl, "https://example.com/inbound-original");
+  assert.equal(result.draftBeforeDrift.materialType, "article");
+  assert.equal(result.statusBeforeSave, "Source changed");
+  assert.equal(result.draftSourceStateBeforeSave, "changed");
+  assert.equal(result.reanchorVisibleBeforeSave, true);
+  assert.equal(result.saved.quote, "Inbound quote should keep source");
+  assert.equal(result.saved.thought, "Save after changing the current source");
+  assert.equal(result.saved.timestamp, "00:42");
+  assert.equal(result.saved.sourceTitle, "Inbound original");
+  assert.equal(result.saved.sourceUrl, "https://example.com/inbound-original");
+  assert.equal(result.saved.materialType, "article");
+  assert.equal(result.saved.sourceProvenance, "snapshot");
 }
 
 async function assertReturnFilesImportModeGuard(cdp) {

@@ -512,8 +512,6 @@ assert.match(appJs, /captureContextOpenTitle/);
 assert.match(appJs, /Quick Capture stays ready/);
 assert.match(appJs, /快速摘录保持可用/);
 assert.match(appJs, /captureContextDraftSummary/);
-assert.match(appJs, /const draftSnapshot = draftSourceSnapshotFor\([\s\S]*updated\.id,[\s\S]*sourceTitle \|\| updated\.sourceTitle,[\s\S]*cleanSourceUrl \|\| updated\.sourceUrl,[\s\S]*updated\.materialType[\s\S]*\)/);
-assert.match(appJs, /setCaptureDraft\(updated\.id, \{[\s\S]*\.\.\.draftSnapshot/);
 assert.match(indexHtml, /id="captureContextDraft" class="capture-context-draft"/);
 assert.match(appJs, /captureIsQuoteOnly/);
 assert.match(appJs, /Highlight saved/);
