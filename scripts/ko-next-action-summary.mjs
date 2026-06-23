@@ -16,6 +16,8 @@ const sourceApprovalRequestPath = args["source-approval-request"] || ".codex-tmp
 const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
 const PATH_ARGS = ["status", "source-approval-request", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
+const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
+const STALE_OR_DIRTY_OPERATOR_PACKET = "STALE_OR_DIRTY_OPERATOR_PACKET";
 
 if (args.help) {
   console.log(buildHelp());
@@ -39,9 +41,12 @@ if (!existsSync(statusPath)) {
 const status = JSON.parse(await readFile(statusPath, "utf8"));
 const sourceApprovalRequestState = await readSourceApprovalRequest(sourceApprovalRequestPath, Boolean(args["source-approval-request"]));
 const operatorState = await readOperatorPacket(operatorPath, Boolean(args.operator));
-const currentRevision = sourceApprovalRequestState.request ? await readCurrentRevision() : null;
+const currentRevision = sourceApprovalRequestState.request || operatorState.packet ? await readCurrentRevision() : null;
 const sourceApprovalFreshness = sourceApprovalRequestState.request
   ? await assessSourceApprovalFreshness(sourceApprovalRequestState.request, currentRevision)
+  : null;
+const operatorFreshness = operatorState.packet
+  ? assessOperatorPacketFreshness(operatorState.packet, currentRevision)
   : null;
 console.log(buildSummary(status, statusPath, {
   sourceApprovalRequest: sourceApprovalRequestState.request,
@@ -50,6 +55,7 @@ console.log(buildSummary(status, statusPath, {
   sourceApprovalFreshness,
   operatorPacket: operatorState.packet,
   operatorPath,
+  operatorFreshness,
   operatorWarning: operatorState.warning
 }));
 
@@ -123,6 +129,39 @@ function requireOperatorStepField(value, fieldName) {
   return text;
 }
 
+function assessOperatorPacketFreshness(packet, currentRevision = {}) {
+  const packetRevision = packet.currentRevision || {};
+  const problems = [];
+  if (packetRevision.gitAvailable !== true) {
+    problems.push("Operator packet did not prove git revision availability.");
+  }
+  if (!packetRevision.gitHead) {
+    problems.push("Operator packet gitHead is missing.");
+  } else if (!currentRevision?.gitHead) {
+    problems.push("Current gitHead is unavailable.");
+  } else if (packetRevision.gitHead !== currentRevision.gitHead) {
+    problems.push(`Operator packet gitHead ${packetRevision.gitHead} does not match current HEAD ${currentRevision.gitHead}.`);
+  }
+  if (packetRevision.dirtyWorktree !== false) {
+    problems.push("Operator packet was not generated from a clean worktree.");
+  }
+  if (currentRevision?.gitAvailable !== true) {
+    problems.push("Current git revision is unavailable.");
+  }
+  if (currentRevision?.dirtyWorktree !== false) {
+    problems.push("Current worktree is dirty; regenerate operator packet after committing or stashing local changes.");
+  }
+  return {
+    status: problems.length ? STALE_OR_DIRTY_OPERATOR_PACKET : CURRENT_CLEAN_OPERATOR_PACKET,
+    currentGitHead: currentRevision?.gitHead || "TBD",
+    currentDirtyWorktree: currentRevision?.dirtyWorktree ?? "TBD",
+    packetGitHead: packetRevision.gitHead || "TBD",
+    packetDirtyWorktree: packetRevision.dirtyWorktree ?? "TBD",
+    packetStatusLineCount: packetRevision.statusLineCount ?? "TBD",
+    problems
+  };
+}
+
 async function readSourceApprovalRequest(path, required) {
   if (!existsSync(path)) {
     if (required) throw new Error(`Missing source approval request file: ${path}`);
@@ -166,7 +205,7 @@ function requireSourceApprovalField(value, fieldName) {
   return text;
 }
 
-function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorWarning }) {
+function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning }) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const platformQaStatus = Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [];
   const pass = requirements.filter((item) => item.status === "PASS");
@@ -196,7 +235,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     ...formatPlatformList(platformPending),
     "",
     "Operator critical path:",
-    ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorWarning),
+    ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorFreshness, operatorWarning),
     "",
     "Final gate after all evidence exists:",
     "- npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
@@ -214,7 +253,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
   return `${lines.join("\n")}\n`;
 }
 
-function formatOperatorCriticalPath(packet, path, warning) {
+function formatOperatorCriticalPath(packet, path, freshness, warning) {
   if (!packet) {
     const lines = [
       `- Current operator packet: ${path}`,
@@ -226,8 +265,22 @@ function formatOperatorCriticalPath(packet, path, warning) {
   }
   const lines = [
     `- Current operator packet: ${path}`,
-    `- Evidence tier: ${packet.evidenceTier || "UNKNOWN"}; can claim next-major: ${packet.canClaimNextMajorFromThisPacket === true ? "YES" : "NO"}; release authorized: ${packet.releaseActionAuthorized === true ? "YES" : "NO"}`
+    `- Evidence tier: ${packet.evidenceTier || "UNKNOWN"}; can claim next-major: ${packet.canClaimNextMajorFromThisPacket === true ? "YES" : "NO"}; release authorized: ${packet.releaseActionAuthorized === true ? "YES" : "NO"}`,
+    `- Current operator packet freshness: ${freshness?.status || "TBD"}`,
+    `- Operator packet git HEAD: ${freshness?.packetGitHead || "TBD"}`,
+    `- Current git HEAD: ${freshness?.currentGitHead || "TBD"}`
   ];
+  if (freshness?.status === STALE_OR_DIRTY_OPERATOR_PACKET) {
+    lines.push(
+      "- Refresh operator packet command: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md"
+    );
+  }
+  if (freshness?.currentDirtyWorktree === true) {
+    lines.push("- Refresh prerequisite: commit, stash, or discard current worktree changes before regenerating the operator packet.");
+  }
+  if (Array.isArray(freshness?.problems)) {
+    for (const problem of freshness.problems) lines.push(`- Operator packet freshness problem: ${problem}`);
+  }
   for (const step of packet.nextActionSequence) {
     lines.push(`- ${step.order}. ${step.id}: ${step.operatorState} - ${step.action}`);
   }
