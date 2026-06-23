@@ -901,11 +901,18 @@ assert.match(koNextActionSummaryJs, /Learning Companion KO next actions/);
 assert.match(koNextActionSummaryJs, /execFileAsync\(process\.execPath/);
 assert.match(koNextActionSummaryJs, /--refresh/);
 assert.match(koNextActionSummaryJs, /source-approval-request/);
+assert.match(koNextActionSummaryJs, /operator/);
 assert.match(koNextActionSummaryJs, /requires a file path/);
 assert.match(koNextActionSummaryJs, /Failed to refresh KO status/);
 assert.match(koNextActionSummaryJs, /learning-companion\.external-source-approval-request\.v1/);
 assert.match(koNextActionSummaryJs, /SOURCE_APPROVAL_REQUEST_ONLY/);
 assert.match(koNextActionSummaryJs, /Ignored invalid default source approval request/);
+assert.match(koNextActionSummaryJs, /learning-companion\.next-major-operator-packet\.v1/);
+assert.match(koNextActionSummaryJs, /NEXT_MAJOR_OPERATOR_PACKET_ONLY/);
+assert.match(koNextActionSummaryJs, /Ignored invalid default operator packet/);
+assert.match(koNextActionSummaryJs, /Operator packet missing nextActionSequence/);
+assert.match(koNextActionSummaryJs, /Operator critical path/);
+assert.match(koNextActionSummaryJs, /This operator packet still does not grant approval/);
 assert.match(koNextActionSummaryJs, /Source approval request missing required/);
 assert.match(koNextActionSummaryJs, /approved candidate command still contains placeholder tokens/);
 assert.match(koNextActionSummaryJs, /readCurrentRevision/);
@@ -1230,6 +1237,20 @@ try {
   assert.match(operatorMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
   assert.equal(statSync(operatorJsonPath).mode & 0o777, 0o600);
   assert.equal(statSync(operatorMarkdownPath).mode & 0o777, 0o600);
+  const koNextConsole = execFileSync(process.execPath, [
+    "scripts/ko-next-action-summary.mjs",
+    "--status",
+    statusPath,
+    "--source-approval-request",
+    approvalPath,
+    "--operator",
+    operatorJsonPath
+  ], { encoding: "utf8" });
+  assert.match(koNextConsole, /Operator critical path:/);
+  assert.match(koNextConsole, /refresh-public-source-dry-run/);
+  assert.match(koNextConsole, /refresh-platform-qa-handoff/);
+  assert.match(koNextConsole, /validate-final-ko/);
+  assert.match(koNextConsole, /This operator packet still does not grant approval/);
 } finally {
   if (cleanupSmokeArtifacts) rmSync(operatorSmokeDir, { recursive: true, force: true });
 }
