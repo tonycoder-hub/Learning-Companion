@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 import { HARMONY_DEVICE_QA_AREAS } from "./lib/platform-qa-areas.mjs";
+import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
 
 const HARMONY_DEVICE_QA_RECEIPT_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -30,7 +31,8 @@ const REQUIRED_FULL_RUN_FIELDS = [
 function parseArgs(argv) {
   const options = {
     qaPath: "dist/morning-demo/HARMONY_DEVICE_QA.md",
-    outPath: ""
+    outPath: "",
+    platformHandoffPath: ""
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -44,6 +46,11 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--out requires a receipt JSON path.");
       options.outPath = value;
       index += 1;
+    } else if (arg === "--platform-handoff") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("--platform-handoff requires a platform handoff JSON path.");
+      options.platformHandoffPath = value;
+      index += 1;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -53,7 +60,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log("Usage: node scripts/validate-harmony-device-qa.mjs [--qa dist/morning-demo/HARMONY_DEVICE_QA.md] [--out receipt.json]");
+  console.log("Usage: node scripts/validate-harmony-device-qa.mjs [--qa dist/morning-demo/HARMONY_DEVICE_QA.md] [--platform-handoff .codex-tmp/platform-qa-handoff/current.json] [--out receipt.json]");
   console.log("Validates a filled HarmonyOS device QA receipt without converting scaffold or smoke evidence into device evidence.");
 }
 
@@ -124,7 +131,7 @@ function isPass(value) {
   return normalizeResult(value) === "PASS";
 }
 
-function validateHarmonyDeviceQa(markdown, qaPath, currentRevision) {
+function validateHarmonyDeviceQa(markdown, qaPath, currentRevision, { platformHandoffBinding = null, platformHandoffErrors = [] } = {}) {
   const errors = [];
   if (!/^# Learning Companion HarmonyOS Device QA Receipt$/m.test(markdown)) {
     errors.push("missing HarmonyOS device QA heading");
@@ -221,6 +228,14 @@ function validateHarmonyDeviceQa(markdown, qaPath, currentRevision) {
   if (anyRealRowsFilled && !revisionCanClaim(currentRevision)) {
     errors.push("HarmonyOS device QA has filled rows but the validator did not run from a clean git HEAD");
   }
+  if (anyRealRowsFilled) {
+    if (!platformHandoffBinding) {
+      errors.push("HarmonyOS device QA has filled rows but --platform-handoff is required");
+    }
+    platformHandoffErrors.forEach((error) => {
+      errors.push(`HarmonyOS device QA platform handoff: ${error}`);
+    });
+  }
   const canClaimHarmonyDeviceRoundtripUsable = errors.length === 0 && allRowsPass && devEcoToolchainGatePass && macReturnFilesImportPass;
   const evidenceTier = canClaimHarmonyDeviceRoundtripUsable
     ? "MANUAL_PLATFORM_QA"
@@ -234,6 +249,7 @@ function validateHarmonyDeviceQa(markdown, qaPath, currentRevision) {
       schema: "learning-companion.platform-qa-run-context.v1",
       appRevision: currentRevision
     },
+    platformHandoffBinding,
     summary: {
       ok: errors.length === 0,
       rows: rows.length,
@@ -250,6 +266,7 @@ function validateHarmonyDeviceQa(markdown, qaPath, currentRevision) {
     claimBoundary: {
       canClaimHarmonyDeviceRoundtripUsable,
       requiresCurrentCleanRevision: true,
+      requiresCurrentPlatformHandoff: true,
       doesNotProve: [
         "Feishu live sync or remote Drive reads/writes",
         "Windows browser behavior",
@@ -277,7 +294,18 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const markdown = await readFile(options.qaPath, "utf8");
   const currentRevision = await readCurrentRevision();
-  const receipt = validateHarmonyDeviceQa(markdown, options.qaPath, currentRevision);
+  const handoffResult = options.platformHandoffPath
+    ? await readPlatformHandoffBinding({
+      handoffPath: options.platformHandoffPath,
+      platformId: "harmonyDeviceQa",
+      qaPath: options.qaPath,
+      currentRevision
+    })
+    : { binding: null, errors: [] };
+  const receipt = validateHarmonyDeviceQa(markdown, options.qaPath, currentRevision, {
+    platformHandoffBinding: handoffResult.binding,
+    platformHandoffErrors: handoffResult.errors
+  });
   assert.equal(receipt.schema, HARMONY_DEVICE_QA_RECEIPT_SCHEMA);
   if (options.outPath) {
     await mkdir(dirname(options.outPath), { recursive: true, mode: 0o700 });

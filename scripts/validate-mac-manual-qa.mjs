@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 import { MAC_MANUAL_QA_AREAS } from "./lib/platform-qa-areas.mjs";
+import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
 
 const MAC_MANUAL_QA_RECEIPT_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -28,7 +29,8 @@ const REQUIRED_FULL_RUN_FIELDS = [
 function parseArgs(argv) {
   const options = {
     qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
-    outPath: ""
+    outPath: "",
+    platformHandoffPath: ""
   };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
@@ -42,6 +44,11 @@ function parseArgs(argv) {
       if (!value || value.startsWith("--")) throw new Error("--out requires a receipt JSON path.");
       options.outPath = value;
       index += 1;
+    } else if (arg === "--platform-handoff") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("--")) throw new Error("--platform-handoff requires a platform handoff JSON path.");
+      options.platformHandoffPath = value;
+      index += 1;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -51,7 +58,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log("Usage: node scripts/validate-mac-manual-qa.mjs [--qa dist/morning-demo/MAC_MANUAL_QA.md] [--out receipt.json]");
+  console.log("Usage: node scripts/validate-mac-manual-qa.mjs [--qa dist/morning-demo/MAC_MANUAL_QA.md] [--platform-handoff .codex-tmp/platform-qa-handoff/current.json] [--out receipt.json]");
   console.log("Validates a filled Mac manual QA receipt without converting pending NT rows into GUI dogfood evidence.");
 }
 
@@ -122,7 +129,7 @@ function isPass(value) {
   return normalizeResult(value) === "PASS";
 }
 
-function validateMacManualQa(markdown, qaPath, currentRevision) {
+function validateMacManualQa(markdown, qaPath, currentRevision, { platformHandoffBinding = null, platformHandoffErrors = [] } = {}) {
   const errors = [];
   if (!/^# Learning Companion Mac Manual QA Receipt$/m.test(markdown)) {
     errors.push("missing Mac manual QA heading");
@@ -216,6 +223,14 @@ function validateMacManualQa(markdown, qaPath, currentRevision) {
   if (anyRealRowsFilled && !revisionCanClaim(currentRevision)) {
     errors.push("Mac manual QA has filled rows but the validator did not run from a clean git HEAD");
   }
+  if (anyRealRowsFilled) {
+    if (!platformHandoffBinding) {
+      errors.push("Mac manual QA has filled rows but --platform-handoff is required");
+    }
+    platformHandoffErrors.forEach((error) => {
+      errors.push(`Mac manual QA platform handoff: ${error}`);
+    });
+  }
 
   const canClaimMacManualQaUsable = errors.length === 0 && allRowsPass && nativeBuildGatePass && browserSmokeGatePass;
   const evidenceTier = canClaimMacManualQaUsable
@@ -230,6 +245,7 @@ function validateMacManualQa(markdown, qaPath, currentRevision) {
       schema: "learning-companion.platform-qa-run-context.v1",
       appRevision: currentRevision
     },
+    platformHandoffBinding,
     summary: {
       ok: errors.length === 0,
       rows: rows.length,
@@ -246,6 +262,7 @@ function validateMacManualQa(markdown, qaPath, currentRevision) {
     claimBoundary: {
       canClaimMacManualQaUsable,
       requiresCurrentCleanRevision: true,
+      requiresCurrentPlatformHandoff: true,
       doesNotProve: [
         "Signed or notarized Mac packaging",
         "Production update or install flow",
@@ -273,7 +290,18 @@ async function main() {
   const options = parseArgs(process.argv.slice(2));
   const markdown = await readFile(options.qaPath, "utf8");
   const currentRevision = await readCurrentRevision();
-  const receipt = validateMacManualQa(markdown, options.qaPath, currentRevision);
+  const handoffResult = options.platformHandoffPath
+    ? await readPlatformHandoffBinding({
+      handoffPath: options.platformHandoffPath,
+      platformId: "nativeMacManualQa",
+      qaPath: options.qaPath,
+      currentRevision
+    })
+    : { binding: null, errors: [] };
+  const receipt = validateMacManualQa(markdown, options.qaPath, currentRevision, {
+    platformHandoffBinding: handoffResult.binding,
+    platformHandoffErrors: handoffResult.errors
+  });
   assert.equal(receipt.schema, MAC_MANUAL_QA_RECEIPT_SCHEMA);
   if (options.outPath) {
     await mkdir(dirname(options.outPath), { recursive: true, mode: 0o700 });
