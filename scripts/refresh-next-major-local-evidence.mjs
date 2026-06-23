@@ -13,6 +13,10 @@ const PUBLIC_DRY_RUN_RECEIPT_PATTERN = /external_source_validation_public_dry_ru
 const DEFAULTS = Object.freeze({
   sourceApprovalRequest: ".codex-tmp/external-source-validation/source-approval-request.json",
   sourceApprovalMarkdown: ".codex-tmp/external-source-validation/source-approval-request.md",
+  readinessOut: ".codex-tmp/next-major-readiness/current.json",
+  readinessMarkdownOut: ".codex-tmp/next-major-readiness/current.md",
+  platformHandoffOut: ".codex-tmp/platform-qa-handoff/current.json",
+  platformHandoffMarkdownOut: ".codex-tmp/platform-qa-handoff/current.md",
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   operatorMarkdownOut: ".codex-tmp/next-major-operator/current.md",
   koStatus: ".codex-tmp/ko-evidence/current-status.json",
@@ -21,6 +25,10 @@ const DEFAULTS = Object.freeze({
 const PATH_ARGS = [
   "source-approval-request",
   "source-approval-markdown",
+  "readiness-out",
+  "readiness-markdown-out",
+  "platform-handoff-out",
+  "platform-handoff-markdown-out",
   "operator-out",
   "operator-markdown-out",
   "ko-status"
@@ -52,6 +60,10 @@ function normalizeOptions(parsed) {
   return {
     sourceApprovalRequest: String(parsed["source-approval-request"] || DEFAULTS.sourceApprovalRequest),
     sourceApprovalMarkdown: String(parsed["source-approval-markdown"] || DEFAULTS.sourceApprovalMarkdown),
+    readinessOut: String(parsed["readiness-out"] || DEFAULTS.readinessOut),
+    readinessMarkdownOut: String(parsed["readiness-markdown-out"] || DEFAULTS.readinessMarkdownOut),
+    platformHandoffOut: String(parsed["platform-handoff-out"] || DEFAULTS.platformHandoffOut),
+    platformHandoffMarkdownOut: String(parsed["platform-handoff-markdown-out"] || DEFAULTS.platformHandoffMarkdownOut),
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
     operatorMarkdownOut: String(parsed["operator-markdown-out"] || DEFAULTS.operatorMarkdownOut),
     koStatus: String(parsed["ko-status"] || DEFAULTS.koStatus),
@@ -107,6 +119,42 @@ async function buildLocalEvidencePlan(options) {
         capturePublicDryRunReceipt: true
       },
       {
+        id: "refresh-ko-status",
+        label: "KO status",
+        argv: [
+          "scripts/validate-ko-evidence.mjs",
+          "--allow-missing",
+          "--out",
+          options.koStatus
+        ]
+      },
+      {
+        id: "refresh-readiness",
+        label: "next-major readiness",
+        argv: [
+          "scripts/next-major-readiness.mjs",
+          "--status",
+          options.koStatus,
+          "--out",
+          options.readinessOut,
+          "--markdown-out",
+          options.readinessMarkdownOut
+        ]
+      },
+      {
+        id: "refresh-platform-qa-handoff",
+        label: "platform QA handoff",
+        argv: [
+          "scripts/platform-qa-handoff.mjs",
+          "--status",
+          options.koStatus,
+          "--out",
+          options.platformHandoffOut,
+          "--markdown-out",
+          options.platformHandoffMarkdownOut
+        ]
+      },
+      {
         id: "regenerate-source-approval-request",
         label: "source approval request",
         argvFrom: "publicDryRunReceipt"
@@ -116,7 +164,12 @@ async function buildLocalEvidencePlan(options) {
         label: "next-major operator packet",
         argv: [
           "scripts/next-major-operator-packet.mjs",
-          "--refresh",
+          "--status",
+          options.koStatus,
+          "--readiness",
+          options.readinessOut,
+          "--platform-handoff",
+          options.platformHandoffOut,
           "--out",
           options.operatorOut,
           "--markdown-out",
@@ -210,6 +263,8 @@ function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
     `Git HEAD: ${plan.currentRevision.gitHead}`,
     `Public dry-run receipt: ${publicDryRunReceipt || "TBD"}`,
     `Source approval request: ${plan.options.sourceApprovalRequest}`,
+    `Readiness packet: ${plan.options.readinessOut}`,
+    `Platform QA handoff: ${plan.options.platformHandoffOut}`,
     `Operator packet: ${plan.options.operatorOut}`,
     "",
     "Boundary:"
@@ -276,8 +331,11 @@ function runSelfTest() {
       { id: "refresh-bilingual-runtime", argv: ["scripts/smoke-bilingual-runtime-browser.mjs"] },
       { id: "refresh-controlled-loop", argv: ["scripts/agent-study-loop-check.mjs", "--out", ".codex-tmp/agent-study-loop-smoke/receipt.json"] },
       { id: "refresh-public-source-dry-run", argv: ["scripts/external-source-validation-browser.mjs", "--public-source-dry-run"], capturePublicDryRunReceipt: true },
+      { id: "refresh-ko-status", argv: ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", DEFAULTS.koStatus] },
+      { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut] },
+      { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
-      { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--refresh"] },
+      { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut] },
       { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs"] }
     ],
     blockedOrNotExecuted: [
@@ -292,6 +350,9 @@ function runSelfTest() {
     "refresh-bilingual-runtime",
     "refresh-controlled-loop",
     "refresh-public-source-dry-run",
+    "refresh-ko-status",
+    "refresh-readiness",
+    "refresh-platform-qa-handoff",
     "regenerate-source-approval-request",
     "refresh-operator-packet",
     "print-ko-next"
@@ -299,6 +360,11 @@ function runSelfTest() {
   const dryRun = buildDryRunSummary(plan);
   assert.match(dryRun, /next_major_local_evidence_refresh_dry_run/);
   assert.match(dryRun, /refresh-bilingual-runtime/);
+  assert.match(dryRun, /refresh-ko-status/);
+  assert.match(dryRun, /refresh-readiness/);
+  assert.match(dryRun, /next-major-readiness\.mjs/);
+  assert.match(dryRun, /refresh-platform-qa-handoff/);
+  assert.match(dryRun, /platform-qa-handoff\.mjs/);
   assert.match(dryRun, /regenerate-source-approval-request/);
   assert.match(dryRun, /fresh-public-dry-run-receipt\.json/);
   assert.match(dryRun, /Does not run approved-source browser capture/);
@@ -316,10 +382,10 @@ Usage:
   npm run next:local-evidence -- --dry-run
 
 This command runs local bilingual/browser and controlled-loop receipts first,
-then refreshes the public-source dry-run, approval request, operator packet,
-and KO next summary. It does not grant source approval, run approved-source
-capture, perform privacy review, run real platform QA, build, deploy, or
-remote-accept.`;
+then refreshes the public-source dry-run, KO status, readiness packet,
+platform QA handoff, approval request, operator packet, and KO next summary.
+It does not grant source approval, run approved-source capture, perform
+privacy review, run real platform QA, build, deploy, or remote-accept.`;
 }
 
 function parseArgs(argv) {
