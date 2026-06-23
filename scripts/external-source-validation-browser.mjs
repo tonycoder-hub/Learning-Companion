@@ -1005,6 +1005,7 @@ function buildSourceApprovalRequest(source) {
         timestamp: source.videoTimestamp
       }
     },
+    approvalFreshness: buildApprovalFreshness(source),
     requestedApprovalText,
     nextCommands: {
       approvedCandidateAfterCurrentTurnApproval: buildSourceValidationCommand({
@@ -1017,11 +1018,7 @@ function buildSourceApprovalRequest(source) {
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
     },
-    approvalRequiredBeforeKoEvidence: [
-      "The user must explicitly approve the exact requestedApprovalText in the current turn.",
-      "The approved candidate command must run after that approval, not before.",
-      "The candidate receipt must pass human privacy review before KO use."
-    ],
+    approvalRequiredBeforeKoEvidence: buildApprovalRequiredBeforeKoEvidence(source),
     blockedOrNotExecuted: [
       "No current-turn source approval was granted by this request artifact.",
       "No browser was launched by this request artifact.",
@@ -1033,7 +1030,61 @@ function buildSourceApprovalRequest(source) {
   };
 }
 
+function buildApprovalFreshness(source) {
+  const prior = source.priorDryRun || null;
+  const hasPriorDryRun = Boolean(prior);
+  return {
+    status: hasPriorDryRun
+      ? "PUBLIC_DRY_RUN_BASIS_REQUIRES_OPERATOR_FRESHNESS_CHECK"
+      : "SOURCE_INTAKE_REQUIRES_PUBLIC_DRY_RUN_OR_OPERATOR_VERIFICATION",
+    currentTurnOnly: true,
+    basisType: source.basis,
+    inputPath: source.inputPath,
+    priorDryRunReceipt: source.priorDryRunReceipt || "",
+    priorDryRunGitHead: prior?.gitHead || "",
+    priorDryRunDirtyWorktree: optionalBoolean(prior?.dirtyWorktree),
+    priorDryRunProfileRetained: optionalBoolean(prior?.profileRetained),
+    priorDryRunProfileCleanupOk: optionalBoolean(prior?.profileCleanupOk),
+    mustBeOperatorVerified: true,
+    requiredOperatorFreshness: hasPriorDryRun ? "CURRENT_CLEAN_PUBLIC_DRY_RUN" : "CURRENT_SOURCE_APPROVAL_OR_FRESH_PUBLIC_DRY_RUN",
+    invalidatesWhen: hasPriorDryRun
+      ? [
+        "The current git HEAD differs from priorDryRunGitHead.",
+        "The current worktree is dirty before the approved candidate run.",
+        "The prior dry-run receipt did not prove throwaway profile cleanup.",
+        "The exact requestedApprovalText is not approved in the current turn."
+      ]
+      : [
+        "The exact requestedApprovalText is not approved in the current turn.",
+        "The operator cannot verify current source approval or a fresh clean public dry-run basis."
+      ]
+  };
+}
+
+function buildApprovalRequiredBeforeKoEvidence(source) {
+  const requirements = [
+    "The user must explicitly approve the exact requestedApprovalText in the current turn.",
+    "The approved candidate command must run after that approval, not before.",
+    "The candidate receipt must pass human privacy review before KO use."
+  ];
+  if (source.priorDryRun) {
+    requirements.splice(
+      1,
+      0,
+      "Before running the approved candidate command, the operator packet must report CURRENT_CLEAN_PUBLIC_DRY_RUN for this approval request."
+    );
+  } else {
+    requirements.splice(
+      1,
+      0,
+      "Before running the approved candidate command, the operator packet must verify current source approval or a fresh clean public dry-run basis."
+    );
+  }
+  return requirements;
+}
+
 function buildSourceApprovalRequestMarkdown(request) {
+  const freshness = request.approvalFreshness || {};
   return `# External Source Approval Request
 
 Evidence tier: ${markdownInline(request.evidenceTier)}
@@ -1046,6 +1097,22 @@ Can claim external KO: ${request.canClaimExternalKo ? "true" : "false"}
 - Video URL: ${markdownInline(request.sources.video.url)}
 - Video title: ${markdownInline(request.sources.video.title)}
 - Video timestamp: ${markdownInline(request.sources.video.timestamp)}
+
+## Freshness / Expiration
+
+- Freshness status: ${markdownInline(freshness.status)}
+- Current-turn only: ${freshness.currentTurnOnly ? "true" : "false"}
+- Basis type: ${markdownInline(freshness.basisType)}
+- Basis input path: ${markdownInline(freshness.inputPath)}
+- Prior public dry-run receipt: ${markdownInline(freshness.priorDryRunReceipt || "TBD")}
+- Prior public dry-run git HEAD: ${markdownInline(freshness.priorDryRunGitHead || "TBD")}
+- Prior public dry-run dirty worktree: ${markdownInline(freshness.priorDryRunDirtyWorktree)}
+- Prior throwaway profile retained: ${markdownInline(freshness.priorDryRunProfileRetained)}
+- Prior throwaway profile cleanup OK: ${markdownInline(freshness.priorDryRunProfileCleanupOk)}
+- Required operator freshness before approved run: ${markdownInline(freshness.requiredOperatorFreshness)}
+
+This approval request must be regenerated or re-verified if:
+${(freshness.invalidatesWhen || []).map((item) => `- ${item}`).join("\n")}
 
 ## Approval Text Needed
 
@@ -1277,6 +1344,10 @@ function runApprovedUrlBoundarySelfChecks() {
   assert.equal(approvalFromIntake.canClaimExternalKo, false);
   assert.match(approvalFromIntake.requestedApprovalText, /I approve these exact public learning-material sources/);
   assert.match(approvalFromIntake.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--approved-current-turn/);
+  assert.equal(approvalFromIntake.approvalFreshness.status, "SOURCE_INTAKE_REQUIRES_PUBLIC_DRY_RUN_OR_OPERATOR_VERIFICATION");
+  assert.equal(approvalFromIntake.approvalFreshness.currentTurnOnly, true);
+  assert.equal(approvalFromIntake.approvalFreshness.requiredOperatorFreshness, "CURRENT_SOURCE_APPROVAL_OR_FRESH_PUBLIC_DRY_RUN");
+  assert.ok(approvalFromIntake.approvalRequiredBeforeKoEvidence.some((item) => item.includes("fresh clean public dry-run basis")));
   assert.ok(approvalFromIntake.blockedOrNotExecuted.includes("No current-turn source approval was granted by this request artifact."));
   const approvalFromDryRun = buildSourceApprovalRequest(buildApprovalRequestSourceFromDryRun({
     schema: "learning-companion.external-source-validation-browser.v1",
@@ -1326,8 +1397,19 @@ function runApprovedUrlBoundarySelfChecks() {
   assert.equal(approvalFromDryRun.basis.type, "PUBLIC_SOURCE_DRY_RUN_RECEIPT");
   assert.equal(approvalFromDryRun.basis.priorDryRun.gitHead, "fixture-git-head");
   assert.equal(approvalFromDryRun.basis.priorDryRun.dirtyWorktree, false);
+  assert.equal(approvalFromDryRun.approvalFreshness.status, "PUBLIC_DRY_RUN_BASIS_REQUIRES_OPERATOR_FRESHNESS_CHECK");
+  assert.equal(approvalFromDryRun.approvalFreshness.priorDryRunGitHead, "fixture-git-head");
+  assert.equal(approvalFromDryRun.approvalFreshness.priorDryRunDirtyWorktree, false);
+  assert.equal(approvalFromDryRun.approvalFreshness.priorDryRunProfileCleanupOk, true);
+  assert.equal(approvalFromDryRun.approvalFreshness.requiredOperatorFreshness, "CURRENT_CLEAN_PUBLIC_DRY_RUN");
+  assert.ok(approvalFromDryRun.approvalFreshness.invalidatesWhen.some((item) => item.includes("current git HEAD differs")));
+  assert.ok(approvalFromDryRun.approvalRequiredBeforeKoEvidence.some((item) => item.includes("CURRENT_CLEAN_PUBLIC_DRY_RUN")));
   assert.equal(approvalFromDryRun.sources.video.timestamp, "00:03");
-  assert.match(buildSourceApprovalRequestMarkdown(approvalFromDryRun), /External Source Approval Request/);
+  const approvalFromDryRunMarkdown = buildSourceApprovalRequestMarkdown(approvalFromDryRun);
+  assert.match(approvalFromDryRunMarkdown, /External Source Approval Request/);
+  assert.match(approvalFromDryRunMarkdown, /Freshness \/ Expiration/);
+  assert.match(approvalFromDryRunMarkdown, /fixture-git-head/);
+  assert.match(approvalFromDryRunMarkdown, /CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   const approvalFromSparseDryRun = buildSourceApprovalRequest(buildApprovalRequestSourceFromDryRun({
     schema: "learning-companion.external-source-validation-browser.v1",
     evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
