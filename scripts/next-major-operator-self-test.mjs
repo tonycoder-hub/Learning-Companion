@@ -74,6 +74,15 @@ try {
     "harmonyDeviceQa",
     "finalKoGate"
   ]);
+  assert.deepEqual(realPlatformPacket.nextActionSequence.map((step) => step.id), [
+    "get-current-turn-source-approval",
+    "run-approved-external-source-candidate",
+    "complete-external-source-privacy-review",
+    "run-nativeMacManualQa",
+    "run-windowsStaticManualQa",
+    "run-harmonyDeviceQa",
+    "validate-final-ko"
+  ]);
   assert.equal(getLane(realPlatformPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
   assert.equal(getLane(realPlatformPacket, "windowsStaticManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.windowsStaticManualQa);
   assert.equal(getLane(realPlatformPacket, "harmonyDeviceQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.harmonyDeviceQa);
@@ -103,6 +112,17 @@ try {
     "harmonyDeviceQa",
     "finalKoGate"
   ]);
+  assert.deepEqual(freshPacket.nextActionSequence.map((step) => step.id), [
+    "get-current-turn-source-approval",
+    "run-approved-external-source-candidate",
+    "complete-external-source-privacy-review",
+    "run-nativeMacManualQa",
+    "run-windowsStaticManualQa",
+    "run-harmonyDeviceQa",
+    "validate-final-ko"
+  ]);
+  assert.equal(freshPacket.nextActionSequence[0].claimBoundary, "This operator packet cannot grant approval on the user's behalf.");
+  assert.match(freshPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").claimBoundary, /every preceding lane has real PASS evidence/);
   const sourceLane = getLane(freshPacket, "approvedExternalReadingVideo");
   const macLane = getLane(freshPacket, "nativeMacManualQa");
   const windowsLane = getLane(freshPacket, "windowsStaticManualQa");
@@ -137,6 +157,10 @@ try {
   assert.equal((await stat(freshRun.markdownPath)).mode & 0o777, 0o600);
   const freshMarkdown = await readFile(freshRun.markdownPath, "utf8");
   assert.match(freshMarkdown, /Next Major Operator Packet/);
+  assert.match(freshMarkdown, /## Critical Path/);
+  assert.match(freshMarkdown, /get-current-turn-source-approval/);
+  assert.match(freshMarkdown, /run-approved-external-source-candidate/);
+  assert.match(freshMarkdown, /validate-final-ko/);
   assert.match(freshMarkdown, /Approval request freshness: CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(freshMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
 
@@ -152,6 +176,8 @@ try {
   assert.ok(staleSourceLane.approvalRequest.freshness.problems.some((problem) => problem.includes("does not match current HEAD")));
   assert.match(staleSourceLane.nextCommands.refreshPublicDryRun, /external:validate:public-dry-run/);
   assert.match(staleSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /<approved-reading-url>/);
+  assert.equal(staleSourcePacket.nextActionSequence[0].id, "refresh-public-source-dry-run");
+  assert.match(staleSourcePacket.nextActionSequence[0].command, /external:validate:public-dry-run/);
 
   await writeJson(approvalPath, buildApprovalRequest(currentHead));
   await writeJson(platformPath, buildPlatformHandoff("0000000000000000000000000000000000000000"));
@@ -163,6 +189,7 @@ try {
   assert.equal(getLane(stalePlatformPacket, "nativeMacManualQa").operatorState, "NEEDS_FRESH_PLATFORM_QA_HANDOFF");
   assert.equal(getLane(stalePlatformPacket, "windowsStaticManualQa").operatorState, "NEEDS_FRESH_PLATFORM_QA_HANDOFF");
   assert.equal(getLane(stalePlatformPacket, "harmonyDeviceQa").operatorState, "NEEDS_FRESH_PLATFORM_QA_HANDOFF");
+  assert.equal(stalePlatformPacket.nextActionSequence.some((step) => step.id === "refresh-platform-qa-handoff"), true);
   assert.match(getLane(stalePlatformPacket, "nativeMacManualQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
   assert.match(getLane(stalePlatformPacket, "windowsStaticManualQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
   assert.match(getLane(stalePlatformPacket, "harmonyDeviceQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
@@ -177,6 +204,8 @@ try {
   assert.equal(missingSourceLane.approvalRequest.freshness.status, "MISSING_SOURCE_APPROVAL_REQUEST");
   assert.match(missingSourceLane.nextCommands.sourceIntake, /external:source-intake/);
   assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /external:approval-request/);
+  assert.equal(missingSourcePacket.nextActionSequence[0].id, "collect-source-input");
+  assert.match(missingSourcePacket.nextActionSequence[0].command, /external:source-intake/);
 
   await writeJson(readinessPath, buildReadiness(true));
   const releaseAuthorizedRun = await runOperator("release-authorized", { approval: approvalPath });

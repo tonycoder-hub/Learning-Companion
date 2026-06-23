@@ -115,6 +115,7 @@ async function buildOperatorPacket(paths) {
     ...buildPlatformLanes(platformHandoff, platformHandoffFreshness),
     buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness)
   ];
+  const nextActionSequence = buildNextActionSequence(lanes);
   return {
     schema: OPERATOR_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -144,6 +145,7 @@ async function buildOperatorPacket(paths) {
     platformHandoffFreshness,
     lanes,
     operatorOrder: lanes.map((lane) => lane.id),
+    nextActionSequence,
     blockedOrNotExecuted: [
       "No current-turn source approval was granted by this operator packet.",
       "No approved-source browser capture or screenshot validation was run by this operator packet.",
@@ -152,6 +154,109 @@ async function buildOperatorPacket(paths) {
       "No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet."
     ]
   };
+}
+
+function buildNextActionSequence(lanes) {
+  const sequence = [];
+  const laneById = new Map(lanes.map((lane) => [lane.id, lane]));
+  const sourceLane = laneById.get("approvedExternalReadingVideo");
+  if (sourceLane) {
+    appendSourceNextActions(sequence, sourceLane);
+  }
+  const platformLanes = lanes.filter((lane) => lane.id !== "approvedExternalReadingVideo" && lane.id !== "finalKoGate");
+  if (platformLanes.some((lane) => lane.operatorState === "NEEDS_FRESH_PLATFORM_QA_HANDOFF")) {
+    const refreshCommand = platformLanes.find((lane) => lane.nextCommands?.refreshPlatformHandoff)?.nextCommands?.refreshPlatformHandoff || "";
+    sequence.push({
+      id: "refresh-platform-qa-handoff",
+      laneId: "platformQa",
+      operatorState: "NEEDS_FRESH_PLATFORM_QA_HANDOFF",
+      action: "Regenerate the platform QA handoff on the exact clean HEAD before any real platform run is treated as KO evidence.",
+      command: refreshCommand,
+      produces: "Fresh non-claiming platform QA handoff.",
+      claimBoundary: "This refresh still does not run Mac, Windows, or HarmonyOS QA."
+    });
+  }
+  for (const lane of platformLanes) {
+    if (lane.currentKoStatus?.status === "PASSING_REAL_RUN") continue;
+    sequence.push({
+      id: `run-${lane.id}`,
+      laneId: lane.id,
+      operatorState: lane.operatorState,
+      action: `Execute the real ${lane.label} run, fill ${lane.qaPath}, then validate the receipt.`,
+      command: lane.validateCommand || "",
+      produces: lane.receiptPath || "",
+      claimBoundary: "Only a real named-platform run with all rows PASS can satisfy this lane."
+    });
+  }
+  const finalLane = laneById.get("finalKoGate");
+  if (finalLane) {
+    sequence.push({
+      id: "validate-final-ko",
+      laneId: "finalKoGate",
+      operatorState: finalLane.operatorState,
+      action: "After approved external evidence and all real platform receipts exist, run the final KO gate and refresh readiness/operator packets.",
+      command: finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts || finalLane.nextCommands?.finalKoGate || "",
+      produces: ".codex-tmp/ko-evidence/final.json plus refreshed readiness/operator artifacts.",
+      claimBoundary: "Do not run or treat this as passing until every preceding lane has real PASS evidence."
+    });
+  }
+  return sequence.map((step, index) => ({
+    order: index + 1,
+    ...step
+  }));
+}
+
+function appendSourceNextActions(sequence, lane) {
+  if (lane.operatorState === "NEEDS_SOURCE_INPUT") {
+    sequence.push({
+      id: "collect-source-input",
+      laneId: lane.id,
+      operatorState: lane.operatorState,
+      action: "Collect one public reading URL, one public video URL, and one video timestamp, then generate a source approval request.",
+      command: [lane.nextCommands?.sourceIntake, lane.nextCommands?.sourceApprovalRequest].filter(Boolean).join(" && "),
+      produces: ".codex-tmp/external-source-validation/source-approval-request.json",
+      claimBoundary: "Source input and approval requests do not grant approval or create KO evidence."
+    });
+    return;
+  }
+  if (lane.operatorState === "NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST") {
+    sequence.push({
+      id: "refresh-public-source-dry-run",
+      laneId: lane.id,
+      operatorState: lane.operatorState,
+      action: "Refresh the public-source dry run and approval request against the current clean HEAD before asking for approval.",
+      command: [lane.nextCommands?.refreshPublicDryRun, lane.nextCommands?.refreshedApprovalRequest].filter(Boolean).join(" && "),
+      produces: "Fresh source approval request tied to the current clean HEAD.",
+      claimBoundary: "A public dry-run is not approved external evidence."
+    });
+  }
+  sequence.push({
+    id: "get-current-turn-source-approval",
+    laneId: lane.id,
+    operatorState: lane.operatorState,
+    action: "Get exact current-turn approval text from the user before running approved browser evidence.",
+    command: "",
+    produces: lane.approvalRequest?.requestedApprovalText || "TBD",
+    claimBoundary: "This operator packet cannot grant approval on the user's behalf."
+  });
+  sequence.push({
+    id: "run-approved-external-source-candidate",
+    laneId: lane.id,
+    operatorState: lane.operatorState,
+    action: "Run the approved external-source browser validation only after exact current-turn approval exists.",
+    command: lane.nextCommands?.approvedCandidateAfterCurrentTurnApproval || "",
+    produces: "External-source candidate receipt.",
+    claimBoundary: "The candidate receipt still needs privacy review before KO use."
+  });
+  sequence.push({
+    id: "complete-external-source-privacy-review",
+    laneId: lane.id,
+    operatorState: lane.operatorState,
+    action: "Generate the privacy template, complete human privacy review, and validate the KO evidence review artifact.",
+    command: [lane.nextCommands?.privacyTemplate, lane.nextCommands?.privacyReview].filter(Boolean).join(" && "),
+    produces: "learning-companion.external-source-ko-evidence-review.v1",
+    claimBoundary: "Privacy templates without completed review cannot satisfy KO evidence."
+  });
 }
 
 function assessPlatformHandoffFreshness(platformHandoff, currentRevision) {
@@ -359,6 +464,10 @@ function buildConsoleSummary(packet, { outPath, markdownPath }) {
     const status = lane.currentKoStatus?.status || lane.currentReadinessStatus || "UNKNOWN";
     lines.push(`- ${lane.id}: ${lane.operatorState}; status ${status}`);
   }
+  lines.push("", "Next action sequence:");
+  for (const step of packet.nextActionSequence) {
+    lines.push(`- ${step.order}. ${step.id}: ${step.operatorState}`);
+  }
   lines.push("", "Boundary:");
   lines.push(`- ${packet.claimBoundary}`);
   for (const item of packet.blockedOrNotExecuted) {
@@ -391,6 +500,22 @@ function buildOperatorMarkdown(packet) {
   lines.push("", "## Inputs", "");
   for (const [key, value] of Object.entries(packet.inputs)) {
     lines.push(`- ${markdownInline(key)}: ${markdownInline(value)}`);
+  }
+  lines.push("", "## Critical Path", "");
+  for (const step of packet.nextActionSequence) {
+    lines.push(
+      `### ${step.order}. ${markdownInline(step.id)}`,
+      "",
+      `- Lane: ${markdownInline(step.laneId)}`,
+      `- Operator state: ${markdownInline(step.operatorState)}`,
+      `- Action: ${markdownInline(step.action)}`,
+      `- Produces: ${markdownInline(step.produces || "TBD")}`,
+      `- Claim boundary: ${markdownInline(step.claimBoundary)}`
+    );
+    if (step.command) {
+      lines.push("", "Command:", "", "```bash", step.command, "```");
+    }
+    lines.push("");
   }
   lines.push("", "## Operator Lanes", "");
   for (const lane of packet.lanes) {
