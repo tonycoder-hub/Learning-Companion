@@ -159,6 +159,9 @@ assert.equal(packageJson.scripts["next:operator"], "node scripts/next-major-oper
 assert.equal(packageJson.scripts["next:operator:selftest"], "node scripts/next-major-operator-self-test.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
+assert.equal(packageJson.scripts["mac:manual:validate"], "node scripts/validate-mac-manual-qa.mjs");
+assert.equal(packageJson.scripts["windows:static:validate"], "node scripts/validate-windows-static-qa.mjs");
+assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/validate-harmony-device-qa.mjs");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
 assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/smoke-web.mjs");
@@ -210,6 +213,8 @@ assert.match(nextMajorOperatorSelfTestJs, /NEEDS_CURRENT_TURN_APPROVAL/);
 assert.match(nextMajorOperatorSelfTestJs, /NEEDS_FRESH_PUBLIC_DRY_RUN_OR_APPROVAL_REQUEST/);
 assert.match(nextMajorOperatorSelfTestJs, /NEEDS_FRESH_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorSelfTestJs, /NEEDS_SOURCE_INPUT/);
+assert.match(nextMajorOperatorSelfTestJs, /windowsStaticManualQa/);
+assert.match(nextMajorOperatorSelfTestJs, /harmonyDeviceQa/);
 assert.match(nextMajorOperatorSelfTestJs, /CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorSelfTestJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
 assert.match(nextMajorOperatorSelfTestJs, /releaseActionAuthorized mismatch/);

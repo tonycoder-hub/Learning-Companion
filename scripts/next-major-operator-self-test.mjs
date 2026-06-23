@@ -42,6 +42,8 @@ try {
   assert.match(freshRun.stdout, /next_major_operator_packet_ok/);
   assert.match(freshRun.stdout, /approvedExternalReadingVideo: NEEDS_CURRENT_TURN_APPROVAL/);
   assert.match(freshRun.stdout, /nativeMacManualQa: NEEDS_REAL_PLATFORM_RUN/);
+  assert.match(freshRun.stdout, /windowsStaticManualQa: NEEDS_REAL_PLATFORM_RUN/);
+  assert.match(freshRun.stdout, /harmonyDeviceQa: NEEDS_REAL_PLATFORM_RUN/);
   const freshPacket = await readJson(freshRun.jsonPath);
   assert.equal(freshPacket.schema, "learning-companion.next-major-operator-packet.v1");
   assert.equal(freshPacket.evidenceTier, "NEXT_MAJOR_OPERATOR_PACKET_ONLY");
@@ -53,20 +55,38 @@ try {
   assert.deepEqual(freshPacket.operatorOrder, [
     "approvedExternalReadingVideo",
     "nativeMacManualQa",
+    "windowsStaticManualQa",
+    "harmonyDeviceQa",
     "finalKoGate"
   ]);
   const sourceLane = getLane(freshPacket, "approvedExternalReadingVideo");
-  const platformLane = getLane(freshPacket, "nativeMacManualQa");
+  const macLane = getLane(freshPacket, "nativeMacManualQa");
+  const windowsLane = getLane(freshPacket, "windowsStaticManualQa");
+  const harmonyLane = getLane(freshPacket, "harmonyDeviceQa");
   const finalLane = getLane(freshPacket, "finalKoGate");
   assert.equal(sourceLane.operatorState, "NEEDS_CURRENT_TURN_APPROVAL");
   assert.equal(sourceLane.approvalRequest.freshness.status, "CURRENT_CLEAN_PUBLIC_DRY_RUN");
   assert.equal(sourceLane.approvalRequest.freshness.problems.length, 0);
   assert.equal(sourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, buildApprovedCandidateCommand(buildApprovalRequest(currentHead)));
   assert.equal(sourceLane.cannotBeFilledFrom.includes("public-source dry-runs without current-turn approval"), true);
-  assert.equal(platformLane.operatorState, "NEEDS_REAL_PLATFORM_RUN");
-  assert.equal(platformLane.currentRows.nt, 27);
-  assert.equal(platformLane.currentRows.rowsNeedingConcreteNotes, 0);
-  assert.equal(platformLane.nextCommands.refreshPlatformHandoff, undefined);
+  assertPlatformLane(macLane, {
+    id: "nativeMacManualQa",
+    nt: 27,
+    validateCommandPattern: /mac:manual:validate/,
+    cannotBeFilledFrom: "fixture receipts"
+  });
+  assertPlatformLane(windowsLane, {
+    id: "windowsStaticManualQa",
+    nt: 10,
+    validateCommandPattern: /windows:static:validate/,
+    cannotBeFilledFrom: "non-Windows fixture inspection"
+  });
+  assertPlatformLane(harmonyLane, {
+    id: "harmonyDeviceQa",
+    nt: 10,
+    validateCommandPattern: /harmony:device:validate/,
+    cannotBeFilledFrom: "Harmony scaffold smoke"
+  });
   assert.equal(finalLane.operatorState, "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES");
   assert.equal(finalLane.releaseActionAuthorized, false);
   assert.equal((await stat(freshRun.jsonPath)).mode & 0o777, 0o600);
@@ -97,7 +117,11 @@ try {
   assert.equal(stalePlatformPacket.platformHandoffFreshness.status, "STALE_OR_DIRTY_PLATFORM_QA_HANDOFF");
   assert.ok(stalePlatformPacket.platformHandoffFreshness.problems.some((problem) => problem.includes("does not match current HEAD")));
   assert.equal(getLane(stalePlatformPacket, "nativeMacManualQa").operatorState, "NEEDS_FRESH_PLATFORM_QA_HANDOFF");
+  assert.equal(getLane(stalePlatformPacket, "windowsStaticManualQa").operatorState, "NEEDS_FRESH_PLATFORM_QA_HANDOFF");
+  assert.equal(getLane(stalePlatformPacket, "harmonyDeviceQa").operatorState, "NEEDS_FRESH_PLATFORM_QA_HANDOFF");
   assert.match(getLane(stalePlatformPacket, "nativeMacManualQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
+  assert.match(getLane(stalePlatformPacket, "windowsStaticManualQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
+  assert.match(getLane(stalePlatformPacket, "harmonyDeviceQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
 
   await writeJson(platformPath, buildPlatformHandoff(currentHead));
   const missingSourceRun = await runOperator("missing-source", { approval: join(tmp, "missing-approval.json") });
@@ -214,6 +238,16 @@ function getLane(packet, id) {
   return packet.lanes.find((lane) => lane.id === id) || {};
 }
 
+function assertPlatformLane(lane, { id, nt, validateCommandPattern, cannotBeFilledFrom }) {
+  assert.equal(lane.id, id);
+  assert.equal(lane.operatorState, "NEEDS_REAL_PLATFORM_RUN");
+  assert.equal(lane.currentRows.nt, nt);
+  assert.equal(lane.currentRows.rowsNeedingConcreteNotes, 0);
+  assert.match(lane.validateCommand, validateCommandPattern);
+  assert.equal(lane.nextCommands.refreshPlatformHandoff, undefined);
+  assert.equal(lane.cannotBeFilledFrom.includes(cannotBeFilledFrom), true);
+}
+
 function buildStatus() {
   return {
     schema: "learning-companion.ko-evidence-review.v1",
@@ -231,6 +265,18 @@ function buildStatus() {
         status: "FAIL",
         detail: "Mac manual QA rows must all PASS",
         evidencePath: ".codex-tmp/mac-manual-qa/receipt.json"
+      },
+      {
+        id: "windowsStaticManualQa",
+        status: "FAIL",
+        detail: "Windows static QA rows must all PASS",
+        evidencePath: ".codex-tmp/windows-static-qa/receipt.json"
+      },
+      {
+        id: "harmonyDeviceQa",
+        status: "FAIL",
+        detail: "HarmonyOS device QA rows must all PASS",
+        evidencePath: ".codex-tmp/harmony-device-qa/receipt.json"
       }
     ]
   };
@@ -296,6 +342,66 @@ function buildPlatformHandoff(gitHead) {
         },
         nextRealRunSteps: ["Fill the real Mac QA template."],
         cannotBeFilledFrom: ["fixture receipts"]
+      },
+      {
+        id: "windowsStaticManualQa",
+        label: "Windows static/manual QA",
+        currentKoStatus: {
+          status: "PENDING_NOT_RUN",
+          detail: "fixture pending",
+          evidencePath: ".codex-tmp/windows-static-qa/receipt.json"
+        },
+        qaPath: "dist/morning-demo/WINDOWS_STATIC_QA.md",
+        receiptPath: ".codex-tmp/windows-static-qa/real-run-receipt.json",
+        validateCommand: "npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json",
+        expectedRows: 10,
+        currentTemplateSummary: {
+          rows: 10,
+          pass: 0,
+          fail: 0,
+          blocked: 0,
+          nt: 10,
+          invalid: 0,
+          rowsNeedingConcreteNotes: 0,
+          requiredSessionFields: [
+            {
+              field: "Windows browser/device",
+              filled: false
+            }
+          ]
+        },
+        nextRealRunSteps: ["Fill the real Windows static/manual QA template."],
+        cannotBeFilledFrom: ["non-Windows fixture inspection"]
+      },
+      {
+        id: "harmonyDeviceQa",
+        label: "HarmonyOS device/toolchain QA",
+        currentKoStatus: {
+          status: "PENDING_NOT_RUN",
+          detail: "fixture pending",
+          evidencePath: ".codex-tmp/harmony-device-qa/receipt.json"
+        },
+        qaPath: "dist/morning-demo/HARMONY_DEVICE_QA.md",
+        receiptPath: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
+        validateCommand: "npm run harmony:device:validate -- --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json",
+        expectedRows: 10,
+        currentTemplateSummary: {
+          rows: 10,
+          pass: 0,
+          fail: 0,
+          blocked: 0,
+          nt: 10,
+          invalid: 0,
+          rowsNeedingConcreteNotes: 0,
+          requiredSessionFields: [
+            {
+              field: "HarmonyOS device/build",
+              filled: false
+            }
+          ]
+        },
+        nextRealRunSteps: ["Fill the real HarmonyOS device/toolchain QA template."],
+        cannotBeFilledFrom: ["Harmony scaffold smoke"]
       }
     ]
   };
