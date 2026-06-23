@@ -13,10 +13,13 @@ import {
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
 const DEFAULT_SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
+const DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH = ".codex-tmp/external-source-validation/source-approval-request.md";
 const DEFAULT_MAC_MANUAL_PATH = ".codex-tmp/mac-manual-qa/real-run-receipt.json";
 const DEFAULT_WINDOWS_STATIC_PATH = ".codex-tmp/windows-static-qa/real-run-receipt.json";
 const DEFAULT_HARMONY_DEVICE_PATH = ".codex-tmp/harmony-device-qa/real-run-receipt.json";
 const sourceApprovalRequestPath = args["source-approval-request"] || DEFAULT_SOURCE_APPROVAL_REQUEST_PATH;
+const sourceApprovalMarkdownPath = args["source-approval-markdown"]
+  || (sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH ? DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH : markdownSiblingPath(sourceApprovalRequestPath));
 const cliExternalPath = args.external || "";
 const platformReceiptPaths = {
   macManual: args["mac-manual"] || DEFAULT_MAC_MANUAL_PATH,
@@ -25,7 +28,7 @@ const platformReceiptPaths = {
 };
 const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
-const PATH_ARGS = ["status", "source-approval-request", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
+const PATH_ARGS = ["status", "source-approval-request", "source-approval-markdown", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
 const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
 const STALE_OR_DIRTY_OPERATOR_PACKET = "STALE_OR_DIRTY_OPERATOR_PACKET";
 const CURRENT_CLEAN_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
@@ -62,6 +65,7 @@ const operatorFreshness = operatorState.packet
 console.log(buildSummary(status, statusPath, {
   sourceApprovalRequest: sourceApprovalRequestState.request,
   sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
   sourceApprovalRequestWarning: sourceApprovalRequestState.warning,
   sourceApprovalFreshness,
   operatorPacket: operatorState.packet,
@@ -218,7 +222,7 @@ function requireSourceApprovalField(value, fieldName) {
   return text;
 }
 
-function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning, platformReceiptPaths, cliExternalPath }) {
+function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalMarkdownPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning, platformReceiptPaths, cliExternalPath }) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const platformQaStatus = Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [];
   const pass = requirements.filter((item) => item.status === "PASS");
@@ -240,7 +244,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     "",
     "Next source evidence input:",
     ...formatSourceApprovalRequest(sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness),
-    ...formatSourceInputCommands(sourceApprovalRequest, sourceApprovalFreshness, sourceApprovalRequestPath),
+    ...formatSourceInputCommands(sourceApprovalRequest, sourceApprovalFreshness, sourceApprovalRequestPath, sourceApprovalMarkdownPath),
     "",
     "Platform QA still required:",
     "- Generate the non-claiming platform QA handoff: npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
@@ -254,7 +258,12 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorFreshness, operatorWarning),
     "",
     "Final gate after all evidence exists:",
-    ...formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths, cliExternalPath || external?.evidencePath || ""),
+    ...formatFinalGateCommands({
+      sourceApprovalRequestPath,
+      sourceApprovalMarkdownPath,
+      platformReceiptPaths,
+      externalEvidencePath: cliExternalPath || external?.evidencePath || ""
+    }),
     "",
     "Boundary:",
     "- Self-test and public dry-run evidence are useful checks, but they cannot fill approved external reading/video evidence rows.",
@@ -384,7 +393,7 @@ function formatFreshnessProblems(problems) {
   return problems.map((problem) => `- Freshness problem: ${problem}`);
 }
 
-function formatSourceInputCommands(request, sourceApprovalFreshness, path) {
+function formatSourceInputCommands(request, sourceApprovalFreshness, path, markdownPath = markdownSiblingPath(path)) {
   if (request && sourceApprovalFreshness?.status === "STALE_OR_DIRTY_PUBLIC_DRY_RUN") {
     return [
       "- To replace these sources instead of refreshing them, regenerate source intake and approval request before asking for current-turn approval."
@@ -398,29 +407,34 @@ function formatSourceInputCommands(request, sourceApprovalFreshness, path) {
   return [
     "- Show input help: npm run external:source-help",
     "- Validate pasted input before running browser evidence: npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
-    `- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(path)} --markdown-out ${shellQuote(markdownSiblingPath(path))}`,
+    `- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(path)} --markdown-out ${shellQuote(markdownPath)}`,
     `- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>"`,
     "- Privacy review template: npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
     "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
   ];
 }
 
-function formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths, externalEvidencePath = "") {
+function formatFinalGateCommands({
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  platformReceiptPaths,
+  externalEvidencePath = ""
+}) {
   const externalArg = externalEvidencePath ? shellQuote(externalEvidencePath) : "<ko-evidence-review.json>";
-  const sourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
+  const hasSourceOverride = sourceApprovalRequestPath !== DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
+    || sourceApprovalMarkdownPath !== DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH;
+  const sourceArgs = !hasSourceOverride
     ? ""
-    : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --source-approval-markdown ${shellQuote(markdownSiblingPath(sourceApprovalRequestPath))}`;
+    : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --source-approval-markdown ${shellQuote(sourceApprovalMarkdownPath)}`;
   const platformArgs = buildPlatformReceiptArgs(platformReceiptPaths);
-  const operatorSourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
-    ? ""
-    : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)}`;
+  const externalCommandArgs = externalEvidencePath ? ` --external ${externalArg}` : "";
   return [
     "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
     `- One-command final refresh: npm run next:finalize -- --external ${externalArg}${sourceArgs}${platformArgs.finalize}`,
     `- npm run ko:validate -- --external ${externalArg}${platformArgs.validate} --out .codex-tmp/ko-evidence/final.json`,
     `- Explicit platform override if needed: npm run ko:validate -- --external ${externalArg}${platformArgs.explicit} --out .codex-tmp/ko-evidence/final.json`,
-    `- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}`,
-    `- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${operatorSourceArgs}`
+    `- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}${externalCommandArgs}${platformArgs.finalize}`,
+    `- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${sourceArgs}${externalCommandArgs}${platformArgs.finalize}`
   ];
 }
 
@@ -468,6 +482,7 @@ Usage:
   npm run ko:next -- --refresh
   node scripts/ko-next-action-summary.mjs --status .codex-tmp/ko-evidence/current-status.json
   node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json
+  node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --source-approval-markdown .codex-tmp/external-source-validation/source-approval-request.md
   node scripts/ko-next-action-summary.mjs --operator .codex-tmp/next-major-operator/current.json
 
 The summary explains:
