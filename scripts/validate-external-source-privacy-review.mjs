@@ -106,13 +106,22 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
     sourceApprovalRequest: {
       schema: receiptSummary.sourceApprovalRequestBinding.schema,
       requestPath: receiptSummary.sourceApprovalRequestBinding.requestPath,
+      requestSchema: receiptSummary.sourceApprovalRequestBinding.requestSchema,
+      evidenceTier: receiptSummary.sourceApprovalRequestBinding.evidenceTier,
+      canClaimExternalKo: receiptSummary.sourceApprovalRequestBinding.canClaimExternalKo,
       freshnessStatus: receiptSummary.sourceApprovalRequestBinding.freshnessStatus,
       requestedApprovalTextMatched: receiptSummary.sourceApprovalRequestBinding.requestedApprovalTextMatched,
+      approvedReadingUrl: receiptSummary.sourceApprovalRequestBinding.approvedReadingUrl,
+      approvedVideoUrl: receiptSummary.sourceApprovalRequestBinding.approvedVideoUrl,
+      approvedVideoTimestamp: receiptSummary.sourceApprovalRequestBinding.approvedVideoTimestamp,
       currentGitHead: receiptSummary.sourceApprovalRequestBinding.currentGitHead,
+      currentDirtyWorktree: receiptSummary.sourceApprovalRequestBinding.currentDirtyWorktree,
       basisGitHead: receiptSummary.sourceApprovalRequestBinding.basisGitHead,
+      basisDirtyWorktree: receiptSummary.sourceApprovalRequestBinding.basisDirtyWorktree,
       basisReceiptPath: receiptSummary.sourceApprovalRequestBinding.basisReceiptPath,
       basisProfileCleanupOk: receiptSummary.sourceApprovalRequestBinding.basisProfileCleanupOk,
-      basisProfileRetained: receiptSummary.sourceApprovalRequestBinding.basisProfileRetained
+      basisProfileRetained: receiptSummary.sourceApprovalRequestBinding.basisProfileRetained,
+      problems: receiptSummary.sourceApprovalRequestBinding.problems
     },
     runContext: summarizeRunContextForClaim(receipt.runContext),
     claimBoundary: {
