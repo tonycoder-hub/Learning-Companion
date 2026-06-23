@@ -11,6 +11,7 @@ const execFileAsync = promisify(execFile);
 
 const READINESS_SCHEMA = "learning-companion.next-major-readiness.v1";
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
+const SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
 const KO_STATUS_SCHEMA = "learning-companion.ko-evidence-review.v1";
 const REQUIRED_REQUIREMENT_IDS = [
   "bilingualRuntime",
@@ -115,7 +116,7 @@ async function buildNextMajorReadiness(statusPath) {
     nextCommands: {
       refreshReadiness: "npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md",
       sourceApprovalRequest: "npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
-      approvedSourceCandidate: "npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note \"<current-turn approval>\"",
+      approvedSourceCandidate: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${SOURCE_APPROVAL_REQUEST_PATH} --approval-note "<current-turn approval>"`,
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
       platformHandoff: "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
