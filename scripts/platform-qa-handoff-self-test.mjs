@@ -127,7 +127,7 @@ try {
   ]);
   assert.match(mac.executionChecklist.beforeRun.join("\n"), /exact clean git HEAD/);
   assert.match(mac.executionChecklist.duringRun.join("\n"), /required session field/);
-  assert.match(mac.executionChecklist.afterRun.join("\n"), /mac:manual:validate/);
+  assert.match(mac.executionChecklist.afterRun.join("\n"), /mac:manual:validate:real/);
   assert.equal(mac.executionChecklist.notAcceptedEvidence.includes("Fixture receipts"), true);
   assert.match(mac.nextRealRunSteps.join("\n"), /traceably produced from git HEAD [0-9a-f]{40}/);
   assert.match(mac.cannotBeFilledFrom.join("\n"), /Fixture receipts/);
