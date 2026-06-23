@@ -329,8 +329,8 @@ Recommended next slices:
    - The controlled smokes now cover source-first Notes and Recall paths, but no human has proven the flow beside a real lesson.
    - Keep Not Run rows explicit; do not convert fixture receipts into dogfood.
    - Fill the Notes and Recall source-return counters from real use, not guesses.
-   - Fill `MAC_MANUAL_QA.md` rows and session header from real Mac GUI use; run `npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json` before claiming Mac manual-QA usability.
-   - Fill `WINDOWS_STATIC_QA.md` rows and session header from a real Windows Edge/Chrome local-folder run; run `npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json` before claiming Windows static-loop usability.
+   - Fill `MAC_MANUAL_QA.md` rows and session header from real Mac GUI use; run `npm run mac:manual:validate:real` before claiming Mac manual-QA usability.
+   - Fill `WINDOWS_STATIC_QA.md` rows and session header from a real Windows Edge/Chrome local-folder run; run `npm run windows:static:validate:real` before claiming Windows static-loop usability.
    - Definition of Done: a real runbook/manual-QA row is executed and validated, or the blocker and exact Not Run scope are recorded.
 
 2. Improve rendered post-save return evidence only where a new behavior changes.
