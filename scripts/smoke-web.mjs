@@ -909,9 +909,15 @@ assert.match(koNextActionSummaryJs, /SOURCE_APPROVAL_REQUEST_ONLY/);
 assert.match(koNextActionSummaryJs, /Ignored invalid default source approval request/);
 assert.match(koNextActionSummaryJs, /learning-companion\.next-major-operator-packet\.v1/);
 assert.match(koNextActionSummaryJs, /NEXT_MAJOR_OPERATOR_PACKET_ONLY/);
+assert.match(koNextActionSummaryJs, /CURRENT_CLEAN_OPERATOR_PACKET/);
+assert.match(koNextActionSummaryJs, /STALE_OR_DIRTY_OPERATOR_PACKET/);
+assert.match(koNextActionSummaryJs, /assessOperatorPacketFreshness/);
 assert.match(koNextActionSummaryJs, /Ignored invalid default operator packet/);
 assert.match(koNextActionSummaryJs, /Operator packet missing nextActionSequence/);
 assert.match(koNextActionSummaryJs, /Operator critical path/);
+assert.match(koNextActionSummaryJs, /Current operator packet freshness/);
+assert.match(koNextActionSummaryJs, /Refresh operator packet command/);
+assert.match(koNextActionSummaryJs, /Refresh prerequisite/);
 assert.match(koNextActionSummaryJs, /This operator packet still does not grant approval/);
 assert.match(koNextActionSummaryJs, /Source approval request missing required/);
 assert.match(koNextActionSummaryJs, /approved candidate command still contains placeholder tokens/);
@@ -1122,6 +1128,7 @@ try {
   const approvalPath = join(operatorSmokeDir, "approval.json");
   const operatorJsonPath = join(operatorSmokeDir, "operator.json");
   const operatorMarkdownPath = join(operatorSmokeDir, "operator.md");
+  const staleOperatorJsonPath = join(operatorSmokeDir, "stale-operator.json");
   writeFileSync(statusPath, `${JSON.stringify({
     schema: "learning-companion.ko-evidence-review.v1",
     evidenceTier: "KO_MISSING_EVIDENCE",
@@ -1212,6 +1219,13 @@ try {
   ], { encoding: "utf8" });
   const operatorPacket = JSON.parse(readFileSync(operatorJsonPath, "utf8"));
   const operatorMarkdown = readFileSync(operatorMarkdownPath, "utf8");
+  writeFileSync(staleOperatorJsonPath, `${JSON.stringify({
+    ...operatorPacket,
+    currentRevision: {
+      ...operatorPacket.currentRevision,
+      gitHead: "0000000000000000000000000000000000000000"
+    }
+  }, null, 2)}\n`);
   assert.equal(operatorPacket.schema, "learning-companion.next-major-operator-packet.v1");
   assert.equal(operatorPacket.canClaimNextMajorFromThisPacket, false);
   assert.equal(operatorPacket.releaseActionAuthorized, false);
@@ -1247,10 +1261,31 @@ try {
     operatorJsonPath
   ], { encoding: "utf8" });
   assert.match(koNextConsole, /Operator critical path:/);
+  const expectedOperatorFreshness = operatorPacket.currentRevision?.dirtyWorktree === false
+    ? "CURRENT_CLEAN_OPERATOR_PACKET"
+    : "STALE_OR_DIRTY_OPERATOR_PACKET";
+  assert.match(koNextConsole, new RegExp(`Current operator packet freshness: ${expectedOperatorFreshness}`));
+  if (expectedOperatorFreshness === "STALE_OR_DIRTY_OPERATOR_PACKET") {
+    assert.match(koNextConsole, /Refresh operator packet command: npm run next:operator -- --refresh/);
+    assert.match(koNextConsole, /Refresh prerequisite: commit, stash, or discard current worktree changes before regenerating the operator packet/);
+    assert.match(koNextConsole, /Operator packet freshness problem: Operator packet was not generated from a clean worktree/);
+  }
   assert.match(koNextConsole, /refresh-public-source-dry-run/);
   assert.match(koNextConsole, /refresh-platform-qa-handoff/);
   assert.match(koNextConsole, /validate-final-ko/);
   assert.match(koNextConsole, /This operator packet still does not grant approval/);
+  const staleKoNextConsole = execFileSync(process.execPath, [
+    "scripts/ko-next-action-summary.mjs",
+    "--status",
+    statusPath,
+    "--source-approval-request",
+    approvalPath,
+    "--operator",
+    staleOperatorJsonPath
+  ], { encoding: "utf8" });
+  assert.match(staleKoNextConsole, /Current operator packet freshness: STALE_OR_DIRTY_OPERATOR_PACKET/);
+  assert.match(staleKoNextConsole, /Refresh operator packet command: npm run next:operator -- --refresh/);
+  assert.match(staleKoNextConsole, /Operator packet freshness problem: Operator packet gitHead 0000000000000000000000000000000000000000 does not match current HEAD/);
 } finally {
   if (cleanupSmokeArtifacts) rmSync(operatorSmokeDir, { recursive: true, force: true });
 }
