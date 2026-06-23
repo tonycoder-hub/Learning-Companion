@@ -368,6 +368,7 @@ function buildSourceApprovalArtifact({ request, path, markdownPath, warning, fre
         showInputHelp: "npm run external:source-help",
         sourceIntake: "npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
         approvalRequest: `npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(path)} --markdown-out ${shellQuote(markdownPath)}`,
+        approvalCheck: `npm run external:approval-check -- --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>" --out .codex-tmp/external-source-validation/source-approval-check.json`,
         approvedCandidateAfterCurrentTurnApproval: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>"`,
         privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
         privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
@@ -395,6 +396,7 @@ function buildSourceApprovalArtifact({ request, path, markdownPath, warning, fre
       nextCommands: {
         refreshPublicDryRun: freshCommands.refreshPublicDryRun,
         refreshedApprovalRequest: freshCommands.refreshedApprovalRequest,
+        approvalCheck: freshCommands.approvalCheck,
         approvedCandidateAfterCurrentTurnApproval: freshCommands.approvedCandidateAfterCurrentTurnApproval,
         privacyTemplate: freshCommands.privacyTemplate,
         privacyReview: freshCommands.privacyReview
@@ -404,6 +406,7 @@ function buildSourceApprovalArtifact({ request, path, markdownPath, warning, fre
   return {
     ...base,
     nextCommands: {
+      approvalCheck: request.nextCommands?.approvalCheck || buildApprovalCheckCommandFromRequest(path, request),
       approvedCandidateAfterCurrentTurnApproval: buildApprovedCandidateCommand(request),
       privacyTemplate: request.nextCommands?.privacyTemplate || "TBD",
       privacyReview: request.nextCommands?.privacyReview || "TBD"
@@ -573,6 +576,7 @@ function formatSourceApprovalRequest(request, path, warning, sourceApprovalFresh
       "- Do not run the prior approved candidate command until this request is refreshed against the current clean HEAD.",
       `- Refresh public dry-run command: ${freshCommands.refreshPublicDryRun}`,
       `- Regenerate approval request command: ${freshCommands.refreshedApprovalRequest}`,
+      `- Approval pre-check command after refreshed current-turn approval: ${freshCommands.approvalCheck}`,
       `- Approved candidate command after refreshed current-turn approval: ${freshCommands.approvedCandidateAfterCurrentTurnApproval}`,
       `- Privacy template command: ${freshCommands.privacyTemplate}`,
       `- Privacy review validation command: ${freshCommands.privacyReview}`,
@@ -583,6 +587,7 @@ function formatSourceApprovalRequest(request, path, warning, sourceApprovalFresh
   return [
     ...lines,
     `- Approval text to copy exactly: ${request.requestedApprovalText || "TBD"}`,
+    `- Approval pre-check command after exact current-turn approval: ${nextCommands.approvalCheck || buildApprovalCheckCommandFromRequest(path, request)}`,
     `- Approved candidate command after exact current-turn approval: ${buildApprovedCandidateCommand(request)}`,
     `- Privacy template command: ${nextCommands.privacyTemplate || "TBD"}`,
     `- Privacy review validation command: ${nextCommands.privacyReview || "TBD"}`,
@@ -610,10 +615,23 @@ function formatSourceInputCommands(request, sourceApprovalFreshness, path, markd
     "- Show input help: npm run external:source-help",
     "- Validate pasted input before running browser evidence: npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
     `- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(path)} --markdown-out ${shellQuote(markdownPath)}`,
+    `- Approval pre-check command: npm run external:approval-check -- --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>" --out .codex-tmp/external-source-validation/source-approval-check.json`,
     `- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>"`,
     "- Privacy review template: npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
     "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
   ];
+}
+
+function buildApprovalCheckCommandFromRequest(path, request) {
+  return [
+    "npm run external:approval-check --",
+    "--source-approval-request",
+    shellQuote(path),
+    "--approval-note",
+    shellQuote(request?.requestedApprovalText || "<current-turn approval>"),
+    "--out",
+    ".codex-tmp/external-source-validation/source-approval-check.json"
+  ].join(" ");
 }
 
 function formatFinalGateCommands({

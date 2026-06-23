@@ -345,6 +345,15 @@ function appendSourceNextActions(sequence, lane) {
     claimBoundary: "This operator packet cannot grant approval on the user's behalf."
   });
   sequence.push({
+    id: "check-current-turn-source-approval",
+    laneId: lane.id,
+    operatorState: lane.operatorState,
+    action: "Validate the exact current-turn approval text and source request freshness without launching browser evidence.",
+    command: lane.nextCommands?.approvalCheck || "",
+    produces: ".codex-tmp/external-source-validation/source-approval-check.json",
+    claimBoundary: "Approval checks do not run browser evidence or satisfy privacy-reviewed KO evidence."
+  });
+  sequence.push({
     id: "run-approved-external-source-candidate",
     laneId: lane.id,
     operatorState: lane.operatorState,
@@ -362,6 +371,18 @@ function appendSourceNextActions(sequence, lane) {
     produces: "learning-companion.external-source-ko-evidence-review.v1",
     claimBoundary: "Privacy templates without completed review cannot satisfy KO evidence."
   });
+}
+
+function buildApprovalCheckCommandFromRequest(path, request) {
+  return [
+    "npm run external:approval-check --",
+    "--source-approval-request",
+    shellQuote(path),
+    "--approval-note",
+    shellQuote(request?.requestedApprovalText || "<current-turn approval>"),
+    "--out",
+    ".codex-tmp/external-source-validation/source-approval-check.json"
+  ].join(" ");
 }
 
 function assessReadinessFreshness(readiness, currentRevision) {
@@ -478,6 +499,7 @@ async function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, 
       ? buildFreshSourceCommands(sourceApprovalRequest)
       : hasApprovalRequest
       ? {
+          approvalCheck: sourceApprovalRequest.nextCommands?.approvalCheck || buildApprovalCheckCommandFromRequest(sourceApprovalRequestPath, sourceApprovalRequest),
           approvedCandidateAfterCurrentTurnApproval: buildApprovedCandidateCommand(sourceApprovalRequest),
           privacyTemplate: sourceApprovalRequest.nextCommands?.privacyTemplate || "",
           privacyReview: sourceApprovalRequest.nextCommands?.privacyReview || ""
@@ -485,6 +507,7 @@ async function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, 
       : {
           sourceIntake: "npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\" --out .codex-tmp/external-source-validation/source-intake-handoff.json",
           sourceApprovalRequest: `npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(sourceApprovalRequestPath)} --markdown-out ${shellQuote(markdownSiblingPath(sourceApprovalRequestPath))}`,
+          approvalCheck: `npm run external:approval-check -- --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --approval-note "<current-turn approval>" --out .codex-tmp/external-source-validation/source-approval-check.json`,
           approvedCandidateAfterCurrentTurnApproval: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --approval-note "<current-turn approval>"`,
           privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
           privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"

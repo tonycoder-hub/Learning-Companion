@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
   CURRENT_CLEAN_PUBLIC_DRY_RUN,
   STALE_OR_DIRTY_PUBLIC_DRY_RUN,
@@ -11,6 +14,10 @@ import {
   buildFreshSourceCommands
 } from "./lib/source-approval-freshness.mjs";
 
+const execFileAsync = promisify(execFile);
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = dirname(dirname(scriptPath));
+const approvalCheckScript = join(repoRoot, "scripts/external-source-validation-browser.mjs");
 const tmp = await mkdtemp(join(tmpdir(), "lc-source-approval-freshness-"));
 
 try {
@@ -28,6 +35,66 @@ try {
   assert.equal(cleanFreshness.status, CURRENT_CLEAN_PUBLIC_DRY_RUN);
   assert.deepEqual(cleanFreshness.problems, []);
   assert.equal(cleanFreshness.basisReceiptPath, receiptPath);
+
+  const fixtureRoot = join(tmp, "approval-check-fixture");
+  const ignoredEvidenceDir = join(fixtureRoot, ".codex-tmp/external-source-validation");
+  await mkdir(fixtureRoot, { recursive: true });
+  await writeFile(join(fixtureRoot, "README.md"), "approval check fixture\n");
+  await writeFile(join(fixtureRoot, ".gitignore"), ".codex-tmp/\n");
+  await git(fixtureRoot, ["init"]);
+  await git(fixtureRoot, ["add", "."]);
+  await git(fixtureRoot, [
+    "-c",
+    "user.name=Learning Companion Fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "commit",
+    "-m",
+    "initial approval check fixture"
+  ]);
+  const fixtureHead = (await git(fixtureRoot, ["rev-parse", "HEAD"])).stdout.trim();
+  await mkdir(ignoredEvidenceDir, { recursive: true });
+  const checkReceiptPath = join(ignoredEvidenceDir, "public-dry-run-receipt.json");
+  const checkRequestPath = join(ignoredEvidenceDir, "source-approval-request.json");
+  const checkOutPath = join(ignoredEvidenceDir, "source-approval-check.json");
+  const checkReceipt = buildReceipt(fixtureHead);
+  const checkRequest = buildRequest(checkReceiptPath, fixtureHead);
+  checkRequest.approvalRequestPath = checkRequestPath;
+  checkRequest.nextCommands.approvedCandidateAfterCurrentTurnApproval = buildApprovedCandidateCommand(checkRequest);
+  await writeFile(checkReceiptPath, `${JSON.stringify(checkReceipt, null, 2)}\n`);
+  await writeFile(checkRequestPath, `${JSON.stringify(checkRequest, null, 2)}\n`);
+
+  const approvalCheckRun = await runNode([
+    approvalCheckScript,
+    "--approval-check",
+    "--source-approval-request",
+    checkRequestPath,
+    "--approval-note",
+    checkRequest.requestedApprovalText,
+    "--out",
+    checkOutPath
+  ], fixtureRoot);
+  assert.equal(approvalCheckRun.code, 0, approvalCheckRun.stderr || approvalCheckRun.stdout);
+  assert.match(approvalCheckRun.stdout, /source_approval_check_ok/);
+  const checkOutput = JSON.parse(await readFile(checkOutPath, "utf8"));
+  assert.equal(checkOutput.schema, "learning-companion.source-approval-check.v1");
+  assert.equal(checkOutput.evidenceTier, "SOURCE_APPROVAL_CHECK_ONLY");
+  assert.equal(checkOutput.canClaimExternalKo, false);
+  assert.equal(checkOutput.approvalNoteMatched, true);
+  assert.equal(checkOutput.sourceApprovalRequestBinding.freshnessStatus, CURRENT_CLEAN_PUBLIC_DRY_RUN);
+  assert.equal(checkOutput.blockedOrNotExecuted.includes("No browser was launched."), true);
+  assert.equal((await stat(checkOutPath)).mode & 0o777, 0o600);
+
+  const mismatchedApprovalCheckRun = await runNode([
+    approvalCheckScript,
+    "--approval-check",
+    "--source-approval-request",
+    checkRequestPath,
+    "--approval-note",
+    "I approve a different source."
+  ], fixtureRoot);
+  assert.notEqual(mismatchedApprovalCheckRun.code, 0);
+  assert.match(`${mismatchedApprovalCheckRun.stdout}\n${mismatchedApprovalCheckRun.stderr}`, /does not match --approval-note/);
 
   const dirtyCurrent = await assessSourceApprovalFreshness(cleanRequest, {
     gitHead: "abc123",
@@ -197,6 +264,9 @@ try {
   assert.doesNotMatch(freshSourceCommands.refreshPublicDryRun, /example\.com\/wrong/);
   assert.match(freshSourceCommands.refreshedApprovalRequest, /--out '.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
   assert.match(freshSourceCommands.refreshedApprovalRequest, /--markdown-out '.codex-tmp\/external-source-validation\/source-approval-request\.md'/);
+  assert.match(freshSourceCommands.approvalCheck, /npm run external:approval-check/);
+  assert.match(freshSourceCommands.approvalCheck, /--source-approval-request '.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
+  assert.match(freshSourceCommands.approvalCheck, /source-approval-check\.json/);
   assert.match(freshSourceCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '.codex-tmp\/external-source-validation\/source-approval-request\.json'/);
   assert.match(freshSourceCommands.approvedCandidateAfterCurrentTurnApproval, /<approved-reading-url>/);
 
@@ -206,6 +276,7 @@ try {
   const customFreshSourceCommands = buildFreshSourceCommands(customApprovalPathRequest);
   assert.match(customFreshSourceCommands.refreshedApprovalRequest, /--out '.*custom approval request\.json'/);
   assert.match(customFreshSourceCommands.refreshedApprovalRequest, /--markdown-out '.*custom approval request\.md'/);
+  assert.match(customFreshSourceCommands.approvalCheck, /--source-approval-request '.*custom approval request\.json'/);
   assert.match(customFreshSourceCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '.*custom approval request\.json'/);
 
   const missing = await assessSourceApprovalFreshness(null, currentRevision);
@@ -216,7 +287,38 @@ try {
   await rm(tmp, { recursive: true, force: true });
 }
 
-function buildReceipt() {
+async function git(cwd, args) {
+  const result = await runCommand("git", args, cwd);
+  assert.equal(result.code, 0, result.stderr || result.stdout);
+  return result;
+}
+
+async function runNode(args, cwd) {
+  return runCommand(process.execPath, args, cwd);
+}
+
+async function runCommand(command, args, cwd) {
+  try {
+    const result = await execFileAsync(command, args, {
+      cwd,
+      encoding: "utf8",
+      maxBuffer: 1024 * 1024
+    });
+    return {
+      code: 0,
+      stdout: result.stdout || "",
+      stderr: result.stderr || ""
+    };
+  } catch (error) {
+    return {
+      code: Number.isInteger(error.code) ? error.code : 1,
+      stdout: String(error.stdout || ""),
+      stderr: String(error.stderr || error.message || "")
+    };
+  }
+}
+
+function buildReceipt(gitHead = "abc123") {
   return {
     schema: "learning-companion.external-source-validation-browser.v1",
     evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
@@ -224,7 +326,7 @@ function buildReceipt() {
     canClaimExternalKo: false,
     runContext: {
       appRevision: {
-        gitHead: "abc123",
+        gitHead,
         dirtyWorktree: false
       },
       browser: {
@@ -254,15 +356,18 @@ function buildReceipt() {
   };
 }
 
-function buildRequest(receiptPath) {
+function buildRequest(receiptPath, gitHead = "abc123") {
   return {
+    schema: "learning-companion.external-source-approval-request.v1",
+    evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+    canClaimExternalKo: false,
     approvalRequestPath: ".codex-tmp/external-source-validation/source-approval-request.json",
     basis: {
       type: "PUBLIC_SOURCE_DRY_RUN_RECEIPT",
       inputPath: receiptPath,
       priorDryRunReceipt: receiptPath,
       priorDryRun: {
-        gitHead: "abc123",
+        gitHead,
         dirtyWorktree: false,
         profileRetained: false,
         profileCleanupOk: true
