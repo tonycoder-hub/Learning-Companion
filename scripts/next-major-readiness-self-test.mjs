@@ -196,6 +196,50 @@ try {
   assert.equal(refreshedStatus.schema, "learning-companion.ko-evidence-review.v1");
   assert.equal((await stat(refreshStatusPath)).mode & 0o777, 0o600);
 
+  const refreshCustomStatusPath = join(outDir, "refresh-custom-status.json");
+  const refreshCustomReadinessPath = join(outDir, "refresh-custom-readiness.json");
+  const refreshCustomMacPath = join(outDir, "refresh custom mac.json");
+  const refreshCustomWindowsPath = join(outDir, "refresh custom windows.json");
+  const refreshCustomHarmonyPath = join(outDir, "refresh custom harmony.json");
+  const refreshCustomRun = await runNode([
+    readinessScript,
+    "--refresh",
+    "--status",
+    refreshCustomStatusPath,
+    "--out",
+    refreshCustomReadinessPath,
+    "--mac-manual",
+    refreshCustomMacPath,
+    "--windows-static",
+    refreshCustomWindowsPath,
+    "--harmony-device",
+    refreshCustomHarmonyPath
+  ]);
+  assert.equal(refreshCustomRun.code, 0, refreshCustomRun.stderr);
+  const refreshCustomStatus = await readJson(refreshCustomStatusPath);
+  const refreshCustomReadiness = await readJson(refreshCustomReadinessPath);
+  assert.equal(refreshCustomStatus.platformQaStatus.find((platform) => platform.id === "nativeMacManualQa").evidencePath, refreshCustomMacPath);
+  assert.equal(refreshCustomStatus.platformQaStatus.find((platform) => platform.id === "windowsStaticManualQa").evidencePath, refreshCustomWindowsPath);
+  assert.equal(refreshCustomStatus.platformQaStatus.find((platform) => platform.id === "harmonyDeviceQa").evidencePath, refreshCustomHarmonyPath);
+  assert.match(refreshCustomReadiness.nextCommands.refreshReadiness, /--mac-manual '.*refresh custom mac\.json'/);
+  assert.match(refreshCustomReadiness.nextCommands.platformHandoff, /--windows-static '.*refresh custom windows\.json'/);
+
+  const refreshMissingExternalStatusPath = join(outDir, "refresh-missing-external-status.json");
+  const refreshMissingExternalPath = join(outDir, "missing external.json");
+  const refreshMissingExternalRun = await runNode([
+    readinessScript,
+    "--refresh",
+    "--status",
+    refreshMissingExternalStatusPath,
+    "--external",
+    refreshMissingExternalPath
+  ]);
+  assert.equal(refreshMissingExternalRun.code, 0, refreshMissingExternalRun.stderr);
+  const refreshMissingExternalStatus = await readJson(refreshMissingExternalStatusPath);
+  const refreshMissingExternalRequirement = refreshMissingExternalStatus.requirements.find((item) => item.id === "approvedExternalReadingVideo");
+  assert.equal(refreshMissingExternalRequirement.evidencePath, refreshMissingExternalPath);
+  assert.match(refreshMissingExternalRequirement.detail, /evidence file missing/);
+
   // Readiness trusts upstream KO requirement aggregation; platform QA rows are carried for operator context.
   const readyStatusPath = join(inputDir, "ready-status.json");
   await writeJson(readyStatusPath, buildStatus({

@@ -374,8 +374,13 @@ try {
     ]
   });
   assert.equal(refreshBoundRun.code, 0, refreshBoundRun.stderr);
+  const refreshBoundStatus = await readJson(statusPath);
   const refreshBoundReadiness = await readJson(readinessPath);
   const refreshBoundPlatform = await readJson(platformPath);
+  assert.equal(refreshBoundStatus.requirements.find((item) => item.id === "approvedExternalReadingVideo").evidencePath, "custom external.json");
+  assert.equal(refreshBoundStatus.platformQaStatus.find((platform) => platform.id === "nativeMacManualQa").evidencePath, "custom mac.json");
+  assert.equal(refreshBoundStatus.platformQaStatus.find((platform) => platform.id === "windowsStaticManualQa").evidencePath, "custom windows.json");
+  assert.equal(refreshBoundStatus.platformQaStatus.find((platform) => platform.id === "harmonyDeviceQa").evidencePath, "custom harmony.json");
   assert.match(refreshBoundReadiness.nextCommands.refreshReadiness, /custom external\.json/);
   assert.match(refreshBoundReadiness.nextCommands.refreshReadiness, /custom mac\.json/);
   assert.doesNotMatch(refreshBoundReadiness.nextCommands.refreshReadiness, /''\\''/);
