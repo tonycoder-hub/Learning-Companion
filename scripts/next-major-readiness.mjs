@@ -12,6 +12,7 @@ const execFileAsync = promisify(execFile);
 const READINESS_SCHEMA = "learning-companion.next-major-readiness.v1";
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
 const SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
+const SOURCE_APPROVAL_MARKDOWN_PATH = ".codex-tmp/external-source-validation/source-approval-request.md";
 const KO_STATUS_SCHEMA = "learning-companion.ko-evidence-review.v1";
 const REQUIRED_REQUIREMENT_IDS = [
   "bilingualRuntime",
@@ -35,15 +36,20 @@ if (args.help) {
   console.log(buildHelp());
   process.exit(0);
 }
-for (const key of ["status", "out", "markdown-out"]) {
+for (const key of ["status", "out", "markdown-out", "source-approval-request", "source-approval-markdown"]) {
   if (args[key] === true) throw new Error(`--${key} requires a file path.`);
 }
 
 const statusPath = String(args.status || STATUS_PATH);
+const sourceApprovalRequestPath = String(args["source-approval-request"] || SOURCE_APPROVAL_REQUEST_PATH);
+const sourceApprovalMarkdownPath = String(args["source-approval-markdown"] || SOURCE_APPROVAL_MARKDOWN_PATH);
 if (args.refresh) {
   await refreshKoStatus(statusPath);
 }
-const readiness = await buildNextMajorReadiness(statusPath);
+const readiness = await buildNextMajorReadiness(statusPath, {
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath
+});
 if (args.out) {
   await writePrivateFile(resolve(String(args.out)), `${JSON.stringify(readiness, null, 2)}\n`);
 }
@@ -71,7 +77,7 @@ async function refreshKoStatus(statusPath) {
   }
 }
 
-async function buildNextMajorReadiness(statusPath) {
+async function buildNextMajorReadiness(statusPath, { sourceApprovalRequestPath, sourceApprovalMarkdownPath }) {
   if (!existsSync(statusPath)) {
     throw new Error(`Missing KO status file: ${statusPath}. Run: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json`);
   }
@@ -114,9 +120,9 @@ async function buildNextMajorReadiness(statusPath) {
     blockingRequirements,
     platformQaStatus,
     nextCommands: {
-      refreshReadiness: "npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md",
-      sourceApprovalRequest: "npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
-      approvedSourceCandidate: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${SOURCE_APPROVAL_REQUEST_PATH} --approval-note "<current-turn approval>"`,
+      refreshReadiness: buildRefreshReadinessCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }),
+      sourceApprovalRequest: buildSourceApprovalRequestCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }),
+      approvedSourceCandidate: buildApprovedSourceCandidateCommand(sourceApprovalRequestPath),
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
       platformHandoff: "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
@@ -169,6 +175,52 @@ function normalizePlatformStatuses(statuses) {
     }])),
     claimAllowed: item.claimAllowed === true
   }));
+}
+
+function buildRefreshReadinessCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }) {
+  const parts = [
+    "npm run next:readiness -- --refresh",
+    "--out",
+    ".codex-tmp/next-major-readiness/current.json",
+    "--markdown-out",
+    ".codex-tmp/next-major-readiness/current.md"
+  ];
+  if (sourceApprovalRequestPath !== SOURCE_APPROVAL_REQUEST_PATH) {
+    parts.push("--source-approval-request", shellQuote(sourceApprovalRequestPath));
+  }
+  if (sourceApprovalMarkdownPath !== SOURCE_APPROVAL_MARKDOWN_PATH) {
+    parts.push("--source-approval-markdown", shellQuote(sourceApprovalMarkdownPath));
+  }
+  return parts.join(" ");
+}
+
+function buildSourceApprovalRequestCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }) {
+  return [
+    "npm run external:approval-request -- --intake-handoff",
+    ".codex-tmp/external-source-validation/source-intake-handoff.json",
+    "--out",
+    shellQuote(sourceApprovalRequestPath),
+    "--markdown-out",
+    shellQuote(sourceApprovalMarkdownPath)
+  ].join(" ");
+}
+
+function buildApprovedSourceCandidateCommand(sourceApprovalRequestPath) {
+  return [
+    "npm run external:validate -- --approved-current-turn",
+    "--reading-url <approved-reading-url>",
+    "--video-url <approved-video-url>",
+    "--video-timestamp <captured-timestamp>",
+    "--source-approval-request",
+    shellQuote(sourceApprovalRequestPath),
+    '--approval-note "<current-turn approval>"'
+  ].join(" ");
+}
+
+function shellQuote(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
 function buildConsoleSummary(readiness, { outPath, markdownPath }) {
@@ -299,6 +351,9 @@ function buildHelp() {
 
 Usage:
   npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md
+
+Optional source approval path binding:
+  --source-approval-request <path> --source-approval-markdown <path>
 
 This command may refresh the KO status with --allow-missing. It does not run
 external-source validation, privacy review, platform QA, build, package,

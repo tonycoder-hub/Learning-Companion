@@ -957,6 +957,8 @@ assert.match(refreshNextMajorLocalEvidenceJs, /refresh-readiness/);
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-platform-qa-handoff/);
 assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/validate-ko-evidence\.mjs/);
 assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/next-major-readiness\.mjs/);
+assert.match(refreshNextMajorLocalEvidenceJs, /"--source-approval-request",\s*options\.sourceApprovalRequest/);
+assert.match(refreshNextMajorLocalEvidenceJs, /"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
 assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/platform-qa-handoff\.mjs/);
 assert.match(refreshNextMajorLocalEvidenceJs, /regenerate-source-approval-request/);
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-operator-packet/);
@@ -1092,12 +1094,16 @@ assert.match(nextMajorReadinessJs, /No build, package, deployment, Mew-Test, mai
 assert.match(nextMajorReadinessJs, /scripts\/validate-ko-evidence\.mjs/);
 assert.match(nextMajorReadinessJs, /--allow-missing/);
 assert.match(nextMajorReadinessJs, /SOURCE_APPROVAL_REQUEST_PATH/);
-assert.match(nextMajorReadinessJs, /--source-approval-request \$\{SOURCE_APPROVAL_REQUEST_PATH\}/);
+assert.match(nextMajorReadinessJs, /SOURCE_APPROVAL_MARKDOWN_PATH/);
+assert.match(nextMajorReadinessJs, /sourceApprovalRequestPath/);
+assert.match(nextMajorReadinessJs, /sourceApprovalMarkdownPath/);
+assert.match(nextMajorReadinessJs, /--source-approval-request", shellQuote\(sourceApprovalRequestPath\)/);
+assert.match(nextMajorReadinessJs, /--source-approval-markdown", shellQuote\(sourceApprovalMarkdownPath\)/);
 assert.match(nextMajorReadinessJs, /function buildNextMajorReadinessMarkdown/);
 assert.match(nextMajorReadinessJs, /Next Major Readiness Packet/);
 assert.match(nextMajorReadinessJs, /function writePrivateFile/);
 assert.match(nextMajorReadinessJs, /chmod\(path, 0o600\)/);
-assert.match(nextMajorReadinessJs, /"status", "out", "markdown-out"/);
+assert.match(nextMajorReadinessJs, /"status", "out", "markdown-out", "source-approval-request", "source-approval-markdown"/);
 assert.match(nextMajorReadinessJs, /requires a file path/);
 const readinessSmokeDir = mkdtempSync(join(tempBase, "next-major-readiness-"));
 try {

@@ -138,7 +138,11 @@ async function buildLocalEvidencePlan(options) {
           "--out",
           options.readinessOut,
           "--markdown-out",
-          options.readinessMarkdownOut
+          options.readinessMarkdownOut,
+          "--source-approval-request",
+          options.sourceApprovalRequest,
+          "--source-approval-markdown",
+          options.sourceApprovalMarkdown
         ]
       },
       {
@@ -332,7 +336,7 @@ function runSelfTest() {
       { id: "refresh-controlled-loop", argv: ["scripts/agent-study-loop-check.mjs", "--out", ".codex-tmp/agent-study-loop-smoke/receipt.json"] },
       { id: "refresh-public-source-dry-run", argv: ["scripts/external-source-validation-browser.mjs", "--public-source-dry-run"], capturePublicDryRunReceipt: true },
       { id: "refresh-ko-status", argv: ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", DEFAULTS.koStatus] },
-      { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut] },
+      { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown] },
       { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
       { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut] },
@@ -363,6 +367,8 @@ function runSelfTest() {
   assert.match(dryRun, /refresh-ko-status/);
   assert.match(dryRun, /refresh-readiness/);
   assert.match(dryRun, /next-major-readiness\.mjs/);
+  assert.match(dryRun, /--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
+  assert.match(dryRun, /--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
   assert.match(dryRun, /refresh-platform-qa-handoff/);
   assert.match(dryRun, /platform-qa-handoff\.mjs/);
   assert.match(dryRun, /regenerate-source-approval-request/);

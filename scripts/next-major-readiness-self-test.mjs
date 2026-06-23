@@ -88,6 +88,24 @@ try {
   assert.match(blockedMarkdown, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
   assert.match(blockedMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
 
+  const customSourceApprovalPath = join(outDir, "custom source approval request.json");
+  const customSourceApprovalMarkdownPath = join(outDir, "custom source approval request.md");
+  const customPathRun = await runReadiness("custom-source-approval", blockedStatusPath, [
+    "--source-approval-request",
+    customSourceApprovalPath,
+    "--source-approval-markdown",
+    customSourceApprovalMarkdownPath
+  ]);
+  assert.equal(customPathRun.code, 0, customPathRun.stderr);
+  const customPathReadiness = await readJson(customPathRun.jsonPath);
+  assert.match(customPathReadiness.nextCommands.refreshReadiness, /--source-approval-request '.*custom source approval request\.json'/);
+  assert.match(customPathReadiness.nextCommands.refreshReadiness, /--source-approval-markdown '.*custom source approval request\.md'/);
+  assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--out '.*custom source approval request\.json'/);
+  assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--markdown-out '.*custom source approval request\.md'/);
+  assert.match(customPathReadiness.nextCommands.approvedSourceCandidate, /--source-approval-request '.*custom source approval request\.json'/);
+  const customPathMarkdown = await readFile(customPathRun.markdownPath, "utf8");
+  assert.match(customPathMarkdown, /custom source approval request\.json/);
+
   const cannotClaimWithPassingRequirementsStatusPath = join(inputDir, "cannot-claim-with-passing-requirements.json");
   await writeJson(cannotClaimWithPassingRequirementsStatusPath, buildStatus({
     canClaimKo: false,
@@ -200,12 +218,20 @@ try {
   assert.notEqual(missingMarkdownPathRun.code, 0);
   assert.match(`${missingMarkdownPathRun.stdout}\n${missingMarkdownPathRun.stderr}`, /--markdown-out requires a file path/);
 
+  const missingSourceApprovalRequestPathRun = await runNode([readinessScript, "--source-approval-request"]);
+  assert.notEqual(missingSourceApprovalRequestPathRun.code, 0);
+  assert.match(`${missingSourceApprovalRequestPathRun.stdout}\n${missingSourceApprovalRequestPathRun.stderr}`, /--source-approval-request requires a file path/);
+
+  const missingSourceApprovalMarkdownPathRun = await runNode([readinessScript, "--source-approval-markdown"]);
+  assert.notEqual(missingSourceApprovalMarkdownPathRun.code, 0);
+  assert.match(`${missingSourceApprovalMarkdownPathRun.stdout}\n${missingSourceApprovalMarkdownPathRun.stderr}`, /--source-approval-markdown requires a file path/);
+
   console.log("next_major_readiness_selftest_ok");
 } finally {
   await rm(tmp, { recursive: true, force: true });
 }
 
-async function runReadiness(label, statusPath) {
+async function runReadiness(label, statusPath, extraArgs = []) {
   const jsonPath = join(outDir, `${label}.json`);
   const markdownPath = join(outDir, `${label}.md`);
   const result = await runNode([
@@ -215,7 +241,8 @@ async function runReadiness(label, statusPath) {
     "--out",
     jsonPath,
     "--markdown-out",
-    markdownPath
+    markdownPath,
+    ...extraArgs
   ], fixtureRoot);
   return {
     ...result,
