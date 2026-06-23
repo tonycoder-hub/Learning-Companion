@@ -41,6 +41,15 @@ npm run ko:next -- --source-approval-request .codex-tmp/external-source-validati
 npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
 ```
 
+In the `ko:next` output, treat `Current operator packet freshness:
+CURRENT_CLEAN_OPERATOR_PACKET` as the only current operator handoff state. If it
+prints `STALE_OR_DIRTY_OPERATOR_PACKET`, do not use that packet as the current
+critical path. If the output says the worktree is dirty, first resolve those
+changes under current-turn authorization, for example by committing or stashing
+intentional work; do not discard changes unless explicitly asked. If the
+worktree is clean but the packet is stale, refresh the non-claiming inputs and
+then regenerate the operator packet.
+
 If the operator packet reports stale public-source or platform-handoff inputs,
 refresh the non-claiming packets before asking for approval or running real QA:
 
