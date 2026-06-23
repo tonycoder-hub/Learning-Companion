@@ -12,7 +12,8 @@ import {
 
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
-const sourceApprovalRequestPath = args["source-approval-request"] || ".codex-tmp/external-source-validation/source-approval-request.json";
+const DEFAULT_SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
+const sourceApprovalRequestPath = args["source-approval-request"] || DEFAULT_SOURCE_APPROVAL_REQUEST_PATH;
 const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
 const PATH_ARGS = ["status", "source-approval-request", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
@@ -228,7 +229,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     "",
     "Next source evidence input:",
     ...formatSourceApprovalRequest(sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness),
-    ...formatSourceInputCommands(sourceApprovalRequest, sourceApprovalFreshness),
+    ...formatSourceInputCommands(sourceApprovalRequest, sourceApprovalFreshness, sourceApprovalRequestPath),
     "",
     "Platform QA still required:",
     "- Generate the non-claiming platform QA handoff: npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
@@ -377,7 +378,7 @@ function formatFreshnessProblems(problems) {
   return problems.map((problem) => `- Freshness problem: ${problem}`);
 }
 
-function formatSourceInputCommands(request, sourceApprovalFreshness) {
+function formatSourceInputCommands(request, sourceApprovalFreshness, path) {
   if (request && sourceApprovalFreshness?.status === "STALE_OR_DIRTY_PUBLIC_DRY_RUN") {
     return [
       "- To replace these sources instead of refreshing them, regenerate source intake and approval request before asking for current-turn approval."
@@ -391,11 +392,22 @@ function formatSourceInputCommands(request, sourceApprovalFreshness) {
   return [
     "- Show input help: npm run external:source-help",
     "- Validate pasted input before running browser evidence: npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
-    "- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md",
-    "- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note \"<current-turn approval>\"",
+    `- Generate an approval request packet: npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(path)} --markdown-out ${shellQuote(markdownSiblingPath(path))}`,
+    `- Approved candidate command: npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>"`,
     "- Privacy review template: npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
     "- Privacy review validation: npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
   ];
+}
+
+function markdownSiblingPath(jsonPath) {
+  const text = String(jsonPath);
+  return text.endsWith(".json") ? `${text.slice(0, -5)}.md` : `${text}.md`;
+}
+
+function shellQuote(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
 function formatRequirementList(items, fallbackStatus) {
