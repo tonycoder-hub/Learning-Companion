@@ -196,6 +196,8 @@ async function runFinalizePlan(plan) {
   assert.equal(operator.schema, "learning-companion.next-major-operator-packet.v1");
   assert.equal(operator.canClaimNextMajorFromThisPacket, false, "operator packet must remain non-claiming");
   assert.equal(operator.releaseActionAuthorized, false, "operator packet must not authorize release");
+  assert.equal(operator.readinessFreshness?.status, "CURRENT_CLEAN_NEXT_MAJOR_READINESS", "operator packet readiness freshness must be current");
+  assert.equal(operator.platformHandoffFreshness?.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF", "operator packet platform handoff freshness must be current");
   assertFinalizerOutputBindings(plan, { readiness, operator });
   console.log(buildSuccessSummary(plan, { ko, readiness, operator }));
 }
@@ -263,6 +265,11 @@ function assertFinalizerOutputBindings(plan, { readiness, operator }) {
   assertCommandHasFlagPath(readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--harmony-device", options.harmonyDevice, "readiness explicit final KO command");
 
   const finalLane = (Array.isArray(operator.lanes) ? operator.lanes : []).find((lane) => lane.id === "finalKoGate") || {};
+  assert.equal(finalLane.readinessReady, true, "operator final lane readinessReady must be true");
+  assert.equal(finalLane.platformHandoffReady, true, "operator final lane platformHandoffReady must be true");
+  assert.equal(finalLane.readinessFreshness?.status, "CURRENT_CLEAN_NEXT_MAJOR_READINESS", "operator final lane readiness freshness must be current");
+  assert.equal(finalLane.platformHandoffFreshness?.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF", "operator final lane platform handoff freshness must be current");
+  assert.equal(finalLane.operatorState, "READY_TO_VALIDATE_FINAL_KO", "operator final lane must be ready to validate final KO");
   assertCommandHasFlagPath(finalLane.nextCommands?.finalizeNextMajor, "--external", options.external, "operator finalize command");
   assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGate, "--external", options.external, "operator final KO command");
   assertCommandHasFlagPath(finalLane.nextCommands?.finalKoGateWithExplicitPlatformReceipts, "--external", options.external, "operator explicit final KO command");
@@ -435,6 +442,11 @@ function runSelfTest() {
     lanes: [
       {
         id: "finalKoGate",
+        operatorState: "READY_TO_VALIDATE_FINAL_KO",
+        readinessReady: true,
+        platformHandoffReady: true,
+        readinessFreshness: { status: "CURRENT_CLEAN_NEXT_MAJOR_READINESS" },
+        platformHandoffFreshness: { status: "CURRENT_CLEAN_PLATFORM_QA_HANDOFF" },
         nextCommands: {
           finalizeNextMajor: successfulReadiness.nextCommands.finalizeNextMajor,
           finalKoGate: successfulReadiness.nextCommands.finalKoGate,
@@ -485,6 +497,18 @@ function runSelfTest() {
     },
     operator: successfulOperator
   }), /readiness final KO command must include --external fixtures\/external-ko\.json as a complete shell argument/);
+  assert.throws(() => assertFinalizerOutputBindings(plan, {
+    readiness: successfulReadiness,
+    operator: {
+      ...successfulOperator,
+      lanes: [
+        {
+          ...successfulOperator.lanes[0],
+          readinessFreshness: { status: "STALE_OR_DIRTY_NEXT_MAJOR_READINESS" }
+        }
+      ]
+    }
+  }), /operator final lane readiness freshness must be current/);
   assert.throws(() => assertFinalizerOutputBindings(plan, {
     readiness: successfulReadiness,
     operator: {
@@ -563,6 +587,11 @@ function runSelfTest() {
     lanes: [
       {
         id: "finalKoGate",
+        operatorState: "READY_TO_VALIDATE_FINAL_KO",
+        readinessReady: true,
+        platformHandoffReady: true,
+        readinessFreshness: { status: "CURRENT_CLEAN_NEXT_MAJOR_READINESS" },
+        platformHandoffFreshness: { status: "CURRENT_CLEAN_PLATFORM_QA_HANDOFF" },
         nextCommands: {
           finalizeNextMajor: spacedFinalizeCommand,
           finalKoGate: spacedFinalKoCommand,
