@@ -936,6 +936,8 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   assert.equal(claim.canClaimExternalKo, true, "external evidence must allow external KO claim");
   assert.equal(claim.fixtureOnly, false, "external evidence must explicitly not be fixture-only");
   assert.equal(claim.reviewKind, "HUMAN_PRIVACY_REVIEW", "external evidence must come from a human privacy review");
+  assertConcreteReviewText(claim.reviewer, "external claim reviewer");
+  assert.equal(isIsoDateTimeWithTimezone(claim.reviewedAt), true, "external claim reviewedAt must be an ISO date-time with timezone");
   if (!allowSelfTestFixtures) {
     rejectSelfTestPath(claimPath, "external evidence path");
     rejectSelfTestPath(claim.receiptPath, "external receipt path");
@@ -1788,6 +1790,42 @@ async function runSelfTest() {
   assert.equal(mismatchedReviewedScreenshotShaReport.canClaimKo, false);
   assert.ok(mismatchedReviewedScreenshotShaReport.blockers.some((item) => item.includes("reviewedScreenshots sha256 must match current file")));
 
+  const placeholderExternalReviewerPath = join(root, "placeholder-external-reviewer.json");
+  await writeJson(placeholderExternalReviewerPath, {
+    ...fixtures.externalClaim,
+    reviewer: "1. todo: reviewer"
+  });
+  const placeholderExternalReviewerReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: placeholderExternalReviewerPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(placeholderExternalReviewerReport.canClaimKo, false);
+  assert.ok(placeholderExternalReviewerReport.blockers.some((item) => item.includes("external claim reviewer must be filled with concrete review evidence")));
+
+  const relativeExternalReviewedAtPath = join(root, "relative-external-reviewed-at.json");
+  await writeJson(relativeExternalReviewedAtPath, {
+    ...fixtures.externalClaim,
+    reviewedAt: "today"
+  });
+  const relativeExternalReviewedAtReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: relativeExternalReviewedAtPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(relativeExternalReviewedAtReport.canClaimKo, false);
+  assert.ok(relativeExternalReviewedAtReport.blockers.some((item) => item.includes("external claim reviewedAt must be an ISO date-time with timezone")));
+
   const pendingPlatformPath = join(root, "pending-mac-manual-receipt.json");
   await writeJson(pendingPlatformPath, {
     ...fixtures.macManualReceipt,
@@ -2375,6 +2413,8 @@ async function runSelfTest() {
       "missing external reviewed screenshots rejected",
       "duplicate external reviewed screenshot rejected",
       "mismatched external reviewed screenshot sha256 rejected",
+      "placeholder external reviewer rejected",
+      "relative external reviewedAt timestamp rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
       "real-run platform receipt path selected before pending receipt path",
@@ -2815,6 +2855,11 @@ function rejectSelfTestPath(value, label) {
 
 function assertTrue(value, message) {
   if (value !== true) throw new Error(message);
+}
+
+function assertConcreteReviewText(value, label) {
+  assert.equal(typeof value, "string", `${label} must be a string`);
+  assert.ok(hasConcretePlatformText(value), `${label} must be filled with concrete review evidence`);
 }
 
 function assertNonTbd(value, label) {
