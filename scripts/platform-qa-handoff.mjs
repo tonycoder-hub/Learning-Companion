@@ -11,6 +11,7 @@ const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
+const PLATFORM_EVIDENCE_ROOT = ".codex-tmp/platform-qa-evidence";
 
 const PLATFORMS = [
   {
@@ -276,6 +277,8 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
     ? parseTables(await readFile(config.qaPath, "utf8"))
     : { fields: {}, rows: [] };
   const counts = summarizeRows(parsed.rows);
+  const evidenceRoot = buildPlatformEvidenceRoot(config.id, currentRevision);
+  const rowEvidenceHints = buildRowEvidenceHints(config, parsed.rows, evidenceRoot);
   const requiredSessionFields = config.requiredSessionFields.map((field) => ({
     field,
     filled: field === "Date/time"
@@ -291,6 +294,7 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
     templateAvailable,
     evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
     canClaimPlatform: false,
+    suggestedEvidenceRoot: evidenceRoot,
     currentKoStatus: {
       status: currentStatus.status || "UNKNOWN",
       detail: currentStatus.detail || "",
@@ -306,7 +310,8 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
       anyRealRowsFilled: parsed.rows.some((row) => row.result !== "NT"),
       rowsNeedingConcreteNotes,
       requiredSessionFields,
-      rowAreas: parsed.rows.map((row) => row.area).filter(Boolean)
+      rowAreas: parsed.rows.map((row) => row.area).filter(Boolean),
+      rowEvidenceHints
     },
     executionChecklist: buildExecutionChecklist(config, currentRevision),
     nextRealRunSteps: [
@@ -314,11 +319,37 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
       `Fill ${config.qaPath} during a real ${config.label} run.`,
       "Use ISO Date/time with timezone, a concrete reviewer, and a concrete platform environment.",
       "Set every executed row to PASS, FAIL, or BLOCKED; full KO platform evidence requires all rows PASS.",
-      "Every non-NT row must include a concrete Notes evidence reference.",
+      `Every non-NT row must include a concrete Notes evidence reference. Suggested evidence root: ${evidenceRoot}.`,
       `Validate with: ${config.validateCommand}`
     ],
     cannotBeFilledFrom: config.cannotBeFilledFrom
   };
+}
+
+function buildPlatformEvidenceRoot(platformId, currentRevision = {}) {
+  const head = currentRevision.gitHead || "TBD";
+  return `${PLATFORM_EVIDENCE_ROOT}/${platformId}/${head}`;
+}
+
+function buildRowEvidenceHints(config, rows, evidenceRoot) {
+  return rows.map((row, index) => {
+    const area = row.area || `row ${index + 1}`;
+    const rowPath = `${evidenceRoot}/${String(index + 1).padStart(2, "0")}-${slugify(area)}`;
+    return {
+      row: index + 1,
+      area,
+      evidenceDir: rowPath,
+      suggestedNote: `template only - replace before use: evidence: ${rowPath}/notes.md; screenshot: ${rowPath}/screenshot.png; result: <actual-result>; observed: <observed-summary>`
+    };
+  });
+}
+
+function slugify(value) {
+  const slug = String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "row";
 }
 
 function buildExecutionChecklist(config, currentRevision) {
@@ -332,7 +363,7 @@ function buildExecutionChecklist(config, currentRevision) {
     duringRun: [
       `Fill ${config.qaPath} during the real ${config.label} run.`,
       "Fill every required session field with concrete values before treating row results as evidence.",
-      "For every PASS, FAIL, or BLOCKED row, add a concrete Notes reference to what was observed."
+      `For every PASS, FAIL, or BLOCKED row, add a concrete Notes reference to what was observed. Use the row-specific evidence directory under ${buildPlatformEvidenceRoot(config.id, currentRevision)}, then replace template placeholders before writing Notes.`
     ],
     afterRun: [
       `Validate the filled receipt with: ${config.validateCommand}`,
@@ -401,7 +432,13 @@ function isPlaceholderEvidenceNote(value) {
 }
 
 function isPlaceholderEvidenceText(text) {
-  return PLACEHOLDER_EVIDENCE_NOTES.has(text) || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text)
+    || isEvidenceNoteTemplateText(text);
+}
+
+function isEvidenceNoteTemplateText(text) {
+  return /(?:\btemplate only\b|\breplace before use\b|<actual-result>|<observed-summary>|\bpass\s*\|\s*fail\s*\|\s*blocked\b)/.test(text);
 }
 
 function isIsoDateTimeWithTimezone(value) {
@@ -489,6 +526,7 @@ function buildPlatformQaHandoffMarkdown(handoff) {
       `- Platform ID: ${markdownInline(platform.id)}`,
       `- Current KO status: ${markdownInline(platform.currentKoStatus.status)} - ${markdownInline(platform.currentKoStatus.detail || "TBD")}`,
       `- QA template: ${markdownInline(platform.qaPath)}`,
+      `- Suggested evidence root: ${markdownInline(platform.suggestedEvidenceRoot || "TBD")}`,
       `- Expected rows: ${platform.expectedRows}`,
       `- Current rows: ${summary.rows} total; PASS ${summary.pass}; FAIL ${summary.fail}; BLOCKED ${summary.blocked}; NT ${summary.nt}; invalid ${summary.invalid}`,
       `- Rows needing concrete Notes: ${summary.rowsNeedingConcreteNotes}`,
@@ -522,6 +560,12 @@ function buildPlatformQaHandoffMarkdown(handoff) {
     lines.push("", "Row areas:", "");
     for (const area of summary.rowAreas) {
       lines.push(`- ${markdownInline(area)}`);
+    }
+    if (summary.rowEvidenceHints.length) {
+      lines.push("", "Evidence note templates:", "");
+      for (const hint of summary.rowEvidenceHints) {
+        lines.push(`- Row ${hint.row} ${markdownInline(hint.area)}: ${markdownInline(hint.suggestedNote)}`);
+      }
     }
     lines.push("");
   }

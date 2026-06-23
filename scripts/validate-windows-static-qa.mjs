@@ -126,7 +126,13 @@ function isPlaceholderEvidenceNote(value) {
 }
 
 function isPlaceholderEvidenceText(text) {
-  return PLACEHOLDER_EVIDENCE_NOTES.has(text) || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
+  return PLACEHOLDER_EVIDENCE_NOTES.has(text)
+    || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text)
+    || isEvidenceNoteTemplateText(text);
+}
+
+function isEvidenceNoteTemplateText(text) {
+  return /(?:\btemplate only\b|\breplace before use\b|<actual-result>|<observed-summary>|\bpass\s*\|\s*fail\s*\|\s*blocked\b)/.test(text);
 }
 
 function isPass(value) {
