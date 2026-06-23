@@ -153,7 +153,9 @@ try {
   });
   assert.equal(finalLane.operatorState, "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES");
   assert.equal(finalLane.releaseActionAuthorized, false);
-  assert.equal(finalLane.nextCommands.finalizeNextMajor, "npm run next:finalize -- --external <ko-evidence-review.json>");
+  assert.match(finalLane.nextCommands.finalizeNextMajor, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
+  assert.match(finalLane.nextCommands.finalizeNextMajor, /--source-approval-request .*source-approval-request\.json/);
+  assert.match(finalLane.nextCommands.finalizeNextMajor, /--source-approval-markdown .*source-approval-request\.md/);
   assert.match(freshPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").command, /npm run next:finalize/);
   assert.equal((await stat(freshRun.jsonPath)).mode & 0o777, 0o600);
   assert.equal((await stat(freshRun.markdownPath)).mode & 0o777, 0o600);
@@ -168,6 +170,22 @@ try {
   assert.doesNotMatch(freshMarkdown, /```text\nFixture approval\\_text/);
   assert.match(freshMarkdown, /Approval request freshness: CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(freshMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
+
+  const sourceOnlyApprovalPath = join(inputDir, "custom source only approval.json");
+  await writeJson(sourceOnlyApprovalPath, buildApprovalRequest(currentHead));
+  const directSourceOnlyBindingRun = await runOperator("direct-source-only-binding", {
+    approval: sourceOnlyApprovalPath
+  });
+  assert.equal(directSourceOnlyBindingRun.code, 0, directSourceOnlyBindingRun.stderr);
+  const directSourceOnlyBindingPacket = await readJson(directSourceOnlyBindingRun.jsonPath);
+  const directSourceOnlyBindingLane = getLane(directSourceOnlyBindingPacket, "finalKoGate");
+  assert.match(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, /--external <ko-evidence-review\.json>/);
+  assert.match(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, /--source-approval-request '.*custom source only approval\.json'/);
+  assert.match(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, /--source-approval-markdown '.*custom source only approval\.md'/);
+  assert.equal(countOccurrences(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, "--source-approval-request"), 1);
+  assert.equal(countOccurrences(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, "--source-approval-markdown"), 1);
+  assert.doesNotMatch(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, /custom external\.json/);
+  assert.match(directSourceOnlyBindingPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").command, /custom source only approval\.json/);
 
   const directFinalBindingRun = await runOperator("direct-final-binding", {
     approval: approvalPath,
@@ -273,6 +291,8 @@ try {
   assert.equal(refreshedInputPacket.inputs.platformHandoffPath, platformPath);
   assert.match(refreshedReadiness.nextCommands.refreshReadiness, /--source-approval-request .*source-approval-request\.json/);
   assert.match(refreshedReadiness.nextCommands.finalizeNextMajor, /--source-approval-request .*source-approval-request\.json/);
+  assert.equal(countOccurrences(getLane(refreshedInputPacket, "finalKoGate").nextCommands.finalizeNextMajor, "--source-approval-request"), 1);
+  assert.equal(countOccurrences(getLane(refreshedInputPacket, "finalKoGate").nextCommands.finalizeNextMajor, "--source-approval-markdown"), 1);
   assert.equal(refreshedInputPacket.sourceReadiness.koStatusFreshness, "CURRENT_CLEAN_HEAD_KO_STATUS");
   assert.equal(refreshedInputPacket.platformHandoffFreshness.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF");
   assert.equal(getLane(refreshedInputPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
@@ -486,6 +506,10 @@ function assertPlatformLane(lane, { id, nt, validateCommandPattern, cannotBeFill
   assert.match(lane.validateCommand, validateCommandPattern);
   assert.equal(lane.nextCommands.refreshPlatformHandoff, undefined);
   assert.equal(lane.cannotBeFilledFrom.includes(cannotBeFilledFrom), true);
+}
+
+function countOccurrences(text, needle) {
+  return String(text).split(needle).length - 1;
 }
 
 function buildStatus(gitHead) {

@@ -479,7 +479,18 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
 
 function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, pathBindings = {}) {
   const platformHandoffReady = platformHandoffFreshness.status === CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS;
-  const boundFinalCommands = buildBoundFinalGateCommands(pathBindings);
+  const fallbackCommands = {
+    finalizeNextMajor: readiness.nextCommands?.finalizeNextMajor
+      || platformHandoff.nextCommands?.finalizeNextMajor
+      || "npm run next:finalize -- --external <ko-evidence-review.json>",
+    finalKoGate: readiness.nextCommands?.finalKoGate
+      || platformHandoff.nextCommands?.finalKoGate
+      || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
+    finalKoGateWithExplicitPlatformReceipts: readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts
+      || platformHandoff.nextCommands?.finalKoGateWithExplicitPlatformReceipts
+      || ""
+  };
+  const boundFinalCommands = buildBoundFinalGateCommands(pathBindings, fallbackCommands);
   return {
     id: "finalKoGate",
     label: "Final KO gate",
@@ -490,18 +501,9 @@ function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness
     platformHandoffFreshness,
     releaseActionAuthorized: readiness.releaseActionAuthorized === true,
     nextCommands: {
-      finalizeNextMajor: boundFinalCommands.finalizeNextMajor
-        || readiness.nextCommands?.finalizeNextMajor
-        || platformHandoff.nextCommands?.finalizeNextMajor
-        || "npm run next:finalize -- --external <ko-evidence-review.json>",
-      finalKoGate: boundFinalCommands.finalKoGate
-        || readiness.nextCommands?.finalKoGate
-        || platformHandoff.nextCommands?.finalKoGate
-        || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-      finalKoGateWithExplicitPlatformReceipts: boundFinalCommands.finalKoGateWithExplicitPlatformReceipts
-        || readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts
-        || platformHandoff.nextCommands?.finalKoGateWithExplicitPlatformReceipts
-        || ""
+      finalizeNextMajor: boundFinalCommands.finalizeNextMajor || fallbackCommands.finalizeNextMajor,
+      finalKoGate: boundFinalCommands.finalKoGate || fallbackCommands.finalKoGate,
+      finalKoGateWithExplicitPlatformReceipts: boundFinalCommands.finalKoGateWithExplicitPlatformReceipts || fallbackCommands.finalKoGateWithExplicitPlatformReceipts
     },
     cannotBeFilledFrom: [
       "readiness packets",
@@ -518,14 +520,23 @@ function buildBoundFinalGateCommands({
   sourceApprovalMarkdownPath = SOURCE_APPROVAL_MARKDOWN_PATH,
   externalEvidencePath = "",
   platformReceiptPaths = {}
-} = {}) {
+} = {}, fallbackCommands = {}) {
   const hasSourceOverride = sourceApprovalRequestPath !== SOURCE_APPROVAL_REQUEST_PATH
     || sourceApprovalMarkdownPath !== SOURCE_APPROVAL_MARKDOWN_PATH;
   const hasExternalOverride = Boolean(externalEvidencePath);
   const customPlatformArgs = buildCustomPlatformReceiptCommandArgs(platformReceiptPaths);
   const hasPlatformOverride = customPlatformArgs.length > 0;
-  if (!hasExternalOverride && !hasPlatformOverride) {
+  if (!hasSourceOverride && !hasExternalOverride && !hasPlatformOverride) {
     return {};
+  }
+  if (hasSourceOverride && !hasExternalOverride && !hasPlatformOverride) {
+    return {
+      finalizeNextMajor: appendSourceApprovalArgs(
+        fallbackCommands.finalizeNextMajor || "npm run next:finalize -- --external <ko-evidence-review.json>",
+        sourceApprovalRequestPath,
+        sourceApprovalMarkdownPath
+      )
+    };
   }
 
   const externalArg = externalEvidencePath ? shellQuote(externalEvidencePath) : "<ko-evidence-review.json>";
@@ -558,6 +569,27 @@ function buildBoundFinalGateCommands({
     finalKoGate: finalKoParts.join(" "),
     finalKoGateWithExplicitPlatformReceipts: explicitFinalKoParts.join(" ")
   };
+}
+
+function appendSourceApprovalArgs(command, sourceApprovalRequestPath, sourceApprovalMarkdownPath) {
+  return replaceOrAppendFlagPath(
+    replaceOrAppendFlagPath(command, "--source-approval-request", sourceApprovalRequestPath),
+    "--source-approval-markdown",
+    sourceApprovalMarkdownPath
+  );
+}
+
+function replaceOrAppendFlagPath(command, flag, path) {
+  const replacement = `${flag} ${shellQuote(path)}`;
+  const pattern = new RegExp(`(^|\\s)${escapeRegExp(flag)}\\s+(?:'(?:(?:'\\\\''|[^'])*)'|\\S+)`);
+  if (pattern.test(command)) {
+    return command.replace(pattern, `$1${replacement}`);
+  }
+  return `${command} ${replacement}`;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
 }
 
 function buildCustomPlatformReceiptArgv(platformReceiptPaths = {}) {
