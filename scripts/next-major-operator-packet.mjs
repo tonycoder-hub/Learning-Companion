@@ -106,7 +106,7 @@ async function buildOperatorPacket(paths) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const requirementById = new Map(requirements.map((item) => [item.id || "UNKNOWN", item]));
   const lanes = [
-    buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
+    await buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
     ...buildPlatformLanes(platformHandoff, platformHandoffFreshness),
     buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness)
   ];
@@ -184,9 +184,9 @@ function assessPlatformHandoffFreshness(platformHandoff, currentRevision) {
   };
 }
 
-function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, sourceApprovalRequestPath, currentRevision) {
+async function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, sourceApprovalRequestPath, currentRevision) {
   const hasApprovalRequest = Boolean(sourceApprovalRequest);
-  const approvalFreshness = assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision);
+  const approvalFreshness = await assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision);
   const needsFreshApprovalRequest = hasApprovalRequest && approvalFreshness.status === "STALE_OR_DIRTY_PUBLIC_DRY_RUN";
   return {
     id: "approvedExternalReadingVideo",
@@ -226,7 +226,7 @@ function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, source
       ? buildFreshSourceCommands(sourceApprovalRequest)
       : hasApprovalRequest
       ? {
-          approvedCandidateAfterCurrentTurnApproval: sourceApprovalRequest.nextCommands?.approvedCandidateAfterCurrentTurnApproval || "",
+          approvedCandidateAfterCurrentTurnApproval: buildApprovedCandidateCommand(sourceApprovalRequest),
           privacyTemplate: sourceApprovalRequest.nextCommands?.privacyTemplate || "",
           privacyReview: sourceApprovalRequest.nextCommands?.privacyReview || ""
         }
@@ -246,7 +246,7 @@ function buildExternalSourceLane(requirement = {}, sourceApprovalRequest, source
   };
 }
 
-function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision) {
+async function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision) {
   if (!sourceApprovalRequest) {
     return {
       status: "MISSING_SOURCE_APPROVAL_REQUEST",
@@ -257,15 +257,25 @@ function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision) {
   }
   const basis = sourceApprovalRequest.basis || {};
   if (basis.type !== "PUBLIC_SOURCE_DRY_RUN_RECEIPT") {
+    const problems = ["Source approval request has no public dry-run receipt basis; regenerate it from a current clean public dry-run before using the candidate command."];
+    if (!currentRevision.gitHead) {
+      problems.push("Current gitHead is unavailable.");
+    }
+    if (currentRevision.dirtyWorktree !== false) {
+      problems.push("Current worktree is dirty; regenerate the public dry-run after committing or stashing local changes.");
+    }
     return {
-      status: "NOT_PUBLIC_DRY_RUN_BASED",
+      status: "STALE_OR_DIRTY_PUBLIC_DRY_RUN",
       currentGitHead: currentRevision.gitHead,
       basisGitHead: "",
-      problems: []
+      basisReceiptPath: basis.inputPath || "",
+      problems
     };
   }
   const prior = basis.priorDryRun || {};
+  const basisReceiptPath = basis.priorDryRunReceipt || basis.inputPath || "";
   const problems = [];
+  problems.push(...await validatePublicDryRunReceiptBasis(basisReceiptPath, sourceApprovalRequest, prior));
   if (!prior.gitHead) {
     problems.push("Prior public dry-run gitHead is missing.");
   } else if (!currentRevision.gitHead) {
@@ -282,9 +292,13 @@ function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision) {
   if (prior.profileRetained === true) {
     problems.push("Prior public dry-run retained its browser profile.");
   }
+  if (prior.profileRetained !== false) {
+    problems.push("Prior public dry-run did not prove browser profileRetained is false.");
+  }
   if (prior.profileCleanupOk !== true) {
     problems.push("Prior public dry-run profile cleanup was not proven.");
   }
+  problems.push(...validateApprovedCandidateCommand(sourceApprovalRequest));
   return {
     status: problems.length ? "STALE_OR_DIRTY_PUBLIC_DRY_RUN" : "CURRENT_CLEAN_PUBLIC_DRY_RUN",
     currentGitHead: currentRevision.gitHead,
@@ -293,9 +307,91 @@ function assessSourceApprovalFreshness(sourceApprovalRequest, currentRevision) {
     basisDirtyWorktree: prior.dirtyWorktree === true,
     basisProfileCleanupOk: prior.profileCleanupOk === true,
     basisProfileRetained: prior.profileRetained === true,
-    basisReceiptPath: basis.priorDryRunReceipt || basis.inputPath || "",
+    basisReceiptPath,
     problems
   };
+}
+
+async function validatePublicDryRunReceiptBasis(receiptPath, sourceApprovalRequest, prior) {
+  const problems = [];
+  if (!receiptPath) {
+    return ["Prior public dry-run receipt path is missing."];
+  }
+  if (!existsSync(receiptPath)) {
+    return [`Prior public dry-run receipt does not exist: ${receiptPath}.`];
+  }
+  let receipt;
+  try {
+    receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  } catch (error) {
+    return [`Prior public dry-run receipt is unreadable JSON: ${error.message}`];
+  }
+  if (receipt.schema !== "learning-companion.external-source-validation-browser.v1") {
+    problems.push(`Prior public dry-run receipt schema mismatch: ${receipt.schema || "missing"}.`);
+  }
+  if (receipt.evidenceTier !== "PUBLIC_SOURCE_DRY_RUN" || receipt.publicSourceDryRun !== true || receipt.canClaimExternalKo !== false) {
+    problems.push("Prior public dry-run receipt must be a non-claiming PUBLIC_SOURCE_DRY_RUN artifact.");
+  }
+  const appRevision = receipt.runContext?.appRevision || {};
+  if (appRevision.gitHead !== prior.gitHead) {
+    problems.push(`Prior public dry-run receipt gitHead ${appRevision.gitHead || "TBD"} does not match approval request basis ${prior.gitHead || "TBD"}.`);
+  }
+  if (appRevision.dirtyWorktree !== prior.dirtyWorktree) {
+    problems.push(`Prior public dry-run receipt dirtyWorktree ${formatMaybeBoolean(appRevision.dirtyWorktree)} does not match approval request basis ${formatMaybeBoolean(prior.dirtyWorktree)}.`);
+  }
+  const browser = receipt.runContext?.browser || {};
+  if (browser.profileRetained !== prior.profileRetained) {
+    problems.push(`Prior public dry-run receipt profileRetained ${formatMaybeBoolean(browser.profileRetained)} does not match approval request basis ${formatMaybeBoolean(prior.profileRetained)}.`);
+  }
+  if (browser.profileRetained !== false || prior.profileRetained !== false) {
+    problems.push("Prior public dry-run receipt must prove throwaway profileRetained is false.");
+  }
+  if (browser.profileCleanup?.ok !== prior.profileCleanupOk) {
+    problems.push(`Prior public dry-run receipt profileCleanup.ok ${formatMaybeBoolean(browser.profileCleanup?.ok)} does not match approval request basis ${formatMaybeBoolean(prior.profileCleanupOk)}.`);
+  }
+  const runs = Array.isArray(receipt.runs) ? receipt.runs : [];
+  const readingRun = runs.find((run) => run.source?.type === "reading");
+  const videoRun = runs.find((run) => run.source?.type === "video");
+  if (readingRun?.source?.url !== sourceApprovalRequest.sources?.reading?.url) {
+    problems.push(`Prior public dry-run receipt reading URL ${readingRun?.source?.url || "TBD"} does not match approval request reading URL ${sourceApprovalRequest.sources?.reading?.url || "TBD"}.`);
+  }
+  if (videoRun?.source?.url !== sourceApprovalRequest.sources?.video?.url) {
+    problems.push(`Prior public dry-run receipt video URL ${videoRun?.source?.url || "TBD"} does not match approval request video URL ${sourceApprovalRequest.sources?.video?.url || "TBD"}.`);
+  }
+  if (videoRun?.videoTools?.bookmarkTimestamp !== sourceApprovalRequest.sources?.video?.timestamp) {
+    problems.push(`Prior public dry-run receipt video timestamp ${videoRun?.videoTools?.bookmarkTimestamp || "TBD"} does not match approval request video timestamp ${sourceApprovalRequest.sources?.video?.timestamp || "TBD"}.`);
+  }
+  return problems;
+}
+
+function formatMaybeBoolean(value) {
+  return value === true || value === false ? String(value) : "TBD";
+}
+
+function validateApprovedCandidateCommand(sourceApprovalRequest) {
+  const actual = String(sourceApprovalRequest.nextCommands?.approvedCandidateAfterCurrentTurnApproval || "").trim();
+  const expected = buildApprovedCandidateCommand(sourceApprovalRequest);
+  if (!actual) {
+    return ["Approved candidate command is missing from source approval request."];
+  }
+  if (actual !== expected) {
+    return ["Approved candidate command does not match receipt-validated sources, timestamp, and approval text."];
+  }
+  return [];
+}
+
+function buildApprovedCandidateCommand(sourceApprovalRequest) {
+  return [
+    "npm run external:validate -- --approved-current-turn",
+    "--reading-url",
+    shellQuote(sourceApprovalRequest.sources?.reading?.url || ""),
+    "--video-url",
+    shellQuote(sourceApprovalRequest.sources?.video?.url || ""),
+    "--video-timestamp",
+    shellQuote(sourceApprovalRequest.sources?.video?.timestamp || ""),
+    "--approval-note",
+    shellQuote(sourceApprovalRequest.requestedApprovalText || "")
+  ].join(" ");
 }
 
 function buildFreshSourceCommands(sourceApprovalRequest) {
