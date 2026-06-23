@@ -9,6 +9,8 @@ const RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1
 const REVIEW_SCHEMA = "learning-companion.external-source-privacy-review.v1";
 const CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-review.v1";
 const SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA = "learning-companion.source-approval-request-binding.v1";
+const SOURCE_APPROVAL_CHECK_SCHEMA = "learning-companion.source-approval-check.v1";
+const SOURCE_APPROVAL_CHECK_TIER = "SOURCE_APPROVAL_CHECK_ONLY";
 const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
 const PLACEHOLDER_REVIEW_TEXT = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_REVIEW_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
@@ -145,6 +147,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
 }
 
 function validateCandidateReceipt(receipt) {
+  rejectApprovalCheckOnlyArtifact(receipt, "receipt");
   assert.equal(receipt.schema, RECEIPT_SCHEMA, "receipt schema mismatch");
   assert.equal(receipt.evidenceTier, "APPROVED_SOURCE_CANDIDATE", "receipt must be a real approved-source candidate");
   assert.equal(receipt.selfTest, false, "local fixture self-tests cannot be privacy-reviewed into KO evidence");
@@ -203,6 +206,12 @@ function validateCandidateReceipt(receipt) {
     sourceApprovalRequestBinding,
     files: receipt.runs.flatMap((run) => run.files)
   };
+}
+
+function rejectApprovalCheckOnlyArtifact(artifact, label) {
+  if (artifact?.schema === SOURCE_APPROVAL_CHECK_SCHEMA || artifact?.evidenceTier === SOURCE_APPROVAL_CHECK_TIER) {
+    throw new Error(`${label} approval-check artifacts are pre-check only and cannot be privacy-reviewed into KO evidence`);
+  }
 }
 
 function validateSourceApprovalRequestBinding(binding, { reading, video, runContext }) {
@@ -388,6 +397,21 @@ async function runSelfTest() {
     reviewPath: join(root, "valid-review.json")
   }), /real approved-source candidate/);
   assert.throws(() => validateCandidateReceipt(publicDryRunReceipt), /real approved-source candidate/);
+
+  const approvalCheckOnlyReceipt = {
+    ...fixture.receipt,
+    schema: SOURCE_APPROVAL_CHECK_SCHEMA,
+    evidenceTier: SOURCE_APPROVAL_CHECK_TIER,
+    approvedCurrentTurn: false,
+    canClaimExternalKo: false
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: approvalCheckOnlyReceipt,
+    receiptPath: join(root, "source-approval-check-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /pre-check only and cannot be privacy-reviewed into KO evidence/);
+  assert.throws(() => validateCandidateReceipt(approvalCheckOnlyReceipt), /pre-check only and cannot be privacy-reviewed into KO evidence/);
 
   const missingSourceApprovalRequestBindingReceipt = cloneFixtureReceipt();
   delete missingSourceApprovalRequestBindingReceipt.sourceApprovalRequestBinding;
@@ -884,6 +908,8 @@ async function runSelfTest() {
       "local fixture self-test receipt rejected",
       "public source dry-run receipt rejected",
       "public source dry-run template rejected",
+      "source approval check receipt rejected",
+      "source approval check template rejected",
       "missing source approval request binding rejected",
       "stale source approval request binding rejected",
       "mismatched source approval request reading URL rejected",
