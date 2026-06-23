@@ -1074,15 +1074,18 @@ assert.match(koNextActionSummaryJs, /npm run external:source-intake/);
 assert.match(koNextActionSummaryJs, /npm run external:approval-request/);
 assert.match(koNextActionSummaryJs, /npm run external:validate -- --approved-current-turn/);
 assert.match(koNextActionSummaryJs, /--out \$\{shellQuote\(path\)\}/);
-assert.match(koNextActionSummaryJs, /--markdown-out \$\{shellQuote\(markdownSiblingPath\(path\)\)\}/);
+assert.match(koNextActionSummaryJs, /--markdown-out \$\{shellQuote\(markdownPath\)\}/);
 assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(path\)\}/);
 assert.match(koNextActionSummaryJs, /function formatFinalGateCommands/);
 assert.match(koNextActionSummaryJs, /function buildPlatformReceiptArgs/);
 assert.match(koNextActionSummaryJs, /cliExternalPath/);
+assert.match(koNextActionSummaryJs, /sourceApprovalMarkdownPath/);
+assert.match(koNextActionSummaryJs, /DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH/);
+assert.match(koNextActionSummaryJs, /"source-approval-markdown"/);
 assert.match(koNextActionSummaryJs, /externalEvidencePath/);
 assert.match(koNextActionSummaryJs, /externalEvidencePath \? shellQuote\(externalEvidencePath\) : "<ko-evidence-review\.json>"/);
 assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(sourceApprovalRequestPath\)\}/);
-assert.match(koNextActionSummaryJs, /--source-approval-markdown \$\{shellQuote\(markdownSiblingPath\(sourceApprovalRequestPath\)\)\}/);
+assert.match(koNextActionSummaryJs, /--source-approval-markdown \$\{shellQuote\(sourceApprovalMarkdownPath\)\}/);
 assert.match(koNextActionSummaryJs, /--mac-manual \$\{shellQuote\(macManual\)\}/);
 assert.match(koNextActionSummaryJs, /--windows-static \$\{shellQuote\(windowsStatic\)\}/);
 assert.match(koNextActionSummaryJs, /--harmony-device \$\{shellQuote\(harmonyDevice\)\}/);
@@ -1462,6 +1465,7 @@ try {
   assert.equal(statSync(operatorJsonPath).mode & 0o777, 0o600);
   assert.equal(statSync(operatorMarkdownPath).mode & 0o777, 0o600);
   const customExternalPath = join(operatorSmokeDir, "custom external evidence.json");
+  const customApprovalMarkdownPath = join(operatorSmokeDir, "custom approval note.md");
   const customMacManualPath = join(operatorSmokeDir, "custom mac receipt.json");
   const customWindowsStaticPath = join(operatorSmokeDir, "custom windows receipt.json");
   const customHarmonyDevicePath = join(operatorSmokeDir, "custom harmony receipt.json");
@@ -1473,6 +1477,8 @@ try {
     customExternalPath,
     "--source-approval-request",
     approvalPath,
+    "--source-approval-markdown",
+    customApprovalMarkdownPath,
     "--mac-manual",
     customMacManualPath,
     "--windows-static",
@@ -1501,7 +1507,7 @@ try {
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--external .*custom external evidence\.json/);
   assert.match(koNextConsole, /npm run ko:validate .*--external .*custom external evidence\.json/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-request .*approval\.json/);
-  assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-markdown .*approval\.md/);
+  assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-markdown .*custom approval note\.md/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--mac-manual .*custom mac receipt\.json/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--windows-static .*custom windows receipt\.json/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--harmony-device .*custom harmony receipt\.json/);
@@ -1509,8 +1515,17 @@ try {
   assert.match(koNextConsole, /npm run ko:validate .*--windows-static .*custom windows receipt\.json/);
   assert.match(koNextConsole, /npm run ko:validate .*--harmony-device .*custom harmony receipt\.json/);
   assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--source-approval-request .*approval\.json/);
-  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--source-approval-markdown .*approval\.md/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--source-approval-markdown .*custom approval note\.md/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--external .*custom external evidence\.json/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--mac-manual .*custom mac receipt\.json/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--windows-static .*custom windows receipt\.json/);
+  assert.match(koNextConsole, /Consolidated readiness packet: npm run next:readiness .*--harmony-device .*custom harmony receipt\.json/);
   assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--source-approval-request .*approval\.json/);
+  assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--source-approval-markdown .*custom approval note\.md/);
+  assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--external .*custom external evidence\.json/);
+  assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--mac-manual .*custom mac receipt\.json/);
+  assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--windows-static .*custom windows receipt\.json/);
+  assert.match(koNextConsole, /Single operator packet for all remaining gates: npm run next:operator .*--harmony-device .*custom harmony receipt\.json/);
   assert.match(koNextConsole, /This operator packet still does not grant approval/);
   const staleKoNextConsole = execFileSync(process.execPath, [
     "scripts/ko-next-action-summary.mjs",
