@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
+import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
 
 const root = resolve("apps/companion-web");
 const startedAtMs = Date.now();
@@ -47,6 +48,7 @@ const listenPort = await new Promise((resolvePort) => {
 });
 const debuggingPort = 9600 + Math.floor(Math.random() * 300);
 const appUrl = `http://127.0.0.1:${listenPort}/`;
+const appRevision = readCurrentRevisionSync();
 const chrome = spawn(chromePath, [
   "--headless=new",
   "--disable-gpu",
@@ -566,6 +568,32 @@ try {
     appUrl,
     runRoot,
     chromePath,
+    runContext: {
+      schema: "learning-companion.local-browser-smoke-run-context.v1",
+      app: {
+        url: appUrl,
+        root
+      },
+      appRevision,
+      browser: {
+        chromePath,
+        headless: true,
+        profileMode: "throwaway-profile",
+        profilePath: profile
+      },
+      viewport: {
+        app: {
+          width: 1280,
+          height: 900,
+          deviceScaleFactor: 1,
+          mobile: false
+        }
+      },
+      network: {
+        mode: "LOCAL_APP_ONLY",
+        localAppServer: "127.0.0.1 ephemeral"
+      }
+    },
     result: "PASS",
     elapsedMs: Date.now() - startedAtMs,
     checks: {

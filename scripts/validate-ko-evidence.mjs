@@ -693,10 +693,11 @@ function isPlaceholderEvidenceText(text) {
   return PLACEHOLDER_EVIDENCE_NOTES.has(text) || /^(tbd|todo|placeholder|none|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
 }
 
-function validateBilingualReceipt(receipt) {
+function validateBilingualReceipt(receipt, _path = "", context = {}) {
   assert.equal(receipt.schema, BILINGUAL_SCHEMA, "bilingual receipt schema mismatch");
   assert.equal(receipt.result, "PASS", "bilingual browser smoke must PASS");
   assert.equal(receipt.evidenceType, "CONTROLLED_BROWSER_RUNTIME_SMOKE", "bilingual receipt evidence type mismatch");
+  assertLocalBrowserSmokeRunContext(receipt.runContext, "bilingual browser smoke", context);
   [
     "staticShellChromeZh",
     "staticShellChromeEnAfterSwitch",
@@ -726,6 +727,11 @@ function validateBilingualReceipt(receipt) {
       schema: receipt.schema,
       generatedAt: receipt.generatedAt,
       evidenceType: receipt.evidenceType,
+      runContext: {
+        appRevision: receipt.runContext.appRevision,
+        browser: receipt.runContext.browser,
+        network: receipt.runContext.network
+      },
       checks: receipt.checks
     }
   };
@@ -842,11 +848,12 @@ function validateHarmonyDeviceQaReceipt(receipt, _path = "", context = {}) {
   };
 }
 
-function validateAgentLoopReceipt(receipt) {
+function validateAgentLoopReceipt(receipt, _path = "", context = {}) {
   assert.equal(receipt.schema, AGENT_LOOP_SCHEMA, "agent loop receipt schema mismatch");
   assert.equal(receipt.result, "PASS", "agent study loop must PASS");
   assert.equal(receipt.evidenceType, "CONTROLLED_AGENT_BROWSER_SMOKE", "agent loop evidence type mismatch");
   assert.equal(receipt.provesRealUserDogfood, false, "controlled loop must not claim real user dogfood");
+  assertLocalBrowserSmokeRunContext(receipt.runContext, "agent study loop", context);
   [
     "sidecarCaptureRail",
     "firstCaptureDecision",
@@ -862,9 +869,38 @@ function validateAgentLoopReceipt(receipt) {
       schema: receipt.schema,
       generatedAt: receipt.generatedAt,
       evidenceType: receipt.evidenceType,
+      runContext: {
+        appRevision: receipt.runContext.appRevision,
+        browser: receipt.runContext.browser,
+        network: receipt.runContext.network
+      },
       checks: receipt.checks
     }
   };
+}
+
+function assertLocalBrowserSmokeRunContext(runContext, label, { currentRevision = {} } = {}) {
+  assert.equal(runContext?.schema, "learning-companion.local-browser-smoke-run-context.v1", `${label} runContext schema mismatch`);
+  assertHttpUrl(runContext.app?.url, `${label} runContext.app.url`);
+  assertNonTbd(runContext.app?.root, `${label} runContext.app.root`);
+  const appRevision = runContext.appRevision || {};
+  assert.equal(appRevision.gitAvailable, true, `${label} runContext.appRevision.gitAvailable must be true`);
+  assertGitHead(appRevision.gitHead, `${label} runContext.appRevision.gitHead`);
+  assert.equal(appRevision.dirtyWorktree, false, `${label} must be captured from a clean git worktree`);
+  assert.equal(appRevision.statusLineCount, 0, `${label} runContext clean status must have zero status lines`);
+  assert.equal(typeof appRevision.statusSummary, "string", `${label} runContext statusSummary must be a string`);
+  assert.equal(appRevision.statusTruncated, false, `${label} runContext status must not be truncated`);
+  assert.equal(currentRevision.gitAvailable, true, `${label} KO validation git state is unavailable`);
+  assert.equal(currentRevision.dirtyWorktree, false, `${label} KO validation must run from a clean git worktree`);
+  assert.equal(currentRevision.statusLineCount, 0, `${label} KO validation clean status must have zero status lines`);
+  assertGitHead(currentRevision.gitHead, `${label} current KO validation gitHead`);
+  assert.equal(appRevision.gitHead, currentRevision.gitHead, `${label} gitHead ${appRevision.gitHead} does not match current HEAD ${currentRevision.gitHead}`);
+  assertNonTbd(runContext.browser?.chromePath, `${label} runContext.browser.chromePath`);
+  assert.equal(runContext.browser?.headless, true, `${label} runContext browser must be headless`);
+  assert.equal(runContext.browser?.profileMode, "throwaway-profile", `${label} runContext browser profile mode must be throwaway-profile`);
+  assertNonTbd(runContext.browser?.profilePath, `${label} runContext.browser.profilePath`);
+  assert.equal(runContext.network?.mode, "LOCAL_APP_ONLY", `${label} runContext network mode must be LOCAL_APP_ONLY`);
+  assert.equal(runContext.network?.localAppServer, "127.0.0.1 ephemeral", `${label} runContext local app server must be ephemeral localhost`);
 }
 
 function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false, currentRevision = {} } = {}) {
@@ -1055,6 +1091,50 @@ async function runSelfTest() {
   });
   assert.equal(rejectedReport.canClaimKo, false);
   assert.ok(rejectedReport.blockers.some((item) => item.includes("fixture-only")));
+
+  const bilingualFixture = readJsonSync(fixtures.bilingualPath, "bilingual fixture");
+  const staleBilingualPath = join(root, "stale-bilingual-receipt.json");
+  await writeJson(staleBilingualPath, {
+    ...bilingualFixture,
+    runContext: {
+      ...bilingualFixture.runContext,
+      appRevision: {
+        ...bilingualFixture.runContext.appRevision,
+        gitHead: "ffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  });
+  const staleBilingualReport = await buildKoReport({
+    bilingualPath: staleBilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(staleBilingualReport.canClaimKo, false);
+  assert.ok(staleBilingualReport.blockers.some((item) => item.includes("bilingual browser smoke gitHead ffffffffffffffffffffffffffffffffffffffff does not match current HEAD")));
+
+  const agentLoopFixture = readJsonSync(fixtures.agentLoopPath, "agent loop fixture");
+  const missingAgentRunContextPath = join(root, "missing-agent-run-context-receipt.json");
+  await writeJson(missingAgentRunContextPath, {
+    ...agentLoopFixture,
+    runContext: undefined
+  });
+  const missingAgentRunContextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: missingAgentRunContextPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingAgentRunContextReport.canClaimKo, false);
+  assert.ok(missingAgentRunContextReport.blockers.some((item) => item.includes("agent study loop runContext schema mismatch")));
 
   const missingRunContextExternalPath = join(root, "missing-run-context-external.json");
   await writeJson(missingRunContextExternalPath, {
@@ -1732,6 +1812,8 @@ async function runSelfTest() {
     negativeCases: [
       "missing external evidence rejected",
       "fixture-only external evidence rejected",
+      "local browser smoke stale git revision rejected",
+      "agent study loop missing run context rejected",
       "external run context missing rejected",
       "local or private external source URL rejected",
       "IPv4-mapped IPv6 external source URL rejected",
@@ -1789,11 +1871,37 @@ async function createKoFixtures(root) {
   const reviewPath = join(root, "privacy-review.json");
   await writeJson(receiptPath, { schema: "fixture.receipt" });
   await writeJson(reviewPath, { schema: "fixture.review" });
+  const localBrowserFixtureRunContext = {
+    schema: "learning-companion.local-browser-smoke-run-context.v1",
+    app: {
+      url: "http://127.0.0.1:12345/",
+      root: "/tmp/learning-companion/apps/companion-web"
+    },
+    appRevision: {
+      gitAvailable: true,
+      gitHead: SELFTEST_GIT_HEAD,
+      dirtyWorktree: false,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false
+    },
+    browser: {
+      chromePath: "/usr/bin/chromium",
+      headless: true,
+      profileMode: "throwaway-profile",
+      profilePath: "/tmp/learning-companion/.codex-tmp/local-browser-smoke/profile"
+    },
+    network: {
+      mode: "LOCAL_APP_ONLY",
+      localAppServer: "127.0.0.1 ephemeral"
+    }
+  };
   await writeJson(bilingualPath, {
     schema: BILINGUAL_SCHEMA,
     generatedAt: new Date().toISOString(),
     evidenceType: "CONTROLLED_BROWSER_RUNTIME_SMOKE",
     result: "PASS",
+    runContext: localBrowserFixtureRunContext,
     checks: {
       staticShellChromeZh: true,
       staticShellChromeEnAfterSwitch: true,
@@ -1824,6 +1932,7 @@ async function createKoFixtures(root) {
     evidenceType: "CONTROLLED_AGENT_BROWSER_SMOKE",
     provesRealUserDogfood: false,
     result: "PASS",
+    runContext: localBrowserFixtureRunContext,
     checks: {
       sidecarCaptureRail: true,
       firstCaptureDecision: true,
