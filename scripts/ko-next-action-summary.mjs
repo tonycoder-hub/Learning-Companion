@@ -17,6 +17,7 @@ const DEFAULT_MAC_MANUAL_PATH = ".codex-tmp/mac-manual-qa/real-run-receipt.json"
 const DEFAULT_WINDOWS_STATIC_PATH = ".codex-tmp/windows-static-qa/real-run-receipt.json";
 const DEFAULT_HARMONY_DEVICE_PATH = ".codex-tmp/harmony-device-qa/real-run-receipt.json";
 const sourceApprovalRequestPath = args["source-approval-request"] || DEFAULT_SOURCE_APPROVAL_REQUEST_PATH;
+const cliExternalPath = args.external || "";
 const platformReceiptPaths = {
   macManual: args["mac-manual"] || DEFAULT_MAC_MANUAL_PATH,
   windowsStatic: args["windows-static"] || DEFAULT_WINDOWS_STATIC_PATH,
@@ -67,7 +68,8 @@ console.log(buildSummary(status, statusPath, {
   operatorPath,
   operatorFreshness,
   operatorWarning: operatorState.warning,
-  platformReceiptPaths
+  platformReceiptPaths,
+  cliExternalPath
 }));
 
 async function refreshKoStatus(outPath, parsedArgs) {
@@ -216,7 +218,7 @@ function requireSourceApprovalField(value, fieldName) {
   return text;
 }
 
-function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning, platformReceiptPaths }) {
+function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning, platformReceiptPaths, cliExternalPath }) {
   const requirements = Array.isArray(status.requirements) ? status.requirements : [];
   const platformQaStatus = Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [];
   const pass = requirements.filter((item) => item.status === "PASS");
@@ -252,7 +254,7 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
     ...formatOperatorCriticalPath(operatorPacket, operatorPath, operatorFreshness, operatorWarning),
     "",
     "Final gate after all evidence exists:",
-    ...formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths),
+    ...formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths, cliExternalPath || external?.evidencePath || ""),
     "",
     "Boundary:",
     "- Self-test and public dry-run evidence are useful checks, but they cannot fill approved external reading/video evidence rows.",
@@ -403,7 +405,8 @@ function formatSourceInputCommands(request, sourceApprovalFreshness, path) {
   ];
 }
 
-function formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths) {
+function formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths, externalEvidencePath = "") {
+  const externalArg = externalEvidencePath ? shellQuote(externalEvidencePath) : "<ko-evidence-review.json>";
   const sourceArgs = sourceApprovalRequestPath === DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
     ? ""
     : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --source-approval-markdown ${shellQuote(markdownSiblingPath(sourceApprovalRequestPath))}`;
@@ -413,9 +416,9 @@ function formatFinalGateCommands(sourceApprovalRequestPath, platformReceiptPaths
     : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)}`;
   return [
     "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
-    `- One-command final refresh: npm run next:finalize -- --external <ko-evidence-review.json>${sourceArgs}${platformArgs.finalize}`,
-    `- npm run ko:validate -- --external <ko-evidence-review.json>${platformArgs.validate} --out .codex-tmp/ko-evidence/final.json`,
-    `- Explicit platform override if needed: npm run ko:validate -- --external <ko-evidence-review.json>${platformArgs.explicit} --out .codex-tmp/ko-evidence/final.json`,
+    `- One-command final refresh: npm run next:finalize -- --external ${externalArg}${sourceArgs}${platformArgs.finalize}`,
+    `- npm run ko:validate -- --external ${externalArg}${platformArgs.validate} --out .codex-tmp/ko-evidence/final.json`,
+    `- Explicit platform override if needed: npm run ko:validate -- --external ${externalArg}${platformArgs.explicit} --out .codex-tmp/ko-evidence/final.json`,
     `- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}`,
     `- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${operatorSourceArgs}`
   ];
