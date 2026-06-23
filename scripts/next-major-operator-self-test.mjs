@@ -12,6 +12,13 @@ const execFileAsync = promisify(execFile);
 const scriptPath = fileURLToPath(import.meta.url);
 const repoRoot = dirname(dirname(scriptPath));
 const operatorScript = join(repoRoot, "scripts/next-major-operator-packet.mjs");
+const platformHandoffScript = join(repoRoot, "scripts/platform-qa-handoff.mjs");
+// Deliberately differs from buildPlatformHandoff's synthetic 27/10/10 counts.
+const REAL_HANDOFF_ROW_COUNTS = Object.freeze({
+  nativeMacManualQa: 28,
+  windowsStaticManualQa: 11,
+  harmonyDeviceQa: 9
+});
 const tmp = await mkdtemp(join(tmpdir(), "lc-next-major-operator-"));
 const fixtureRoot = join(tmp, "repo");
 const inputDir = join(tmp, "inputs");
@@ -28,6 +35,7 @@ try {
   await mkdir(outDir, { recursive: true });
 
   await writeFile(join(fixtureRoot, "README.md"), "operator fixture\n");
+  await writePlatformQaTemplates();
   await initFixtureGit("initial operator fixture");
 
   const currentHead = (await git(["rev-parse", "HEAD"])).stdout.trim();
@@ -36,6 +44,35 @@ try {
   await writeJson(receiptPath, buildPublicDryRunReceipt(currentHead));
   await writeJson(platformPath, buildPlatformHandoff(currentHead));
   await writeJson(approvalPath, buildApprovalRequest(currentHead));
+
+  const realPlatformHandoffRun = await runPlatformHandoff("real-platform-handoff");
+  assert.equal(realPlatformHandoffRun.code, 0, realPlatformHandoffRun.stderr);
+  const realPlatformHandoff = await readJson(realPlatformHandoffRun.jsonPath);
+  assert.deepEqual(realPlatformHandoff.platforms.map((platform) => platform.id), [
+    "nativeMacManualQa",
+    "windowsStaticManualQa",
+    "harmonyDeviceQa"
+  ]);
+  const realPlatformOperatorRun = await runOperator("real-platform-operator", {
+    approval: approvalPath,
+    platformHandoff: realPlatformHandoffRun.jsonPath
+  });
+  assert.equal(realPlatformOperatorRun.code, 0, realPlatformOperatorRun.stderr);
+  const realPlatformPacket = await readJson(realPlatformOperatorRun.jsonPath);
+  const realPlatformHandoffMarkdown = await readFile(realPlatformHandoffRun.markdownPath, "utf8");
+  assert.equal(realPlatformPacket.inputs.platformHandoffPath, realPlatformHandoffRun.jsonPath);
+  assert.match(realPlatformHandoffMarkdown, /Platform QA Execution Handoff/);
+  assert.match(realPlatformHandoffMarkdown, /windowsStaticManualQa/);
+  assert.deepEqual(realPlatformPacket.operatorOrder, [
+    "approvedExternalReadingVideo",
+    "nativeMacManualQa",
+    "windowsStaticManualQa",
+    "harmonyDeviceQa",
+    "finalKoGate"
+  ]);
+  assert.equal(getLane(realPlatformPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
+  assert.equal(getLane(realPlatformPacket, "windowsStaticManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.windowsStaticManualQa);
+  assert.equal(getLane(realPlatformPacket, "harmonyDeviceQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.harmonyDeviceQa);
 
   const freshRun = await runOperator("fresh", { approval: approvalPath });
   assert.equal(freshRun.code, 0, freshRun.stderr);
@@ -186,9 +223,28 @@ async function runOperator(label, options = {}) {
     "--readiness",
     readinessPath,
     "--platform-handoff",
-    platformPath,
+    options.platformHandoff || platformPath,
     "--source-approval-request",
     options.approval || approvalPath,
+    "--out",
+    jsonPath,
+    "--markdown-out",
+    markdownPath
+  ], fixtureRoot);
+  return {
+    ...result,
+    jsonPath,
+    markdownPath
+  };
+}
+
+async function runPlatformHandoff(label) {
+  const jsonPath = join(outDir, `${label}.json`);
+  const markdownPath = join(outDir, `${label}.md`);
+  const result = await runNode([
+    platformHandoffScript,
+    "--status",
+    statusPath,
     "--out",
     jsonPath,
     "--markdown-out",
@@ -228,6 +284,14 @@ async function runCommand(command, args, cwd) {
 
 async function writeJson(path, value) {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+async function writePlatformQaTemplates() {
+  const qaRoot = join(fixtureRoot, "dist/morning-demo");
+  await mkdir(qaRoot, { recursive: true });
+  await writeFile(join(qaRoot, "MAC_MANUAL_QA.md"), buildQaMarkdown("Mac", REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa));
+  await writeFile(join(qaRoot, "WINDOWS_STATIC_QA.md"), buildQaMarkdown("Windows", REAL_HANDOFF_ROW_COUNTS.windowsStaticManualQa));
+  await writeFile(join(qaRoot, "HARMONY_DEVICE_QA.md"), buildQaMarkdown("Harmony", REAL_HANDOFF_ROW_COUNTS.harmonyDeviceQa));
 }
 
 async function readJson(path) {
@@ -481,4 +545,17 @@ function buildPublicDryRunReceipt(gitHead) {
       }
     ]
   };
+}
+
+function buildQaMarkdown(label, rows) {
+  const lines = [
+    `# ${label} QA Fixture`,
+    "",
+    "| Area | Steps | Expected | Result | Notes |",
+    "| --- | --- | --- | --- | --- |"
+  ];
+  for (let index = 0; index < rows; index += 1) {
+    lines.push(`| ${label} area ${index + 1} | Do fixture step ${index + 1}. | See expected fixture state. | NT |  |`);
+  }
+  return `${lines.join("\n")}\n`;
 }
