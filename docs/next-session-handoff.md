@@ -2,6 +2,61 @@
 
 Date: 2026-06-01
 
+## 2026-06-23 Next-Major Evidence Addendum
+
+Current mainline: close the next-major evidence loop without widening scope into
+build, package, deployment, Mew-Test, main-site, or remote acceptance unless the
+user explicitly asks for that work.
+
+Current front door:
+
+```bash
+npm run ko:next -- --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --operator .codex-tmp/next-major-operator/current.json
+```
+
+Current evidence shape:
+
+- `bilingualRuntime` is expected to stay proven by
+  `.codex-tmp/bilingual-browser-smoke/receipt.json`.
+- `controlledLearningLoop` is expected to stay proven by
+  `.codex-tmp/agent-study-loop-smoke/receipt.json`.
+- `approvedExternalReadingVideo` is still not satisfied until current-turn
+  approval, approved browser capture, completed human privacy review, and
+  `learning-companion.external-source-ko-evidence-review.v1` all exist.
+- `nativeMacManualQa`, `windowsStaticManualQa`, and `harmonyDeviceQa` are still
+  real platform gates. Pending all-`NT` receipts, local smoke, fixture receipts,
+  static contract checks, scaffold checks, or build success alone must not fill
+  these rows.
+
+Use these non-claiming refresh commands after any commit that changes `HEAD`:
+
+```bash
+npm run external:validate:public-dry-run -- --reading-url 'https://en.wikipedia.org/wiki/Spaced_repetition' --video-url 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' --video-timestamp '00:03' --dry-run-note 'Refresh public source preflight for the current clean HEAD.'
+npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md
+npm run platform:qa-handoff -- --status .codex-tmp/ko-evidence/current-status.json --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md
+npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
+```
+
+The operator packet is `NEXT_MAJOR_OPERATOR_PACKET_ONLY`: it may order the work,
+but it does not grant approval, run source capture, complete privacy review, run
+platform QA, build, deploy, or satisfy KO evidence.
+
+Exact user approval is required before running the approved external-source
+candidate command. The approval text must come from the current
+`source-approval-request.json` or the `ko:next` output and must not be inferred
+from a general "continue" instruction.
+
+Final KO remains:
+
+```bash
+npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json
+npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md
+npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
+```
+
+Do not claim next-major pre-release readiness until `ko:validate` proves every
+required row from current, real, non-fixture evidence.
+
 ## Mainline Goal
 
 Build a Mac-first learning companion for browser-based study. The core loop is:
