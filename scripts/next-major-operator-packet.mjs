@@ -137,7 +137,8 @@ async function buildOperatorPacket(paths) {
       evidenceTier: readiness.evidenceTier || "UNKNOWN",
       readinessStatus: readiness.readinessStatus || "UNKNOWN",
       canClaimNextMajorPreReleaseReady: readiness.canClaimNextMajorPreReleaseReady === true,
-      releaseActionAuthorized: readiness.releaseActionAuthorized === true
+      releaseActionAuthorized: readiness.releaseActionAuthorized === true,
+      koStatusFreshness: readiness.koStatusFreshness?.status || "UNKNOWN"
     },
     currentRevision,
     platformHandoffFreshness,

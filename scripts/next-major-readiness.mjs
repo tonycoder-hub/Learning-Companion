@@ -4,6 +4,8 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
+import { readCurrentRevision } from "./lib/git-revision.mjs";
+import { CURRENT_CLEAN_KO_STATUS, assessKoStatusFreshness } from "./lib/ko-status-freshness.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -76,10 +78,20 @@ async function buildNextMajorReadiness(statusPath) {
   if (status.schema !== KO_STATUS_SCHEMA) {
     throw new Error(`KO status schema mismatch: ${status.schema || "missing"}`);
   }
+  const currentRevision = await readCurrentRevision();
+  const koStatusFreshness = assessKoStatusFreshness(status, currentRevision);
   const requirements = normalizeRequirements(status.requirements);
   assertRequiredRequirements(requirements);
   const platformQaStatus = normalizePlatformStatuses(status.platformQaStatus);
   const blockingRequirements = requirements.filter((item) => item.status !== "PASS");
+  if (koStatusFreshness.status !== CURRENT_CLEAN_KO_STATUS) {
+    blockingRequirements.push({
+      id: "koStatusFreshness",
+      status: "FAIL",
+      evidencePath: statusPath,
+      detail: "KO status must be regenerated from the current clean git HEAD before next-major readiness can be claimed."
+    });
+  }
   const ready = status.canClaimKo === true && blockingRequirements.length === 0;
   return {
     schema: READINESS_SCHEMA,
@@ -90,6 +102,8 @@ async function buildNextMajorReadiness(statusPath) {
     readinessStatus: ready ? "PRE_RELEASE_EVIDENCE_READY" : "NOT_READY_MISSING_EVIDENCE",
     claimBoundary: "Readiness summary only. It does not authorize release, run external-source validation, privacy review, Mac QA, Windows QA, HarmonyOS QA, build, packaging, deployment, or remote acceptance.",
     statusPath,
+    currentRevision,
+    koStatusFreshness,
     sourceKoStatus: {
       schema: status.schema || "UNKNOWN",
       evidenceTier: status.evidenceTier || "UNKNOWN",
@@ -161,7 +175,8 @@ function buildConsoleSummary(readiness, { outPath, markdownPath }) {
     `Status file: ${readiness.statusPath}`,
     `Readiness status: ${readiness.readinessStatus}`,
     `Can claim next-major pre-release ready: ${readiness.canClaimNextMajorPreReleaseReady ? "YES" : "NO"}`,
-    `KO claimable: ${readiness.sourceKoStatus.canClaimKo ? "YES" : "NO"}`
+    `KO claimable: ${readiness.sourceKoStatus.canClaimKo ? "YES" : "NO"}`,
+    `KO status freshness: ${readiness.koStatusFreshness.status}`
   ];
   if (outPath) lines.push(`Readiness JSON: ${outPath}`);
   if (markdownPath) lines.push(`Readiness Markdown: ${markdownPath}`);
@@ -191,12 +206,22 @@ function buildNextMajorReadinessMarkdown(readiness) {
     `KO claimable: ${readiness.sourceKoStatus.canClaimKo ? "true" : "false"}`,
     `Evidence tier: ${markdownInline(readiness.evidenceTier)}`,
     `Status file: ${markdownInline(readiness.statusPath)}`,
+    `Current git HEAD: ${markdownInline(readiness.currentRevision.gitHead || "TBD")}`,
+    `Current worktree dirty: ${markdownInline(String(readiness.currentRevision.dirtyWorktree))}`,
+    `KO status freshness: ${markdownInline(readiness.koStatusFreshness.status)}`,
     "",
     "## Requirements",
     ""
   ];
   for (const requirement of readiness.requirements) {
     lines.push(`- ${markdownInline(requirement.id)}: ${markdownInline(requirement.status)} - ${markdownInline(requirement.detail || "TBD")} ${requirement.evidencePath ? `(evidence: ${markdownInline(requirement.evidencePath)})` : ""}`.trim());
+  }
+  const freshnessProblems = readiness.koStatusFreshness.problems || [];
+  if (freshnessProblems.length) {
+    lines.push("", "## KO Status Freshness Problems", "");
+    for (const problem of freshnessProblems) {
+      lines.push(`- ${markdownInline(problem)}`);
+    }
   }
   lines.push("", "## Platform QA Status", "");
   if (readiness.platformQaStatus.length) {
