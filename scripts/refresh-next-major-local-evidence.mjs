@@ -123,6 +123,70 @@ async function buildLocalEvidencePlan(options) {
         argv: ["scripts/agent-study-loop-check.mjs", "--out", ".codex-tmp/agent-study-loop-smoke/receipt.json"]
       },
       {
+        id: "refresh-static-return-contract",
+        label: "static return contract receipt",
+        argv: ["scripts/static-return-loop-check.mjs"]
+      },
+      {
+        id: "refresh-return-import-dry-run",
+        label: "return file import dry-run receipt",
+        argv: [
+          "scripts/return-file-import-dry-run.mjs",
+          "--workspace",
+          "dist/morning-demo/sample-workspace.json",
+          "--return-file",
+          "dist/morning-demo/patches/sample-mobile-inbox-patch.json",
+          "--return-file",
+          "dist/morning-demo/patches/sample-review-progress-patch.json",
+          "--out",
+          ".codex-tmp/return-import-dry-run/receipt.json"
+        ]
+      },
+      {
+        id: "refresh-dogfood-runbook-pending",
+        label: "dogfood runbook pending receipt",
+        argv: [
+          "scripts/validate-dogfood-runbook.mjs",
+          "--runbook",
+          "dist/morning-demo/DOGFOOD_RUNBOOK.md",
+          "--out",
+          ".codex-tmp/dogfood-runbook/receipt.json"
+        ]
+      },
+      {
+        id: "refresh-mac-manual-pending",
+        label: "Mac manual QA pending receipt",
+        argv: [
+          "scripts/validate-mac-manual-qa.mjs",
+          "--qa",
+          "dist/morning-demo/MAC_MANUAL_QA.md",
+          "--out",
+          ".codex-tmp/mac-manual-qa/receipt.json"
+        ]
+      },
+      {
+        id: "refresh-windows-static-pending",
+        label: "Windows static QA pending receipt",
+        argv: [
+          "scripts/validate-windows-static-qa.mjs",
+          "--qa",
+          "dist/morning-demo/WINDOWS_STATIC_QA.md",
+          "--out",
+          ".codex-tmp/windows-static-qa/receipt.json"
+        ]
+      },
+      {
+        id: "refresh-harmony-device-pending",
+        label: "HarmonyOS device QA pending receipt",
+        argv: [
+          "scripts/validate-harmony-device-qa.mjs",
+          "--qa",
+          "dist/morning-demo/HARMONY_DEVICE_QA.md",
+          "--out",
+          ".codex-tmp/harmony-device-qa/receipt.json"
+        ]
+      },
+      {
         id: "refresh-public-source-dry-run",
         label: "public source dry-run",
         argv: [
@@ -390,6 +454,12 @@ function runSelfTest() {
     commands: [
       { id: "refresh-bilingual-runtime", argv: ["scripts/smoke-bilingual-runtime-browser.mjs"] },
       { id: "refresh-controlled-loop", argv: ["scripts/agent-study-loop-check.mjs", "--out", ".codex-tmp/agent-study-loop-smoke/receipt.json"] },
+      { id: "refresh-static-return-contract", argv: ["scripts/static-return-loop-check.mjs"] },
+      { id: "refresh-return-import-dry-run", argv: ["scripts/return-file-import-dry-run.mjs", "--workspace", "dist/morning-demo/sample-workspace.json", "--return-file", "dist/morning-demo/patches/sample-mobile-inbox-patch.json", "--return-file", "dist/morning-demo/patches/sample-review-progress-patch.json", "--out", ".codex-tmp/return-import-dry-run/receipt.json"] },
+      { id: "refresh-dogfood-runbook-pending", argv: ["scripts/validate-dogfood-runbook.mjs", "--runbook", "dist/morning-demo/DOGFOOD_RUNBOOK.md", "--out", ".codex-tmp/dogfood-runbook/receipt.json"] },
+      { id: "refresh-mac-manual-pending", argv: ["scripts/validate-mac-manual-qa.mjs", "--qa", "dist/morning-demo/MAC_MANUAL_QA.md", "--out", ".codex-tmp/mac-manual-qa/receipt.json"] },
+      { id: "refresh-windows-static-pending", argv: ["scripts/validate-windows-static-qa.mjs", "--qa", "dist/morning-demo/WINDOWS_STATIC_QA.md", "--out", ".codex-tmp/windows-static-qa/receipt.json"] },
+      { id: "refresh-harmony-device-pending", argv: ["scripts/validate-harmony-device-qa.mjs", "--qa", "dist/morning-demo/HARMONY_DEVICE_QA.md", "--out", ".codex-tmp/harmony-device-qa/receipt.json"] },
       { id: "refresh-public-source-dry-run", argv: ["scripts/external-source-validation-browser.mjs", "--public-source-dry-run"], capturePublicDryRunReceipt: true },
       { id: "refresh-ko-status", argv: ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json", "--out", DEFAULTS.koStatus] },
       { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
@@ -409,6 +479,12 @@ function runSelfTest() {
   assert.deepEqual(plan.commands.map((command) => command.id), [
     "refresh-bilingual-runtime",
     "refresh-controlled-loop",
+    "refresh-static-return-contract",
+    "refresh-return-import-dry-run",
+    "refresh-dogfood-runbook-pending",
+    "refresh-mac-manual-pending",
+    "refresh-windows-static-pending",
+    "refresh-harmony-device-pending",
     "refresh-public-source-dry-run",
     "refresh-ko-status",
     "refresh-readiness",
@@ -420,6 +496,14 @@ function runSelfTest() {
   const dryRun = buildDryRunSummary(plan);
   assert.match(dryRun, /next_major_local_evidence_refresh_dry_run/);
   assert.match(dryRun, /refresh-bilingual-runtime/);
+  assert.match(dryRun, /refresh-static-return-contract: node scripts\/static-return-loop-check\.mjs/);
+  assert.match(dryRun, /refresh-return-import-dry-run: node scripts\/return-file-import-dry-run\.mjs .*--workspace dist\/morning-demo\/sample-workspace\.json/);
+  assert.match(dryRun, /refresh-return-import-dry-run: node scripts\/return-file-import-dry-run\.mjs .*--return-file dist\/morning-demo\/patches\/sample-mobile-inbox-patch\.json/);
+  assert.match(dryRun, /refresh-return-import-dry-run: node scripts\/return-file-import-dry-run\.mjs .*--return-file dist\/morning-demo\/patches\/sample-review-progress-patch\.json/);
+  assert.match(dryRun, /refresh-dogfood-runbook-pending: node scripts\/validate-dogfood-runbook\.mjs .*--runbook dist\/morning-demo\/DOGFOOD_RUNBOOK\.md/);
+  assert.match(dryRun, /refresh-mac-manual-pending: node scripts\/validate-mac-manual-qa\.mjs .*--qa dist\/morning-demo\/MAC_MANUAL_QA\.md/);
+  assert.match(dryRun, /refresh-windows-static-pending: node scripts\/validate-windows-static-qa\.mjs .*--qa dist\/morning-demo\/WINDOWS_STATIC_QA\.md/);
+  assert.match(dryRun, /refresh-harmony-device-pending: node scripts\/validate-harmony-device-qa\.mjs .*--qa dist\/morning-demo\/HARMONY_DEVICE_QA\.md/);
   assert.match(dryRun, /refresh-ko-status/);
   assert.match(dryRun, /refresh-ko-status: node scripts\/validate-ko-evidence\.mjs .*--mac-manual 'custom mac\.json'/);
   assert.match(dryRun, /refresh-readiness/);
@@ -457,10 +541,10 @@ Usage:
   npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
   npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json
 
-This command runs local bilingual/browser and controlled-loop receipts first,
-then refreshes the public-source dry-run, KO status, readiness packet,
-platform QA handoff, approval request, operator packet, and KO next summary
-JSON/text output.
+This command runs local bilingual/browser, controlled-loop, static-return,
+return-import, dogfood, and pending platform QA receipts first. It then
+refreshes the public-source dry-run, KO status, readiness packet, platform QA
+handoff, approval request, operator packet, and KO next summary JSON/text output.
 It does not grant source approval, run approved-source capture, perform
 privacy review, run real platform QA, build, deploy, or remote-accept.
 It intentionally rejects --external; bind approved external KO evidence with
