@@ -113,8 +113,17 @@ if (args["markdown-out"] === true) {
 if (args.status === true) {
   throw new Error("--status requires a KO status JSON path.");
 }
+if (args["mac-manual"] === true) {
+  throw new Error("--mac-manual requires a Mac manual QA receipt path.");
+}
+if (args["windows-static"] === true) {
+  throw new Error("--windows-static requires a Windows static/manual QA receipt path.");
+}
+if (args["harmony-device"] === true) {
+  throw new Error("--harmony-device requires a HarmonyOS device QA receipt path.");
+}
 
-const handoff = await buildPlatformQaHandoff(args.status || STATUS_PATH);
+const handoff = await buildPlatformQaHandoff(args.status || STATUS_PATH, platformConfigsFromArgs(args));
 if (args.out) {
   const outPath = resolve(String(args.out));
   await writePrivateFile(outPath, `${JSON.stringify(handoff, null, 2)}\n`);
@@ -138,7 +147,23 @@ async function writePrivateFile(path, content) {
   await chmod(path, 0o600);
 }
 
-async function buildPlatformQaHandoff(statusPath) {
+function platformConfigsFromArgs(parsedArgs = {}) {
+  const receiptPathById = new Map([
+    ["nativeMacManualQa", parsedArgs["mac-manual"]],
+    ["windowsStaticManualQa", parsedArgs["windows-static"]],
+    ["harmonyDeviceQa", parsedArgs["harmony-device"]]
+  ]);
+  return PLATFORMS.map((platform) => {
+    const receiptPath = receiptPathById.get(platform.id);
+    if (!receiptPath) return platform;
+    return {
+      ...platform,
+      receiptPath: String(receiptPath)
+    };
+  });
+}
+
+async function buildPlatformQaHandoff(statusPath, platformConfigs = PLATFORMS) {
   if (!existsSync(statusPath)) {
     throw new Error(`Missing KO status file: ${statusPath}. Run: node scripts/validate-ko-evidence.mjs --allow-missing --out ${statusPath}`);
   }
@@ -147,9 +172,11 @@ async function buildPlatformQaHandoff(statusPath) {
   const koStatusFreshness = assessKoStatusFreshness(status, currentRevision);
   const platformStatusById = new Map((Array.isArray(status.platformQaStatus) ? status.platformQaStatus : []).map((item) => [item.id, item]));
   const platforms = [];
-  for (const config of PLATFORMS) {
+  for (const config of platformConfigs) {
     platforms.push(await summarizePlatform(config, platformStatusById.get(config.id), currentRevision));
   }
+  const platformReceiptArgs = buildPlatformReceiptCommandArgs(platformConfigs);
+  const customPlatformReceiptArgs = buildCustomPlatformReceiptCommandArgs(platformConfigs);
   return {
     schema: PLATFORM_QA_HANDOFF_SCHEMA,
     generatedAt: new Date().toISOString(),
@@ -189,9 +216,19 @@ async function buildPlatformQaHandoff(statusPath) {
     platforms,
     nextCommands: {
       refreshKoStatus: `node scripts/validate-ko-evidence.mjs --allow-missing --out ${STATUS_PATH}`,
-      finalizeNextMajor: "npm run next:finalize -- --external <ko-evidence-review.json>",
+      finalizeNextMajor: [
+        "npm run next:finalize -- --external",
+        "<ko-evidence-review.json>",
+        ...customPlatformReceiptArgs
+      ].join(" "),
       finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-      finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
+      finalKoGateWithExplicitPlatformReceipts: [
+        "npm run ko:validate -- --external",
+        "<ko-evidence-review.json>",
+        ...platformReceiptArgs,
+        "--out",
+        ".codex-tmp/ko-evidence/final.json"
+      ].join(" ")
     },
     blockedOrNotExecuted: [
       "No Mac GUI manual QA was run by this handoff.",
@@ -200,6 +237,36 @@ async function buildPlatformQaHandoff(statusPath) {
       "No platform screenshots, device logs, or human reviewer notes are created by this handoff.",
       "Approved external reading/video evidence and privacy review are still separate KO requirements."
     ]
+  };
+}
+
+function buildCustomPlatformReceiptCommandArgs(platformConfigs = PLATFORMS) {
+  const receiptPaths = platformReceiptPathsFromConfigs(platformConfigs);
+  const defaultReceiptPaths = platformReceiptPathsFromConfigs(PLATFORMS);
+  const hasCustomReceiptPath = receiptPaths.macManual !== defaultReceiptPaths.macManual
+    || receiptPaths.windowsStatic !== defaultReceiptPaths.windowsStatic
+    || receiptPaths.harmonyDevice !== defaultReceiptPaths.harmonyDevice;
+  return hasCustomReceiptPath ? buildPlatformReceiptCommandArgs(platformConfigs) : [];
+}
+
+function buildPlatformReceiptCommandArgs(platformConfigs = PLATFORMS) {
+  const receiptPaths = platformReceiptPathsFromConfigs(platformConfigs);
+  return [
+    "--mac-manual",
+    shellQuote(receiptPaths.macManual),
+    "--windows-static",
+    shellQuote(receiptPaths.windowsStatic),
+    "--harmony-device",
+    shellQuote(receiptPaths.harmonyDevice)
+  ];
+}
+
+function platformReceiptPathsFromConfigs(platformConfigs = PLATFORMS) {
+  const byId = new Map(platformConfigs.map((platform) => [platform.id, platform.receiptPath]));
+  return {
+    macManual: byId.get("nativeMacManualQa") || PLATFORMS.find((platform) => platform.id === "nativeMacManualQa").receiptPath,
+    windowsStatic: byId.get("windowsStaticManualQa") || PLATFORMS.find((platform) => platform.id === "windowsStaticManualQa").receiptPath,
+    harmonyDevice: byId.get("harmonyDeviceQa") || PLATFORMS.find((platform) => platform.id === "harmonyDeviceQa").receiptPath
   };
 }
 
@@ -511,6 +578,12 @@ function markdownInline(value) {
     .replace(/>/g, "&gt;");
 }
 
+function shellQuote(value) {
+  const text = String(value);
+  if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
+  return `'${text.replace(/'/g, "'\\''")}'`;
+}
+
 function buildHelp() {
   return `Build a non-claiming handoff for the remaining Learning Companion platform QA gates.
 
@@ -518,6 +591,9 @@ Usage:
   npm run platform:qa-handoff
   npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json
   npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md
+
+Optional platform receipt path binding:
+  --mac-manual <receipt.json> --windows-static <receipt.json> --harmony-device <receipt.json>
 
 The handoff reads ${STATUS_PATH} plus the generated Mac, Windows, and HarmonyOS
 QA templates. It does not run any platform QA and cannot satisfy KO evidence.`;

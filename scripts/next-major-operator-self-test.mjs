@@ -275,6 +275,31 @@ try {
   assert.match(getLane(stalePlatformPacket, "windowsStaticManualQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
   assert.match(getLane(stalePlatformPacket, "harmonyDeviceQa").nextCommands.refreshPlatformHandoff, /platform:qa-handoff/);
 
+  const staleCustomPlatformRun = await runOperator("stale-platform-custom-bindings", {
+    approval: approvalPath,
+    extraArgs: [
+      "--external",
+      "custom external.json",
+      "--mac-manual",
+      "custom mac.json",
+      "--windows-static",
+      "custom windows.json",
+      "--harmony-device",
+      "custom harmony.json"
+    ]
+  });
+  assert.equal(staleCustomPlatformRun.code, 0, staleCustomPlatformRun.stderr);
+  const staleCustomPlatformPacket = await readJson(staleCustomPlatformRun.jsonPath);
+  const staleCustomMacLane = getLane(staleCustomPlatformPacket, "nativeMacManualQa");
+  assert.match(staleCustomMacLane.nextCommands.refreshPlatformHandoff, /--mac-manual 'custom mac\.json'/);
+  assert.match(staleCustomMacLane.nextCommands.refreshPlatformHandoff, /--windows-static 'custom windows\.json'/);
+  assert.match(staleCustomMacLane.nextCommands.refreshPlatformHandoff, /--harmony-device 'custom harmony\.json'/);
+  assert.match(staleCustomMacLane.nextCommands.refreshOperatorPacket, /--external 'custom external\.json'/);
+  assert.match(staleCustomMacLane.nextCommands.refreshOperatorPacket, /--mac-manual 'custom mac\.json'/);
+  assert.match(staleCustomMacLane.nextCommands.refreshOperatorPacket, /--windows-static 'custom windows\.json'/);
+  assert.match(staleCustomMacLane.nextCommands.refreshOperatorPacket, /--harmony-device 'custom harmony\.json'/);
+  assert.match(staleCustomPlatformPacket.nextActionSequence.find((step) => step.id === "refresh-platform-qa-handoff").command, /--mac-manual 'custom mac\.json'/);
+
   await writeJson(platformPath, buildPlatformHandoff(currentHead));
   await writeJson(readinessPath, buildReadiness(false, null, "0000000000000000000000000000000000000000"));
   const staleReadinessRun = await runOperator("stale-readiness", { approval: approvalPath });
@@ -350,9 +375,13 @@ try {
   });
   assert.equal(refreshBoundRun.code, 0, refreshBoundRun.stderr);
   const refreshBoundReadiness = await readJson(readinessPath);
+  const refreshBoundPlatform = await readJson(platformPath);
   assert.match(refreshBoundReadiness.nextCommands.refreshReadiness, /custom external\.json/);
   assert.match(refreshBoundReadiness.nextCommands.refreshReadiness, /custom mac\.json/);
   assert.doesNotMatch(refreshBoundReadiness.nextCommands.refreshReadiness, /''\\''/);
+  assert.equal(refreshBoundPlatform.platforms.find((platform) => platform.id === "nativeMacManualQa").receiptPath, "custom mac.json");
+  assert.equal(refreshBoundPlatform.platforms.find((platform) => platform.id === "windowsStaticManualQa").receiptPath, "custom windows.json");
+  assert.equal(refreshBoundPlatform.platforms.find((platform) => platform.id === "harmonyDeviceQa").receiptPath, "custom harmony.json");
 
   const extensionlessReadinessPath = join(outDir, "extensionless-readiness");
   const extensionlessPlatformPath = join(outDir, "extensionless-platform");
