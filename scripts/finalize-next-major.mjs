@@ -112,7 +112,15 @@ function buildFinalizePlan(options) {
           "--source-approval-request",
           options.sourceApprovalRequest,
           "--source-approval-markdown",
-          options.sourceApprovalMarkdown
+          options.sourceApprovalMarkdown,
+          "--external",
+          options.external,
+          "--mac-manual",
+          options.macManual,
+          "--windows-static",
+          options.windowsStatic,
+          "--harmony-device",
+          options.harmonyDevice
         ],
         output: options.readinessOut
       },
@@ -297,6 +305,10 @@ function runSelfTest() {
   assert.equal(readiness.argv.includes(".codex-tmp/selftest/final.json"), true);
   assert.equal(readiness.argv.includes(".codex-tmp/selftest/source-approval-request.json"), true);
   assert.equal(readiness.argv.includes(".codex-tmp/selftest/source-approval-request.md"), true);
+  assert.equal(readiness.argv.includes("fixtures/external-ko.json"), true);
+  assert.equal(readiness.argv.includes(".codex-tmp/selftest/mac-real.json"), true);
+  assert.equal(readiness.argv.includes(".codex-tmp/selftest/windows-real.json"), true);
+  assert.equal(readiness.argv.includes(".codex-tmp/selftest/harmony-real.json"), true);
   assert.equal(platform.argv.includes(".codex-tmp/selftest/final.json"), true);
   assert.equal(operator.argv.includes(".codex-tmp/selftest/source-approval-request.json"), true);
   assert.equal(operator.argv.includes(".codex-tmp/selftest/operator.md"), true);
@@ -307,6 +319,10 @@ function runSelfTest() {
   assert.match(dryRun, /node scripts\/next-major-readiness\.mjs/);
   assert.match(dryRun, /--source-approval-request \.codex-tmp\/selftest\/source-approval-request\.json/);
   assert.match(dryRun, /--source-approval-markdown \.codex-tmp\/selftest\/source-approval-request\.md/);
+  assert.match(dryRun, /--external fixtures\/external-ko\.json/);
+  assert.match(dryRun, /--mac-manual \.codex-tmp\/selftest\/mac-real\.json/);
+  assert.match(dryRun, /--windows-static \.codex-tmp\/selftest\/windows-real\.json/);
+  assert.match(dryRun, /--harmony-device \.codex-tmp\/selftest\/harmony-real\.json/);
   assert.match(dryRun, /node scripts\/platform-qa-handoff\.mjs/);
   assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs/);
   assert.match(dryRun, /Dry-run boundary: no file readability/);

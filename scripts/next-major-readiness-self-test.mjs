@@ -90,21 +90,51 @@ try {
 
   const customSourceApprovalPath = join(outDir, "custom source approval request.json");
   const customSourceApprovalMarkdownPath = join(outDir, "custom source approval request.md");
+  const customExternalPath = join(outDir, "custom external evidence.json");
+  const customMacManualPath = join(outDir, "custom mac receipt.json");
+  const customWindowsStaticPath = join(outDir, "custom windows receipt.json");
+  const customHarmonyDevicePath = join(outDir, "custom harmony receipt.json");
   const customPathRun = await runReadiness("custom-source-approval", blockedStatusPath, [
     "--source-approval-request",
     customSourceApprovalPath,
     "--source-approval-markdown",
-    customSourceApprovalMarkdownPath
+    customSourceApprovalMarkdownPath,
+    "--external",
+    customExternalPath,
+    "--mac-manual",
+    customMacManualPath,
+    "--windows-static",
+    customWindowsStaticPath,
+    "--harmony-device",
+    customHarmonyDevicePath
   ]);
   assert.equal(customPathRun.code, 0, customPathRun.stderr);
   const customPathReadiness = await readJson(customPathRun.jsonPath);
   assert.match(customPathReadiness.nextCommands.refreshReadiness, /--source-approval-request '.*custom source approval request\.json'/);
   assert.match(customPathReadiness.nextCommands.refreshReadiness, /--source-approval-markdown '.*custom source approval request\.md'/);
+  assert.match(customPathReadiness.nextCommands.refreshReadiness, /--external '.*custom external evidence\.json'/);
+  assert.match(customPathReadiness.nextCommands.refreshReadiness, /--mac-manual '.*custom mac receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.refreshReadiness, /--windows-static '.*custom windows receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.refreshReadiness, /--harmony-device '.*custom harmony receipt\.json'/);
   assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--out '.*custom source approval request\.json'/);
   assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--markdown-out '.*custom source approval request\.md'/);
   assert.match(customPathReadiness.nextCommands.approvedSourceCandidate, /--source-approval-request '.*custom source approval request\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--external '.*custom external evidence\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--source-approval-request '.*custom source approval request\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--source-approval-markdown '.*custom source approval request\.md'/);
+  assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--mac-manual '.*custom mac receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--windows-static '.*custom windows receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--harmony-device '.*custom harmony receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalKoGate, /--external '.*custom external evidence\.json'/);
+  assert.doesNotMatch(customPathReadiness.nextCommands.finalKoGate, /--mac-manual/);
+  assert.match(customPathReadiness.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--external '.*custom external evidence\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--mac-manual '.*custom mac receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--windows-static '.*custom windows receipt\.json'/);
+  assert.match(customPathReadiness.nextCommands.finalKoGateWithExplicitPlatformReceipts, /--harmony-device '.*custom harmony receipt\.json'/);
   const customPathMarkdown = await readFile(customPathRun.markdownPath, "utf8");
   assert.match(customPathMarkdown, /custom source approval request\.json/);
+  assert.match(customPathMarkdown, /custom external evidence\.json/);
+  assert.match(customPathMarkdown, /custom mac receipt\.json/);
 
   const cannotClaimWithPassingRequirementsStatusPath = join(inputDir, "cannot-claim-with-passing-requirements.json");
   await writeJson(cannotClaimWithPassingRequirementsStatusPath, buildStatus({
@@ -225,6 +255,22 @@ try {
   const missingSourceApprovalMarkdownPathRun = await runNode([readinessScript, "--source-approval-markdown"]);
   assert.notEqual(missingSourceApprovalMarkdownPathRun.code, 0);
   assert.match(`${missingSourceApprovalMarkdownPathRun.stdout}\n${missingSourceApprovalMarkdownPathRun.stderr}`, /--source-approval-markdown requires a file path/);
+
+  const missingExternalPathRun = await runNode([readinessScript, "--external"]);
+  assert.notEqual(missingExternalPathRun.code, 0);
+  assert.match(`${missingExternalPathRun.stdout}\n${missingExternalPathRun.stderr}`, /--external requires a file path/);
+
+  const missingMacManualPathRun = await runNode([readinessScript, "--mac-manual"]);
+  assert.notEqual(missingMacManualPathRun.code, 0);
+  assert.match(`${missingMacManualPathRun.stdout}\n${missingMacManualPathRun.stderr}`, /--mac-manual requires a file path/);
+
+  const missingWindowsStaticPathRun = await runNode([readinessScript, "--windows-static"]);
+  assert.notEqual(missingWindowsStaticPathRun.code, 0);
+  assert.match(`${missingWindowsStaticPathRun.stdout}\n${missingWindowsStaticPathRun.stderr}`, /--windows-static requires a file path/);
+
+  const missingHarmonyDevicePathRun = await runNode([readinessScript, "--harmony-device"]);
+  assert.notEqual(missingHarmonyDevicePathRun.code, 0);
+  assert.match(`${missingHarmonyDevicePathRun.stdout}\n${missingHarmonyDevicePathRun.stderr}`, /--harmony-device requires a file path/);
 
   console.log("next_major_readiness_selftest_ok");
 } finally {

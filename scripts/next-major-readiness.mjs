@@ -13,6 +13,9 @@ const READINESS_SCHEMA = "learning-companion.next-major-readiness.v1";
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
 const SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
 const SOURCE_APPROVAL_MARKDOWN_PATH = ".codex-tmp/external-source-validation/source-approval-request.md";
+const DEFAULT_MAC_MANUAL_PATH = ".codex-tmp/mac-manual-qa/real-run-receipt.json";
+const DEFAULT_WINDOWS_STATIC_PATH = ".codex-tmp/windows-static-qa/real-run-receipt.json";
+const DEFAULT_HARMONY_DEVICE_PATH = ".codex-tmp/harmony-device-qa/real-run-receipt.json";
 const KO_STATUS_SCHEMA = "learning-companion.ko-evidence-review.v1";
 const REQUIRED_REQUIREMENT_IDS = [
   "bilingualRuntime",
@@ -36,19 +39,37 @@ if (args.help) {
   console.log(buildHelp());
   process.exit(0);
 }
-for (const key of ["status", "out", "markdown-out", "source-approval-request", "source-approval-markdown"]) {
+for (const key of [
+  "status",
+  "out",
+  "markdown-out",
+  "source-approval-request",
+  "source-approval-markdown",
+  "external",
+  "mac-manual",
+  "windows-static",
+  "harmony-device"
+]) {
   if (args[key] === true) throw new Error(`--${key} requires a file path.`);
 }
 
 const statusPath = String(args.status || STATUS_PATH);
 const sourceApprovalRequestPath = String(args["source-approval-request"] || SOURCE_APPROVAL_REQUEST_PATH);
 const sourceApprovalMarkdownPath = String(args["source-approval-markdown"] || SOURCE_APPROVAL_MARKDOWN_PATH);
+const externalEvidencePath = args.external ? String(args.external) : "";
+const platformReceiptPaths = {
+  macManual: String(args["mac-manual"] || DEFAULT_MAC_MANUAL_PATH),
+  windowsStatic: String(args["windows-static"] || DEFAULT_WINDOWS_STATIC_PATH),
+  harmonyDevice: String(args["harmony-device"] || DEFAULT_HARMONY_DEVICE_PATH)
+};
 if (args.refresh) {
   await refreshKoStatus(statusPath);
 }
 const readiness = await buildNextMajorReadiness(statusPath, {
   sourceApprovalRequestPath,
-  sourceApprovalMarkdownPath
+  sourceApprovalMarkdownPath,
+  externalEvidencePath,
+  platformReceiptPaths
 });
 if (args.out) {
   await writePrivateFile(resolve(String(args.out)), `${JSON.stringify(readiness, null, 2)}\n`);
@@ -77,7 +98,12 @@ async function refreshKoStatus(statusPath) {
   }
 }
 
-async function buildNextMajorReadiness(statusPath, { sourceApprovalRequestPath, sourceApprovalMarkdownPath }) {
+async function buildNextMajorReadiness(statusPath, {
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  externalEvidencePath,
+  platformReceiptPaths
+}) {
   if (!existsSync(statusPath)) {
     throw new Error(`Missing KO status file: ${statusPath}. Run: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json`);
   }
@@ -120,15 +146,30 @@ async function buildNextMajorReadiness(statusPath, { sourceApprovalRequestPath, 
     blockingRequirements,
     platformQaStatus,
     nextCommands: {
-      refreshReadiness: buildRefreshReadinessCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }),
+      refreshReadiness: buildRefreshReadinessCommand({
+        sourceApprovalRequestPath,
+        sourceApprovalMarkdownPath,
+        externalEvidencePath,
+        platformReceiptPaths
+      }),
       sourceApprovalRequest: buildSourceApprovalRequestCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }),
       approvedSourceCandidate: buildApprovedSourceCandidateCommand(sourceApprovalRequestPath),
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
       platformHandoff: "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
-      finalizeNextMajor: "npm run next:finalize -- --external <ko-evidence-review.json>",
-      finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-      finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
+      finalizeNextMajor: buildFinalizeNextMajorCommand({
+        externalEvidencePath,
+        sourceApprovalRequestPath,
+        sourceApprovalMarkdownPath,
+        platformReceiptPaths
+      }),
+      finalKoGate: buildFinalKoGateCommand({
+        externalEvidencePath
+      }),
+      finalKoGateWithExplicitPlatformReceipts: buildFinalKoGateCommand({
+        externalEvidencePath,
+        platformReceiptPaths
+      })
     },
     blockedOrNotExecuted: READINESS_PACKET_NOT_EXECUTED
   };
@@ -177,7 +218,12 @@ function normalizePlatformStatuses(statuses) {
   }));
 }
 
-function buildRefreshReadinessCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }) {
+function buildRefreshReadinessCommand({
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  externalEvidencePath,
+  platformReceiptPaths
+}) {
   const parts = [
     "npm run next:readiness -- --refresh",
     "--out",
@@ -191,6 +237,11 @@ function buildRefreshReadinessCommand({ sourceApprovalRequestPath, sourceApprova
   if (sourceApprovalMarkdownPath !== SOURCE_APPROVAL_MARKDOWN_PATH) {
     parts.push("--source-approval-markdown", shellQuote(sourceApprovalMarkdownPath));
   }
+  if (externalEvidencePath) {
+    parts.push("--external", shellQuote(externalEvidencePath));
+  }
+  const platformArgs = formatPlatformReceiptArgs(platformReceiptPaths, { includeDefaults: false });
+  if (platformArgs) parts.push(platformArgs);
   return parts.join(" ");
 }
 
@@ -214,6 +265,62 @@ function buildApprovedSourceCandidateCommand(sourceApprovalRequestPath) {
     "--source-approval-request",
     shellQuote(sourceApprovalRequestPath),
     '--approval-note "<current-turn approval>"'
+  ].join(" ");
+}
+
+function buildFinalizeNextMajorCommand({
+  externalEvidencePath,
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  platformReceiptPaths
+}) {
+  const parts = [
+    "npm run next:finalize -- --external",
+    formatExternalEvidenceArg(externalEvidencePath)
+  ];
+  if (sourceApprovalRequestPath !== SOURCE_APPROVAL_REQUEST_PATH) {
+    parts.push("--source-approval-request", shellQuote(sourceApprovalRequestPath));
+  }
+  if (sourceApprovalMarkdownPath !== SOURCE_APPROVAL_MARKDOWN_PATH) {
+    parts.push("--source-approval-markdown", shellQuote(sourceApprovalMarkdownPath));
+  }
+  const platformArgs = formatPlatformReceiptArgs(platformReceiptPaths, { includeDefaults: false });
+  if (platformArgs) parts.push(platformArgs);
+  return parts.join(" ");
+}
+
+function buildFinalKoGateCommand({ externalEvidencePath, platformReceiptPaths = null }) {
+  const parts = [
+    "npm run ko:validate -- --external",
+    formatExternalEvidenceArg(externalEvidencePath)
+  ];
+  const platformArgs = platformReceiptPaths
+    ? formatPlatformReceiptArgs(platformReceiptPaths, { includeDefaults: true })
+    : "";
+  if (platformArgs) parts.push(platformArgs);
+  parts.push("--out", ".codex-tmp/ko-evidence/final.json");
+  return parts.join(" ");
+}
+
+function formatExternalEvidenceArg(externalEvidencePath) {
+  return externalEvidencePath ? shellQuote(externalEvidencePath) : "<ko-evidence-review.json>";
+}
+
+function formatPlatformReceiptArgs(platformReceiptPaths, { includeDefaults }) {
+  const macManual = platformReceiptPaths?.macManual || DEFAULT_MAC_MANUAL_PATH;
+  const windowsStatic = platformReceiptPaths?.windowsStatic || DEFAULT_WINDOWS_STATIC_PATH;
+  const harmonyDevice = platformReceiptPaths?.harmonyDevice || DEFAULT_HARMONY_DEVICE_PATH;
+  const hasCustomReceipt = macManual !== DEFAULT_MAC_MANUAL_PATH
+    || windowsStatic !== DEFAULT_WINDOWS_STATIC_PATH
+    || harmonyDevice !== DEFAULT_HARMONY_DEVICE_PATH;
+  if (!includeDefaults && !hasCustomReceipt) return "";
+  return [
+    "--mac-manual",
+    shellQuote(macManual),
+    "--windows-static",
+    shellQuote(windowsStatic),
+    "--harmony-device",
+    shellQuote(harmonyDevice)
   ].join(" ");
 }
 
@@ -354,6 +461,10 @@ Usage:
 
 Optional source approval path binding:
   --source-approval-request <path> --source-approval-markdown <path>
+
+Optional final gate path binding:
+  --external <ko-evidence-review.json>
+  --mac-manual <receipt.json> --windows-static <receipt.json> --harmony-device <receipt.json>
 
 This command may refresh the KO status with --allow-missing. It does not run
 external-source validation, privacy review, platform QA, build, package,

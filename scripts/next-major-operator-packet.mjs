@@ -427,9 +427,15 @@ function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness
     platformHandoffFreshness,
     releaseActionAuthorized: readiness.releaseActionAuthorized === true,
     nextCommands: {
-      finalizeNextMajor: platformHandoff.nextCommands?.finalizeNextMajor || "npm run next:finalize -- --external <ko-evidence-review.json>",
-      finalKoGate: platformHandoff.nextCommands?.finalKoGate || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-      finalKoGateWithExplicitPlatformReceipts: platformHandoff.nextCommands?.finalKoGateWithExplicitPlatformReceipts || ""
+      finalizeNextMajor: readiness.nextCommands?.finalizeNextMajor
+        || platformHandoff.nextCommands?.finalizeNextMajor
+        || "npm run next:finalize -- --external <ko-evidence-review.json>",
+      finalKoGate: readiness.nextCommands?.finalKoGate
+        || platformHandoff.nextCommands?.finalKoGate
+        || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
+      finalKoGateWithExplicitPlatformReceipts: readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts
+        || platformHandoff.nextCommands?.finalKoGateWithExplicitPlatformReceipts
+        || ""
     },
     cannotBeFilledFrom: [
       "readiness packets",
