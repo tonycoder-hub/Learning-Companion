@@ -33,6 +33,7 @@ Use these non-claiming refresh commands after any commit that changes `HEAD`:
 ```bash
 npm run external:validate:public-dry-run -- --reading-url 'https://en.wikipedia.org/wiki/Spaced_repetition' --video-url 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' --video-timestamp '00:03' --dry-run-note 'Refresh public source preflight for the current clean HEAD.'
 npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md
+npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md
 npm run platform:qa-handoff -- --status .codex-tmp/ko-evidence/current-status.json --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md
 npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
 ```
