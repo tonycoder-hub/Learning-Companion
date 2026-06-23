@@ -4,6 +4,15 @@ Updated: 2026-06-23
 
 ## Latest Verified Slice
 
+The next-major gatekeeper slice was locally verified before this handoff update on clean git HEAD `ccae34996a8f3dec3dae642164ae793cf9add716`:
+
+- `scripts/finalize-next-major.mjs`: finalization now preflights the current local-evidence snapshot with `refresh-next-major-local-evidence.mjs --check` before attempting the final KO validation chain.
+- `scripts/validate-mac-manual-qa.mjs`, `scripts/validate-windows-static-qa.mjs`, and `scripts/validate-harmony-device-qa.mjs`: real-run commands use `--require-claimable`, so pending all-`NT` templates cannot be mistaken for claimable platform QA.
+- `scripts/platform-qa-validators-self-test.mjs`: `npm run smoke` now executes pending/non-claiming and `--require-claimable` negative checks for all three platform validators. The self-test uses a fresh per-run output directory, reads only the actual `--out` receipt file, and cannot pass from stale receipt output.
+- `npm run external:validate:selftest` passed on the same HEAD and wrote `.codex-tmp/external-source-validation/20260623T220808Z-selftest-local-fixtures/receipt.json`; the receipt is `LOCAL_FIXTURE_SELF_TEST`, `canClaimExternalKo: false`, with reading/video runs passing and throwaway profile cleanup recorded as `profileRetained: false`, `profileCleanup.ok: true`.
+- `npm run next:local-evidence`, `npm run next:local-evidence:check`, and `npm run next:finalize -- --external fixtures/external-ko.json --dry-run` passed after the guardrail updates. These remain non-claiming checks only; they do not grant source approval, run privacy review, run real platform QA, build, package, deploy, or authorize release.
+- After any later commit, run `npm run next:local-evidence` again before asking for current-turn source approval; source approval requests and public dry-run freshness are commit-bound.
+
 The static mirror index bilingual slice is locally verified:
 
 - `apps/companion-web/src/model.js`: static mirror index emits English / Chinese switchable copy for the entry point, next action, manual return, common resume actions/warnings, resume labels, summary labels, and empty states.
@@ -220,7 +229,7 @@ Goal paused note on 2026-06-11:
 - Run `npm run external:source-intake -- --input "阅读：https://... 视频：https://... 时间：00:15"` to validate a pasted source-input block and print the next exact dry-run / approved-candidate commands before launching browser evidence.
 - Add `--out .codex-tmp/external-source-validation/source-intake-handoff.json` to keep a handoff-only JSON for the next approved run; this is not KO evidence and cannot replace screenshots or privacy review.
 - Run `npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md` to produce the exact approval text to request from the user before any approved-source candidate run.
-- Current-head non-claiming preflight was refreshed at `.codex-tmp/external-source-validation/20260622T210546Z-public-source-dry-run/receipt.json` using `https://en.wikipedia.org/wiki/Spaced_repetition`, `https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4`, and timestamp `00:03`; it removed the throwaway browser profile after capture and cannot be privacy-reviewed into KO evidence.
+- The last observed non-claiming preflight before this handoff update was refreshed at `.codex-tmp/external-source-validation/20260623T220339Z-public-source-dry-run/receipt.json` on git HEAD `ccae34996a8f3dec3dae642164ae793cf9add716` using `https://en.wikipedia.org/wiki/Spaced_repetition`, `https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4`, and timestamp `00:03`; it removed the throwaway browser profile after capture and cannot be privacy-reviewed into KO evidence. After any later commit, regenerate it with `npm run next:local-evidence` before requesting current-turn approval.
 - Capture one approved reading-source screenshot run and one approved video-source screenshot run using `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note "<current-turn approval>"` once exact approved URLs are available.
 - Before exact approval is available, use `npm run external:validate:public-dry-run -- --reading-url <public-reading-url> --video-url <public-video-url> --video-timestamp <observed-timestamp> --dry-run-note "<pre-approval source preflight>"` to verify real public material mechanics without creating KO evidence.
 - Approved URLs for that command must be public, non-private http(s) URLs, not localhost, private IP, IPv4-mapped local IPv6 literals, single-label intranet hosts, reserved example domains, or URLs with exact sensitive query keys.
