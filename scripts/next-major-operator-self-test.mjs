@@ -187,6 +187,24 @@ try {
   assert.doesNotMatch(directSourceOnlyBindingLane.nextCommands.finalizeNextMajor, /custom external\.json/);
   assert.match(directSourceOnlyBindingPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").command, /custom source only approval\.json/);
 
+  await writeJson(readinessPath, buildReadiness(false, {
+    finalizeNextMajor: 'npm run next:finalize -- --external <ko-evidence-review.json> --source-approval-request "old source approval request.json" --source-approval-markdown "old source approval note.md"',
+    finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
+    finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
+  }));
+  const doubleQuotedFallbackRun = await runOperator("double-quoted-source-fallback", {
+    approval: sourceOnlyApprovalPath
+  });
+  assert.equal(doubleQuotedFallbackRun.code, 0, doubleQuotedFallbackRun.stderr);
+  const doubleQuotedFallbackPacket = await readJson(doubleQuotedFallbackRun.jsonPath);
+  const doubleQuotedFallbackCommand = getLane(doubleQuotedFallbackPacket, "finalKoGate").nextCommands.finalizeNextMajor;
+  assert.equal(countOccurrences(doubleQuotedFallbackCommand, "--source-approval-request"), 1);
+  assert.equal(countOccurrences(doubleQuotedFallbackCommand, "--source-approval-markdown"), 1);
+  assert.match(doubleQuotedFallbackCommand, /--source-approval-request '.*custom source only approval\.json'/);
+  assert.match(doubleQuotedFallbackCommand, /--source-approval-markdown '.*custom source only approval\.md'/);
+  assert.doesNotMatch(doubleQuotedFallbackCommand, /old source approval/);
+  await writeJson(readinessPath, buildReadiness(false));
+
   const directFinalBindingRun = await runOperator("direct-final-binding", {
     approval: approvalPath,
     extraArgs: [

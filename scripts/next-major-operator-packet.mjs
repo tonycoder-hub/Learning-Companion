@@ -581,7 +581,7 @@ function appendSourceApprovalArgs(command, sourceApprovalRequestPath, sourceAppr
 
 function replaceOrAppendFlagPath(command, flag, path) {
   const replacement = `${flag} ${shellQuote(path)}`;
-  const pattern = new RegExp(`(^|\\s)${escapeRegExp(flag)}\\s+(?:'(?:(?:'\\\\''|[^'])*)'|\\S+)`);
+  const pattern = new RegExp(`(^|\\s)${escapeRegExp(flag)}\\s+(?:'(?:(?:'\\\\''|[^'])*)'|"(?:\\\\.|[^"])*"|\\S+)`);
   if (pattern.test(command)) {
     return command.replace(pattern, `$1${replacement}`);
   }

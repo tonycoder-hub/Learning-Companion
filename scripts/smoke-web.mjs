@@ -260,6 +260,8 @@ assert.match(nextMajorOperatorSelfTestJs, /harmonyDeviceQa/);
 assert.match(nextMajorOperatorSelfTestJs, /real-platform-operator/);
 assert.match(nextMajorOperatorSelfTestJs, /direct-source-only-binding/);
 assert.match(nextMajorOperatorSelfTestJs, /custom source only approval/);
+assert.match(nextMajorOperatorSelfTestJs, /double-quoted-source-fallback/);
+assert.match(nextMajorOperatorSelfTestJs, /old source approval request/);
 assert.match(nextMajorOperatorSelfTestJs, /countOccurrences/);
 assert.match(nextMajorOperatorSelfTestJs, /CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorSelfTestJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
@@ -1328,6 +1330,7 @@ assert.match(nextMajorOperatorPacketJs, /!hasSourceOverride && !hasExternalOverr
 assert.match(nextMajorOperatorPacketJs, /function appendSourceApprovalArgs/);
 assert.match(nextMajorOperatorPacketJs, /appendSourceApprovalArgs\(/);
 assert.match(nextMajorOperatorPacketJs, /function replaceOrAppendFlagPath/);
+assert.ok(nextMajorOperatorPacketJs.includes('|"(?:\\\\\\\\.|[^"])*"|\\\\S+)'));
 assert.match(nextMajorOperatorPacketJs, /function escapeRegExp/);
 assert.match(nextMajorOperatorPacketJs, /function buildCustomPlatformReceiptArgv/);
 assert.match(nextMajorOperatorPacketJs, /function buildCustomPlatformReceiptCommandArgs/);
