@@ -183,6 +183,7 @@ async function buildNextMajorReadiness(statusPath, {
         platformReceiptPaths
       }),
       sourceApprovalRequest: buildSourceApprovalRequestCommand({ sourceApprovalRequestPath, sourceApprovalMarkdownPath }),
+      sourceApprovalCheck: buildSourceApprovalCheckCommand(sourceApprovalRequestPath),
       approvedSourceCandidate: buildApprovedSourceCandidateCommand(sourceApprovalRequestPath),
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
@@ -298,6 +299,17 @@ function buildApprovedSourceCandidateCommand(sourceApprovalRequestPath) {
     "--source-approval-request",
     shellQuote(sourceApprovalRequestPath),
     '--approval-note "<current-turn approval>"'
+  ].join(" ");
+}
+
+function buildSourceApprovalCheckCommand(sourceApprovalRequestPath) {
+  return [
+    "npm run external:approval-check --",
+    "--source-approval-request",
+    shellQuote(sourceApprovalRequestPath),
+    '--approval-note "<current-turn approval>"',
+    "--out",
+    ".codex-tmp/external-source-validation/source-approval-check.json"
   ].join(" ");
 }
 
@@ -458,6 +470,7 @@ function buildNextMajorReadinessMarkdown(readiness) {
     "```bash",
     readiness.nextCommands.refreshReadiness,
     readiness.nextCommands.sourceApprovalRequest,
+    readiness.nextCommands.sourceApprovalCheck,
     readiness.nextCommands.approvedSourceCandidate,
     readiness.nextCommands.privacyTemplate,
     readiness.nextCommands.privacyReview,

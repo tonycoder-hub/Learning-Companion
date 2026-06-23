@@ -43,6 +43,7 @@
     "external:source-help": "node scripts/external-source-validation-browser.mjs --help",
     "external:source-intake": "node scripts/external-source-validation-browser.mjs --source-intake",
     "external:approval-request": "node scripts/external-source-validation-browser.mjs --approval-request",
+    "external:approval-check": "node scripts/external-source-validation-browser.mjs --approval-check",
     "external:validate:selftest": "node scripts/external-source-validation-browser.mjs --self-test",
     "external:validate:public-dry-run": "node scripts/external-source-validation-browser.mjs --public-source-dry-run",
     "external:privacy-template": "node scripts/validate-external-source-privacy-review.mjs --write-template",

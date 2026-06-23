@@ -98,6 +98,7 @@ export function buildFreshSourceCommands(sourceApprovalRequest) {
   return {
     refreshPublicDryRun: `npm run external:validate:public-dry-run -- --reading-url ${shellQuote(readingUrl)} --video-url ${shellQuote(videoUrl)} --video-timestamp ${shellQuote(videoTimestamp)} --dry-run-note ${shellQuote("Refresh public source preflight for current clean HEAD before approval request.")}`,
     refreshedApprovalRequest: `npm run external:approval-request -- --dry-run-receipt <fresh-public-dry-run-receipt.json> --out ${shellQuote(approvalRequestPath)} --markdown-out ${shellQuote(markdownSiblingPath(approvalRequestPath))}`,
+    approvalCheck: `npm run external:approval-check -- --source-approval-request ${shellQuote(approvalRequestPath)} --approval-note "<current-turn approval from refreshed request>" --out .codex-tmp/external-source-validation/source-approval-check.json`,
     approvedCandidateAfterCurrentTurnApproval: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(approvalRequestPath)} --approval-note "<current-turn approval from refreshed request>"`,
     privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
     privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"

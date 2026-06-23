@@ -37,6 +37,15 @@ if (args["approval-request"]) {
   }
   process.exit(0);
 }
+if (args["approval-check"]) {
+  try {
+    await runSourceApprovalCheck(args);
+  } catch (error) {
+    console.error(`source_approval_check_error: ${error.message}`);
+    process.exit(1);
+  }
+  process.exit(0);
+}
 const selfTest = Boolean(args["self-test"]);
 const approvedCurrentTurn = Boolean(args["approved-current-turn"]);
 const publicSourceDryRun = Boolean(args["public-source-dry-run"]);
@@ -908,6 +917,83 @@ async function runSourceApprovalRequest(args) {
   console.log(lines.join("\n"));
 }
 
+async function runSourceApprovalCheck(args) {
+  if (args.out === true) throw new Error("--out requires a file path.");
+  const sourceApprovalRequestPath = requireStringArg(
+    args["source-approval-request"],
+    "source-approval-request",
+    "--approval-check requires --source-approval-request."
+  );
+  const approvalNote = requireStringArg(
+    args["approval-note"],
+    "approval-note",
+    "--approval-check requires --approval-note."
+  );
+  const request = await readJsonFile(sourceApprovalRequestPath, "--source-approval-request");
+  const readingUrl = args["reading-url"]
+    ? requireApprovedUrl(args["reading-url"], "reading-url")
+    : request.sources?.reading?.url;
+  const videoUrl = args["video-url"]
+    ? requireApprovedUrl(args["video-url"], "video-url")
+    : request.sources?.video?.url;
+  const videoTimestamp = args["video-timestamp"]
+    ? normalizeVideoTimestamp(args["video-timestamp"])
+    : request.sources?.video?.timestamp;
+  validateApprovedRunSourceApprovalRequestObject(request, {
+    readingUrl,
+    videoUrl,
+    videoTimestamp,
+    approvalNote
+  });
+  const freshness = await assessSourceApprovalFreshness(request, readCurrentRevisionSync());
+  assertCurrentCleanSourceApprovalFreshness(freshness);
+  const check = {
+    schema: "learning-companion.source-approval-check.v1",
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "SOURCE_APPROVAL_CHECK_ONLY",
+    canClaimExternalKo: false,
+    approvalNoteMatched: true,
+    sourceApprovalRequestBinding: buildSourceApprovalRequestBinding(request, freshness, sourceApprovalRequestPath),
+    nextCommands: {
+      approvedCandidateAfterCurrentTurnApproval: buildSourceValidationCommand({
+        mode: "approved",
+        readingUrl,
+        videoUrl,
+        videoTimestamp,
+        sourceApprovalRequest: sourceApprovalRequestPath,
+        note: approvalNote
+      }),
+      privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+      privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+    },
+    claimBoundary: "Approval check only. It validates the supplied approval note against the current clean source approval request, but it does not launch browser evidence, perform privacy review, or satisfy KO evidence.",
+    blockedOrNotExecuted: [
+      "No browser was launched.",
+      "No screenshots were captured.",
+      "No approved-source candidate receipt was created.",
+      "No privacy review was performed.",
+      "No source approval was granted by this check artifact.",
+      "Mac, Windows, and HarmonyOS platform QA are not covered."
+    ]
+  };
+  if (args.out) {
+    const outPath = resolve(String(args.out));
+    await writePrivateFile(outPath, `${JSON.stringify(check, null, 2)}\n`);
+  }
+  const lines = [
+    "source_approval_check_ok",
+    `Reading URL: ${readingUrl}`,
+    `Video URL: ${videoUrl}`,
+    `Video timestamp: ${videoTimestamp}`,
+    `Freshness: ${freshness.status}`,
+    "",
+    "Approved candidate command (still requires approved browser capture and privacy review):",
+    check.nextCommands.approvedCandidateAfterCurrentTurnApproval
+  ];
+  if (args.out) lines.splice(5, 0, `Approval check JSON: ${resolve(String(args.out))}`);
+  console.log(lines.join("\n"));
+}
+
 function buildSourceIntakeHandoff({ readingUrl, videoUrl, videoTimestamp, publicDryRunCommand, approvedCommand }) {
   return {
     schema: "learning-companion.external-source-intake-handoff.v1",
@@ -1044,6 +1130,10 @@ function buildSourceApprovalRequest(source, options = {}) {
     approvalFreshness: buildApprovalFreshness(source),
     requestedApprovalText,
     nextCommands: {
+      approvalCheck: buildSourceApprovalCheckCommand({
+        sourceApprovalRequestPath: options.approvalRequestPath || "",
+        approvalNote: requestedApprovalText
+      }),
       approvedCandidateAfterCurrentTurnApproval: buildSourceValidationCommand({
         mode: "approved",
         readingUrl: source.readingUrl,
@@ -1065,6 +1155,19 @@ function buildSourceApprovalRequest(source, options = {}) {
       "Mac, Windows, and HarmonyOS platform QA are not covered."
     ]
   };
+}
+
+function buildSourceApprovalCheckCommand({ sourceApprovalRequestPath, approvalNote }) {
+  const parts = [
+    "npm run external:approval-check --",
+    "--source-approval-request",
+    shellQuote(sourceApprovalRequestPath || "<source-approval-request.json>"),
+    "--approval-note",
+    shellQuote(approvalNote),
+    "--out",
+    ".codex-tmp/external-source-validation/source-approval-check.json"
+  ];
+  return parts.join(" ");
 }
 
 function buildApprovalFreshness(source) {
@@ -1264,7 +1367,15 @@ ${(freshness.invalidatesWhen || []).map((item) => `- ${item}`).join("\n")}
 
 ${request.requestedApprovalText}
 
-## Next Command After Current-Turn Approval
+## Approval Pre-Check After Current-Turn Approval
+
+Run this first to verify the exact approval text and clean public dry-run freshness without launching browser evidence:
+
+\`\`\`bash
+${request.nextCommands.approvalCheck}
+\`\`\`
+
+## Browser Candidate After Pre-Check
 
 \`\`\`bash
 ${request.nextCommands.approvedCandidateAfterCurrentTurnApproval}
@@ -1429,6 +1540,9 @@ Modes:
 
 - npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json
   Generate the same non-claiming approval request from a PUBLIC_SOURCE_DRY_RUN receipt.
+
+- npm run external:approval-check -- --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --approval-note "<current-turn approval>" --out .codex-tmp/external-source-validation/source-approval-check.json
+  Validate the exact current-turn approval text, source URLs, timestamp, and CURRENT_CLEAN_PUBLIC_DRY_RUN freshness without launching a browser. This is not KO evidence.
 
 - npm run external:validate:selftest
   Local fixture harness check. Never KO evidence.
@@ -1679,6 +1793,9 @@ function runApprovedUrlBoundarySelfChecks() {
   const approvalFromDryRunMarkdown = buildSourceApprovalRequestMarkdown(approvalFromDryRun);
   assert.match(approvalFromDryRunMarkdown, /External Source Approval Request/);
   assert.match(approvalFromDryRunMarkdown, /Freshness \/ Expiration/);
+  assert.match(approvalFromDryRunMarkdown, /Approval Pre-Check After Current-Turn Approval/);
+  assert.match(approvalFromDryRunMarkdown, /external:approval-check/);
+  assert.match(approvalFromDryRunMarkdown, /Browser Candidate After Pre-Check/);
   assert.match(approvalFromDryRunMarkdown, /fixture-git-head/);
   assert.match(approvalFromDryRunMarkdown, /CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   const approvalFromSparseDryRun = buildSourceApprovalRequest(buildApprovalRequestSourceFromDryRun({

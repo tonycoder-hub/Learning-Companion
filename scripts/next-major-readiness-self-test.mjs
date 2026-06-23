@@ -77,6 +77,9 @@ try {
   assert.equal(blocked.platformQaStatus[0].gates.nativeBuild.pass, false);
   assert.match(blocked.nextCommands.platformHandoff, /npm run platform:qa-handoff -- --status .*blocked-status\.json --out \.codex-tmp\/platform-qa-handoff\/current\.json --markdown-out \.codex-tmp\/platform-qa-handoff\/current\.md/);
   assert.equal(blocked.nextCommands.finalizeNextMajor, "npm run next:finalize -- --external <ko-evidence-review.json>");
+  assert.match(blocked.nextCommands.sourceApprovalCheck, /npm run external:approval-check --/);
+  assert.match(blocked.nextCommands.sourceApprovalCheck, /--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
+  assert.match(blocked.nextCommands.sourceApprovalCheck, /source-approval-check\.json/);
   assert.match(blocked.nextCommands.approvedSourceCandidate, /--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.equal(blocked.blockedOrNotExecuted.includes("No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet."), true);
   assert.equal((await stat(blockedRun.jsonPath)).mode & 0o777, 0o600);
@@ -84,6 +87,7 @@ try {
   const blockedMarkdown = await readFile(blockedRun.markdownPath, "utf8");
   assert.match(blockedMarkdown, /Next Major Readiness Packet/);
   assert.match(blockedMarkdown, /Release action authorized: false/);
+  assert.match(blockedMarkdown, /source-approval-check\.json/);
   assert.match(blockedMarkdown, /--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.match(blockedMarkdown, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
   assert.match(blockedMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this readiness packet/);
@@ -122,6 +126,7 @@ try {
   assert.match(customPathReadiness.nextCommands.platformHandoff, /--harmony-device '.*custom harmony receipt\.json'/);
   assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--out '.*custom source approval request\.json'/);
   assert.match(customPathReadiness.nextCommands.sourceApprovalRequest, /--markdown-out '.*custom source approval request\.md'/);
+  assert.match(customPathReadiness.nextCommands.sourceApprovalCheck, /--source-approval-request '.*custom source approval request\.json'/);
   assert.match(customPathReadiness.nextCommands.approvedSourceCandidate, /--source-approval-request '.*custom source approval request\.json'/);
   assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--external '.*custom external evidence\.json'/);
   assert.match(customPathReadiness.nextCommands.finalizeNextMajor, /--source-approval-request '.*custom source approval request\.json'/);

@@ -77,6 +77,7 @@ try {
   ]);
   assert.deepEqual(realPlatformPacket.nextActionSequence.map((step) => step.id), [
     "get-current-turn-source-approval",
+    "check-current-turn-source-approval",
     "run-approved-external-source-candidate",
     "complete-external-source-privacy-review",
     "run-nativeMacManualQa",
@@ -116,6 +117,7 @@ try {
   ]);
   assert.deepEqual(freshPacket.nextActionSequence.map((step) => step.id), [
     "get-current-turn-source-approval",
+    "check-current-turn-source-approval",
     "run-approved-external-source-candidate",
     "complete-external-source-privacy-review",
     "run-nativeMacManualQa",
@@ -125,6 +127,8 @@ try {
   ]);
   assert.equal(freshPacket.nextActionSequence.some((step) => step.id === "refresh-readiness-packet"), false);
   assert.equal(freshPacket.nextActionSequence[0].claimBoundary, "This operator packet cannot grant approval on the user's behalf.");
+  assert.match(freshPacket.nextActionSequence.find((step) => step.id === "check-current-turn-source-approval").command, /external:approval-check/);
+  assert.match(freshPacket.nextActionSequence.find((step) => step.id === "check-current-turn-source-approval").claimBoundary, /do not run browser evidence/);
   assert.match(freshPacket.nextActionSequence.find((step) => step.id === "validate-final-ko").claimBoundary, /every preceding lane has real PASS evidence/);
   const sourceLane = getLane(freshPacket, "approvedExternalReadingVideo");
   const macLane = getLane(freshPacket, "nativeMacManualQa");
@@ -134,6 +138,8 @@ try {
   assert.equal(sourceLane.operatorState, "NEEDS_CURRENT_TURN_APPROVAL");
   assert.equal(sourceLane.approvalRequest.freshness.status, "CURRENT_CLEAN_PUBLIC_DRY_RUN");
   assert.equal(sourceLane.approvalRequest.freshness.problems.length, 0);
+  assert.match(sourceLane.nextCommands.approvalCheck, /external:approval-check/);
+  assert.match(sourceLane.nextCommands.approvalCheck, /source-approval-check\.json/);
   assert.equal(sourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, buildApprovedCandidateCommand(buildApprovalRequest(currentHead)));
   assert.equal(sourceLane.cannotBeFilledFrom.includes("public-source dry-runs without current-turn approval"), true);
   assertPlatformLane(macLane, {
@@ -166,6 +172,7 @@ try {
   assert.match(freshMarkdown, /Next Major Operator Packet/);
   assert.match(freshMarkdown, /## Critical Path/);
   assert.match(freshMarkdown, /get-current-turn-source-approval/);
+  assert.match(freshMarkdown, /check-current-turn-source-approval/);
   assert.match(freshMarkdown, /run-approved-external-source-candidate/);
   assert.match(freshMarkdown, /validate-final-ko/);
   assert.match(freshMarkdown, /Exact approval text to request:\n\n```text\nI approve these exact public learning-material sources/);
@@ -323,6 +330,8 @@ try {
   assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /external:approval-request/);
   assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /missing-approval\.json/);
   assert.match(missingSourceLane.nextCommands.sourceApprovalRequest, /missing-approval\.md/);
+  assert.match(missingSourceLane.nextCommands.approvalCheck, /external:approval-check/);
+  assert.match(missingSourceLane.nextCommands.approvalCheck, /missing-approval\.json/);
   assert.match(missingSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request/);
   assert.match(missingSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /missing-approval\.json/);
   assert.equal(missingSourcePacket.nextActionSequence[0].id, "collect-source-input");
@@ -337,6 +346,7 @@ try {
   assert.equal(missingSpacedSourcePacket.nextActionSequence[0].produces, missingSpacedApprovalPath);
   assert.match(missingSpacedSourceLane.nextCommands.sourceApprovalRequest, /--out '.*missing approval request\.json'/);
   assert.match(missingSpacedSourceLane.nextCommands.sourceApprovalRequest, /--markdown-out '.*missing approval request\.md'/);
+  assert.match(missingSpacedSourceLane.nextCommands.approvalCheck, /--source-approval-request '.*missing approval request\.json'/);
   assert.match(missingSpacedSourceLane.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--source-approval-request '.*missing approval request\.json'/);
 
   await writeJson(approvalPath, buildApprovalRequest(currentHead));
