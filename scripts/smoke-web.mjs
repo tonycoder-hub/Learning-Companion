@@ -974,6 +974,8 @@ assert.match(refreshNextMajorLocalEvidenceJs, /"--source-approval-markdown",\s*o
 assert.match(refreshNextMajorLocalEvidenceJs, /scripts\/platform-qa-handoff\.mjs/);
 assert.match(refreshNextMajorLocalEvidenceJs, /regenerate-source-approval-request/);
 assert.match(refreshNextMajorLocalEvidenceJs, /refresh-operator-packet/);
+assert.match(refreshNextMajorLocalEvidenceJs, /id: "refresh-operator-packet"[\s\S]*"--source-approval-request",\s*options\.sourceApprovalRequest/);
+assert.match(refreshNextMajorLocalEvidenceJs, /id: "refresh-operator-packet"[\s\S]*"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
 assert.match(refreshNextMajorLocalEvidenceJs, /print-ko-next/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Readiness packet:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Platform QA handoff:/);

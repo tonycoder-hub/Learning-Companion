@@ -179,7 +179,9 @@ async function buildLocalEvidencePlan(options) {
           "--markdown-out",
           options.operatorMarkdownOut,
           "--source-approval-request",
-          options.sourceApprovalRequest
+          options.sourceApprovalRequest,
+          "--source-approval-markdown",
+          options.sourceApprovalMarkdown
         ]
       },
       {
@@ -339,7 +341,7 @@ function runSelfTest() {
       { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown] },
       { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
-      { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut] },
+      { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown] },
       { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs"] }
     ],
     blockedOrNotExecuted: [
@@ -373,6 +375,9 @@ function runSelfTest() {
   assert.match(dryRun, /platform-qa-handoff\.mjs/);
   assert.match(dryRun, /regenerate-source-approval-request/);
   assert.match(dryRun, /fresh-public-dry-run-receipt\.json/);
+  assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs/);
+  assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
+  assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
   assert.match(dryRun, /Does not run approved-source browser capture/);
   assert.doesNotMatch(dryRun, /--approved-current-turn/);
   assert.match(dryRun, /Does not build, package, deploy/);
