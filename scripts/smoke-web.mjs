@@ -1067,6 +1067,9 @@ assert.match(koNextActionSummaryJs, /--markdown-out \$\{shellQuote\(markdownSibl
 assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(path\)\}/);
 assert.match(koNextActionSummaryJs, /function formatFinalGateCommands/);
 assert.match(koNextActionSummaryJs, /function buildPlatformReceiptArgs/);
+assert.match(koNextActionSummaryJs, /cliExternalPath/);
+assert.match(koNextActionSummaryJs, /externalEvidencePath/);
+assert.match(koNextActionSummaryJs, /externalEvidencePath \? shellQuote\(externalEvidencePath\) : "<ko-evidence-review\.json>"/);
 assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(sourceApprovalRequestPath\)\}/);
 assert.match(koNextActionSummaryJs, /--source-approval-markdown \$\{shellQuote\(markdownSiblingPath\(sourceApprovalRequestPath\)\)\}/);
 assert.match(koNextActionSummaryJs, /--mac-manual \$\{shellQuote\(macManual\)\}/);
@@ -1416,6 +1419,7 @@ try {
   assert.match(operatorMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
   assert.equal(statSync(operatorJsonPath).mode & 0o777, 0o600);
   assert.equal(statSync(operatorMarkdownPath).mode & 0o777, 0o600);
+  const customExternalPath = join(operatorSmokeDir, "custom external evidence.json");
   const customMacManualPath = join(operatorSmokeDir, "custom mac receipt.json");
   const customWindowsStaticPath = join(operatorSmokeDir, "custom windows receipt.json");
   const customHarmonyDevicePath = join(operatorSmokeDir, "custom harmony receipt.json");
@@ -1423,6 +1427,8 @@ try {
     "scripts/ko-next-action-summary.mjs",
     "--status",
     statusPath,
+    "--external",
+    customExternalPath,
     "--source-approval-request",
     approvalPath,
     "--mac-manual",
@@ -1450,6 +1456,8 @@ try {
   assert.match(koNextConsole, /refresh-public-source-dry-run/);
   assert.match(koNextConsole, /refresh-platform-qa-handoff/);
   assert.match(koNextConsole, /validate-final-ko/);
+  assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--external .*custom external evidence\.json/);
+  assert.match(koNextConsole, /npm run ko:validate .*--external .*custom external evidence\.json/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-request .*approval\.json/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--source-approval-markdown .*approval\.md/);
   assert.match(koNextConsole, /One-command final refresh: npm run next:finalize .*--mac-manual .*custom mac receipt\.json/);
