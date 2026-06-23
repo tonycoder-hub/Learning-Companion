@@ -10,8 +10,20 @@ import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
 const execFileAsync = promisify(execFile);
 const SUBCOMMAND_TIMEOUT_MS = 180_000;
 const LOCAL_EVIDENCE_SNAPSHOT_SCHEMA = "learning-companion.next-major-local-evidence-snapshot.v1";
+const PUBLIC_DRY_RUN_RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
+const SOURCE_APPROVAL_REQUEST_SCHEMA = "learning-companion.external-source-approval-request.v1";
+const NEXT_MAJOR_READINESS_SCHEMA = "learning-companion.next-major-readiness.v1";
+const PLATFORM_QA_HANDOFF_SCHEMA = "learning-companion.platform-qa-handoff.v1";
+const NEXT_MAJOR_OPERATOR_PACKET_SCHEMA = "learning-companion.next-major-operator-packet.v1";
+const KO_NEXT_ACTION_SUMMARY_SCHEMA = "learning-companion.ko-next-action-summary.v1";
 const PUBLIC_DRY_RUN_RECEIPT_PATTERN = /external_source_validation_public_dry_run_ok\s+(.+\.json)\s*$/m;
 const STATIC_RETURN_RECEIPT_PATTERN = /static_return_loop_ok\s+(.+receipt\.json)\s*$/m;
+const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
+const CURRENT_CLEAN_HEAD_KO_STATUS = "CURRENT_CLEAN_HEAD_KO_STATUS";
+const CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF";
+const CURRENT_CLEAN_NEXT_MAJOR_READINESS = "CURRENT_CLEAN_NEXT_MAJOR_READINESS";
+const CURRENT_CLEAN_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
+const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
 
 const DEFAULTS = Object.freeze({
   sourceApprovalRequest: ".codex-tmp/external-source-validation/source-approval-request.json",
@@ -95,7 +107,7 @@ if (args["dry-run-note"] === true) throw new Error("--dry-run-note requires text
 assertSupportedOptions(args);
 
 if (args["self-test"]) {
-  runSelfTest();
+  await runSelfTest();
 } else if (args.check) {
   const options = normalizeOptions(args);
   await runLocalEvidenceSnapshotCheck(options);
@@ -482,6 +494,7 @@ async function runLocalEvidenceSnapshotCheck(options) {
   const snapshot = JSON.parse(await readFile(snapshotPath, "utf8"));
   const currentRevision = readCurrentRevisionSync();
   assertLocalEvidenceSnapshotFresh(snapshot, currentRevision);
+  await assertLocalEvidenceOutputsFresh(snapshot, currentRevision);
   console.log(`next_major_local_evidence_snapshot_check_ok ${snapshotPath}`);
 }
 
@@ -530,6 +543,144 @@ function assertLocalEvidenceSnapshotFresh(snapshot, currentRevision) {
       `${id} receipt claim boundary must be explicit and non-claiming`
     );
   }
+}
+
+async function assertLocalEvidenceOutputsFresh(snapshot, currentRevision) {
+  const outputs = snapshot.outputs || {};
+  const publicDryRun = await readJsonOutput(outputs.publicDryRunReceipt, "public dry-run receipt");
+  assert.equal(publicDryRun.schema, PUBLIC_DRY_RUN_RECEIPT_SCHEMA, "public dry-run receipt schema");
+  assert.equal(publicDryRun.evidenceTier, "PUBLIC_SOURCE_DRY_RUN", "public dry-run receipt evidence tier");
+  assert.equal(publicDryRun.publicSourceDryRun, true, "public dry-run receipt must remain a dry-run");
+  assert.equal(publicDryRun.canClaimExternalKo, false, "public dry-run receipt must not claim external KO");
+  assertCleanAppRevision(publicDryRun.runContext?.appRevision, currentRevision, "public dry-run receipt");
+  assert.equal(publicDryRun.runContext?.browser?.profileRetained, false, "public dry-run receipt must not retain browser profile");
+  assert.equal(publicDryRun.runContext?.browser?.profileCleanup?.ok, true, "public dry-run receipt browser profile cleanup must pass");
+
+  const approvalRequest = await readJsonOutput(outputs.sourceApprovalRequest, "source approval request");
+  assert.equal(approvalRequest.schema, SOURCE_APPROVAL_REQUEST_SCHEMA, "source approval request schema");
+  assert.equal(approvalRequest.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY", "source approval request evidence tier");
+  assert.equal(approvalRequest.canClaimExternalKo, false, "source approval request must not claim external KO");
+  assert.equal(approvalRequest.basis?.type, "PUBLIC_SOURCE_DRY_RUN_RECEIPT", "source approval request basis type");
+  assertOutputPathMatches(
+    approvalRequest.basis?.priorDryRunReceipt || approvalRequest.basis?.inputPath,
+    outputs.publicDryRunReceipt,
+    "source approval request basis receipt"
+  );
+  assert.equal(approvalRequest.basis?.priorDryRun?.gitHead, currentRevision.gitHead, "source approval request basis git HEAD must match current HEAD");
+  assert.equal(approvalRequest.basis?.priorDryRun?.dirtyWorktree, false, "source approval request basis must be clean");
+  assert.equal(approvalRequest.basis?.priorDryRun?.profileRetained, false, "source approval request basis must not retain browser profile");
+  assert.equal(approvalRequest.basis?.priorDryRun?.profileCleanupOk, true, "source approval request basis profile cleanup must pass");
+
+  const readiness = await readJsonOutput(outputs.readinessPacket, "readiness packet");
+  assert.equal(readiness.schema, NEXT_MAJOR_READINESS_SCHEMA, "readiness packet schema");
+  assert.equal(readiness.evidenceTier, "NEXT_MAJOR_READINESS_SUMMARY_ONLY", "readiness packet evidence tier");
+  assert.equal(readiness.canClaimNextMajorPreReleaseReady, false, "readiness packet must not claim next-major readiness");
+  assert.equal(readiness.releaseActionAuthorized, false, "readiness packet must not authorize release");
+  assertCleanCurrentRevision(readiness.currentRevision, currentRevision, "readiness packet");
+  assertFreshness(readiness.koStatusFreshness, CURRENT_CLEAN_HEAD_KO_STATUS, currentRevision, "readiness KO status freshness", {
+    requireBasisRevision: true,
+    requireBasisStatusLineCount: true
+  });
+
+  const platformHandoff = await readJsonOutput(outputs.platformQaHandoff, "platform QA handoff");
+  assert.equal(platformHandoff.schema, PLATFORM_QA_HANDOFF_SCHEMA, "platform QA handoff schema");
+  assert.equal(platformHandoff.evidenceTier, "PLATFORM_QA_HANDOFF_ONLY", "platform QA handoff evidence tier");
+  assert.equal(platformHandoff.canClaimKo, false, "platform QA handoff must not claim KO");
+  assertCleanCurrentRevision(platformHandoff.currentRevision, currentRevision, "platform QA handoff");
+  assert.equal(platformHandoff.executionFreshness?.status, CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF, "platform QA handoff execution freshness status");
+  assertFreshness(platformHandoff.koStatusFreshness, CURRENT_CLEAN_HEAD_KO_STATUS, currentRevision, "platform handoff KO status freshness", {
+    requireBasisRevision: true,
+    requireBasisStatusLineCount: true
+  });
+
+  const operator = await readJsonOutput(outputs.operatorPacket, "operator packet");
+  assert.equal(operator.schema, NEXT_MAJOR_OPERATOR_PACKET_SCHEMA, "operator packet schema");
+  assert.equal(operator.evidenceTier, "NEXT_MAJOR_OPERATOR_PACKET_ONLY", "operator packet evidence tier");
+  assert.equal(operator.canClaimNextMajorFromThisPacket, false, "operator packet must not claim next-major readiness");
+  assert.equal(operator.releaseActionAuthorized, false, "operator packet must not authorize release");
+  assertCleanCurrentRevision(operator.currentRevision, currentRevision, "operator packet");
+  assertFreshness(operator.readinessFreshness, CURRENT_CLEAN_NEXT_MAJOR_READINESS, currentRevision, "operator readiness freshness", {
+    requireBasisRevision: true,
+    requireBasisStatusLineCount: true
+  });
+  assertFreshness(operator.platformHandoffFreshness, CURRENT_CLEAN_PLATFORM_QA_HANDOFF, currentRevision, "operator platform handoff freshness", {
+    requireBasisRevision: true,
+    requireBasisStatusLineCount: true
+  });
+
+  const koNext = await readJsonOutput(outputs.koNextActionSummary, "KO next action summary");
+  assert.equal(koNext.schema, KO_NEXT_ACTION_SUMMARY_SCHEMA, "KO next action summary schema");
+  assert.equal(koNext.evidenceTier, "KO_NEXT_ACTION_SUMMARY_ONLY", "KO next action summary evidence tier");
+  assert.equal(koNext.canClaimKoFromThisArtifact, false, "KO next action summary must not claim KO");
+  assert.equal(koNext.releaseActionAuthorized, false, "KO next action summary must not authorize release");
+  assertFreshness(koNext.sourceApproval?.freshness, CURRENT_CLEAN_PUBLIC_DRY_RUN, currentRevision, "KO next source approval freshness", {
+    requireBasisRevision: true,
+    requireSourceApprovalBasis: true
+  });
+  assertFreshness(koNext.operator?.freshness, CURRENT_CLEAN_OPERATOR_PACKET, currentRevision, "KO next operator freshness", {
+    requirePacketRevision: true,
+    requirePacketStatusLineCount: true
+  });
+  assertFreshness(koNext.operator?.readinessFreshness, CURRENT_CLEAN_NEXT_MAJOR_READINESS, currentRevision, "KO next readiness freshness", {
+    requireBasisRevision: true,
+    requireBasisStatusLineCount: true
+  });
+  assertFreshness(koNext.operator?.platformHandoffFreshness, CURRENT_CLEAN_PLATFORM_QA_HANDOFF, currentRevision, "KO next platform handoff freshness", {
+    requireBasisRevision: true,
+    requireBasisStatusLineCount: true
+  });
+  assertOutputPathMatches(
+    koNext.sourceApproval?.freshness?.basisReceiptPath,
+    outputs.publicDryRunReceipt,
+    "KO next source approval basis receipt"
+  );
+}
+
+async function readJsonOutput(path, label) {
+  assert.ok(path && path !== "TBD", `${label} path must be present`);
+  return JSON.parse(await readFile(path, "utf8"));
+}
+
+function assertCleanCurrentRevision(revision, currentRevision, label) {
+  assert.equal(revision?.gitAvailable, true, `${label} git state must be available`);
+  assert.equal(revision?.gitHead, currentRevision.gitHead, `${label} git HEAD must match current HEAD`);
+  assert.equal(revision?.dirtyWorktree, false, `${label} must be clean`);
+  assert.equal(revision?.statusLineCount, 0, `${label} status line count must be zero`);
+}
+
+function assertCleanAppRevision(revision, currentRevision, label) {
+  assert.equal(revision?.gitHead, currentRevision.gitHead, `${label} git HEAD must match current HEAD`);
+  assert.equal(revision?.dirtyWorktree, false, `${label} must be clean`);
+  assert.equal(revision?.statusLineCount || 0, 0, `${label} status line count must be zero`);
+}
+
+function assertFreshness(freshness, expectedStatus, currentRevision, label, options = {}) {
+  assert.equal(freshness?.status, expectedStatus, `${label} status`);
+  assert.equal(freshness?.currentGitHead, currentRevision.gitHead, `${label} current git HEAD must match current HEAD`);
+  assert.equal(freshness?.currentDirtyWorktree, false, `${label} current worktree must be clean`);
+  if (options.requireBasisRevision) {
+    assert.equal(freshness.basisGitHead, currentRevision.gitHead, `${label} basis git HEAD must match current HEAD`);
+    assert.equal(freshness.basisDirtyWorktree, false, `${label} basis worktree must be clean`);
+  }
+  if (options.requireBasisStatusLineCount) {
+    assert.equal(freshness.basisStatusLineCount, 0, `${label} basis status line count must be zero`);
+  }
+  if (options.requirePacketRevision) {
+    assert.equal(freshness.packetGitHead, currentRevision.gitHead, `${label} packet git HEAD must match current HEAD`);
+    assert.equal(freshness.packetDirtyWorktree, false, `${label} packet worktree must be clean`);
+  }
+  if (options.requirePacketStatusLineCount) {
+    assert.equal(freshness.packetStatusLineCount, 0, `${label} packet status line count must be zero`);
+  }
+  if (options.requireSourceApprovalBasis) {
+    assert.equal(freshness.basisProfileCleanupOk, true, `${label} basis profile cleanup must pass`);
+    assert.equal(freshness.basisProfileRetained, false, `${label} basis profile must not be retained`);
+  }
+  assert.equal(Array.isArray(freshness?.problems) ? freshness.problems.length : 0, 0, `${label} problems must be empty`);
+}
+
+function assertOutputPathMatches(actualPath, expectedPath, label) {
+  assert.equal(resolve(String(actualPath || "")), resolve(String(expectedPath || "")), `${label} path must match local evidence snapshot`);
 }
 
 function buildSuccessSummary(plan, publicDryRunReceipt, outputs, localReceipts) {
@@ -653,7 +804,7 @@ function shellQuote(value) {
   return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
-function runSelfTest() {
+async function runSelfTest() {
   const request = {
     schema: "learning-companion.external-source-approval-request.v1",
     evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
@@ -787,9 +938,188 @@ function runSelfTest() {
     () => assertLocalEvidenceSnapshotFresh(snapshot, { gitAvailable: true, gitHead: "different", dirtyWorktree: false, statusLineCount: 0 }),
     /git HEAD must match current HEAD/
   );
+  const cleanRevision = {
+    gitAvailable: true,
+    gitHead: plan.currentRevision.gitHead,
+    dirtyWorktree: false,
+    statusLineCount: 0
+  };
+  const selfTestOutputDir = resolve(".codex-tmp/selftest/local-evidence-outputs");
+  const publicDryRunPath = resolve(selfTestOutputDir, "public-dry-run.json");
+  const sourceApprovalRequestPath = resolve(selfTestOutputDir, "source-approval-request.json");
+  const readinessPath = resolve(selfTestOutputDir, "readiness.json");
+  const platformHandoffPath = resolve(selfTestOutputDir, "platform-handoff.json");
+  const operatorPath = resolve(selfTestOutputDir, "operator.json");
+  const koNextPath = resolve(selfTestOutputDir, "ko-next.json");
+  const sourceApprovalMarkdownPath = resolve(selfTestOutputDir, "source-approval-request.md");
+  const readinessMarkdownPath = resolve(selfTestOutputDir, "readiness.md");
+  const platformHandoffMarkdownPath = resolve(selfTestOutputDir, "platform-handoff.md");
+  const operatorMarkdownPath = resolve(selfTestOutputDir, "operator.md");
+  const publicDryRunFixture = {
+    schema: PUBLIC_DRY_RUN_RECEIPT_SCHEMA,
+    evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
+    publicSourceDryRun: true,
+    canClaimExternalKo: false,
+    runContext: {
+      appRevision: {
+        gitHead: cleanRevision.gitHead,
+        dirtyWorktree: false,
+        statusLineCount: 0
+      },
+      browser: {
+        profileRetained: false,
+        profileCleanup: { ok: true }
+      }
+    }
+  };
+  const sourceApprovalRequestFixture = {
+    schema: SOURCE_APPROVAL_REQUEST_SCHEMA,
+    evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+    canClaimExternalKo: false,
+    basis: {
+      type: "PUBLIC_SOURCE_DRY_RUN_RECEIPT",
+      priorDryRunReceipt: publicDryRunPath,
+      priorDryRun: {
+        gitHead: cleanRevision.gitHead,
+        dirtyWorktree: false,
+        profileRetained: false,
+        profileCleanupOk: true
+      }
+    }
+  };
+  const readinessFixture = {
+    schema: NEXT_MAJOR_READINESS_SCHEMA,
+    evidenceTier: "NEXT_MAJOR_READINESS_SUMMARY_ONLY",
+    canClaimNextMajorPreReleaseReady: false,
+    releaseActionAuthorized: false,
+    currentRevision: cleanRevision,
+    koStatusFreshness: {
+      status: CURRENT_CLEAN_HEAD_KO_STATUS,
+      currentGitHead: cleanRevision.gitHead,
+      currentDirtyWorktree: false,
+      basisGitHead: cleanRevision.gitHead,
+      basisDirtyWorktree: false,
+      basisStatusLineCount: 0,
+      problems: []
+    }
+  };
+  const platformHandoffFixture = {
+    schema: PLATFORM_QA_HANDOFF_SCHEMA,
+    evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+    canClaimKo: false,
+    currentRevision: cleanRevision,
+    executionFreshness: {
+      status: CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF
+    },
+    koStatusFreshness: {
+      status: CURRENT_CLEAN_HEAD_KO_STATUS,
+      currentGitHead: cleanRevision.gitHead,
+      currentDirtyWorktree: false,
+      basisGitHead: cleanRevision.gitHead,
+      basisDirtyWorktree: false,
+      basisStatusLineCount: 0,
+      problems: []
+    }
+  };
+  const operatorFixture = {
+    schema: NEXT_MAJOR_OPERATOR_PACKET_SCHEMA,
+    evidenceTier: "NEXT_MAJOR_OPERATOR_PACKET_ONLY",
+    canClaimNextMajorFromThisPacket: false,
+    releaseActionAuthorized: false,
+    currentRevision: cleanRevision,
+    readinessFreshness: {
+      status: CURRENT_CLEAN_NEXT_MAJOR_READINESS,
+      currentGitHead: cleanRevision.gitHead,
+      currentDirtyWorktree: false,
+      basisGitHead: cleanRevision.gitHead,
+      basisDirtyWorktree: false,
+      basisStatusLineCount: 0,
+      problems: []
+    },
+    platformHandoffFreshness: {
+      status: CURRENT_CLEAN_PLATFORM_QA_HANDOFF,
+      currentGitHead: cleanRevision.gitHead,
+      currentDirtyWorktree: false,
+      basisGitHead: cleanRevision.gitHead,
+      basisDirtyWorktree: false,
+      basisStatusLineCount: 0,
+      problems: []
+    }
+  };
+  const koNextFixture = {
+    schema: KO_NEXT_ACTION_SUMMARY_SCHEMA,
+    evidenceTier: "KO_NEXT_ACTION_SUMMARY_ONLY",
+    canClaimKoFromThisArtifact: false,
+    releaseActionAuthorized: false,
+    sourceApproval: {
+      freshness: {
+        status: CURRENT_CLEAN_PUBLIC_DRY_RUN,
+        currentGitHead: cleanRevision.gitHead,
+        currentDirtyWorktree: false,
+        basisGitHead: cleanRevision.gitHead,
+        basisDirtyWorktree: false,
+        basisProfileCleanupOk: true,
+        basisProfileRetained: false,
+        basisReceiptPath: publicDryRunPath,
+        problems: []
+      }
+    },
+    operator: {
+      freshness: {
+        status: CURRENT_CLEAN_OPERATOR_PACKET,
+        currentGitHead: cleanRevision.gitHead,
+        currentDirtyWorktree: false,
+        packetGitHead: cleanRevision.gitHead,
+        packetDirtyWorktree: false,
+        packetStatusLineCount: 0,
+        problems: []
+      },
+      readinessFreshness: {
+        status: CURRENT_CLEAN_NEXT_MAJOR_READINESS,
+        currentGitHead: cleanRevision.gitHead,
+        currentDirtyWorktree: false,
+        basisGitHead: cleanRevision.gitHead,
+        basisDirtyWorktree: false,
+        basisStatusLineCount: 0,
+        problems: []
+      },
+      platformHandoffFreshness: {
+        status: CURRENT_CLEAN_PLATFORM_QA_HANDOFF,
+        currentGitHead: cleanRevision.gitHead,
+        currentDirtyWorktree: false,
+        basisGitHead: cleanRevision.gitHead,
+        basisDirtyWorktree: false,
+        basisStatusLineCount: 0,
+        problems: []
+      }
+    }
+  };
+  await Promise.all([
+    writePrivateFile(publicDryRunPath, `${JSON.stringify(publicDryRunFixture, null, 2)}\n`),
+    writePrivateFile(sourceApprovalRequestPath, `${JSON.stringify(sourceApprovalRequestFixture, null, 2)}\n`),
+    writePrivateFile(readinessPath, `${JSON.stringify(readinessFixture, null, 2)}\n`),
+    writePrivateFile(platformHandoffPath, `${JSON.stringify(platformHandoffFixture, null, 2)}\n`),
+    writePrivateFile(operatorPath, `${JSON.stringify(operatorFixture, null, 2)}\n`),
+    writePrivateFile(koNextPath, `${JSON.stringify(koNextFixture, null, 2)}\n`),
+    writePrivateFile(sourceApprovalMarkdownPath, "source approval request\n"),
+    writePrivateFile(readinessMarkdownPath, "readiness\n"),
+    writePrivateFile(platformHandoffMarkdownPath, "platform handoff\n"),
+    writePrivateFile(operatorMarkdownPath, "operator\n")
+  ]);
   const outputBackedSnapshot = {
     ...snapshot,
-    outputs: Object.fromEntries(SNAPSHOT_REQUIRED_OUTPUTS.map(([key]) => [key, "scripts/refresh-next-major-local-evidence.mjs"])),
+    outputs: {
+      publicDryRunReceipt: publicDryRunPath,
+      sourceApprovalRequest: sourceApprovalRequestPath,
+      sourceApprovalMarkdown: sourceApprovalMarkdownPath,
+      readinessPacket: readinessPath,
+      readinessMarkdown: readinessMarkdownPath,
+      platformQaHandoff: platformHandoffPath,
+      platformQaHandoffMarkdown: platformHandoffMarkdownPath,
+      operatorPacket: operatorPath,
+      operatorMarkdown: operatorMarkdownPath,
+      koNextActionSummary: koNextPath
+    },
     localReceipts: EXPECTED_LOCAL_RECEIPT_IDS.map((id) => ({
       id,
       path: "scripts/refresh-next-major-local-evidence.mjs",
@@ -799,12 +1129,49 @@ function runSelfTest() {
     })),
     blockedOrNotExecuted: [...LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED]
   };
-  assert.doesNotThrow(() => assertLocalEvidenceSnapshotFresh(outputBackedSnapshot, {
-    gitAvailable: true,
-    gitHead: plan.currentRevision.gitHead,
-    dirtyWorktree: false,
-    statusLineCount: 0
-  }));
+  assert.doesNotThrow(() => assertLocalEvidenceSnapshotFresh(outputBackedSnapshot, cleanRevision));
+  await assertLocalEvidenceOutputsFresh(outputBackedSnapshot, cleanRevision);
+  const stalePublicDryRunPath = resolve(selfTestOutputDir, "stale-public-dry-run.json");
+  await writePrivateFile(stalePublicDryRunPath, `${JSON.stringify({
+    ...publicDryRunFixture,
+    runContext: {
+      ...publicDryRunFixture.runContext,
+      appRevision: {
+        ...publicDryRunFixture.runContext.appRevision,
+        gitHead: "ffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  }, null, 2)}\n`);
+  await assert.rejects(
+    () => assertLocalEvidenceOutputsFresh({
+      ...outputBackedSnapshot,
+      outputs: {
+        ...outputBackedSnapshot.outputs,
+        publicDryRunReceipt: stalePublicDryRunPath
+      }
+    }, cleanRevision),
+    /public dry-run receipt git HEAD must match current HEAD/
+  );
+  const missingFreshnessHeadKoNextPath = resolve(selfTestOutputDir, "missing-freshness-head-ko-next.json");
+  await writePrivateFile(missingFreshnessHeadKoNextPath, `${JSON.stringify({
+    ...koNextFixture,
+    sourceApproval: {
+      freshness: {
+        ...koNextFixture.sourceApproval.freshness,
+        currentGitHead: undefined
+      }
+    }
+  }, null, 2)}\n`);
+  await assert.rejects(
+    () => assertLocalEvidenceOutputsFresh({
+      ...outputBackedSnapshot,
+      outputs: {
+        ...outputBackedSnapshot.outputs,
+        koNextActionSummary: missingFreshnessHeadKoNextPath
+      }
+    }, cleanRevision),
+    /KO next source approval freshness current git HEAD must match current HEAD/
+  );
   console.log("next_major_local_evidence_refresh_selftest_ok");
 }
 
