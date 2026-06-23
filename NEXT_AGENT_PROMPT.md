@@ -1,101 +1,129 @@
-# Learning Companion — Continue Iteration Prompt
+# Learning Companion - Next-Major Continuation Prompt
 
-Copy everything below this line and send it to any coding agent (Claude Code, Codex, Cursor, etc.) in the repo root.
+Copy everything below this line and send it to any coding agent in the repo root.
 
 ---
 
-You are working on **Learning Companion**, a local-first learning app. Read `AGENTS.md` at the repo root FIRST — it covers architecture, rules, code style, and what not to do. Key rules: zero npm deps, vanilla ES modules only, EN+ZH i18n for every user-facing string, privacy-first, SSRF-protect any server fetch, service worker must NOT cache `/api/` routes.
+You are working on **Learning Companion**, a local-first learning app. Read
+`AGENTS.md` first. Keep the current objective intact:
 
-## Current State (as of June 17, 2026)
+> Advance the project to the next-major pre-release state, with every remaining
+> evidence gate either genuinely passing or explicitly blocked/not run.
 
-The core reading + notes experience is built and working:
+## Current Mainline
 
-- **Center reader**: `src/viewer.js` renders video (YouTube/Bili/Vimeo iframe embed), docs/articles (fetched via server proxy, sanitized, displayed in `src/reader.js`), or fallback card. Modes: `video-embed`, `content`, `iframe-embed`, `fallback`, `none`.
-- **Server proxy**: `scripts/dev-server.mjs` serves static files + two API endpoints:
-  - `GET /api/fetch-doc?url=<feishu-url>` — shells out to `lark-cli docs +fetch --api-version v2`, parses JSON response, returns clean HTML
-  - `GET /api/fetch-url?url=<http-url>` — CORS proxy with SSRF protection (blocks private IPs)
-- **Reader** (`src/reader.js`): HTML sanitization, readability extraction (scoring `<main>`/`<article>`/content-heavy divs), markdown-to-HTML, paste fallback textarea, select-to-capture floating button
-- **Voice notes** (`src/voice.js`): Web Speech API wrapper, 🎤 button in capture pane, live interim text, zh/en auto-detect
-- **Handwriting canvas** (`src/canvas.js`): pen/eraser/color/size/clear/save, high-DPI, mouse+touch, persists per session as dataURL
-- **Shortcuts**: Cmd/Ctrl+Enter captures from anywhere (except notes editor), Cmd/Ctrl+Shift+1/2/3 for starters, Cmd/Ctrl+K for search
-- **Auto-detect**: pasting a URL auto-sets materialType (video/doc/article)
-- **i18n**: full EN/ZH, browser language auto-detect, visible EN/中 toggle in brand header
-- **Service worker**: v8, caches static assets only, never caches API
-- **Data**: localStorage, schema v2 (workspace) / v5 (UI prefs), export/import JSON mirror bundles
-- **Smoke tests**: `npm run smoke` passes
+The mainline is no longer general feature polish. The mainline is the
+next-major evidence closure:
 
-## Run It
+1. Keep `bilingualRuntime` passing.
+2. Keep `controlledLearningLoop` passing.
+3. Obtain current-turn approval for the exact public learning-material sources.
+4. Run approved external-source browser evidence only after that approval.
+5. Complete the human privacy review and validate the external-source KO
+   evidence artifact.
+6. Run real Native Mac manual QA.
+7. Run real Windows static/manual return-loop QA.
+8. Run real HarmonyOS DevEco/device/toolchain QA.
+9. Run the final KO gate only after the approved external evidence and all real
+   platform receipts exist.
+
+Do not treat self-tests, dry-runs, source approval requests, platform handoffs,
+readiness packets, or operator packets as KO evidence.
+
+## First Commands
+
+Use these commands to inspect the current state without running build,
+deployment, platform QA, approved external capture, or remote acceptance:
 
 ```bash
-npm run dev          # http://127.0.0.1:5173
-npm run smoke        # must pass before committing
+git status --short
+npm run ko:next -- --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --operator .codex-tmp/next-major-operator/current.json
+npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
 ```
 
-## What to Iterate On Next
+If the operator packet reports stale public-source or platform-handoff inputs,
+refresh the non-claiming packets before asking for approval or running real QA:
 
-Pick from this prioritized list. Each item is independently actionable. Do as many as you can in one session. Start the dev server and test in a browser as you go.
+```bash
+npm run external:validate:public-dry-run -- --reading-url 'https://en.wikipedia.org/wiki/Spaced_repetition' --video-url 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4' --video-timestamp '00:03' --dry-run-note 'Refresh public source preflight for the current clean HEAD.'
+npm run external:approval-request -- --dry-run-receipt <public-dry-run-receipt.json> --out .codex-tmp/external-source-validation/source-approval-request.json --markdown-out .codex-tmp/external-source-validation/source-approval-request.md
+npm run platform:qa-handoff -- --status .codex-tmp/ko-evidence/current-status.json --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md
+npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
+```
 
-### Priority 1: Reader Experience Polish
+## Current Approval Gate
 
-1. **Reader scroll position memory**: When switching sessions or collapsing/expanding the viewer, remember and restore scroll position in the article. Store in session state.
-2. **Table of contents for long docs**: Auto-generate a floating TOC from `<h1>`/`<h2>`/`<h3>` headings in the rendered article. Click to scroll. Collapsible.
-3. **Reading progress bar**: Thin progress bar at top of reader showing scroll %.
-4. **Dark/sepia reading theme**: Add a reading mode toggle (light/sepia/dark) in the viewer toolbar. Persist in uiPrefs. Apply via CSS class on `.reader-scroll`.
-5. **Font size controls**: A- / A+ buttons in viewer toolbar for reader font size (14px–20px). Persist in uiPrefs.
+Before running `npm run external:validate -- --approved-current-turn`, the user
+must approve the exact text emitted by `ko:next` or
+`.codex-tmp/external-source-validation/source-approval-request.json`.
 
-### Priority 2: Notes Power
+Do not infer approval from a general continuation request. Do not edit the
+approval text. Do not run approved external-source capture until approval is
+present in the current turn.
 
-6. **Markdown toolbar for notes**: Add a small toolbar above `#notesEditor` with Bold/Italic/Code/Link/List buttons that wrap selected text in markdown syntax.
-7. **Quote-to-note drag**: Allow dragging selected text from reader into notes editor, inserting as blockquote with source attribution.
-8. **Timestamp anchor in notes**: When watching video, a "insert timestamp" button that inserts `[12:34]()` linking back to that video time in the notes.
-9. **Note tags/wikilinks**: Parse `[[topic]]` syntax in notes, make them clickable to filter captures by that tag/topic.
-10. **Voice language auto-detect improvement**: Currently picks zh-CN/en-US based on UI language. Detect spoken language dynamically or add a toggle next to the mic.
+After exact approval, use the `Approved candidate command after exact
+current-turn approval` line printed by `npm run ko:next`, then continue:
 
-### Priority 3: Multi-Platform Sync
+```bash
+npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>
+npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>
+```
 
-11. **Auto-export to mirror folder**: Add a setting to auto-export the workspace JSON to a configurable local folder path (using the File System Access API `showDirectoryPicker`) on every change, so it can be synced via iCloud/Dropbox/OneDrive.
-12. **Import diff view**: When importing a workspace file, show a diff summary (N new captures, M updated sessions) before applying, instead of silent merge.
-13. **Conflict resolution UI**: If imported workspace has conflicting edits (same session updated in both places), show a simple side-by-side picker.
+The privacy template alone is not enough; a completed human privacy review is
+required before the external-source row can satisfy KO evidence.
 
-### Priority 4: Video Learning Features
+## Real Platform QA Gates
 
-14. **Video bookmarks**: When watching, save multiple timestamps with labels (e.g., "key insight", "review later"). Show as clickable chips under the video.
-15. **Playback speed control**: Add 0.75x/1x/1.25x/1.5x/2x toggle in viewer toolbar for video mode.
-16. **Auto-pause on capture**: When user hits capture (Cmd+Enter) while watching, auto-pause the video.
+Real platform QA is still separate from local smoke:
 
-### Priority 5: Polish & Bug Fixes
+```bash
+npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json
+npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json
+npm run harmony:device:validate -- --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json
+```
 
-17. **Mobile responsive**: The 3-column layout breaks on narrow screens. Add a mobile layout (<768px): sidebar becomes a slide-out drawer, inspector is tab-accessible only, reader takes full width.
-18. **Keyboard shortcut cheatsheet**: Press `?` to show an overlay with all shortcuts.
-19. **Undo/redo for notes editor**: Simple undo stack for the notes textarea (Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z).
-20. **Search ranking**: Current search is simple substring match. Boost matches in titles > quotes > thoughts, and highlight matched terms in results.
+Only receipts filled from real named-platform runs with all rows `PASS` can
+satisfy these lanes. Pending all-`NT` receipts, fixture receipts, local browser
+smoke, static contract checks, scaffold checks, SwiftPM build success alone, or
+non-target-platform inspection must stay non-claiming.
 
-## How to Approach This
+## Final KO Gate
 
-1. Read `AGENTS.md` fully.
-2. Skim `src/app.js` top (imports, dom refs, event wiring) and `src/model.js` top (exports, schemas).
-3. Pick 2-3 items from the priority list above (start with P1 if you can).
-4. For each feature:
-   - Add HTML elements to `index.html`
-   - Add CSS to `styles.css`
-   - Add logic in the appropriate module (new feature? create a new file in `src/`; DOM wiring goes in `app.js`; pure logic goes in `model.js`)
-   - Add i18n strings (both EN and ZH)
-   - If new static assets are added, update `service-worker.js` STATIC_ASSETS and bump cache version
-   - If new API endpoints are added, add SSRF protection
-5. Run `npm run smoke` after each change.
-6. Start dev server and manually test in a browser.
-7. Commit each feature separately with clear messages.
-8. Push to `origin main` when done (SSH alias is `github-learning-companion`).
+Run the final KO gate only after the approved external-source KO evidence review
+and all three real platform receipts exist:
 
-## Files You'll Touch Most
+```bash
+npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json
+npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md
+npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
+```
 
-- `apps/companion-web/src/app.js` — DOM wiring, event handlers, render
-- `apps/companion-web/src/model.js` — data model, pure functions, schemas
-- `apps/companion-web/src/viewer.js` — viewer modes, toolbar
-- `apps/companion-web/src/reader.js` — article rendering
-- `apps/companion-web/index.html` — markup
-- `apps/companion-web/styles.css` — all styles
-- `apps/companion-web/service-worker.js` — offline cache
-- `scripts/dev-server.mjs` — server + API (only if adding endpoints)
+Only claim next-major pre-release readiness when current evidence proves every
+gate. Readiness does not authorize build, package, deployment, Mew-Test, main
+site, or remote acceptance unless the user explicitly asks for that scope.
 
-Don't ask for confirmation. Just build, test, commit, and push.
+## Allowed Local Verification
+
+These are allowed local checks and do not build/package/deploy:
+
+```bash
+node --check scripts/ko-next-action-summary.mjs
+node --check scripts/next-major-operator-packet.mjs
+node --check scripts/platform-qa-handoff.mjs
+node --check scripts/validate-ko-evidence.mjs
+npm run smoke
+git diff --check
+```
+
+Do not run `npm run mac:build`, packaging, deployment, Mew-Test/main-site checks,
+or remote acceptance unless the current user request explicitly asks for them.
+
+## Delivery Rules
+
+Every delivery must split:
+
+- `Executed`: commands/files actually changed or verified.
+- `Blocked / Not Run / Needs Decision`: approval, privacy review, real platform
+  QA, build/deploy/remote acceptance, or any other missing evidence.
+
+Unknown values are `TBD`, not guesses.

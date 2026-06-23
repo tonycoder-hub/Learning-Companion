@@ -2,6 +2,8 @@
 
 This project now has several useful local capabilities. This document keeps the wording honest: a local fixture, a dry-run report, or a schema prototype is not the same as a live integration.
 
+For the current next-major work, start with `npm run ko:next -- --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --operator .codex-tmp/next-major-operator/current.json`. This is the shortest human-readable view of the remaining gates. It reads the current KO status, current source-approval request, and current operator packet; it does not make any missing evidence pass.
+
 For the remaining platform work, run `npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md` to generate a non-claiming execution handoff. The handoff reads the current KO status plus the Mac, Windows, and HarmonyOS QA templates, writes a machine-readable JSON packet plus a human-readable Markdown execution packet, but it does not run platform QA, retain raw QA Markdown/Notes, or satisfy any KO evidence row by itself.
 
 To snapshot all remaining next-major readiness gates without running build, deployment, platform QA, external-source capture, or privacy review, run `npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md`. This packet is `NEXT_MAJOR_READINESS_SUMMARY_ONLY`; it is a current-state checklist, not release evidence, and it does not authorize a release action. Its not-run boundary is emitted even if KO inputs later become claimable.
