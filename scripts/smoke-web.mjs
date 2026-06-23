@@ -1138,6 +1138,8 @@ assert.match(nextMajorOperatorPacketJs, /buildNextActionSequence/);
 assert.match(nextMajorOperatorPacketJs, /appendSourceNextActions/);
 assert.match(nextMajorOperatorPacketJs, /Critical Path/);
 assert.match(nextMajorOperatorPacketJs, /get-current-turn-source-approval/);
+assert.match(nextMajorOperatorPacketJs, /Exact approval text to request/);
+assert.match(nextMajorOperatorPacketJs, /Exact approval text to copy/);
 assert.match(nextMajorOperatorPacketJs, /run-approved-external-source-candidate/);
 assert.match(nextMajorOperatorPacketJs, /validate-final-ko/);
 assert.match(nextMajorOperatorPacketJs, /Platform handoff freshness/);

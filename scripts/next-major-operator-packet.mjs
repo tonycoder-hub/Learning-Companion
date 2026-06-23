@@ -529,6 +529,9 @@ function buildOperatorMarkdown(packet) {
       `- Produces: ${markdownInline(step.produces || "TBD")}`,
       `- Claim boundary: ${markdownInline(step.claimBoundary)}`
     );
+    if (step.id === "get-current-turn-source-approval" && step.produces) {
+      lines.push("", "Exact approval text to request:", "", "```text", step.produces, "```");
+    }
     if (step.command) {
       lines.push("", "Command:", "", "```bash", step.command, "```");
     }
@@ -554,6 +557,9 @@ function buildOperatorMarkdown(packet) {
         `- Approval text needed: ${markdownInline(lane.approvalRequest.requestedApprovalText || "TBD")}`,
         `- Approval request freshness: ${markdownInline(lane.approvalRequest.freshness?.status || "TBD")}`
       );
+      if (lane.approvalRequest.requestedApprovalText) {
+        lines.push("", "Exact approval text to copy:", "", "```text", lane.approvalRequest.requestedApprovalText, "```");
+      }
       const freshnessProblems = lane.approvalRequest.freshness?.problems || [];
       for (const problem of freshnessProblems) {
         lines.push(`- Freshness problem: ${markdownInline(problem)}`);
