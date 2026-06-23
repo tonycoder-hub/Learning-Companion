@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
 import {
   HARMONY_DEVICE_QA_AREAS,
@@ -947,6 +947,18 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   assert.equal(existsSync(claim.reviewPath), true, `external review missing: ${claim.reviewPath}`);
   assertExternalSource(claim.reading, "reading", { allowSelfTestFixtures });
   assertExternalSource(claim.video, "video", { allowSelfTestFixtures });
+  assertExternalRequiredEvidenceFiles(claim.reading, "reading", [
+    "01-source-and-app-before-capture.png",
+    "02-capture-saved.png",
+    "03-resume-source.png"
+  ]);
+  assertExternalRequiredEvidenceFiles(claim.video, "video", [
+    "01-source-and-app-before-capture.png",
+    "02-capture-saved.png",
+    "02b-video-learning-tools.png",
+    "03-resume-source.png",
+    "04-video-timestamp.png"
+  ]);
   assertNonTbd(claim.video?.timestamp, "video timestamp");
   assertExternalRunContext(claim.runContext, { currentRevision });
   assertExternalSourceApprovalRequest(claim.sourceApprovalRequest, claim, { currentRevision });
@@ -1080,6 +1092,16 @@ function assertExternalReviewedScreenshots(reviewedScreenshots, claim, { allowSe
   });
   expectedFiles.forEach((file) => {
     assert.equal(seen.has(file), true, `external claim reviewedScreenshots missing file: ${file}`);
+  });
+}
+
+function assertExternalRequiredEvidenceFiles(source, label, requiredNames) {
+  requiredNames.forEach((name) => {
+    assert.equal(
+      source.files.some((file) => basename(file) === name),
+      true,
+      `external claim ${label} evidence missing ${name}`
+    );
   });
 }
 
@@ -1437,6 +1459,56 @@ async function runSelfTest() {
   });
   assert.equal(signedQueryExternalReport.canClaimKo, false);
   assert.ok(signedQueryExternalReport.blockers.some((item) => item.includes("query key X-Goog-Signature looks sensitive")));
+
+  const missingVideoLearningToolsExternalPath = join(root, "missing-video-learning-tools-external-source.json");
+  await writeJson(missingVideoLearningToolsExternalPath, {
+    ...fixtures.externalClaim,
+    video: {
+      ...fixtures.externalClaim.video,
+      files: fixtures.externalClaim.video.files.filter((file) => !file.endsWith("02b-video-learning-tools.png"))
+    },
+    reviewedScreenshots: fixtures.externalClaim.reviewedScreenshots.filter((item) => !item.file.endsWith("02b-video-learning-tools.png"))
+  });
+  const missingVideoLearningToolsExternalReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: missingVideoLearningToolsExternalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingVideoLearningToolsExternalReport.canClaimKo, false);
+  assert.ok(missingVideoLearningToolsExternalReport.blockers.some((item) => item.includes("external claim video evidence missing 02b-video-learning-tools.png")));
+
+  const prefixedVideoLearningToolsFile = join(root, "external", "video", "not-02b-video-learning-tools.png");
+  await writeFile(prefixedVideoLearningToolsFile, "fixture\n");
+  const prefixedVideoLearningToolsExternalPath = join(root, "prefixed-video-learning-tools-external-source.json");
+  await writeJson(prefixedVideoLearningToolsExternalPath, {
+    ...fixtures.externalClaim,
+    video: {
+      ...fixtures.externalClaim.video,
+      files: fixtures.externalClaim.video.files.map((file) => file.endsWith("02b-video-learning-tools.png")
+        ? prefixedVideoLearningToolsFile
+        : file)
+    },
+    reviewedScreenshots: fixtures.externalClaim.reviewedScreenshots.map((item) => item.file.endsWith("02b-video-learning-tools.png")
+      ? { ...screenshotEvidence(prefixedVideoLearningToolsFile), status: "PASS" }
+      : item)
+  });
+  const prefixedVideoLearningToolsExternalReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: prefixedVideoLearningToolsExternalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(prefixedVideoLearningToolsExternalReport.canClaimKo, false);
+  assert.ok(prefixedVideoLearningToolsExternalReport.blockers.some((item) => item.includes("external claim video evidence missing 02b-video-learning-tools.png")));
 
   const staleExternalRevisionPath = join(root, "stale-external-revision-claim.json");
   await writeJson(staleExternalRevisionPath, {
@@ -2404,6 +2476,8 @@ async function runSelfTest() {
       "IPv4-mapped IPv6 external source URL rejected",
       "sensitive external source query key rejected",
       "signed external source query key rejected",
+      "missing external video learning-tools screenshot rejected",
+      "prefixed external video learning-tools screenshot name rejected",
       "external stale git revision rejected",
       "external dirty git revision rejected",
       "missing external source approval request rejected",
@@ -2459,6 +2533,7 @@ async function createKoFixtures(root) {
     join(root, "external", "reading", "03-resume-source.png"),
     join(root, "external", "video", "01-source-and-app-before-capture.png"),
     join(root, "external", "video", "02-capture-saved.png"),
+    join(root, "external", "video", "02b-video-learning-tools.png"),
     join(root, "external", "video", "03-resume-source.png"),
     join(root, "external", "video", "04-video-timestamp.png")
   ];
