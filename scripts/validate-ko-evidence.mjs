@@ -964,6 +964,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
         requestSchema: claim.sourceApprovalRequest.requestSchema,
         evidenceTier: claim.sourceApprovalRequest.evidenceTier,
         canClaimExternalKo: claim.sourceApprovalRequest.canClaimExternalKo,
+        requestedApprovalText: claim.sourceApprovalRequest.requestedApprovalText,
         freshnessStatus: claim.sourceApprovalRequest.freshnessStatus,
         requestedApprovalTextMatched: claim.sourceApprovalRequest.requestedApprovalTextMatched,
         approvedReadingUrl: claim.sourceApprovalRequest.approvedReadingUrl,
@@ -996,6 +997,8 @@ function assertExternalSourceApprovalRequest(sourceApprovalRequest, claim, { cur
   assert.equal(sourceApprovalRequest.requestSchema, "learning-companion.external-source-approval-request.v1", "external claim sourceApprovalRequest request schema mismatch");
   assert.equal(sourceApprovalRequest.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY", "external claim sourceApprovalRequest evidence tier mismatch");
   assert.equal(sourceApprovalRequest.canClaimExternalKo, false, "external claim sourceApprovalRequest must be non-claiming");
+  assertNonTbd(sourceApprovalRequest.requestedApprovalText, "external claim sourceApprovalRequest.requestedApprovalText");
+  assertRequestedApprovalTextCoversClaim(sourceApprovalRequest.requestedApprovalText, claim);
   assert.equal(sourceApprovalRequest.freshnessStatus, CURRENT_CLEAN_PUBLIC_DRY_RUN, "external claim sourceApprovalRequest freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN");
   assert.equal(sourceApprovalRequest.requestedApprovalTextMatched, true, "external claim sourceApprovalRequest must prove requested approval text matched");
   assert.equal(sourceApprovalRequest.approvedReadingUrl, claim.reading.url, "external claim sourceApprovalRequest reading URL must match claim");
@@ -1013,6 +1016,12 @@ function assertExternalSourceApprovalRequest(sourceApprovalRequest, claim, { cur
   assert.equal(sourceApprovalRequest.basisProfileRetained, false, "external claim sourceApprovalRequest public dry-run basis must not retain the browser profile");
   assert.equal(Array.isArray(sourceApprovalRequest.problems), true, "external claim sourceApprovalRequest problems must be listed");
   assert.equal(sourceApprovalRequest.problems.length, 0, "external claim sourceApprovalRequest must have no freshness problems");
+}
+
+function assertRequestedApprovalTextCoversClaim(text, claim) {
+  assert.equal(String(text).includes(`reading=${claim.reading.url}`), true, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved reading URL");
+  assert.equal(String(text).includes(`video=${claim.video.url}`), true, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved video URL");
+  assert.equal(String(text).includes(`timestamp=${claim.video.timestamp}`), true, "external claim sourceApprovalRequest.requestedApprovalText must include the exact approved video timestamp");
 }
 
 function assertExternalSource(source, label, { allowSelfTestFixtures = false } = {}) {
@@ -1461,6 +1470,48 @@ async function runSelfTest() {
   });
   assert.equal(staleExternalSourceApprovalRequestReport.canClaimKo, false);
   assert.ok(staleExternalSourceApprovalRequestReport.blockers.some((item) => item.includes("sourceApprovalRequest freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN")));
+
+  const missingRequestedApprovalTextPath = join(root, "missing-external-source-approval-requested-text.json");
+  await writeJson(missingRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: ""
+    }
+  });
+  const missingRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: missingRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(missingRequestedApprovalTextReport.blockers.some((item) => item.includes("sourceApprovalRequest.requestedApprovalText must be filled")));
+
+  const incompleteRequestedApprovalTextPath = join(root, "incomplete-external-source-approval-requested-text.json");
+  await writeJson(incompleteRequestedApprovalTextPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      requestedApprovalText: "I approve the learning sources for this turn."
+    }
+  });
+  const incompleteRequestedApprovalTextReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: incompleteRequestedApprovalTextPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(incompleteRequestedApprovalTextReport.canClaimKo, false);
+  assert.ok(incompleteRequestedApprovalTextReport.blockers.some((item) => item.includes("requestedApprovalText must include the exact approved reading URL")));
 
   const mismatchedExternalSourceApprovalRequestUrlPath = join(root, "mismatched-external-source-approval-request-url.json");
   await writeJson(mismatchedExternalSourceApprovalRequestUrlPath, {
@@ -2418,6 +2469,7 @@ async function createKoFixtures(root) {
       evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
       canClaimExternalKo: false,
       freshnessStatus: CURRENT_CLEAN_PUBLIC_DRY_RUN,
+      requestedApprovalText: "I approve these exact public learning-material sources for the current turn: reading=https://www.wikipedia.org/learning-companion-approved-reading video=https://www.youtube.com/watch?v=learning-companion-approved-video timestamp=01:35. They may be used for Learning Companion external-source validation screenshots and privacy review.",
       requestedApprovalTextMatched: true,
       approvedReadingUrl: "https://www.wikipedia.org/learning-companion-approved-reading",
       approvedVideoUrl: "https://www.youtube.com/watch?v=learning-companion-approved-video",

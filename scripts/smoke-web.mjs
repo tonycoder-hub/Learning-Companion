@@ -767,6 +767,9 @@ assert.match(externalSourcePrivacyReviewJs, /external-source-privacy-review-self
 assert.match(externalSourcePrivacyReviewJs, /source-approval-request-binding\.v1/);
 assert.match(externalSourcePrivacyReviewJs, /function validateSourceApprovalRequestBinding/);
 assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestBinding freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN/);
+assert.match(externalSourcePrivacyReviewJs, /requested approval text must match receipt binding/);
+assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestBinding\.requestedApprovalText/);
+assert.match(externalSourcePrivacyReviewJs, /function assertRequestedApprovalTextCoversSources/);
 assert.match(externalSourcePrivacyReviewJs, /requestedApprovalTextMatched/);
 assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestPath/);
 assert.match(externalSourcePrivacyReviewJs, /approvedReadingUrl: receiptSummary\.sourceApprovalRequestBinding\.approvedReadingUrl/);
@@ -774,6 +777,9 @@ assert.match(externalSourcePrivacyReviewJs, /approvedVideoTimestamp: receiptSumm
 assert.match(externalSourcePrivacyReviewJs, /gitHeadCaptured: runContext\.appRevision\.gitHeadCaptured/);
 assert.match(externalSourcePrivacyReviewJs, /statusCaptured: runContext\.appRevision\.statusCaptured/);
 assert.match(externalSourcePrivacyReviewJs, /statusShort: runContext\.appRevision\.statusShort/);
+assert.match(koEvidenceReviewJs, /sourceApprovalRequest\.requestedApprovalText/);
+assert.match(koEvidenceReviewJs, /external claim sourceApprovalRequest\.requestedApprovalText/);
+assert.match(koEvidenceReviewJs, /function assertRequestedApprovalTextCoversClaim/);
 assert.match(externalSourcePrivacyReviewJs, /mode: 0o600/);
 assert.match(externalSourcePrivacyReviewJs, /error\?\.code !== "ENOENT"/);
 assert.match(externalSourcePrivacyReviewJs, /chmod\(path, 0o600\)/);
@@ -1642,6 +1648,8 @@ assert.match(externalSourceValidationBrowserJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
 assert.match(externalSourceValidationBrowserJs, /sourceApprovalRequestBinding/);
 assert.match(externalSourceValidationBrowserJs, /function buildSourceApprovalRequestBinding/);
 assert.match(externalSourceValidationBrowserJs, /source-approval-request-binding\.v1/);
+assert.match(externalSourceValidationBrowserJs, /requestedApprovalText: request\.requestedApprovalText/);
+assert.match(externalSourceValidationBrowserJs, /function assertRequestedApprovalTextCoversSources/);
 assert.match(externalSourceValidationBrowserJs, /requestedApprovalTextMatched/);
 assert.match(externalSourceValidationBrowserJs, /function assertCurrentCleanSourceApprovalFreshness/);
 assert.match(externalSourceValidationBrowserJs, /freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN/);
