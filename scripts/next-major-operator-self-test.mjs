@@ -207,6 +207,21 @@ try {
   assert.equal(missingSourcePacket.nextActionSequence[0].id, "collect-source-input");
   assert.match(missingSourcePacket.nextActionSequence[0].command, /external:source-intake/);
 
+  await writeJson(approvalPath, buildApprovalRequest(currentHead));
+  const refreshInputsRun = await runOperatorRefresh("refresh-inputs", { approval: approvalPath });
+  assert.equal(refreshInputsRun.code, 0, refreshInputsRun.stderr);
+  assert.match(refreshInputsRun.stdout, /next_major_operator_packet_ok/);
+  const refreshedInputPacket = await readJson(refreshInputsRun.jsonPath);
+  assert.equal(refreshedInputPacket.inputs.readinessPath, readinessPath);
+  assert.equal(refreshedInputPacket.inputs.platformHandoffPath, platformPath);
+  assert.equal(refreshedInputPacket.sourceReadiness.koStatusFreshness, "CURRENT_CLEAN_HEAD_KO_STATUS");
+  assert.equal(refreshedInputPacket.platformHandoffFreshness.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF");
+  assert.equal(getLane(refreshedInputPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
+  assert.equal((await stat(markdownSiblingPath(readinessPath))).mode & 0o777, 0o600);
+  assert.equal((await stat(markdownSiblingPath(platformPath))).mode & 0o777, 0o600);
+  assert.match(await readFile(markdownSiblingPath(readinessPath), "utf8"), /Next Major Readiness Packet/);
+  assert.match(await readFile(markdownSiblingPath(platformPath), "utf8"), /Platform QA Execution Handoff/);
+
   await writeJson(readinessPath, buildReadiness(true));
   const releaseAuthorizedRun = await runOperator("release-authorized", { approval: approvalPath });
   assert.notEqual(releaseAuthorizedRun.code, 0);
@@ -254,6 +269,32 @@ async function runOperator(label, options = {}) {
   const markdownPath = join(outDir, `${label}.md`);
   const result = await runNode([
     operatorScript,
+    "--status",
+    statusPath,
+    "--readiness",
+    readinessPath,
+    "--platform-handoff",
+    options.platformHandoff || platformPath,
+    "--source-approval-request",
+    options.approval || approvalPath,
+    "--out",
+    jsonPath,
+    "--markdown-out",
+    markdownPath
+  ], fixtureRoot);
+  return {
+    ...result,
+    jsonPath,
+    markdownPath
+  };
+}
+
+async function runOperatorRefresh(label, options = {}) {
+  const jsonPath = join(outDir, `${label}.json`);
+  const markdownPath = join(outDir, `${label}.md`);
+  const result = await runNode([
+    operatorScript,
+    "--refresh",
     "--status",
     statusPath,
     "--readiness",
@@ -332,6 +373,11 @@ async function writePlatformQaTemplates() {
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+function markdownSiblingPath(jsonPath) {
+  const text = String(jsonPath);
+  return text.endsWith(".json") ? text.slice(0, -5) + ".md" : `${text}.md`;
 }
 
 function getLane(packet, id) {

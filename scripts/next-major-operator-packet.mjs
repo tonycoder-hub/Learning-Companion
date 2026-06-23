@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { readCurrentRevision } from "./lib/git-revision.mjs";
 import {
@@ -12,6 +13,8 @@ import {
 } from "./lib/source-approval-freshness.mjs";
 
 const execFileAsync = promisify(execFile);
+const scriptPath = fileURLToPath(import.meta.url);
+const scriptDir = dirname(scriptPath);
 
 const OPERATOR_SCHEMA = "learning-companion.next-major-operator-packet.v1";
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
@@ -59,21 +62,34 @@ console.log(buildConsoleSummary(packet, {
 }));
 
 async function refreshInputs({ statusPath, readinessPath, platformHandoffPath }) {
-  await runNodeScript(["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", statusPath], "KO status");
+  await runNodeScript([scriptInThisDir("validate-ko-evidence.mjs"), "--allow-missing", "--out", statusPath], "KO status");
   await runNodeScript([
-    "scripts/platform-qa-handoff.mjs",
+    scriptInThisDir("next-major-readiness.mjs"),
     "--status",
     statusPath,
     "--out",
-    platformHandoffPath
-  ], "platform QA handoff");
-  await runNodeScript([
-    "scripts/next-major-readiness.mjs",
-    "--status",
-    statusPath,
-    "--out",
-    readinessPath
+    readinessPath,
+    "--markdown-out",
+    markdownSiblingPath(readinessPath)
   ], "next-major readiness");
+  await runNodeScript([
+    scriptInThisDir("platform-qa-handoff.mjs"),
+    "--status",
+    statusPath,
+    "--out",
+    platformHandoffPath,
+    "--markdown-out",
+    markdownSiblingPath(platformHandoffPath)
+  ], "platform QA handoff");
+}
+
+function scriptInThisDir(fileName) {
+  return resolve(scriptDir, fileName);
+}
+
+function markdownSiblingPath(jsonPath) {
+  const text = String(jsonPath);
+  return text.endsWith(".json") ? text.slice(0, -5) + ".md" : `${text}.md`;
 }
 
 async function runNodeScript(argv, label) {
@@ -622,10 +638,11 @@ function buildHelp() {
 Usage:
   npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md
 
-This command may refresh local KO/readiness/platform handoff summaries. It does
-not grant source approval, run approved-source browser evidence, perform privacy
-review, run Mac/Windows/HarmonyOS QA, build, package, deploy, or run remote
-acceptance checks.`;
+With --refresh, this command refreshes local KO, readiness, and platform handoff
+summaries and writes readiness/platform Markdown siblings next to their JSON
+files. It does not grant source approval, run approved-source browser evidence,
+perform privacy review, run Mac/Windows/HarmonyOS QA, build, package, deploy, or
+run remote acceptance checks.`;
 }
 
 function parseArgs(argv) {
