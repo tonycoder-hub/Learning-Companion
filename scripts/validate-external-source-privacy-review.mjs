@@ -76,10 +76,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
     ["executionReview.videoLearningToolsPass", review.executionReview?.videoLearningToolsPass]
   ].forEach(([label, value]) => assert.equal(value, true, `${label} must be true`));
 
-  const reviewedFiles = new Map((review.privacyReview?.screenshotsReviewed || []).map((item) => [item.file, item.status]));
-  receiptSummary.files.forEach((file) => {
-    assert.equal(reviewedFiles.get(file), "PASS", `screenshot privacy review missing PASS for ${file}`);
-  });
+  validateScreenshotReviewCoverage(review.privacyReview?.screenshotsReviewed, receiptSummary.files);
   assert.equal(review.verdict, "PASS", "privacy review verdict must be PASS");
   assert.equal(review.canUseForKo, true, "review must explicitly allow KO use");
   assertConcreteReviewText(review.notes, "notes");
@@ -563,6 +560,56 @@ async function runSelfTest() {
     reviewPath: join(root, "failed-review.json")
   }), /noSecretsTokensSessionIds must be true/);
 
+  const duplicateScreenshotReview = {
+    ...validReview,
+    privacyReview: {
+      ...validReview.privacyReview,
+      screenshotsReviewed: [
+        ...validReview.privacyReview.screenshotsReviewed,
+        { ...validReview.privacyReview.screenshotsReviewed[0] }
+      ]
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: duplicateScreenshotReview,
+    reviewPath: join(root, "duplicate-screenshot-review.json")
+  }), /duplicate screenshot privacy review entry/);
+
+  const extraScreenshotReview = {
+    ...validReview,
+    privacyReview: {
+      ...validReview.privacyReview,
+      screenshotsReviewed: [
+        ...validReview.privacyReview.screenshotsReviewed,
+        { file: join(root, "extra.png"), status: "PASS" }
+      ]
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: extraScreenshotReview,
+    reviewPath: join(root, "extra-screenshot-review.json")
+  }), /unexpected screenshot privacy review file/);
+
+  const failedScreenshotReview = {
+    ...validReview,
+    privacyReview: {
+      ...validReview.privacyReview,
+      screenshotsReviewed: validReview.privacyReview.screenshotsReviewed.map((item, index) => index === 0
+        ? { ...item, status: "FAIL" }
+        : item)
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: failedScreenshotReview,
+    reviewPath: join(root, "failed-screenshot-review.json")
+  }), /screenshot privacy review must be PASS/);
+
   const placeholderReviewerReview = {
     ...validReview,
     reviewer: "N/A"
@@ -798,6 +845,9 @@ async function runSelfTest() {
       "conflicting timestamp requested approval text in source approval binding rejected",
       "mismatched requested approval text in privacy review rejected",
       "failed privacy boolean rejected",
+      "duplicate screenshot review entry rejected",
+      "extra screenshot review file rejected",
+      "failed screenshot review status rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
       "placeholder approval reference rejected",
@@ -1025,6 +1075,24 @@ function buildValidReview(receipt, receiptPath) {
     canUseForKo: true,
     notes: "Self-test fixture only."
   };
+}
+
+function validateScreenshotReviewCoverage(screenshotsReviewed, expectedFiles) {
+  assert.equal(Array.isArray(screenshotsReviewed), true, "privacyReview.screenshotsReviewed must be an array");
+  const expected = new Set(expectedFiles);
+  assert.equal(expected.size, expectedFiles.length, "receipt evidence files must be unique");
+  const seen = new Set();
+  screenshotsReviewed.forEach((item, index) => {
+    const label = `privacyReview.screenshotsReviewed[${index}]`;
+    assertNonTbd(item?.file, `${label}.file`);
+    assert.equal(expected.has(item.file), true, `unexpected screenshot privacy review file: ${item.file}`);
+    assert.equal(seen.has(item.file), false, `duplicate screenshot privacy review entry: ${item.file}`);
+    assert.equal(item.status, "PASS", `screenshot privacy review must be PASS for ${item.file}`);
+    seen.add(item.file);
+  });
+  for (const file of expectedFiles) {
+    assert.equal(seen.has(file), true, `screenshot privacy review missing PASS for ${file}`);
+  }
 }
 
 function validateRunContext(runContext) {
