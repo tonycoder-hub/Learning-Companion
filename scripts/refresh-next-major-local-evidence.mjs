@@ -2,12 +2,14 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
 
 const execFileAsync = promisify(execFile);
 const SUBCOMMAND_TIMEOUT_MS = 180_000;
+const LOCAL_EVIDENCE_SNAPSHOT_SCHEMA = "learning-companion.next-major-local-evidence-snapshot.v1";
 const PUBLIC_DRY_RUN_RECEIPT_PATTERN = /external_source_validation_public_dry_run_ok\s+(.+\.json)\s*$/m;
 const STATIC_RETURN_RECEIPT_PATTERN = /static_return_loop_ok\s+(.+receipt\.json)\s*$/m;
 
@@ -21,6 +23,8 @@ const DEFAULTS = Object.freeze({
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   operatorMarkdownOut: ".codex-tmp/next-major-operator/current.md",
   koNextOut: ".codex-tmp/ko-next/current.json",
+  localEvidenceOut: ".codex-tmp/next-major-local-evidence/current.json",
+  localEvidenceMarkdownOut: ".codex-tmp/next-major-local-evidence/current.md",
   koStatus: ".codex-tmp/ko-evidence/current-status.json",
   macManual: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
   windowsStatic: ".codex-tmp/windows-static-qa/real-run-receipt.json",
@@ -44,6 +48,8 @@ const PATH_ARGS = [
   "operator-out",
   "operator-markdown-out",
   "ko-next-out",
+  "local-evidence-out",
+  "local-evidence-markdown-out",
   "ko-status",
   "mac-manual",
   "windows-static",
@@ -84,6 +90,8 @@ function normalizeOptions(parsed) {
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
     operatorMarkdownOut: String(parsed["operator-markdown-out"] || DEFAULTS.operatorMarkdownOut),
     koNextOut: String(parsed["ko-next-out"] || DEFAULTS.koNextOut),
+    localEvidenceOut: String(parsed["local-evidence-out"] || DEFAULTS.localEvidenceOut),
+    localEvidenceMarkdownOut: String(parsed["local-evidence-markdown-out"] || DEFAULTS.localEvidenceMarkdownOut),
     koStatus: String(parsed["ko-status"] || DEFAULTS.koStatus),
     platformReceiptPaths: {
       macManual: String(parsed["mac-manual"] || DEFAULTS.macManual),
@@ -336,7 +344,11 @@ async function runLocalEvidenceRefresh(plan) {
       if (!existsSync(publicDryRunReceipt)) throw new Error(`Public dry-run receipt was not written: ${publicDryRunReceipt}`);
     }
   }
-  console.log(await buildSuccessSummary(plan, publicDryRunReceipt, outputs));
+  const localReceipts = await collectLocalReceiptSummaries(outputs);
+  const snapshot = buildLocalEvidenceSnapshot(plan, publicDryRunReceipt, outputs, localReceipts);
+  await writePrivateFile(resolve(plan.options.localEvidenceOut), `${JSON.stringify(snapshot, null, 2)}\n`);
+  await writePrivateFile(resolve(plan.options.localEvidenceMarkdownOut), buildLocalEvidenceSnapshotMarkdown(snapshot));
+  console.log(buildSuccessSummary(plan, publicDryRunReceipt, outputs, localReceipts));
 }
 
 async function runNodeCommand(argv, label) {
@@ -364,9 +376,82 @@ async function readSourceApprovalRequest(path) {
   return request;
 }
 
-async function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
+async function writePrivateFile(path, content) {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await chmod(path, 0o600).catch((error) => {
+    if (error?.code !== "ENOENT") throw error;
+  });
+  await writeFile(path, content, { mode: 0o600 });
+  await chmod(path, 0o600);
+}
+
+function buildLocalEvidenceSnapshot(plan, publicDryRunReceipt, outputs, localReceipts) {
   const koNext = outputs.find((item) => item.id === "print-ko-next")?.stdout.trim() || "";
-  const localReceipts = await collectLocalReceiptSummaries(outputs);
+  return {
+    schema: LOCAL_EVIDENCE_SNAPSHOT_SCHEMA,
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY",
+    canClaimNextMajorFromThisSnapshot: false,
+    releaseActionAuthorized: false,
+    claimBoundary: "Local evidence snapshot only. It records current non-claiming local receipts and handoff paths; it does not grant source approval, run approved browser evidence, perform privacy review, run real platform QA, build, package, deploy, or run remote acceptance.",
+    currentRevision: plan.currentRevision,
+    sourceApproval: plan.sourceApproval,
+    outputs: {
+      publicDryRunReceipt: publicDryRunReceipt || "TBD",
+      sourceApprovalRequest: plan.options.sourceApprovalRequest,
+      sourceApprovalMarkdown: plan.options.sourceApprovalMarkdown,
+      readinessPacket: plan.options.readinessOut,
+      readinessMarkdown: plan.options.readinessMarkdownOut,
+      platformQaHandoff: plan.options.platformHandoffOut,
+      platformQaHandoffMarkdown: plan.options.platformHandoffMarkdownOut,
+      operatorPacket: plan.options.operatorOut,
+      operatorMarkdown: plan.options.operatorMarkdownOut,
+      koNextActionSummary: plan.options.koNextOut
+    },
+    localReceipts,
+    koNextSummaryText: koNext,
+    blockedOrNotExecuted: plan.blockedOrNotExecuted
+  };
+}
+
+function buildLocalEvidenceSnapshotMarkdown(snapshot) {
+  const lines = [
+    "# Next Major Local Evidence Snapshot",
+    "",
+    `Evidence tier: ${snapshot.evidenceTier}`,
+    `Can claim next-major from this snapshot: ${snapshot.canClaimNextMajorFromThisSnapshot}`,
+    `Release action authorized: ${snapshot.releaseActionAuthorized}`,
+    `Current git HEAD: ${snapshot.currentRevision?.gitHead || "TBD"}`,
+    `Current worktree dirty: ${snapshot.currentRevision?.dirtyWorktree === true}`,
+    "",
+    "## Outputs",
+    "",
+    `- Public dry-run receipt: ${snapshot.outputs.publicDryRunReceipt}`,
+    `- Source approval request: ${snapshot.outputs.sourceApprovalRequest}`,
+    `- Readiness packet: ${snapshot.outputs.readinessPacket}`,
+    `- Platform QA handoff: ${snapshot.outputs.platformQaHandoff}`,
+    `- Operator packet: ${snapshot.outputs.operatorPacket}`,
+    `- KO next action summary: ${snapshot.outputs.koNextActionSummary}`,
+    "",
+    "## Local Receipts",
+    "",
+    "| ID | Evidence tier | OK | Claim boundary | Receipt |",
+    "| --- | --- | --- | --- | --- |"
+  ];
+  for (const receipt of snapshot.localReceipts) {
+    lines.push(`| ${receipt.id} | ${receipt.evidenceTier} | ${receipt.ok} | ${receipt.claim} | ${receipt.path} |`);
+  }
+  lines.push("", "## Boundary", "");
+  for (const item of snapshot.blockedOrNotExecuted) lines.push(`- ${item}`);
+  lines.push("", "## Claim Boundary", "", snapshot.claimBoundary, "");
+  if (snapshot.koNextSummaryText) {
+    lines.push("## KO Next Summary", "", "```text", snapshot.koNextSummaryText, "```", "");
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function buildSuccessSummary(plan, publicDryRunReceipt, outputs, localReceipts) {
+  const koNext = outputs.find((item) => item.id === "print-ko-next")?.stdout.trim() || "";
   const lines = [
     "next_major_local_evidence_refresh_ok",
     `Git HEAD: ${plan.currentRevision.gitHead}`,
@@ -376,6 +461,8 @@ async function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
     `Platform QA handoff: ${plan.options.platformHandoffOut}`,
     `Operator packet: ${plan.options.operatorOut}`,
     `KO next action summary: ${plan.options.koNextOut}`,
+    `Local evidence snapshot: ${plan.options.localEvidenceOut}`,
+    `Local evidence snapshot markdown: ${plan.options.localEvidenceMarkdownOut}`,
     "",
     "Local receipt summary:"
   ];
@@ -501,7 +588,9 @@ function runSelfTest() {
     options: normalizeOptions({
       "mac-manual": "custom mac.json",
       "windows-static": "custom windows.json",
-      "harmony-device": "custom harmony.json"
+      "harmony-device": "custom harmony.json",
+      "local-evidence-out": ".codex-tmp/selftest/local evidence.json",
+      "local-evidence-markdown-out": ".codex-tmp/selftest/local evidence.md"
     }),
     sourceApproval: {
       path: DEFAULTS.sourceApprovalRequest,
@@ -587,6 +676,28 @@ function runSelfTest() {
   assert.match(dryRun, /Does not build, package, deploy/);
   assert.match(dryRun, /remote acceptance/);
   assert.throws(() => assertSupportedOptions({ external: "custom external.json" }), /--external is not supported by next:local-evidence/);
+  const fakeReceipts = [
+    {
+      id: "dogfoodPending",
+      path: ".codex-tmp/dogfood-runbook/receipt.json",
+      evidenceTier: "PENDING_USER_GATE",
+      ok: true,
+      claim: "no-dogfood-claim"
+    }
+  ];
+  const snapshot = buildLocalEvidenceSnapshot(plan, "public-dry-run.json", [{ id: "print-ko-next", stdout: "KO next text" }], fakeReceipts);
+  assert.equal(snapshot.schema, LOCAL_EVIDENCE_SNAPSHOT_SCHEMA);
+  assert.equal(snapshot.evidenceTier, "NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY");
+  assert.equal(snapshot.canClaimNextMajorFromThisSnapshot, false);
+  assert.equal(snapshot.releaseActionAuthorized, false);
+  assert.equal(snapshot.outputs.publicDryRunReceipt, "public-dry-run.json");
+  assert.equal(snapshot.outputs.sourceApprovalRequest, DEFAULTS.sourceApprovalRequest);
+  assert.equal(snapshot.localReceipts[0].claim, "no-dogfood-claim");
+  const snapshotMarkdown = buildLocalEvidenceSnapshotMarkdown(snapshot);
+  assert.match(snapshotMarkdown, /Next Major Local Evidence Snapshot/);
+  assert.match(snapshotMarkdown, /NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY/);
+  assert.match(snapshotMarkdown, /no-dogfood-claim/);
+  assert.match(snapshotMarkdown, /Does not run approved-source browser capture/);
   console.log("next_major_local_evidence_refresh_selftest_ok");
 }
 
@@ -598,11 +709,13 @@ Usage:
   npm run next:local-evidence -- --dry-run
   npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
   npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json
+  npm run next:local-evidence -- --local-evidence-out .codex-tmp/next-major-local-evidence/current.json --local-evidence-markdown-out .codex-tmp/next-major-local-evidence/current.md
 
 This command runs local bilingual/browser, controlled-loop, static-return,
 return-import, dogfood, and pending platform QA receipts first. It then
 refreshes the public-source dry-run, KO status, readiness packet, platform QA
-handoff, approval request, operator packet, and KO next summary JSON/text output.
+handoff, approval request, operator packet, KO next summary, and local evidence
+snapshot JSON/Markdown output.
 It does not grant source approval, run approved-source capture, perform
 privacy review, run real platform QA, build, deploy, or remote-accept.
 It intentionally rejects --external; bind approved external KO evidence with

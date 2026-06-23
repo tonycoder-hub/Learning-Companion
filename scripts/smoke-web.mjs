@@ -1112,6 +1112,13 @@ assert.match(refreshNextMajorLocalEvidenceJs, /next_major_local_evidence_refresh
 assert.match(refreshNextMajorLocalEvidenceJs, /Local receipt summary/);
 assert.match(refreshNextMajorLocalEvidenceJs, /collectLocalReceiptSummaries/);
 assert.match(refreshNextMajorLocalEvidenceJs, /summarizeClaimBoundary/);
+assert.match(refreshNextMajorLocalEvidenceJs, /learning-companion\.next-major-local-evidence-snapshot\.v1/);
+assert.match(refreshNextMajorLocalEvidenceJs, /NEXT_MAJOR_LOCAL_EVIDENCE_SNAPSHOT_ONLY/);
+assert.match(refreshNextMajorLocalEvidenceJs, /buildLocalEvidenceSnapshot/);
+assert.match(refreshNextMajorLocalEvidenceJs, /buildLocalEvidenceSnapshotMarkdown/);
+assert.match(refreshNextMajorLocalEvidenceJs, /writePrivateFile/);
+assert.match(refreshNextMajorLocalEvidenceJs, /localEvidenceOut/);
+assert.match(refreshNextMajorLocalEvidenceJs, /localEvidenceMarkdownOut/);
 assert.match(refreshNextMajorLocalEvidenceJs, /STATIC_RETURN_RECEIPT_PATTERN/);
 assert.match(refreshNextMajorLocalEvidenceJs, /LOCAL_RECEIPT_PATHS/);
 assert.match(refreshNextMajorLocalEvidenceJs, /no-dogfood-claim/);
@@ -1151,6 +1158,8 @@ assert.match(refreshNextMajorLocalEvidenceJs, /"--json-out",\s*options\.koNextOu
 assert.match(refreshNextMajorLocalEvidenceJs, /Readiness packet:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Platform QA handoff:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /KO next action summary:/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Local evidence snapshot:/);
+assert.match(refreshNextMajorLocalEvidenceJs, /Local evidence snapshot markdown:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run approved-source browser capture/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not perform human privacy review/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run Mac, Windows, or HarmonyOS real platform QA/);
