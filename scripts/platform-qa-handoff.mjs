@@ -18,7 +18,7 @@ const PLATFORMS = [
     label: "Native Mac manual QA",
     qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
     receiptPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
-    validateCommand: "npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json",
+    validateCommand: "npm run mac:manual:validate:real",
     expectedRows: 27,
     requiredSessionFields: [
       "Date/time",
@@ -45,7 +45,7 @@ const PLATFORMS = [
     label: "Windows static/manual QA",
     qaPath: "dist/morning-demo/WINDOWS_STATIC_QA.md",
     receiptPath: ".codex-tmp/windows-static-qa/real-run-receipt.json",
-    validateCommand: "npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json",
+    validateCommand: "npm run windows:static:validate:real",
     expectedRows: 10,
     requiredSessionFields: [
       "Date/time",
@@ -73,7 +73,7 @@ const PLATFORMS = [
     label: "HarmonyOS device/toolchain QA",
     qaPath: "dist/morning-demo/HARMONY_DEVICE_QA.md",
     receiptPath: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
-    validateCommand: "npm run harmony:device:validate -- --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json",
+    validateCommand: "npm run harmony:device:validate:real",
     expectedRows: 10,
     requiredSessionFields: [
       "Date/time",

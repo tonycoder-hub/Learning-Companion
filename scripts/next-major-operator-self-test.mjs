@@ -86,9 +86,9 @@ try {
   assert.equal(getLane(realPlatformPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
   assert.equal(getLane(realPlatformPacket, "windowsStaticManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.windowsStaticManualQa);
   assert.equal(getLane(realPlatformPacket, "harmonyDeviceQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.harmonyDeviceQa);
-  assert.match(getLane(realPlatformPacket, "nativeMacManualQa").executionChecklist.afterRun.join("\n"), /mac:manual:validate/);
-  assert.match(getLane(realPlatformPacket, "windowsStaticManualQa").executionChecklist.afterRun.join("\n"), /windows:static:validate/);
-  assert.match(getLane(realPlatformPacket, "harmonyDeviceQa").executionChecklist.afterRun.join("\n"), /harmony:device:validate/);
+  assert.match(getLane(realPlatformPacket, "nativeMacManualQa").executionChecklist.afterRun.join("\n"), /mac:manual:validate:real/);
+  assert.match(getLane(realPlatformPacket, "windowsStaticManualQa").executionChecklist.afterRun.join("\n"), /windows:static:validate:real/);
+  assert.match(getLane(realPlatformPacket, "harmonyDeviceQa").executionChecklist.afterRun.join("\n"), /harmony:device:validate:real/);
 
   const freshRun = await runOperator("fresh", { approval: approvalPath });
   assert.equal(freshRun.code, 0, freshRun.stderr);
@@ -136,19 +136,19 @@ try {
   assertPlatformLane(macLane, {
     id: "nativeMacManualQa",
     nt: 27,
-    validateCommandPattern: /mac:manual:validate/,
+    validateCommandPattern: /mac:manual:validate:real/,
     cannotBeFilledFrom: "fixture receipts"
   });
   assertPlatformLane(windowsLane, {
     id: "windowsStaticManualQa",
     nt: 10,
-    validateCommandPattern: /windows:static:validate/,
+    validateCommandPattern: /windows:static:validate:real/,
     cannotBeFilledFrom: "non-Windows fixture inspection"
   });
   assertPlatformLane(harmonyLane, {
     id: "harmonyDeviceQa",
     nt: 10,
-    validateCommandPattern: /harmony:device:validate/,
+    validateCommandPattern: /harmony:device:validate:real/,
     cannotBeFilledFrom: "Harmony scaffold smoke"
   });
   assert.equal(finalLane.operatorState, "BLOCKED_UNTIL_ALL_EVIDENCE_PASSES");
@@ -491,7 +491,7 @@ function buildPlatformHandoff(gitHead) {
         },
         qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
         receiptPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
-        validateCommand: "npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json",
+        validateCommand: "npm run mac:manual:validate:real",
         expectedRows: 27,
         currentTemplateSummary: {
           rows: 27,
@@ -521,7 +521,7 @@ function buildPlatformHandoff(gitHead) {
         },
         qaPath: "dist/morning-demo/WINDOWS_STATIC_QA.md",
         receiptPath: ".codex-tmp/windows-static-qa/real-run-receipt.json",
-        validateCommand: "npm run windows:static:validate -- --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json",
+        validateCommand: "npm run windows:static:validate:real",
         expectedRows: 10,
         currentTemplateSummary: {
           rows: 10,
@@ -551,7 +551,7 @@ function buildPlatformHandoff(gitHead) {
         },
         qaPath: "dist/morning-demo/HARMONY_DEVICE_QA.md",
         receiptPath: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
-        validateCommand: "npm run harmony:device:validate -- --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json",
+        validateCommand: "npm run harmony:device:validate:real",
         expectedRows: 10,
         currentTemplateSummary: {
           rows: 10,

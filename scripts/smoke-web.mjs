@@ -162,8 +162,11 @@ assert.equal(packageJson.scripts["next:operator:selftest"], "node scripts/next-m
 assert.equal(packageJson.scripts["platform:qa-handoff"], "node scripts/platform-qa-handoff.mjs");
 assert.equal(packageJson.scripts["platform:qa-handoff:selftest"], "node scripts/platform-qa-handoff-self-test.mjs");
 assert.equal(packageJson.scripts["mac:manual:validate"], "node scripts/validate-mac-manual-qa.mjs");
+assert.equal(packageJson.scripts["mac:manual:validate:real"], "node scripts/validate-mac-manual-qa.mjs --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["windows:static:validate"], "node scripts/validate-windows-static-qa.mjs");
+assert.equal(packageJson.scripts["windows:static:validate:real"], "node scripts/validate-windows-static-qa.mjs --qa dist/morning-demo/WINDOWS_STATIC_QA.md --out .codex-tmp/windows-static-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["harmony:device:validate"], "node scripts/validate-harmony-device-qa.mjs");
+assert.equal(packageJson.scripts["harmony:device:validate:real"], "node scripts/validate-harmony-device-qa.mjs --qa dist/morning-demo/HARMONY_DEVICE_QA.md --out .codex-tmp/harmony-device-qa/real-run-receipt.json");
 assert.equal(packageJson.scripts["git:revision:selftest"], "node scripts/git-revision-self-test.mjs");
 assert.equal(packageJson.scripts["source:approval-freshness:selftest"], "node scripts/source-approval-freshness-self-test.mjs");
 assert.equal(packageJson.scripts.smoke, "node scripts/git-revision-self-test.mjs && node scripts/source-approval-freshness-self-test.mjs && node scripts/platform-qa-handoff-self-test.mjs && node scripts/next-major-readiness-self-test.mjs && node scripts/next-major-operator-self-test.mjs && node scripts/smoke-web.mjs");
@@ -899,6 +902,9 @@ assert.match(morningDemoBuilderJs, /Date\/time 必须是带时区的 ISO 时间/
 assert.match(morningDemoBuilderJs, /Filled but non-claimable rows validate as partial platform QA/);
 assert.match(morningDemoBuilderJs, /不可声明的行只算 partial platform QA/);
 assert.match(morningDemoBuilderJs, /Every `PASS`, `FAIL`, or `BLOCKED` row must include a concrete Notes evidence reference/);
+assert.match(morningDemoBuilderJs, /npm run mac:manual:validate:real/);
+assert.match(morningDemoBuilderJs, /npm run windows:static:validate:real/);
+assert.match(morningDemoBuilderJs, /npm run harmony:device:validate:real/);
 assert.match(koNextActionSummaryJs, /Learning Companion KO next actions/);
 assert.match(koNextActionSummaryJs, /execFileAsync\(process\.execPath/);
 assert.match(koNextActionSummaryJs, /--refresh/);
@@ -953,6 +959,9 @@ assert.match(koNextActionSummaryJs, /npm run external:approval-request/);
 assert.match(koNextActionSummaryJs, /npm run external:validate -- --approved-current-turn/);
 assert.match(koNextActionSummaryJs, /npm run platform:qa-handoff -- --out \.codex-tmp\/platform-qa-handoff\/current\.json --markdown-out \.codex-tmp\/platform-qa-handoff\/current\.md/);
 assert.match(koNextActionSummaryJs, /Real-run platform receipts are auto-selected by ko:next\/ko:validate when present/);
+assert.match(koNextActionSummaryJs, /npm run mac:manual:validate:real/);
+assert.match(koNextActionSummaryJs, /npm run windows:static:validate:real/);
+assert.match(koNextActionSummaryJs, /npm run harmony:device:validate:real/);
 assert.match(koNextActionSummaryJs, /--mac-manual \.codex-tmp\/mac-manual-qa\/real-run-receipt\.json/);
 assert.match(koNextActionSummaryJs, /npm run next:readiness -- --refresh --out \.codex-tmp\/next-major-readiness\/current\.json --markdown-out \.codex-tmp\/next-major-readiness\/current\.md/);
 assert.match(koNextActionSummaryJs, /npm run next:operator -- --refresh --out \.codex-tmp\/next-major-operator\/current\.json --markdown-out \.codex-tmp\/next-major-operator\/current\.md/);
@@ -1170,7 +1179,7 @@ try {
         currentKoStatus: { status: "PENDING_NOT_RUN", detail: "fixture pending", evidencePath: "" },
         qaPath: "dist/morning-demo/MAC_MANUAL_QA.md",
         receiptPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
-        validateCommand: "npm run mac:manual:validate -- --qa dist/morning-demo/MAC_MANUAL_QA.md --out .codex-tmp/mac-manual-qa/real-run-receipt.json",
+        validateCommand: "npm run mac:manual:validate:real",
         expectedRows: 27,
         currentTemplateSummary: {
           rows: 27,
@@ -1352,9 +1361,9 @@ assert.match(platformQaHandoffJs, /function writePrivateFile/);
 assert.match(platformQaHandoffJs, /chmod\(path, 0o600\)/);
 assert.match(platformQaHandoffJs, /Real-run platform receipts are auto-selected by ko:next\/ko:validate when present/);
 assert.match(platformQaHandoffJs, /finalKoGateWithExplicitPlatformReceipts/);
-assert.match(platformQaHandoffJs, /npm run mac:manual:validate -- --qa dist\/morning-demo\/MAC_MANUAL_QA\.md/);
-assert.match(platformQaHandoffJs, /npm run windows:static:validate -- --qa dist\/morning-demo\/WINDOWS_STATIC_QA\.md/);
-assert.match(platformQaHandoffJs, /npm run harmony:device:validate -- --qa dist\/morning-demo\/HARMONY_DEVICE_QA\.md/);
+assert.match(platformQaHandoffJs, /npm run mac:manual:validate:real/);
+assert.match(platformQaHandoffJs, /npm run windows:static:validate:real/);
+assert.match(platformQaHandoffJs, /npm run harmony:device:validate:real/);
 assert.match(externalSourceValidationBrowserJs, /中文：URL 就是网页链接/);
 assert.match(externalSourceValidationBrowserJs, /阅读：https:\/\/<public-reading-material>/);
 assert.match(externalSourceValidationBrowserJs, /视频：https:\/\/<public-video-material>/);
