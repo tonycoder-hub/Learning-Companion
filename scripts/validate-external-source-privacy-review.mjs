@@ -93,6 +93,7 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
     reviewPath,
     reviewer: review.reviewer,
     reviewedAt: review.reviewedAt,
+    reviewedScreenshots: reviewedScreenshotsForClaim(review.privacyReview.screenshotsReviewed, receiptSummary.files),
     reading: {
       url: receiptSummary.reading.source.url,
       title: receiptSummary.reading.source.title,
@@ -1137,6 +1138,19 @@ function validateScreenshotReviewCoverage(screenshotsReviewed, expectedFiles) {
   for (const file of expectedFiles) {
     assert.equal(seen.has(file), true, `screenshot privacy review missing PASS for ${file}`);
   }
+}
+
+function reviewedScreenshotsForClaim(screenshotsReviewed, expectedFiles) {
+  const byFile = new Map(screenshotsReviewed.map((item) => [item.file, item]));
+  return expectedFiles.map((file) => {
+    const item = byFile.get(file);
+    return {
+      file,
+      bytes: item.bytes,
+      sha256: item.sha256,
+      status: item.status
+    };
+  });
 }
 
 function screenshotEvidence(file) {

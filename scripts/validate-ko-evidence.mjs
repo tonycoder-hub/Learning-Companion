@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
@@ -947,6 +948,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   assertNonTbd(claim.video?.timestamp, "video timestamp");
   assertExternalRunContext(claim.runContext, { currentRevision });
   assertExternalSourceApprovalRequest(claim.sourceApprovalRequest, claim, { currentRevision });
+  assertExternalReviewedScreenshots(claim.reviewedScreenshots, claim, { allowSelfTestFixtures });
   return {
     detail: "Approved reading/video evidence has a privacy-reviewed external KO artifact.",
     evidence: {
@@ -958,6 +960,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
       readingUrl: claim.reading.url,
       videoUrl: claim.video.url,
       videoTimestamp: claim.video.timestamp,
+      reviewedScreenshots: claim.reviewedScreenshots,
       sourceApprovalRequest: {
         schema: claim.sourceApprovalRequest.schema,
         requestPath: claim.sourceApprovalRequest.requestPath,
@@ -1049,6 +1052,42 @@ function assertExternalSource(source, label, { allowSelfTestFixtures = false } =
     if (!allowSelfTestFixtures) rejectSelfTestPath(file, `${label} evidence file`);
     assert.equal(existsSync(file), true, `${label} evidence file missing: ${file}`);
   });
+}
+
+function assertExternalReviewedScreenshots(reviewedScreenshots, claim, { allowSelfTestFixtures = false } = {}) {
+  assert.equal(Array.isArray(reviewedScreenshots), true, "external claim reviewedScreenshots must be an array");
+  const expectedFiles = [
+    ...(Array.isArray(claim.reading?.files) ? claim.reading.files : []),
+    ...(Array.isArray(claim.video?.files) ? claim.video.files : [])
+  ];
+  const expected = new Set(expectedFiles);
+  assert.equal(expected.size, expectedFiles.length, "external claim reviewed screenshot files must be unique");
+  const expectedEvidence = new Map(expectedFiles.map((file) => [file, screenshotEvidence(file)]));
+  const seen = new Set();
+  reviewedScreenshots.forEach((item, index) => {
+    const label = `external claim reviewedScreenshots[${index}]`;
+    assertNonTbd(item?.file, `${label}.file`);
+    if (!allowSelfTestFixtures) rejectSelfTestPath(item.file, `${label}.file`);
+    assert.equal(expected.has(item.file), true, `external claim reviewedScreenshots unexpected file: ${item.file}`);
+    assert.equal(seen.has(item.file), false, `external claim reviewedScreenshots duplicate file: ${item.file}`);
+    assert.equal(item.status, "PASS", `external claim reviewedScreenshots status must be PASS for ${item.file}`);
+    const current = expectedEvidence.get(item.file);
+    assert.equal(item.bytes, current.bytes, `external claim reviewedScreenshots bytes must match current file for ${item.file}`);
+    assert.equal(item.sha256, current.sha256, `external claim reviewedScreenshots sha256 must match current file for ${item.file}`);
+    seen.add(item.file);
+  });
+  expectedFiles.forEach((file) => {
+    assert.equal(seen.has(file), true, `external claim reviewedScreenshots missing file: ${file}`);
+  });
+}
+
+function screenshotEvidence(file) {
+  const data = readFileSync(file);
+  return {
+    file,
+    bytes: data.length,
+    sha256: createHash("sha256").update(data).digest("hex")
+  };
 }
 
 function assertApprovedExternalUrl(value, label) {
@@ -1690,6 +1729,65 @@ async function runSelfTest() {
   assert.equal(mismatchedExternalSourceApprovalRequestTimestampReport.canClaimKo, false);
   assert.ok(mismatchedExternalSourceApprovalRequestTimestampReport.blockers.some((item) => item.includes("sourceApprovalRequest video timestamp must match claim")));
 
+  const missingReviewedScreenshotsPath = join(root, "missing-external-reviewed-screenshots.json");
+  await writeJson(missingReviewedScreenshotsPath, {
+    ...fixtures.externalClaim,
+    reviewedScreenshots: undefined
+  });
+  const missingReviewedScreenshotsReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: missingReviewedScreenshotsPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingReviewedScreenshotsReport.canClaimKo, false);
+  assert.ok(missingReviewedScreenshotsReport.blockers.some((item) => item.includes("reviewedScreenshots must be an array")));
+
+  const duplicateReviewedScreenshotPath = join(root, "duplicate-external-reviewed-screenshot.json");
+  await writeJson(duplicateReviewedScreenshotPath, {
+    ...fixtures.externalClaim,
+    reviewedScreenshots: [
+      ...fixtures.externalClaim.reviewedScreenshots,
+      { ...fixtures.externalClaim.reviewedScreenshots[0] }
+    ]
+  });
+  const duplicateReviewedScreenshotReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: duplicateReviewedScreenshotPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(duplicateReviewedScreenshotReport.canClaimKo, false);
+  assert.ok(duplicateReviewedScreenshotReport.blockers.some((item) => item.includes("reviewedScreenshots duplicate file")));
+
+  const mismatchedReviewedScreenshotShaPath = join(root, "mismatched-external-reviewed-screenshot-sha.json");
+  await writeJson(mismatchedReviewedScreenshotShaPath, {
+    ...fixtures.externalClaim,
+    reviewedScreenshots: fixtures.externalClaim.reviewedScreenshots.map((item, index) => index === 0
+      ? { ...item, sha256: "0".repeat(64) }
+      : item)
+  });
+  const mismatchedReviewedScreenshotShaReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: mismatchedReviewedScreenshotShaPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedReviewedScreenshotShaReport.canClaimKo, false);
+  assert.ok(mismatchedReviewedScreenshotShaReport.blockers.some((item) => item.includes("reviewedScreenshots sha256 must match current file")));
+
   const pendingPlatformPath = join(root, "pending-mac-manual-receipt.json");
   await writeJson(pendingPlatformPath, {
     ...fixtures.macManualReceipt,
@@ -2274,6 +2372,9 @@ async function runSelfTest() {
       "stale external source approval request rejected",
       "mismatched external source approval request reading URL rejected",
       "mismatched external source approval request video timestamp rejected",
+      "missing external reviewed screenshots rejected",
+      "duplicate external reviewed screenshot rejected",
+      "mismatched external reviewed screenshot sha256 rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
       "real-run platform receipt path selected before pending receipt path",
@@ -2586,6 +2687,10 @@ async function createKoFixtures(root) {
     reviewPath,
     reviewer: "Self Test",
     reviewedAt: new Date().toISOString(),
+    reviewedScreenshots: evidenceFiles.map((file) => ({
+      ...screenshotEvidence(file),
+      status: "PASS"
+    })),
     reading: {
       url: "https://www.wikipedia.org/learning-companion-approved-reading",
       title: "Approved Reading",
