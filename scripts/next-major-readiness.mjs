@@ -119,6 +119,7 @@ async function buildNextMajorReadiness(statusPath) {
       privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
       privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>",
       platformHandoff: "npm run platform:qa-handoff -- --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md",
+      finalizeNextMajor: "npm run next:finalize -- --external <ko-evidence-review.json>",
       finalKoGate: "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
       finalKoGateWithExplicitPlatformReceipts: "npm run ko:validate -- --external <ko-evidence-review.json> --mac-manual .codex-tmp/mac-manual-qa/real-run-receipt.json --windows-static .codex-tmp/windows-static-qa/real-run-receipt.json --harmony-device .codex-tmp/harmony-device-qa/real-run-receipt.json --out .codex-tmp/ko-evidence/final.json"
     },
@@ -250,6 +251,7 @@ function buildNextMajorReadinessMarkdown(readiness) {
     readiness.nextCommands.privacyTemplate,
     readiness.nextCommands.privacyReview,
     readiness.nextCommands.platformHandoff,
+    readiness.nextCommands.finalizeNextMajor,
     readiness.nextCommands.finalKoGate,
     readiness.nextCommands.finalKoGateWithExplicitPlatformReceipts,
     "```",
