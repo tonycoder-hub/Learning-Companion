@@ -19,6 +19,7 @@ const DEFAULTS = Object.freeze({
   platformHandoffMarkdownOut: ".codex-tmp/platform-qa-handoff/current.md",
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   operatorMarkdownOut: ".codex-tmp/next-major-operator/current.md",
+  koNextOut: ".codex-tmp/ko-next/current.json",
   koStatus: ".codex-tmp/ko-evidence/current-status.json",
   macManual: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
   windowsStatic: ".codex-tmp/windows-static-qa/real-run-receipt.json",
@@ -34,6 +35,7 @@ const PATH_ARGS = [
   "platform-handoff-markdown-out",
   "operator-out",
   "operator-markdown-out",
+  "ko-next-out",
   "ko-status",
   "mac-manual",
   "windows-static",
@@ -73,6 +75,7 @@ function normalizeOptions(parsed) {
     platformHandoffMarkdownOut: String(parsed["platform-handoff-markdown-out"] || DEFAULTS.platformHandoffMarkdownOut),
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
     operatorMarkdownOut: String(parsed["operator-markdown-out"] || DEFAULTS.operatorMarkdownOut),
+    koNextOut: String(parsed["ko-next-out"] || DEFAULTS.koNextOut),
     koStatus: String(parsed["ko-status"] || DEFAULTS.koStatus),
     platformReceiptPaths: {
       macManual: String(parsed["mac-manual"] || DEFAULTS.macManual),
@@ -213,10 +216,14 @@ async function buildLocalEvidencePlan(options) {
           "scripts/ko-next-action-summary.mjs",
           "--source-approval-request",
           options.sourceApprovalRequest,
+          "--source-approval-markdown",
+          options.sourceApprovalMarkdown,
           "--operator",
           options.operatorOut,
           "--status",
           options.koStatus,
+          "--json-out",
+          options.koNextOut,
           ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths)
         ]
       }
@@ -295,6 +302,7 @@ function buildSuccessSummary(plan, publicDryRunReceipt, outputs) {
     `Readiness packet: ${plan.options.readinessOut}`,
     `Platform QA handoff: ${plan.options.platformHandoffOut}`,
     `Operator packet: ${plan.options.operatorOut}`,
+    `KO next action summary: ${plan.options.koNextOut}`,
     "",
     "Boundary:"
   ];
@@ -388,7 +396,7 @@ function runSelfTest() {
       { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
       { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
-      { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs", "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] }
+      { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs", "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--json-out", DEFAULTS.koNextOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] }
     ],
     blockedOrNotExecuted: [
       "Does not grant current-turn source approval.",
@@ -428,6 +436,9 @@ function runSelfTest() {
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--mac-manual 'custom mac\.json'/);
+  assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
+  assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
+  assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--json-out \.codex-tmp\/ko-next\/current\.json/);
   assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--windows-static 'custom windows\.json'/);
   assert.match(dryRun, /Does not run approved-source browser capture/);
   assert.doesNotMatch(dryRun, /--approved-current-turn/);
@@ -444,10 +455,12 @@ Usage:
   npm run next:local-evidence
   npm run next:local-evidence -- --dry-run
   npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
+  npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json
 
 This command runs local bilingual/browser and controlled-loop receipts first,
 then refreshes the public-source dry-run, KO status, readiness packet,
-platform QA handoff, approval request, operator packet, and KO next summary.
+platform QA handoff, approval request, operator packet, and KO next summary
+JSON/text output.
 It does not grant source approval, run approved-source capture, perform
 privacy review, run real platform QA, build, deploy, or remote-accept.
 It intentionally rejects --external; bind approved external KO evidence with

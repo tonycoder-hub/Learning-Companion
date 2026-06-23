@@ -1096,13 +1096,24 @@ assert.match(refreshNextMajorLocalEvidenceJs, /refresh-operator-packet/);
 assert.match(refreshNextMajorLocalEvidenceJs, /id: "refresh-operator-packet"[\s\S]*"--source-approval-request",\s*options\.sourceApprovalRequest/);
 assert.match(refreshNextMajorLocalEvidenceJs, /id: "refresh-operator-packet"[\s\S]*"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
 assert.match(refreshNextMajorLocalEvidenceJs, /print-ko-next/);
+assert.match(refreshNextMajorLocalEvidenceJs, /koNextOut/);
+assert.match(refreshNextMajorLocalEvidenceJs, /id: "print-ko-next"[\s\S]*"--source-approval-request",\s*options\.sourceApprovalRequest/);
+assert.match(refreshNextMajorLocalEvidenceJs, /id: "print-ko-next"[\s\S]*"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
+assert.match(refreshNextMajorLocalEvidenceJs, /"--json-out",\s*options\.koNextOut/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Readiness packet:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Platform QA handoff:/);
+assert.match(refreshNextMajorLocalEvidenceJs, /KO next action summary:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run approved-source browser capture/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not perform human privacy review/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run Mac, Windows, or HarmonyOS real platform QA/);
 assert.doesNotMatch(refreshNextMajorLocalEvidenceJs, /"--approved-current-turn"/);
 assert.match(koNextActionSummaryJs, /npm run next:local-evidence/);
+assert.match(koNextActionSummaryJs, /learning-companion\.ko-next-action-summary\.v1/);
+assert.match(koNextActionSummaryJs, /KO_NEXT_ACTION_SUMMARY_ONLY/);
+assert.match(koNextActionSummaryJs, /canClaimKoFromThisArtifact: false/);
+assert.match(koNextActionSummaryJs, /releaseActionAuthorized: false/);
+assert.match(koNextActionSummaryJs, /--json-out/);
+assert.match(koNextActionSummaryJs, /writePrivateFile/);
 [macManualQaValidatorJs, windowsStaticQaValidatorJs, harmonyDeviceQaValidatorJs].forEach((validatorJs) => {
   assert.match(validatorJs, /PLACEHOLDER_EVIDENCE_NOTES/);
   assert.match(validatorJs, /LEADING_EVIDENCE_DECORATION_PATTERN/);
@@ -1622,6 +1633,7 @@ try {
   const customMacManualPath = join(operatorSmokeDir, "custom mac receipt.json");
   const customWindowsStaticPath = join(operatorSmokeDir, "custom windows receipt.json");
   const customHarmonyDevicePath = join(operatorSmokeDir, "custom harmony receipt.json");
+  const koNextJsonPath = join(operatorSmokeDir, "ko-next.json");
   const koNextConsole = execFileSync(process.execPath, [
     "scripts/ko-next-action-summary.mjs",
     "--status",
@@ -1639,8 +1651,23 @@ try {
     "--harmony-device",
     customHarmonyDevicePath,
     "--operator",
-    operatorJsonPath
+    operatorJsonPath,
+    "--json-out",
+    koNextJsonPath
   ], { encoding: "utf8" });
+  const koNextArtifact = JSON.parse(readFileSync(koNextJsonPath, "utf8"));
+  assert.equal(koNextArtifact.schema, "learning-companion.ko-next-action-summary.v1");
+  assert.equal(koNextArtifact.evidenceTier, "KO_NEXT_ACTION_SUMMARY_ONLY");
+  assert.equal(koNextArtifact.canClaimKoFromThisArtifact, false);
+  assert.equal(koNextArtifact.releaseActionAuthorized, false);
+  assert.equal(koNextArtifact.sourceKoStatus.canClaimKo, false);
+  assert.equal(koNextArtifact.sourceApproval.requestedApprovalText, "Fixture approval text.");
+  assert.equal(koNextArtifact.operator.available, true);
+  assert.equal(koNextArtifact.operator.nextActionSequence.some((step) => step.id === "refresh-platform-qa-handoff"), true);
+  assert.match(koNextArtifact.finalGateCommands.finalizeNextMajor, /custom external evidence\.json/);
+  assert.match(koNextArtifact.finalGateCommands.finalKoGateWithExplicitPlatformReceipts, /custom harmony receipt\.json/);
+  assert.equal(koNextArtifact.blockedOrNotExecuted.some((item) => /No build, package, deployment/.test(item)), true);
+  assert.equal(statSync(koNextJsonPath).mode & 0o777, 0o600);
   assert.match(koNextConsole, /Operator critical path:/);
   const expectedOperatorFreshness = operatorPacket.currentRevision?.dirtyWorktree === false
     ? "CURRENT_CLEAN_OPERATOR_PACKET"

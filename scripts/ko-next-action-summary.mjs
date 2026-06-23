@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { promisify } from "node:util";
 import { readCurrentRevision } from "./lib/git-revision.mjs";
 import {
@@ -12,6 +13,7 @@ import {
 
 const args = parseArgs(process.argv.slice(2));
 const statusPath = args.status || ".codex-tmp/ko-evidence/current-status.json";
+const NEXT_ACTION_SCHEMA = "learning-companion.ko-next-action-summary.v1";
 const DEFAULT_SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
 const DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH = ".codex-tmp/external-source-validation/source-approval-request.md";
 const DEFAULT_MAC_MANUAL_PATH = ".codex-tmp/mac-manual-qa/real-run-receipt.json";
@@ -28,7 +30,7 @@ const platformReceiptPaths = {
 };
 const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
-const PATH_ARGS = ["status", "source-approval-request", "source-approval-markdown", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
+const PATH_ARGS = ["status", "source-approval-request", "source-approval-markdown", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device", "json-out"];
 const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
 const STALE_OR_DIRTY_OPERATOR_PACKET = "STALE_OR_DIRTY_OPERATOR_PACKET";
 const CURRENT_CLEAN_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
@@ -63,7 +65,7 @@ const sourceApprovalFreshness = sourceApprovalRequestState.request
 const operatorFreshness = operatorState.packet
   ? assessOperatorPacketFreshness(operatorState.packet, currentRevision)
   : null;
-console.log(buildSummary(status, statusPath, {
+const summaryContext = {
   sourceApprovalRequest: sourceApprovalRequestState.request,
   sourceApprovalRequestPath,
   sourceApprovalMarkdownPath,
@@ -75,7 +77,11 @@ console.log(buildSummary(status, statusPath, {
   operatorWarning: operatorState.warning,
   platformReceiptPaths,
   cliExternalPath
-}));
+};
+if (args["json-out"]) {
+  await writePrivateFile(resolve(String(args["json-out"])), `${JSON.stringify(buildNextActionArtifact(status, statusPath, summaryContext), null, 2)}\n`);
+}
+console.log(buildSummary(status, statusPath, summaryContext));
 
 async function refreshKoStatus(outPath, parsedArgs) {
   const refreshArgs = ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", outPath];
@@ -276,6 +282,174 @@ function buildSummary(status, statusPath, { sourceApprovalRequest, sourceApprova
   return `${lines.join("\n")}\n`;
 }
 
+function buildNextActionArtifact(status, statusPath, { sourceApprovalRequest, sourceApprovalRequestPath, sourceApprovalMarkdownPath, sourceApprovalRequestWarning, sourceApprovalFreshness, operatorPacket, operatorPath, operatorFreshness, operatorWarning, platformReceiptPaths, cliExternalPath }) {
+  const requirements = Array.isArray(status.requirements) ? status.requirements : [];
+  const passedRequirements = requirements.filter((item) => item.status === "PASS").map(formatRequirementArtifact);
+  const missingRequirements = requirements.filter((item) => item.status !== "PASS").map(formatRequirementArtifact);
+  return {
+    schema: NEXT_ACTION_SCHEMA,
+    generatedAt: new Date().toISOString(),
+    evidenceTier: "KO_NEXT_ACTION_SUMMARY_ONLY",
+    canClaimKoFromThisArtifact: false,
+    releaseActionAuthorized: false,
+    claimBoundary: "Next-action summary only. It does not grant source approval, run browser evidence, perform privacy review, run platform QA, build, package, deploy, run remote acceptance, or satisfy KO evidence.",
+    statusPath,
+    sourceKoStatus: {
+      evidenceTier: status.evidenceTier || "UNKNOWN",
+      canClaimKo: status.canClaimKo === true
+    },
+    requirements: {
+      passed: passedRequirements,
+      missing: missingRequirements
+    },
+    sourceApproval: buildSourceApprovalArtifact({
+      request: sourceApprovalRequest,
+      path: sourceApprovalRequestPath,
+      markdownPath: sourceApprovalMarkdownPath,
+      warning: sourceApprovalRequestWarning,
+      freshness: sourceApprovalFreshness
+    }),
+    platform: {
+      receiptPaths: platformReceiptPaths,
+      pending: (Array.isArray(status.platformQaStatus) ? status.platformQaStatus : [])
+        .filter((item) => item.status !== "PASSING_REAL_RUN")
+        .map((item) => ({
+          id: item.id || "UNKNOWN",
+          status: item.status || "UNKNOWN",
+          detail: item.detail || "",
+          evidencePath: item.evidencePath || ""
+        })),
+      validationCommands: {
+        macManual: "npm run mac:manual:validate:real",
+        windowsStatic: "npm run windows:static:validate:real",
+        harmonyDevice: "npm run harmony:device:validate:real"
+      }
+    },
+    operator: buildOperatorArtifact({
+      packet: operatorPacket,
+      path: operatorPath,
+      freshness: operatorFreshness,
+      warning: operatorWarning
+    }),
+    finalGateCommands: buildFinalGateCommandSet({
+      sourceApprovalRequestPath,
+      sourceApprovalMarkdownPath,
+      platformReceiptPaths,
+      externalEvidencePath: cliExternalPath || requirements.find((item) => item.id === "approvedExternalReadingVideo")?.evidencePath || ""
+    }),
+    blockedOrNotExecuted: [
+      "No current-turn source approval was granted by this summary.",
+      "No approved-source browser capture or screenshot validation was run by this summary.",
+      "No human privacy review was performed by this summary.",
+      "No Mac, Windows, or HarmonyOS real platform QA was run by this summary.",
+      "No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this summary."
+    ]
+  };
+}
+
+function formatRequirementArtifact(item) {
+  return {
+    id: item.id || "UNKNOWN",
+    status: item.status || "UNKNOWN",
+    detail: item.detail || "",
+    evidencePath: item.evidencePath || ""
+  };
+}
+
+function buildSourceApprovalArtifact({ request, path, markdownPath, warning, freshness }) {
+  if (!request) {
+    return {
+      available: false,
+      path,
+      markdownPath,
+      warning: warning || "",
+      requiredInputShape: "阅读：https://... / 视频：https://... / 时间：00:15",
+      nextCommands: {
+        showInputHelp: "npm run external:source-help",
+        sourceIntake: "npm run external:source-intake -- --input \"阅读：https://... 视频：https://... 时间：00:15\"",
+        approvalRequest: `npm run external:approval-request -- --intake-handoff .codex-tmp/external-source-validation/source-intake-handoff.json --out ${shellQuote(path)} --markdown-out ${shellQuote(markdownPath)}`,
+        approvedCandidateAfterCurrentTurnApproval: `npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request ${shellQuote(path)} --approval-note "<current-turn approval>"`,
+        privacyTemplate: "npm run external:privacy-template -- --receipt <candidate-receipt.json> --out <privacy-review.json>",
+        privacyReview: "npm run external:privacy-review -- --receipt <candidate-receipt.json> --review <privacy-review.json> --out <ko-evidence-review.json>"
+      },
+      claimBoundary: "Source input and approval-request packets do not create approved external KO evidence."
+    };
+  }
+  const base = {
+    available: true,
+    path,
+    markdownPath,
+    readingUrl: request.sources?.reading?.url || "TBD",
+    readingTitle: request.sources?.reading?.title || "TBD",
+    videoUrl: request.sources?.video?.url || "TBD",
+    videoTitle: request.sources?.video?.title || "TBD",
+    videoTimestamp: request.sources?.video?.timestamp || "TBD",
+    freshness: freshness || { status: "TBD", problems: [] },
+    requestedApprovalText: request.requestedApprovalText || "TBD",
+    claimBoundary: "This approval request does not grant source approval, launch approved evidence, or satisfy privacy-reviewed KO evidence."
+  };
+  if (freshness?.status === "STALE_OR_DIRTY_PUBLIC_DRY_RUN") {
+    const freshCommands = buildFreshSourceCommands(request);
+    return {
+      ...base,
+      nextCommands: {
+        refreshPublicDryRun: freshCommands.refreshPublicDryRun,
+        refreshedApprovalRequest: freshCommands.refreshedApprovalRequest,
+        approvedCandidateAfterCurrentTurnApproval: freshCommands.approvedCandidateAfterCurrentTurnApproval,
+        privacyTemplate: freshCommands.privacyTemplate,
+        privacyReview: freshCommands.privacyReview
+      }
+    };
+  }
+  return {
+    ...base,
+    nextCommands: {
+      approvedCandidateAfterCurrentTurnApproval: buildApprovedCandidateCommand(request),
+      privacyTemplate: request.nextCommands?.privacyTemplate || "TBD",
+      privacyReview: request.nextCommands?.privacyReview || "TBD"
+    }
+  };
+}
+
+function buildOperatorArtifact({ packet, path, freshness, warning }) {
+  if (!packet) {
+    return {
+      available: false,
+      path,
+      warning: warning || "",
+      freshness: freshness || null,
+      nextActionSequence: [],
+      claimBoundary: "Missing or invalid operator packets do not satisfy KO evidence."
+    };
+  }
+  return {
+    available: true,
+    path,
+    evidenceTier: packet.evidenceTier || "UNKNOWN",
+    canClaimNextMajorFromThisPacket: packet.canClaimNextMajorFromThisPacket === true,
+    releaseActionAuthorized: packet.releaseActionAuthorized === true,
+    freshness: freshness || null,
+    readinessFreshness: packet.readinessFreshness || null,
+    platformHandoffFreshness: packet.platformHandoffFreshness || null,
+    lanes: (Array.isArray(packet.lanes) ? packet.lanes : []).map((lane) => ({
+      id: lane.id || "UNKNOWN",
+      label: lane.label || lane.id || "UNKNOWN",
+      operatorState: lane.operatorState || "UNKNOWN",
+      currentKoStatus: lane.currentKoStatus || null
+    })),
+    nextActionSequence: (Array.isArray(packet.nextActionSequence) ? packet.nextActionSequence : []).map((step) => ({
+      order: step.order,
+      id: step.id || "UNKNOWN",
+      laneId: step.laneId || "UNKNOWN",
+      operatorState: step.operatorState || "UNKNOWN",
+      action: step.action || "",
+      command: step.command || "",
+      produces: step.produces || "",
+      claimBoundary: step.claimBoundary || ""
+    }))
+  };
+}
+
 function formatOperatorCriticalPath(packet, path, freshness, warning) {
   if (!packet) {
     const lines = [
@@ -448,6 +622,28 @@ function formatFinalGateCommands({
   platformReceiptPaths,
   externalEvidencePath = ""
 }) {
+  const commands = buildFinalGateCommandSet({
+    sourceApprovalRequestPath,
+    sourceApprovalMarkdownPath,
+    platformReceiptPaths,
+    externalEvidencePath
+  });
+  return [
+    `- Refresh local non-claiming evidence in safe order: ${commands.refreshLocalEvidence}`,
+    `- One-command final refresh: ${commands.finalizeNextMajor}`,
+    `- ${commands.finalKoGate}`,
+    `- Explicit platform override if needed: ${commands.finalKoGateWithExplicitPlatformReceipts}`,
+    `- Consolidated readiness packet: ${commands.refreshReadiness}`,
+    `- Single operator packet for all remaining gates: ${commands.refreshOperator}`
+  ];
+}
+
+function buildFinalGateCommandSet({
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  platformReceiptPaths,
+  externalEvidencePath = ""
+}) {
   const externalArg = externalEvidencePath ? shellQuote(externalEvidencePath) : "<ko-evidence-review.json>";
   const hasSourceOverride = sourceApprovalRequestPath !== DEFAULT_SOURCE_APPROVAL_REQUEST_PATH
     || sourceApprovalMarkdownPath !== DEFAULT_SOURCE_APPROVAL_MARKDOWN_PATH;
@@ -456,14 +652,14 @@ function formatFinalGateCommands({
     : ` --source-approval-request ${shellQuote(sourceApprovalRequestPath)} --source-approval-markdown ${shellQuote(sourceApprovalMarkdownPath)}`;
   const platformArgs = buildPlatformReceiptArgs(platformReceiptPaths);
   const externalCommandArgs = externalEvidencePath ? ` --external ${externalArg}` : "";
-  return [
-    "- Refresh local non-claiming evidence in safe order: npm run next:local-evidence",
-    `- One-command final refresh: npm run next:finalize -- --external ${externalArg}${sourceArgs}${platformArgs.finalize}`,
-    `- npm run ko:validate -- --external ${externalArg}${platformArgs.validate} --out .codex-tmp/ko-evidence/final.json`,
-    `- Explicit platform override if needed: npm run ko:validate -- --external ${externalArg}${platformArgs.explicit} --out .codex-tmp/ko-evidence/final.json`,
-    `- Consolidated readiness packet: npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}${externalCommandArgs}${platformArgs.finalize}`,
-    `- Single operator packet for all remaining gates: npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${sourceArgs}${externalCommandArgs}${platformArgs.finalize}`
-  ];
+  return {
+    refreshLocalEvidence: "npm run next:local-evidence",
+    finalizeNextMajor: `npm run next:finalize -- --external ${externalArg}${sourceArgs}${platformArgs.finalize}`,
+    finalKoGate: `npm run ko:validate -- --external ${externalArg}${platformArgs.validate} --out .codex-tmp/ko-evidence/final.json`,
+    finalKoGateWithExplicitPlatformReceipts: `npm run ko:validate -- --external ${externalArg}${platformArgs.explicit} --out .codex-tmp/ko-evidence/final.json`,
+    refreshReadiness: `npm run next:readiness -- --refresh --out .codex-tmp/next-major-readiness/current.json --markdown-out .codex-tmp/next-major-readiness/current.md${sourceArgs}${externalCommandArgs}${platformArgs.finalize}`,
+    refreshOperator: `npm run next:operator -- --refresh --out .codex-tmp/next-major-operator/current.json --markdown-out .codex-tmp/next-major-operator/current.md${sourceArgs}${externalCommandArgs}${platformArgs.finalize}`
+  };
 }
 
 function buildPlatformReceiptArgs(paths = {}) {
@@ -492,6 +688,15 @@ function shellQuote(value) {
   return `'${text.replace(/'/g, "'\\''")}'`;
 }
 
+async function writePrivateFile(path, content) {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await chmod(path, 0o600).catch((error) => {
+    if (error.code !== "ENOENT") throw error;
+  });
+  await writeFile(path, content, { mode: 0o600 });
+  await chmod(path, 0o600);
+}
+
 function formatRequirementList(items, fallbackStatus) {
   if (!items.length) return [`- none (${fallbackStatus})`];
   return items.map((item) => `- ${item.id}: ${item.status || fallbackStatus}${item.detail ? ` - ${item.detail}` : ""}`);
@@ -512,13 +717,17 @@ Usage:
   node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json
   node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --source-approval-markdown .codex-tmp/external-source-validation/source-approval-request.md
   node scripts/ko-next-action-summary.mjs --operator .codex-tmp/next-major-operator/current.json
+  node scripts/ko-next-action-summary.mjs --json-out .codex-tmp/ko-next/current.json
 
 The summary explains:
 - which KO requirements already pass,
 - which evidence is still missing,
 - what approved reading/video learning-material URLs are needed or already staged for current-turn approval,
 - the current operator critical path when available,
-- which privacy-review and final KO commands to run next.`;
+- which privacy-review and final KO commands to run next.
+
+With --json-out, the command writes a private 0600
+learning-companion.ko-next-action-summary.v1 artifact for handoff tooling.`;
 }
 
 function parseArgs(argv) {
