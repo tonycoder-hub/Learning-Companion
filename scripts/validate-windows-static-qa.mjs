@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { promisify } from "node:util";
 
 const WINDOWS_STATIC_QA_RECEIPT_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
@@ -9,6 +11,9 @@ const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = 10;
+const MAX_STATUS_SUMMARY_LINES = 20;
+const GIT_STATUS_MAX_BUFFER_BYTES = 1024 * 1024;
+const execFileAsync = promisify(execFile);
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
   ["reviewer", "Reviewer"],
@@ -121,7 +126,46 @@ function isPass(value) {
   return normalizeResult(value) === "PASS";
 }
 
-function validateWindowsStaticQa(markdown, qaPath) {
+async function readCurrentRevision() {
+  try {
+    const [{ stdout: headStdout }, { stdout: statusStdout }] = await Promise.all([
+      execFileAsync("git", ["rev-parse", "HEAD"], { cwd: process.cwd(), maxBuffer: 128 * 1024 }),
+      execFileAsync("git", ["status", "--short"], { cwd: process.cwd(), maxBuffer: GIT_STATUS_MAX_BUFFER_BYTES })
+    ]);
+    const statusLines = parseGitStatusLines(statusStdout);
+    return {
+      gitAvailable: true,
+      gitHead: headStdout.trim() || "TBD",
+      dirtyWorktree: statusLines.length > 0,
+      statusLineCount: statusLines.length,
+      statusSummary: statusLines.slice(0, MAX_STATUS_SUMMARY_LINES).join("\n"),
+      statusTruncated: statusLines.length > MAX_STATUS_SUMMARY_LINES
+    };
+  } catch (error) {
+    return {
+      gitAvailable: false,
+      gitHead: "TBD",
+      dirtyWorktree: true,
+      statusLineCount: 0,
+      statusSummary: "",
+      statusTruncated: false,
+      error: String(error?.message || error || "TBD")
+    };
+  }
+}
+
+function parseGitStatusLines(statusStdout) {
+  const withoutTrailingNewlines = String(statusStdout || "").replace(/(?:\r?\n)+$/, "");
+  return withoutTrailingNewlines ? withoutTrailingNewlines.split(/\r?\n/) : [];
+}
+
+function revisionCanClaim(currentRevision) {
+  return currentRevision.gitAvailable === true
+    && currentRevision.dirtyWorktree === false
+    && /^[0-9a-f]{40}$/i.test(String(currentRevision.gitHead || ""));
+}
+
+function validateWindowsStaticQa(markdown, qaPath, currentRevision) {
   const errors = [];
   if (!/^# Learning Companion Windows Static QA Receipt$/m.test(markdown)) {
     errors.push("missing Windows static QA heading");
@@ -210,6 +254,9 @@ function validateWindowsStaticQa(markdown, qaPath) {
 
   const staticReturnContractGatePass = isPass(sessionFields.staticReturnContractGateResult);
   const macReturnFilesImportPass = isPass(sessionFields.macReturnFilesImportResult);
+  if (anyRealRowsFilled && !revisionCanClaim(currentRevision)) {
+    errors.push("Windows static QA has filled rows but the validator did not run from a clean git HEAD");
+  }
   const canClaimWindowsStaticLoopUsable = errors.length === 0 && allRowsPass && staticReturnContractGatePass && macReturnFilesImportPass;
   const evidenceTier = canClaimWindowsStaticLoopUsable
     ? "MANUAL_PLATFORM_QA"
@@ -219,6 +266,10 @@ function validateWindowsStaticQa(markdown, qaPath) {
     evidenceTier,
     generatedAt: new Date().toISOString(),
     qaPath,
+    runContext: {
+      schema: "learning-companion.platform-qa-run-context.v1",
+      appRevision: currentRevision
+    },
     summary: {
       ok: errors.length === 0,
       rows: rows.length,
@@ -234,6 +285,7 @@ function validateWindowsStaticQa(markdown, qaPath) {
     errors,
     claimBoundary: {
       canClaimWindowsStaticLoopUsable,
+      requiresCurrentCleanRevision: true,
       doesNotProve: [
         "Feishu live sync or remote Drive writes",
         "HarmonyOS app/device behavior",
@@ -260,7 +312,8 @@ function summarizeRows(rows) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const markdown = await readFile(options.qaPath, "utf8");
-  const receipt = validateWindowsStaticQa(markdown, options.qaPath);
+  const currentRevision = await readCurrentRevision();
+  const receipt = validateWindowsStaticQa(markdown, options.qaPath, currentRevision);
   assert.equal(receipt.schema, WINDOWS_STATIC_QA_RECEIPT_SCHEMA);
   if (options.outPath) {
     await mkdir(dirname(options.outPath), { recursive: true, mode: 0o700 });
