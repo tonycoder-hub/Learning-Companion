@@ -30,7 +30,7 @@ export function assessKoStatusFreshness(koStatus = {}, currentRevision = {}) {
     problems.push("Current git revision is unavailable.");
   }
   if (currentRevision.dirtyWorktree !== false) {
-    problems.push("Current worktree is dirty; regenerate KO status after committing or stashing local changes.");
+    problems.push("Current worktree is dirty; resolve current worktree changes under current-turn authorization, then regenerate KO status. Do not discard changes unless explicitly asked.");
   }
   if (!Number.isInteger(currentRevision.statusLineCount) || currentRevision.statusLineCount !== 0) {
     problems.push("Current clean worktree proof must have zero status lines.");

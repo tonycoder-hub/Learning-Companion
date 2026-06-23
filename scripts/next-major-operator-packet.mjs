@@ -296,7 +296,7 @@ function assessPlatformHandoffFreshness(platformHandoff, currentRevision) {
     problems.push("Platform handoff did not prove it was generated from a clean worktree.");
   }
   if (currentRevision.dirtyWorktree !== false) {
-    problems.push("Current worktree is dirty; regenerate the platform handoff after committing or stashing local changes.");
+    problems.push("Current worktree is dirty; resolve current worktree changes under current-turn authorization, then regenerate the platform handoff. Do not discard changes unless explicitly asked.");
   }
   return {
     status: problems.length ? "STALE_OR_DIRTY_PLATFORM_QA_HANDOFF" : CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS,

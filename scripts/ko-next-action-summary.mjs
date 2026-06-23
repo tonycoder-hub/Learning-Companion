@@ -18,6 +18,7 @@ const execFileAsync = promisify(execFile);
 const PATH_ARGS = ["status", "source-approval-request", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device"];
 const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
 const STALE_OR_DIRTY_OPERATOR_PACKET = "STALE_OR_DIRTY_OPERATOR_PACKET";
+const CURRENT_CLEAN_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
 
 if (args.help) {
   console.log(buildHelp());
@@ -149,7 +150,7 @@ function assessOperatorPacketFreshness(packet, currentRevision = {}) {
     problems.push("Current git revision is unavailable.");
   }
   if (currentRevision?.dirtyWorktree !== false) {
-    problems.push("Current worktree is dirty; regenerate operator packet after committing or stashing local changes.");
+    problems.push("Current worktree is dirty; resolve current worktree changes under current-turn authorization, then regenerate the operator packet. Do not discard changes unless explicitly asked.");
   }
   return {
     status: problems.length ? STALE_OR_DIRTY_OPERATOR_PACKET : CURRENT_CLEAN_OPERATOR_PACKET,
@@ -268,7 +269,8 @@ function formatOperatorCriticalPath(packet, path, freshness, warning) {
     `- Evidence tier: ${packet.evidenceTier || "UNKNOWN"}; can claim next-major: ${packet.canClaimNextMajorFromThisPacket === true ? "YES" : "NO"}; release authorized: ${packet.releaseActionAuthorized === true ? "YES" : "NO"}`,
     `- Current operator packet freshness: ${freshness?.status || "TBD"}`,
     `- Operator packet git HEAD: ${freshness?.packetGitHead || "TBD"}`,
-    `- Current git HEAD: ${freshness?.currentGitHead || "TBD"}`
+    `- Current git HEAD: ${freshness?.currentGitHead || "TBD"}`,
+    ...formatOperatorPlatformHandoffFreshness(packet.platformHandoffFreshness)
   ];
   if (freshness?.status === STALE_OR_DIRTY_OPERATOR_PACKET) {
     lines.push(
@@ -276,7 +278,7 @@ function formatOperatorCriticalPath(packet, path, freshness, warning) {
     );
   }
   if (freshness?.currentDirtyWorktree === true) {
-    lines.push("- Refresh prerequisite: commit, stash, or discard current worktree changes before regenerating the operator packet.");
+    lines.push("- Refresh prerequisite: resolve current worktree changes under current-turn authorization before regenerating the operator packet; do not discard changes unless explicitly asked.");
   }
   if (Array.isArray(freshness?.problems)) {
     for (const problem of freshness.problems) lines.push(`- Operator packet freshness problem: ${problem}`);
@@ -285,6 +287,32 @@ function formatOperatorCriticalPath(packet, path, freshness, warning) {
     lines.push(`- ${step.order}. ${step.id}: ${step.operatorState} - ${step.action}`);
   }
   lines.push("- This operator packet still does not grant approval, run QA, perform privacy review, build, package, deploy, remote-accept, or satisfy KO evidence.");
+  return lines;
+}
+
+function formatOperatorPlatformHandoffFreshness(freshness) {
+  if (!freshness) {
+    return [
+      "- Operator platform handoff freshness: TBD",
+      "- Missing platform handoff freshness does not satisfy platform QA evidence."
+    ];
+  }
+  const lines = [
+    `- Operator platform handoff freshness: ${freshness.status || "TBD"}`,
+    `- Platform handoff git HEAD: ${freshness.basisGitHead || "TBD"}`,
+    `- Platform handoff current git HEAD: ${freshness.currentGitHead || "TBD"}`
+  ];
+  if (freshness.status !== CURRENT_CLEAN_PLATFORM_QA_HANDOFF) {
+    lines.push(
+      "- Refresh platform handoff command: npm run platform:qa-handoff -- --status .codex-tmp/ko-evidence/current-status.json --out .codex-tmp/platform-qa-handoff/current.json --markdown-out .codex-tmp/platform-qa-handoff/current.md"
+    );
+  }
+  if (freshness.currentDirtyWorktree === true) {
+    lines.push("- Platform handoff refresh prerequisite: resolve current worktree changes under current-turn authorization; do not discard changes unless explicitly asked.");
+  }
+  if (Array.isArray(freshness.problems)) {
+    for (const problem of freshness.problems) lines.push(`- Platform handoff freshness problem: ${problem}`);
+  }
   return lines;
 }
 

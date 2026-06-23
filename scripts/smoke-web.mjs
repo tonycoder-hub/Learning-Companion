@@ -173,6 +173,7 @@ assert.match(gitRevisionHelperJs, /export function revisionCanClaim/);
 assert.match(koStatusFreshnessHelperJs, /CURRENT_CLEAN_HEAD_KO_STATUS/);
 assert.match(koStatusFreshnessHelperJs, /STALE_OR_DIRTY_KO_STATUS/);
 assert.match(koStatusFreshnessHelperJs, /assessKoStatusFreshness/);
+assert.doesNotMatch(koStatusFreshnessHelperJs, /after committing or stashing local changes/);
 assert.match(platformQaAreasHelperJs, /export const MAC_MANUAL_QA_AREAS/);
 assert.match(platformQaAreasHelperJs, /export const WINDOWS_STATIC_QA_AREAS/);
 assert.match(platformQaAreasHelperJs, /export const HARMONY_DEVICE_QA_AREAS/);
@@ -196,6 +197,7 @@ assert.match(sourceApprovalFreshnessHelperJs, /refreshPublicDryRun/);
 assert.match(sourceApprovalFreshnessHelperJs, /validatePublicDryRunReceiptBasis/);
 assert.match(sourceApprovalFreshnessHelperJs, /validateApprovedCandidateCommand/);
 assert.match(sourceApprovalFreshnessHelperJs, /Prior public dry-run receipt path is missing/);
+assert.doesNotMatch(sourceApprovalFreshnessHelperJs, /after committing or stashing local changes/);
 assert.match(sourceApprovalFreshnessHelperJs, /external-source-validation-browser\.v1/);
 assert.match(sourceApprovalFreshnessHelperJs, /profileRetained is false/);
 assert.match(sourceApprovalFreshnessHelperJs, /does not match receipt-validated sources/);
@@ -911,13 +913,19 @@ assert.match(koNextActionSummaryJs, /learning-companion\.next-major-operator-pac
 assert.match(koNextActionSummaryJs, /NEXT_MAJOR_OPERATOR_PACKET_ONLY/);
 assert.match(koNextActionSummaryJs, /CURRENT_CLEAN_OPERATOR_PACKET/);
 assert.match(koNextActionSummaryJs, /STALE_OR_DIRTY_OPERATOR_PACKET/);
+assert.match(koNextActionSummaryJs, /CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
 assert.match(koNextActionSummaryJs, /assessOperatorPacketFreshness/);
+assert.match(koNextActionSummaryJs, /formatOperatorPlatformHandoffFreshness/);
 assert.match(koNextActionSummaryJs, /Ignored invalid default operator packet/);
 assert.match(koNextActionSummaryJs, /Operator packet missing nextActionSequence/);
 assert.match(koNextActionSummaryJs, /Operator critical path/);
 assert.match(koNextActionSummaryJs, /Current operator packet freshness/);
+assert.match(koNextActionSummaryJs, /Operator platform handoff freshness/);
 assert.match(koNextActionSummaryJs, /Refresh operator packet command/);
+assert.match(koNextActionSummaryJs, /Refresh platform handoff command/);
 assert.match(koNextActionSummaryJs, /Refresh prerequisite/);
+assert.match(koNextActionSummaryJs, /do not discard changes unless explicitly asked/);
+assert.doesNotMatch(koNextActionSummaryJs, /after committing or stashing local changes/);
 assert.match(koNextActionSummaryJs, /This operator packet still does not grant approval/);
 assert.match(koNextActionSummaryJs, /Source approval request missing required/);
 assert.match(koNextActionSummaryJs, /approved candidate command still contains placeholder tokens/);
@@ -1094,6 +1102,7 @@ assert.match(nextMajorOperatorPacketJs, /buildFreshSourceCommands/);
 assert.match(nextMajorOperatorPacketJs, /CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorPacketJs, /STALE_OR_DIRTY_PLATFORM_QA_HANDOFF/);
 assert.match(nextMajorOperatorPacketJs, /assessPlatformHandoffFreshness/);
+assert.doesNotMatch(nextMajorOperatorPacketJs, /after committing or stashing local changes/);
 assert.match(nextMajorOperatorPacketJs, /nextActionSequence/);
 assert.match(nextMajorOperatorPacketJs, /buildNextActionSequence/);
 assert.match(nextMajorOperatorPacketJs, /appendSourceNextActions/);
@@ -1129,6 +1138,7 @@ try {
   const operatorJsonPath = join(operatorSmokeDir, "operator.json");
   const operatorMarkdownPath = join(operatorSmokeDir, "operator.md");
   const staleOperatorJsonPath = join(operatorSmokeDir, "stale-operator.json");
+  const cleanPlatformOperatorJsonPath = join(operatorSmokeDir, "clean-platform-operator.json");
   writeFileSync(statusPath, `${JSON.stringify({
     schema: "learning-companion.ko-evidence-review.v1",
     evidenceTier: "KO_MISSING_EVIDENCE",
@@ -1226,6 +1236,20 @@ try {
       gitHead: "0000000000000000000000000000000000000000"
     }
   }, null, 2)}\n`);
+  writeFileSync(cleanPlatformOperatorJsonPath, `${JSON.stringify({
+    ...operatorPacket,
+    platformHandoffFreshness: {
+      status: "CURRENT_CLEAN_PLATFORM_QA_HANDOFF",
+      currentGitHead: operatorPacket.currentRevision.gitHead,
+      currentDirtyWorktree: false,
+      basisGitHead: operatorPacket.currentRevision.gitHead,
+      basisDirtyWorktree: false,
+      basisExecutionFreshnessStatus: "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF",
+      basisStatusLineCount: 0,
+      basisStatusTruncated: false,
+      problems: []
+    }
+  }, null, 2)}\n`);
   assert.equal(operatorPacket.schema, "learning-companion.next-major-operator-packet.v1");
   assert.equal(operatorPacket.canClaimNextMajorFromThisPacket, false);
   assert.equal(operatorPacket.releaseActionAuthorized, false);
@@ -1265,9 +1289,12 @@ try {
     ? "CURRENT_CLEAN_OPERATOR_PACKET"
     : "STALE_OR_DIRTY_OPERATOR_PACKET";
   assert.match(koNextConsole, new RegExp(`Current operator packet freshness: ${expectedOperatorFreshness}`));
+  assert.match(koNextConsole, /Operator platform handoff freshness: STALE_OR_DIRTY_PLATFORM_QA_HANDOFF/);
+  assert.match(koNextConsole, /Refresh platform handoff command: npm run platform:qa-handoff -- --status/);
+  assert.match(koNextConsole, /Platform handoff freshness problem: Platform handoff executionFreshness.status is TBD/);
   if (expectedOperatorFreshness === "STALE_OR_DIRTY_OPERATOR_PACKET") {
     assert.match(koNextConsole, /Refresh operator packet command: npm run next:operator -- --refresh/);
-    assert.match(koNextConsole, /Refresh prerequisite: commit, stash, or discard current worktree changes before regenerating the operator packet/);
+    assert.match(koNextConsole, /Refresh prerequisite: resolve current worktree changes under current-turn authorization before regenerating the operator packet; do not discard changes unless explicitly asked/);
     assert.match(koNextConsole, /Operator packet freshness problem: Operator packet was not generated from a clean worktree/);
   }
   assert.match(koNextConsole, /refresh-public-source-dry-run/);
@@ -1286,6 +1313,18 @@ try {
   assert.match(staleKoNextConsole, /Current operator packet freshness: STALE_OR_DIRTY_OPERATOR_PACKET/);
   assert.match(staleKoNextConsole, /Refresh operator packet command: npm run next:operator -- --refresh/);
   assert.match(staleKoNextConsole, /Operator packet freshness problem: Operator packet gitHead 0000000000000000000000000000000000000000 does not match current HEAD/);
+  const cleanPlatformKoNextConsole = execFileSync(process.execPath, [
+    "scripts/ko-next-action-summary.mjs",
+    "--status",
+    statusPath,
+    "--source-approval-request",
+    approvalPath,
+    "--operator",
+    cleanPlatformOperatorJsonPath
+  ], { encoding: "utf8" });
+  assert.match(cleanPlatformKoNextConsole, /Operator platform handoff freshness: CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
+  assert.doesNotMatch(cleanPlatformKoNextConsole, /Refresh platform handoff command/);
+  assert.doesNotMatch(cleanPlatformKoNextConsole, /Platform handoff freshness problem/);
 } finally {
   if (cleanupSmokeArtifacts) rmSync(operatorSmokeDir, { recursive: true, force: true });
 }
