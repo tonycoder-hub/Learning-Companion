@@ -1287,13 +1287,26 @@ assert.match(nextMajorOperatorPacketJs, /assertLiteral\(sourceApprovalRequest\.c
 assert.match(nextMajorOperatorPacketJs, /readiness\.nextCommands\?\.finalizeNextMajor/);
 assert.match(nextMajorOperatorPacketJs, /readiness\.nextCommands\?\.finalKoGate/);
 assert.match(nextMajorOperatorPacketJs, /readiness\.nextCommands\?\.finalKoGateWithExplicitPlatformReceipts/);
+assert.match(nextMajorOperatorPacketJs, /SOURCE_APPROVAL_MARKDOWN_PATH/);
+assert.match(nextMajorOperatorPacketJs, /DEFAULT_MAC_MANUAL_PATH/);
+assert.match(nextMajorOperatorPacketJs, /sourceApprovalMarkdownPath/);
+assert.match(nextMajorOperatorPacketJs, /externalEvidencePath/);
+assert.match(nextMajorOperatorPacketJs, /platformReceiptPaths/);
+assert.match(nextMajorOperatorPacketJs, /readinessArgv\.push\("--external", externalEvidencePath\)/);
+assert.match(nextMajorOperatorPacketJs, /function buildBoundFinalGateCommands/);
+assert.match(nextMajorOperatorPacketJs, /function buildCustomPlatformReceiptArgv/);
+assert.match(nextMajorOperatorPacketJs, /function buildCustomPlatformReceiptCommandArgs/);
 assert.match(nextMajorOperatorPacketJs, /function buildOperatorMarkdown/);
 assert.match(nextMajorOperatorPacketJs, /Next Major Operator Packet/);
 assert.match(nextMajorOperatorPacketJs, /executionChecklist/);
 assert.match(nextMajorOperatorPacketJs, /Not accepted as evidence/);
 assert.match(nextMajorOperatorPacketJs, /function writePrivateFile/);
 assert.match(nextMajorOperatorPacketJs, /chmod\(path, 0o600\)/);
-assert.match(nextMajorOperatorPacketJs, /"status", "readiness", "platform-handoff", "source-approval-request", "out", "markdown-out"/);
+assert.match(nextMajorOperatorPacketJs, /"source-approval-markdown"/);
+assert.match(nextMajorOperatorPacketJs, /"external"/);
+assert.match(nextMajorOperatorPacketJs, /"mac-manual"/);
+assert.match(nextMajorOperatorPacketJs, /"windows-static"/);
+assert.match(nextMajorOperatorPacketJs, /"harmony-device"/);
 const operatorSmokeDir = mkdtempSync(join(tempBase, "next-major-operator-"));
 try {
   const statusPath = join(operatorSmokeDir, "ko-status.json");

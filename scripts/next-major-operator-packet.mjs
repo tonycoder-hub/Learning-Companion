@@ -21,7 +21,23 @@ const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
 const READINESS_PATH = ".codex-tmp/next-major-readiness/current.json";
 const PLATFORM_HANDOFF_PATH = ".codex-tmp/platform-qa-handoff/current.json";
 const SOURCE_APPROVAL_REQUEST_PATH = ".codex-tmp/external-source-validation/source-approval-request.json";
-const PATH_ARGS = ["status", "readiness", "platform-handoff", "source-approval-request", "out", "markdown-out"];
+const SOURCE_APPROVAL_MARKDOWN_PATH = ".codex-tmp/external-source-validation/source-approval-request.md";
+const DEFAULT_MAC_MANUAL_PATH = ".codex-tmp/mac-manual-qa/real-run-receipt.json";
+const DEFAULT_WINDOWS_STATIC_PATH = ".codex-tmp/windows-static-qa/real-run-receipt.json";
+const DEFAULT_HARMONY_DEVICE_PATH = ".codex-tmp/harmony-device-qa/real-run-receipt.json";
+const PATH_ARGS = [
+  "status",
+  "readiness",
+  "platform-handoff",
+  "source-approval-request",
+  "source-approval-markdown",
+  "external",
+  "mac-manual",
+  "windows-static",
+  "harmony-device",
+  "out",
+  "markdown-out"
+];
 const CURRENT_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF";
 const CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
 
@@ -38,16 +54,37 @@ const statusPath = String(args.status || STATUS_PATH);
 const readinessPath = String(args.readiness || READINESS_PATH);
 const platformHandoffPath = String(args["platform-handoff"] || PLATFORM_HANDOFF_PATH);
 const sourceApprovalRequestPath = String(args["source-approval-request"] || SOURCE_APPROVAL_REQUEST_PATH);
+const sourceApprovalMarkdownPath = String(
+  args["source-approval-markdown"]
+    || (sourceApprovalRequestPath === SOURCE_APPROVAL_REQUEST_PATH ? SOURCE_APPROVAL_MARKDOWN_PATH : markdownSiblingPath(sourceApprovalRequestPath))
+);
+const externalEvidencePath = args.external ? String(args.external) : "";
+const platformReceiptPaths = {
+  macManual: String(args["mac-manual"] || DEFAULT_MAC_MANUAL_PATH),
+  windowsStatic: String(args["windows-static"] || DEFAULT_WINDOWS_STATIC_PATH),
+  harmonyDevice: String(args["harmony-device"] || DEFAULT_HARMONY_DEVICE_PATH)
+};
 
 if (args.refresh) {
-  await refreshInputs({ statusPath, readinessPath, platformHandoffPath });
+  await refreshInputs({
+    statusPath,
+    readinessPath,
+    platformHandoffPath,
+    sourceApprovalRequestPath,
+    sourceApprovalMarkdownPath,
+    externalEvidencePath,
+    platformReceiptPaths
+  });
 }
 
 const packet = await buildOperatorPacket({
   statusPath,
   readinessPath,
   platformHandoffPath,
-  sourceApprovalRequestPath
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  externalEvidencePath,
+  platformReceiptPaths
 });
 
 if (args.out) {
@@ -61,17 +98,34 @@ console.log(buildConsoleSummary(packet, {
   markdownPath: args["markdown-out"] ? resolve(String(args["markdown-out"])) : ""
 }));
 
-async function refreshInputs({ statusPath, readinessPath, platformHandoffPath }) {
+async function refreshInputs({
+  statusPath,
+  readinessPath,
+  platformHandoffPath,
+  sourceApprovalRequestPath,
+  sourceApprovalMarkdownPath,
+  externalEvidencePath,
+  platformReceiptPaths
+}) {
   await runNodeScript([scriptInThisDir("validate-ko-evidence.mjs"), "--allow-missing", "--out", statusPath], "KO status");
-  await runNodeScript([
+  const readinessArgv = [
     scriptInThisDir("next-major-readiness.mjs"),
     "--status",
     statusPath,
     "--out",
     readinessPath,
     "--markdown-out",
-    markdownSiblingPath(readinessPath)
-  ], "next-major readiness");
+    markdownSiblingPath(readinessPath),
+    "--source-approval-request",
+    sourceApprovalRequestPath,
+    "--source-approval-markdown",
+    sourceApprovalMarkdownPath
+  ];
+  if (externalEvidencePath) {
+    readinessArgv.push("--external", externalEvidencePath);
+  }
+  readinessArgv.push(...buildCustomPlatformReceiptArgv(platformReceiptPaths));
+  await runNodeScript(readinessArgv, "next-major readiness");
   await runNodeScript([
     scriptInThisDir("platform-qa-handoff.mjs"),
     "--status",
@@ -129,7 +183,12 @@ async function buildOperatorPacket(paths) {
   const lanes = [
     await buildExternalSourceLane(requirementById.get("approvedExternalReadingVideo"), sourceApprovalRequest, paths.sourceApprovalRequestPath, currentRevision),
     ...buildPlatformLanes(platformHandoff, platformHandoffFreshness),
-    buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness)
+    buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, {
+      sourceApprovalRequestPath: paths.sourceApprovalRequestPath,
+      sourceApprovalMarkdownPath: paths.sourceApprovalMarkdownPath,
+      externalEvidencePath: paths.externalEvidencePath || "",
+      platformReceiptPaths: paths.platformReceiptPaths || {}
+    })
   ];
   const nextActionSequence = buildNextActionSequence(lanes);
   return {
@@ -144,6 +203,9 @@ async function buildOperatorPacket(paths) {
       readinessPath: paths.readinessPath,
       platformHandoffPath: paths.platformHandoffPath,
       sourceApprovalRequestPath: paths.sourceApprovalRequestPath,
+      sourceApprovalMarkdownPath: paths.sourceApprovalMarkdownPath,
+      externalEvidencePath: paths.externalEvidencePath || "",
+      platformReceiptPaths: paths.platformReceiptPaths || {},
       sourceApprovalRequestAvailable: Boolean(sourceApprovalRequest)
     },
     sourceKoStatus: {
@@ -415,8 +477,9 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness) {
   }));
 }
 
-function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness) {
+function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness, pathBindings = {}) {
   const platformHandoffReady = platformHandoffFreshness.status === CURRENT_OPERATOR_PLATFORM_HANDOFF_STATUS;
+  const boundFinalCommands = buildBoundFinalGateCommands(pathBindings);
   return {
     id: "finalKoGate",
     label: "Final KO gate",
@@ -427,13 +490,16 @@ function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness
     platformHandoffFreshness,
     releaseActionAuthorized: readiness.releaseActionAuthorized === true,
     nextCommands: {
-      finalizeNextMajor: readiness.nextCommands?.finalizeNextMajor
+      finalizeNextMajor: boundFinalCommands.finalizeNextMajor
+        || readiness.nextCommands?.finalizeNextMajor
         || platformHandoff.nextCommands?.finalizeNextMajor
         || "npm run next:finalize -- --external <ko-evidence-review.json>",
-      finalKoGate: readiness.nextCommands?.finalKoGate
+      finalKoGate: boundFinalCommands.finalKoGate
+        || readiness.nextCommands?.finalKoGate
         || platformHandoff.nextCommands?.finalKoGate
         || "npm run ko:validate -- --external <ko-evidence-review.json> --out .codex-tmp/ko-evidence/final.json",
-      finalKoGateWithExplicitPlatformReceipts: readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts
+      finalKoGateWithExplicitPlatformReceipts: boundFinalCommands.finalKoGateWithExplicitPlatformReceipts
+        || readiness.nextCommands?.finalKoGateWithExplicitPlatformReceipts
         || platformHandoff.nextCommands?.finalKoGateWithExplicitPlatformReceipts
         || ""
     },
@@ -445,6 +511,89 @@ function buildFinalGateLane(readiness, platformHandoff, platformHandoffFreshness
       "self-test or dry-run artifacts"
     ]
   };
+}
+
+function buildBoundFinalGateCommands({
+  sourceApprovalRequestPath = SOURCE_APPROVAL_REQUEST_PATH,
+  sourceApprovalMarkdownPath = SOURCE_APPROVAL_MARKDOWN_PATH,
+  externalEvidencePath = "",
+  platformReceiptPaths = {}
+} = {}) {
+  const hasSourceOverride = sourceApprovalRequestPath !== SOURCE_APPROVAL_REQUEST_PATH
+    || sourceApprovalMarkdownPath !== SOURCE_APPROVAL_MARKDOWN_PATH;
+  const hasExternalOverride = Boolean(externalEvidencePath);
+  const customPlatformArgs = buildCustomPlatformReceiptCommandArgs(platformReceiptPaths);
+  const hasPlatformOverride = customPlatformArgs.length > 0;
+  if (!hasExternalOverride && !hasPlatformOverride) {
+    return {};
+  }
+
+  const externalArg = externalEvidencePath ? shellQuote(externalEvidencePath) : "<ko-evidence-review.json>";
+  const finalizeParts = ["npm run next:finalize -- --external", externalArg];
+  if (hasSourceOverride) {
+    finalizeParts.push(
+      "--source-approval-request",
+      shellQuote(sourceApprovalRequestPath),
+      "--source-approval-markdown",
+      shellQuote(sourceApprovalMarkdownPath)
+    );
+  }
+  if (hasPlatformOverride) finalizeParts.push(...customPlatformArgs);
+
+  const finalKoParts = [
+    "npm run ko:validate -- --external",
+    externalArg,
+    "--out",
+    ".codex-tmp/ko-evidence/final.json"
+  ];
+  const explicitFinalKoParts = [
+    "npm run ko:validate -- --external",
+    externalArg,
+    ...buildPlatformReceiptCommandArgs(platformReceiptPaths),
+    "--out",
+    ".codex-tmp/ko-evidence/final.json"
+  ];
+  return {
+    finalizeNextMajor: finalizeParts.join(" "),
+    finalKoGate: finalKoParts.join(" "),
+    finalKoGateWithExplicitPlatformReceipts: explicitFinalKoParts.join(" ")
+  };
+}
+
+function buildCustomPlatformReceiptArgv(platformReceiptPaths = {}) {
+  const macManual = platformReceiptPaths.macManual || DEFAULT_MAC_MANUAL_PATH;
+  const windowsStatic = platformReceiptPaths.windowsStatic || DEFAULT_WINDOWS_STATIC_PATH;
+  const harmonyDevice = platformReceiptPaths.harmonyDevice || DEFAULT_HARMONY_DEVICE_PATH;
+  if (macManual === DEFAULT_MAC_MANUAL_PATH
+    && windowsStatic === DEFAULT_WINDOWS_STATIC_PATH
+    && harmonyDevice === DEFAULT_HARMONY_DEVICE_PATH) {
+    return [];
+  }
+  return [
+    "--mac-manual",
+    macManual,
+    "--windows-static",
+    windowsStatic,
+    "--harmony-device",
+    harmonyDevice
+  ];
+}
+
+function buildCustomPlatformReceiptCommandArgs(platformReceiptPaths = {}) {
+  return buildCustomPlatformReceiptArgv(platformReceiptPaths).map((value, index) => (
+    index % 2 === 0 ? value : shellQuote(value)
+  ));
+}
+
+function buildPlatformReceiptCommandArgs(platformReceiptPaths = {}) {
+  return [
+    "--mac-manual",
+    shellQuote(platformReceiptPaths.macManual || DEFAULT_MAC_MANUAL_PATH),
+    "--windows-static",
+    shellQuote(platformReceiptPaths.windowsStatic || DEFAULT_WINDOWS_STATIC_PATH),
+    "--harmony-device",
+    shellQuote(platformReceiptPaths.harmonyDevice || DEFAULT_HARMONY_DEVICE_PATH)
+  ];
 }
 
 async function readRequiredJson(path, label) {
@@ -661,7 +810,12 @@ With --refresh, this command refreshes local KO, readiness, and platform handoff
 summaries and writes readiness/platform Markdown siblings next to their JSON
 files. It does not grant source approval, run approved-source browser evidence,
 perform privacy review, run Mac/Windows/HarmonyOS QA, build, package, deploy, or
-run remote acceptance checks.`;
+run remote acceptance checks.
+
+Optional path bindings:
+  --source-approval-request <path> --source-approval-markdown <path>
+  --external <ko-evidence-review.json>
+  --mac-manual <receipt.json> --windows-static <receipt.json> --harmony-device <receipt.json>`;
 }
 
 function parseArgs(argv) {

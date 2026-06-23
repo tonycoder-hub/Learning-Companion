@@ -169,6 +169,27 @@ try {
   assert.match(freshMarkdown, /Approval request freshness: CURRENT\\_CLEAN\\_PUBLIC\\_DRY\\_RUN/);
   assert.match(freshMarkdown, /No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this operator packet/);
 
+  const directFinalBindingRun = await runOperator("direct-final-binding", {
+    approval: approvalPath,
+    extraArgs: [
+      "--external",
+      "custom external.json",
+      "--mac-manual",
+      "custom mac.json",
+      "--windows-static",
+      "custom windows.json",
+      "--harmony-device",
+      "custom harmony.json"
+    ]
+  });
+  assert.equal(directFinalBindingRun.code, 0, directFinalBindingRun.stderr);
+  const directFinalBindingPacket = await readJson(directFinalBindingRun.jsonPath);
+  const directFinalBindingLane = getLane(directFinalBindingPacket, "finalKoGate");
+  assert.match(directFinalBindingLane.nextCommands.finalizeNextMajor, /custom external\.json/);
+  assert.match(directFinalBindingLane.nextCommands.finalizeNextMajor, /custom mac\.json/);
+  assert.match(directFinalBindingLane.nextCommands.finalizeNextMajor, /--source-approval-request .*source-approval-request\.json/);
+  assert.match(directFinalBindingLane.nextCommands.finalKoGateWithExplicitPlatformReceipts, /custom harmony\.json/);
+
   await writeJson(readinessPath, buildReadiness(false, {
     finalizeNextMajor: "npm run next:finalize -- --external 'custom external.json' --mac-manual 'custom mac.json' --windows-static 'custom windows.json' --harmony-device 'custom harmony.json'",
     finalKoGate: "npm run ko:validate -- --external 'custom external.json' --out .codex-tmp/ko-evidence/final.json",
@@ -247,8 +268,11 @@ try {
   assert.equal(refreshInputsRun.code, 0, refreshInputsRun.stderr);
   assert.match(refreshInputsRun.stdout, /next_major_operator_packet_ok/);
   const refreshedInputPacket = await readJson(refreshInputsRun.jsonPath);
+  const refreshedReadiness = await readJson(readinessPath);
   assert.equal(refreshedInputPacket.inputs.readinessPath, readinessPath);
   assert.equal(refreshedInputPacket.inputs.platformHandoffPath, platformPath);
+  assert.match(refreshedReadiness.nextCommands.refreshReadiness, /--source-approval-request .*source-approval-request\.json/);
+  assert.match(refreshedReadiness.nextCommands.finalizeNextMajor, /--source-approval-request .*source-approval-request\.json/);
   assert.equal(refreshedInputPacket.sourceReadiness.koStatusFreshness, "CURRENT_CLEAN_HEAD_KO_STATUS");
   assert.equal(refreshedInputPacket.platformHandoffFreshness.status, "CURRENT_CLEAN_PLATFORM_QA_HANDOFF");
   assert.equal(getLane(refreshedInputPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
@@ -256,6 +280,25 @@ try {
   assert.equal((await stat(markdownSiblingPath(platformPath))).mode & 0o777, 0o600);
   assert.match(await readFile(markdownSiblingPath(readinessPath), "utf8"), /Next Major Readiness Packet/);
   assert.match(await readFile(markdownSiblingPath(platformPath), "utf8"), /Platform QA Execution Handoff/);
+
+  const refreshBoundRun = await runOperatorRefresh("refresh-bound-final-paths", {
+    approval: approvalPath,
+    extraArgs: [
+      "--external",
+      "custom external.json",
+      "--mac-manual",
+      "custom mac.json",
+      "--windows-static",
+      "custom windows.json",
+      "--harmony-device",
+      "custom harmony.json"
+    ]
+  });
+  assert.equal(refreshBoundRun.code, 0, refreshBoundRun.stderr);
+  const refreshBoundReadiness = await readJson(readinessPath);
+  assert.match(refreshBoundReadiness.nextCommands.refreshReadiness, /custom external\.json/);
+  assert.match(refreshBoundReadiness.nextCommands.refreshReadiness, /custom mac\.json/);
+  assert.doesNotMatch(refreshBoundReadiness.nextCommands.refreshReadiness, /''\\''/);
 
   const extensionlessReadinessPath = join(outDir, "extensionless-readiness");
   const extensionlessPlatformPath = join(outDir, "extensionless-platform");
@@ -329,7 +372,8 @@ async function runOperator(label, options = {}) {
     "--out",
     jsonPath,
     "--markdown-out",
-    markdownPath
+    markdownPath,
+    ...(options.extraArgs || [])
   ], fixtureRoot);
   return {
     ...result,
@@ -355,7 +399,8 @@ async function runOperatorRefresh(label, options = {}) {
     "--out",
     jsonPath,
     "--markdown-out",
-    markdownPath
+    markdownPath,
+    ...(options.extraArgs || [])
   ], fixtureRoot);
   return {
     ...result,
