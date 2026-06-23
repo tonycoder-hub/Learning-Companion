@@ -222,6 +222,20 @@ try {
   assert.match(await readFile(markdownSiblingPath(readinessPath), "utf8"), /Next Major Readiness Packet/);
   assert.match(await readFile(markdownSiblingPath(platformPath), "utf8"), /Platform QA Execution Handoff/);
 
+  const extensionlessReadinessPath = join(outDir, "extensionless-readiness");
+  const extensionlessPlatformPath = join(outDir, "extensionless-platform");
+  const extensionlessRefreshRun = await runOperatorRefresh("extensionless-refresh-inputs", {
+    approval: approvalPath,
+    readiness: extensionlessReadinessPath,
+    platformHandoff: extensionlessPlatformPath
+  });
+  assert.equal(extensionlessRefreshRun.code, 0, extensionlessRefreshRun.stderr);
+  assert.match(extensionlessRefreshRun.stdout, /next_major_operator_packet_ok/);
+  assert.equal((await stat(markdownSiblingPath(extensionlessReadinessPath))).mode & 0o777, 0o600);
+  assert.equal((await stat(markdownSiblingPath(extensionlessPlatformPath))).mode & 0o777, 0o600);
+  assert.match(await readFile(markdownSiblingPath(extensionlessReadinessPath), "utf8"), /Next Major Readiness Packet/);
+  assert.match(await readFile(markdownSiblingPath(extensionlessPlatformPath), "utf8"), /Platform QA Execution Handoff/);
+
   await writeJson(readinessPath, buildReadiness(true));
   const releaseAuthorizedRun = await runOperator("release-authorized", { approval: approvalPath });
   assert.notEqual(releaseAuthorizedRun.code, 0);
@@ -298,7 +312,7 @@ async function runOperatorRefresh(label, options = {}) {
     "--status",
     statusPath,
     "--readiness",
-    readinessPath,
+    options.readiness || readinessPath,
     "--platform-handoff",
     options.platformHandoff || platformPath,
     "--source-approval-request",
