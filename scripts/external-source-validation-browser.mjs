@@ -54,6 +54,9 @@ const modeCount = [selfTest, approvedCurrentTurn, publicSourceDryRun].filter(Boo
 if (modeCount !== 1) {
   throw new Error("External source validation requires exactly one of --self-test, --approved-current-turn, or --public-source-dry-run.");
 }
+if (approvedCurrentTurn && !args["source-approval-request"]) {
+  throw new Error("--approved-current-turn requires --source-approval-request so the candidate receipt is bound to a fresh current source approval request.");
+}
 
 const mimeTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -97,7 +100,9 @@ const listenPort = await new Promise((resolvePort) => {
   server.listen(0, "127.0.0.1", () => resolvePort(server.address().port));
 });
 const appUrl = `http://127.0.0.1:${listenPort}/`;
-const sourceSet = await buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args });
+const sourceSetResult = await buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args });
+const sourceSet = sourceSetResult.sources;
+const sourceApprovalRequestBinding = sourceSetResult.sourceApprovalRequestBinding;
 const debuggingPort = await allocateTcpPort();
 const runContext = await buildRunContext({
   appUrl,
@@ -173,6 +178,7 @@ try {
     chromePath,
     appUrl,
     runContext,
+    sourceApprovalRequestBinding,
     approvedCurrentTurn: approvedCurrentTurn && !publicSourceDryRun,
     publicSourceDryRun,
     selfTest,
@@ -535,35 +541,39 @@ async function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
     const videoPath = "/external-fixtures/video.html";
     virtualRoutes.set(readingPath, fixtureReadingHtml());
     virtualRoutes.set(videoPath, fixtureVideoHtml());
-    return [
-      {
-        type: "reading",
-        url: `${appUrl.replace(/\/$/, "")}${readingPath}`,
-        title: "Local Reading Fixture",
-        sessionTitle: "External validation self-test reading",
-        quote: "A local fixture can verify the evidence harness without claiming real source approval.",
-        thought: "Self-test: capture reading context and resume the source.",
-        approved: "LOCAL_FIXTURE_SELF_TEST",
-        approvalSource: "script --self-test",
-        language: "zh",
-        selfTestOnly: true
-      },
-      {
-        type: "video",
-        url: `${appUrl.replace(/\/$/, "")}${videoPath}`,
-        title: "Local Video Fixture",
-        sessionTitle: "External validation self-test video",
-        quote: "The local video fixture displays timestamp 01:35 for screenshot evidence.",
-        thought: "Self-test: capture a timestamped video note and resume the source.",
-        timestamp: "01:35",
-        approved: "LOCAL_FIXTURE_SELF_TEST",
-        approvalSource: "script --self-test",
-        language: "en",
-        selfTestOnly: true
-      }
-    ];
+    return {
+      sourceApprovalRequestBinding: null,
+      sources: [
+        {
+          type: "reading",
+          url: `${appUrl.replace(/\/$/, "")}${readingPath}`,
+          title: "Local Reading Fixture",
+          sessionTitle: "External validation self-test reading",
+          quote: "A local fixture can verify the evidence harness without claiming real source approval.",
+          thought: "Self-test: capture reading context and resume the source.",
+          approved: "LOCAL_FIXTURE_SELF_TEST",
+          approvalSource: "script --self-test",
+          language: "zh",
+          selfTestOnly: true
+        },
+        {
+          type: "video",
+          url: `${appUrl.replace(/\/$/, "")}${videoPath}`,
+          title: "Local Video Fixture",
+          sessionTitle: "External validation self-test video",
+          quote: "The local video fixture displays timestamp 01:35 for screenshot evidence.",
+          thought: "Self-test: capture a timestamped video note and resume the source.",
+          timestamp: "01:35",
+          approved: "LOCAL_FIXTURE_SELF_TEST",
+          approvalSource: "script --self-test",
+          language: "en",
+          selfTestOnly: true
+        }
+      ]
+    };
   }
 
+  let sourceApprovalRequestBinding = null;
   const approvalSource = publicSourceDryRun
     ? requireStringArg(args["dry-run-note"], "dry-run-note", "Public source dry-run requires --dry-run-note.")
     : requireStringArg(args["approval-note"], "approval-note", "External validation requires --approval-note.");
@@ -574,45 +584,54 @@ async function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
     "video-timestamp",
     "External video validation requires --video-timestamp for timestamp/resume evidence."
   );
-  if (!publicSourceDryRun && args["source-approval-request"]) {
-    await validateApprovedRunSourceApprovalRequest(args["source-approval-request"], {
+  if (!publicSourceDryRun) {
+    const sourceApprovalRequestPath = requireStringArg(
+      args["source-approval-request"],
+      "source-approval-request",
+      "Approved external validation requires --source-approval-request."
+    );
+    const approvedRequest = await validateApprovedRunSourceApprovalRequest(sourceApprovalRequestPath, {
       readingUrl,
       videoUrl,
       videoTimestamp,
       approvalNote: approvalSource
     });
+    sourceApprovalRequestBinding = approvedRequest.binding;
   }
   const approvalMarker = publicSourceDryRun ? "PUBLIC_SOURCE_DRY_RUN_NOT_APPROVED" : "APPROVED_IN_CURRENT_TURN";
   const sourceApproval = publicSourceDryRun ? `dry-run only: ${approvalSource}` : approvalSource;
-  return [
-    {
-      type: "reading",
-      url: readingUrl,
-      title: args["reading-title"] || (publicSourceDryRun ? "Public reading source dry-run" : "Approved reading source"),
-      sessionTitle: args["reading-session"] || (publicSourceDryRun ? "Public reading dry-run validation" : "Approved reading validation"),
-      quote: args["reading-quote"] || (publicSourceDryRun ? "Public reading source note captured during dry-run validation." : "Approved reading source note captured during validation."),
-      thought: args["reading-thought"] || "Capture this reading point and verify source resume.",
-      approved: approvalMarker,
-      approvalSource: sourceApproval,
-      language: args["reading-language"] || "zh",
-      selfTestOnly: false,
-      dryRunOnly: publicSourceDryRun
-    },
-    {
-      type: "video",
-      url: videoUrl,
-      title: args["video-title"] || (publicSourceDryRun ? "Public video source dry-run" : "Approved video source"),
-      sessionTitle: args["video-session"] || (publicSourceDryRun ? "Public video dry-run validation" : "Approved video validation"),
-      quote: args["video-quote"] || (publicSourceDryRun ? "Public video source note captured during dry-run validation." : "Approved video source note captured during validation."),
-      thought: args["video-thought"] || "Capture this video point and verify source resume.",
-      timestamp: videoTimestamp,
-      approved: approvalMarker,
-      approvalSource: sourceApproval,
-      language: args["video-language"] || "en",
-      selfTestOnly: false,
-      dryRunOnly: publicSourceDryRun
-    }
-  ];
+  return {
+    sourceApprovalRequestBinding,
+    sources: [
+      {
+        type: "reading",
+        url: readingUrl,
+        title: args["reading-title"] || (publicSourceDryRun ? "Public reading source dry-run" : "Approved reading source"),
+        sessionTitle: args["reading-session"] || (publicSourceDryRun ? "Public reading dry-run validation" : "Approved reading validation"),
+        quote: args["reading-quote"] || (publicSourceDryRun ? "Public reading source note captured during dry-run validation." : "Approved reading source note captured during validation."),
+        thought: args["reading-thought"] || "Capture this reading point and verify source resume.",
+        approved: approvalMarker,
+        approvalSource: sourceApproval,
+        language: args["reading-language"] || "zh",
+        selfTestOnly: false,
+        dryRunOnly: publicSourceDryRun
+      },
+      {
+        type: "video",
+        url: videoUrl,
+        title: args["video-title"] || (publicSourceDryRun ? "Public video source dry-run" : "Approved video source"),
+        sessionTitle: args["video-session"] || (publicSourceDryRun ? "Public video dry-run validation" : "Approved video validation"),
+        quote: args["video-quote"] || (publicSourceDryRun ? "Public video source note captured during dry-run validation." : "Approved video source note captured during validation."),
+        thought: args["video-thought"] || "Capture this video point and verify source resume.",
+        timestamp: videoTimestamp,
+        approved: approvalMarker,
+        approvalSource: sourceApproval,
+        language: args["video-language"] || "en",
+        selfTestOnly: false,
+        dryRunOnly: publicSourceDryRun
+      }
+    ]
+  };
 }
 
 function fixtureReadingHtml() {
@@ -1106,7 +1125,34 @@ async function validateApprovedRunSourceApprovalRequest(pathValue, run) {
   validateApprovedRunSourceApprovalRequestObject(request, run);
   const freshness = await assessSourceApprovalFreshness(request, readCurrentRevisionSync());
   assertCurrentCleanSourceApprovalFreshness(freshness);
-  return request;
+  return {
+    request,
+    freshness,
+    binding: buildSourceApprovalRequestBinding(request, freshness, pathValue)
+  };
+}
+
+function buildSourceApprovalRequestBinding(request, freshness, pathValue) {
+  return {
+    schema: "learning-companion.source-approval-request-binding.v1",
+    requestPath: String(pathValue || ""),
+    requestSchema: request.schema,
+    evidenceTier: request.evidenceTier,
+    canClaimExternalKo: request.canClaimExternalKo,
+    requestedApprovalTextMatched: true,
+    approvedReadingUrl: request.sources?.reading?.url || "",
+    approvedVideoUrl: request.sources?.video?.url || "",
+    approvedVideoTimestamp: request.sources?.video?.timestamp || "",
+    freshnessStatus: freshness.status || "",
+    currentGitHead: freshness.currentGitHead || "",
+    currentDirtyWorktree: freshness.currentDirtyWorktree,
+    basisGitHead: freshness.basisGitHead || "",
+    basisDirtyWorktree: freshness.basisDirtyWorktree,
+    basisReceiptPath: freshness.basisReceiptPath || "",
+    basisProfileCleanupOk: freshness.basisProfileCleanupOk === true,
+    basisProfileRetained: freshness.basisProfileRetained === true,
+    problems: Array.isArray(freshness.problems) ? freshness.problems : []
+  };
 }
 
 function validateApprovedRunSourceApprovalRequestObject(request, run) {
@@ -1350,9 +1396,9 @@ Modes:
 - npm run external:validate:public-dry-run -- --reading-url <public-reading-url> --video-url <public-video-url> --video-timestamp <observed-timestamp> --dry-run-note "<why this is only a dry run>"
   Real public-source preflight. Never KO evidence and cannot be privacy-reviewed.
 
-- npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --approval-note "<current-turn approval>"
+- npm run external:validate -- --approved-current-turn --reading-url <approved-reading-url> --video-url <approved-video-url> --video-timestamp <captured-timestamp> --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --approval-note "<current-turn approval>"
   Approved-source candidate. Still requires human privacy review before KO use.
-  Prefer adding --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json so the run fails if URL, timestamp, or approval text drift from the current request.
+  The source-approval request is required so the run fails if URL, timestamp, approval text, or freshness drift from the current request.
 
 Do not use authenticated/private pages, localhost, private IPs, intranet hosts, reserved example domains, or URLs with token/session/signature query keys.`;
 }

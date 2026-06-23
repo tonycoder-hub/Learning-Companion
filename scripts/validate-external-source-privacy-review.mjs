@@ -7,6 +7,8 @@ import { dirname, join, resolve } from "node:path";
 const RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
 const REVIEW_SCHEMA = "learning-companion.external-source-privacy-review.v1";
 const CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-review.v1";
+const SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA = "learning-companion.source-approval-request-binding.v1";
+const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
 const PLACEHOLDER_REVIEW_TEXT = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_REVIEW_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const TRAILING_REVIEW_DECORATION_PATTERN = /[`"'()[\]{}<>*_.,;:#\-\s]+$/;
@@ -53,6 +55,10 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
   assertConcreteReviewText(review.sourceApproval?.approvalReference, "sourceApproval.approvalReference");
   assert.equal(review.sourceApproval?.approvedReadingUrl, receiptSummary.reading.source.url, "approved reading URL must match receipt");
   assert.equal(review.sourceApproval?.approvedVideoUrl, receiptSummary.video.source.url, "approved video URL must match receipt");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestPath, receiptSummary.sourceApprovalRequestBinding.requestPath, "source approval request path must match receipt binding");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN, "source approval request freshness must match current clean public dry-run status");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestCurrentGitHead, receiptSummary.sourceApprovalRequestBinding.currentGitHead, "source approval request current git HEAD must match receipt binding");
+  assert.equal(review.sourceApproval?.sourceApprovalRequestBasisGitHead, receiptSummary.sourceApprovalRequestBinding.basisGitHead, "source approval request basis git HEAD must match receipt binding");
 
   [
     ["privacyReview.noVisibleAccountIdentity", review.privacyReview?.noVisibleAccountIdentity],
@@ -96,6 +102,17 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
       title: receiptSummary.video.source.title,
       timestamp: receiptSummary.video.saved.captureTimestamp,
       files: receiptSummary.video.files
+    },
+    sourceApprovalRequest: {
+      schema: receiptSummary.sourceApprovalRequestBinding.schema,
+      requestPath: receiptSummary.sourceApprovalRequestBinding.requestPath,
+      freshnessStatus: receiptSummary.sourceApprovalRequestBinding.freshnessStatus,
+      requestedApprovalTextMatched: receiptSummary.sourceApprovalRequestBinding.requestedApprovalTextMatched,
+      currentGitHead: receiptSummary.sourceApprovalRequestBinding.currentGitHead,
+      basisGitHead: receiptSummary.sourceApprovalRequestBinding.basisGitHead,
+      basisReceiptPath: receiptSummary.sourceApprovalRequestBinding.basisReceiptPath,
+      basisProfileCleanupOk: receiptSummary.sourceApprovalRequestBinding.basisProfileCleanupOk,
+      basisProfileRetained: receiptSummary.sourceApprovalRequestBinding.basisProfileRetained
     },
     runContext: summarizeRunContextForClaim(receipt.runContext),
     claimBoundary: {
@@ -162,12 +179,44 @@ function validateCandidateReceipt(receipt) {
   assert.equal(video.videoTools?.playbackRatePersisted, true, "video playback-rate preference must be recorded");
   assertNonTbd(video.saved?.captureTimestamp, "video.saved.captureTimestamp");
   assert.equal(video.saved?.captureMaterialType, "video", "video capture material type must be video");
+  const sourceApprovalRequestBinding = validateSourceApprovalRequestBinding(receipt.sourceApprovalRequestBinding, {
+    reading,
+    video,
+    runContext: receipt.runContext
+  });
 
   return {
     reading,
     video,
+    sourceApprovalRequestBinding,
     files: receipt.runs.flatMap((run) => run.files)
   };
+}
+
+function validateSourceApprovalRequestBinding(binding, { reading, video, runContext }) {
+  assert.equal(binding?.schema, SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA, "sourceApprovalRequestBinding schema mismatch");
+  assertNonTbd(binding.requestPath, "sourceApprovalRequestBinding.requestPath");
+  assert.equal(binding.requestSchema, "learning-companion.external-source-approval-request.v1", "sourceApprovalRequestBinding request schema mismatch");
+  assert.equal(binding.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY", "sourceApprovalRequestBinding evidence tier mismatch");
+  assert.equal(binding.canClaimExternalKo, false, "sourceApprovalRequestBinding must be non-claiming");
+  assert.equal(binding.requestedApprovalTextMatched, true, "sourceApprovalRequestBinding must prove requested approval text matched the approved run");
+  assert.equal(binding.approvedReadingUrl, reading.source.url, "sourceApprovalRequestBinding approved reading URL must match receipt");
+  assert.equal(binding.approvedVideoUrl, video.source.url, "sourceApprovalRequestBinding approved video URL must match receipt");
+  assert.equal(binding.approvedVideoTimestamp, video.saved.captureTimestamp, "sourceApprovalRequestBinding approved video timestamp must match captured video timestamp");
+  assert.equal(binding.approvedVideoTimestamp, video.videoTools?.bookmarkTimestamp, "sourceApprovalRequestBinding approved video timestamp must match bookmark timestamp");
+  assert.equal(binding.freshnessStatus, CURRENT_CLEAN_PUBLIC_DRY_RUN, "sourceApprovalRequestBinding freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN");
+  assertGitHead(binding.currentGitHead, "sourceApprovalRequestBinding.currentGitHead");
+  assertGitHead(binding.basisGitHead, "sourceApprovalRequestBinding.basisGitHead");
+  assert.equal(binding.currentGitHead, runContext.appRevision.gitHead, "sourceApprovalRequestBinding current git HEAD must match run context");
+  assert.equal(binding.basisGitHead, binding.currentGitHead, "sourceApprovalRequestBinding basis git HEAD must match current clean HEAD");
+  assert.equal(binding.currentDirtyWorktree, false, "sourceApprovalRequestBinding current worktree must be clean");
+  assert.equal(binding.basisDirtyWorktree, false, "sourceApprovalRequestBinding basis dry-run worktree must be clean");
+  assertNonTbd(binding.basisReceiptPath, "sourceApprovalRequestBinding.basisReceiptPath");
+  assert.equal(binding.basisProfileCleanupOk, true, "sourceApprovalRequestBinding public dry-run basis must prove browser profile cleanup");
+  assert.equal(binding.basisProfileRetained, false, "sourceApprovalRequestBinding public dry-run basis must not retain the browser profile");
+  assert.equal(Array.isArray(binding.problems), true, "sourceApprovalRequestBinding problems must be listed");
+  assert.equal(binding.problems.length, 0, "sourceApprovalRequestBinding must have no freshness problems");
+  return binding;
 }
 
 function buildReviewTemplate(receipt, receiptPath) {
@@ -185,7 +234,11 @@ function buildReviewTemplate(receipt, receiptPath) {
       currentTurnApprovalConfirmed: false,
       approvalReference: "TBD (current-turn approval message or link)",
       approvedReadingUrl: reading.source?.url || "TBD",
-      approvedVideoUrl: video.source?.url || "TBD"
+      approvedVideoUrl: video.source?.url || "TBD",
+      sourceApprovalRequestPath: receipt.sourceApprovalRequestBinding?.requestPath || "TBD",
+      sourceApprovalRequestFreshness: receipt.sourceApprovalRequestBinding?.freshnessStatus || "TBD",
+      sourceApprovalRequestCurrentGitHead: receipt.sourceApprovalRequestBinding?.currentGitHead || "TBD",
+      sourceApprovalRequestBasisGitHead: receipt.sourceApprovalRequestBinding?.basisGitHead || "TBD"
     },
     privacyReview: {
       noVisibleAccountIdentity: false,
@@ -214,10 +267,13 @@ async function runSelfTest() {
   const fixture = await createCandidateFixture(root);
   const candidateTemplate = buildReviewTemplate(fixture.receipt, fixture.receiptPath);
   assert.equal(candidateTemplate.sourceApproval.approvedReadingUrl, fixture.receipt.runs.find((run) => run.source.type === "reading").source.url);
+  assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN);
+  assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestPath, fixture.receipt.sourceApprovalRequestBinding.requestPath);
   assert.match(candidateTemplate.reviewedAt, /ISO date-time with timezone/);
   assert.match(candidateTemplate.notes, /concrete privacy-review notes/);
   const validReview = buildValidReview(fixture.receipt, fixture.receiptPath);
   const validateSelfTestPrivacyReview = (input) => validatePrivacyReview({ ...input, allowSelfTestFixtures: true });
+  const cloneFixtureReceipt = () => JSON.parse(JSON.stringify(fixture.receipt));
   const claim = validateSelfTestPrivacyReview({
     receipt: fixture.receipt,
     receiptPath: fixture.receiptPath,
@@ -305,6 +361,42 @@ async function runSelfTest() {
     reviewPath: join(root, "valid-review.json")
   }), /real approved-source candidate/);
   assert.throws(() => validateCandidateReceipt(publicDryRunReceipt), /real approved-source candidate/);
+
+  const missingSourceApprovalRequestBindingReceipt = cloneFixtureReceipt();
+  delete missingSourceApprovalRequestBindingReceipt.sourceApprovalRequestBinding;
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: missingSourceApprovalRequestBindingReceipt,
+    receiptPath: join(root, "missing-source-approval-request-binding-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /sourceApprovalRequestBinding schema mismatch/);
+
+  const staleSourceApprovalRequestBindingReceipt = cloneFixtureReceipt();
+  staleSourceApprovalRequestBindingReceipt.sourceApprovalRequestBinding.freshnessStatus = "STALE_OR_DIRTY_PUBLIC_DRY_RUN";
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: staleSourceApprovalRequestBindingReceipt,
+    receiptPath: join(root, "stale-source-approval-request-binding-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
+
+  const mismatchedSourceApprovalRequestReadingReceipt = cloneFixtureReceipt();
+  mismatchedSourceApprovalRequestReadingReceipt.sourceApprovalRequestBinding.approvedReadingUrl = "https://www.wikipedia.org/other-reading";
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: mismatchedSourceApprovalRequestReadingReceipt,
+    receiptPath: join(root, "mismatched-source-approval-request-reading-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /approved reading URL/);
+
+  const mismatchedSourceApprovalRequestTimestampReceipt = cloneFixtureReceipt();
+  mismatchedSourceApprovalRequestTimestampReceipt.sourceApprovalRequestBinding.approvedVideoTimestamp = "00:04";
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: mismatchedSourceApprovalRequestTimestampReceipt,
+    receiptPath: join(root, "mismatched-source-approval-request-timestamp-receipt.json"),
+    review: validReview,
+    reviewPath: join(root, "valid-review.json")
+  }), /approved video timestamp/);
 
   const failedReview = {
     ...validReview,
@@ -528,6 +620,10 @@ async function runSelfTest() {
       "local fixture self-test receipt rejected",
       "public source dry-run receipt rejected",
       "public source dry-run template rejected",
+      "missing source approval request binding rejected",
+      "stale source approval request binding rejected",
+      "mismatched source approval request reading URL rejected",
+      "mismatched source approval request video timestamp rejected",
       "failed privacy boolean rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
@@ -571,6 +667,26 @@ async function createCandidateFixture(root) {
     runRoot: root,
     chromePath: "/usr/bin/chromium",
     appUrl: "http://127.0.0.1:12345/",
+    sourceApprovalRequestBinding: {
+      schema: SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA,
+      requestPath: join(root, "source-approval-request.json"),
+      requestSchema: "learning-companion.external-source-approval-request.v1",
+      evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+      canClaimExternalKo: false,
+      requestedApprovalTextMatched: true,
+      approvedReadingUrl: "https://www.wikipedia.org/learning-companion-approved-reading",
+      approvedVideoUrl: "https://www.youtube.com/watch?v=learning-companion-approved-video",
+      approvedVideoTimestamp: "01:35",
+      freshnessStatus: CURRENT_CLEAN_PUBLIC_DRY_RUN,
+      currentGitHead: "0123456789abcdef0123456789abcdef01234567",
+      currentDirtyWorktree: false,
+      basisGitHead: "0123456789abcdef0123456789abcdef01234567",
+      basisDirtyWorktree: false,
+      basisReceiptPath: join(root, "public-dry-run-receipt.json"),
+      basisProfileCleanupOk: true,
+      basisProfileRetained: false,
+      problems: []
+    },
     runContext: {
       schema: "learning-companion.external-source-run-context.v1",
       app: {
