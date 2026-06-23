@@ -151,6 +151,16 @@ function buildFinalizePlan(options) {
           options.platformHandoffOut,
           "--source-approval-request",
           options.sourceApprovalRequest,
+          "--source-approval-markdown",
+          options.sourceApprovalMarkdown,
+          "--external",
+          options.external,
+          "--mac-manual",
+          options.macManual,
+          "--windows-static",
+          options.windowsStatic,
+          "--harmony-device",
+          options.harmonyDevice,
           "--out",
           options.operatorOut,
           "--markdown-out",
@@ -311,6 +321,11 @@ function runSelfTest() {
   assert.equal(readiness.argv.includes(".codex-tmp/selftest/harmony-real.json"), true);
   assert.equal(platform.argv.includes(".codex-tmp/selftest/final.json"), true);
   assert.equal(operator.argv.includes(".codex-tmp/selftest/source-approval-request.json"), true);
+  assert.equal(operator.argv.includes(".codex-tmp/selftest/source-approval-request.md"), true);
+  assert.equal(operator.argv.includes("fixtures/external-ko.json"), true);
+  assert.equal(operator.argv.includes(".codex-tmp/selftest/mac-real.json"), true);
+  assert.equal(operator.argv.includes(".codex-tmp/selftest/windows-real.json"), true);
+  assert.equal(operator.argv.includes(".codex-tmp/selftest/harmony-real.json"), true);
   assert.equal(operator.argv.includes(".codex-tmp/selftest/operator.md"), true);
 
   const dryRun = buildDryRunSummary(plan);
@@ -325,6 +340,11 @@ function runSelfTest() {
   assert.match(dryRun, /--harmony-device \.codex-tmp\/selftest\/harmony-real\.json/);
   assert.match(dryRun, /node scripts\/platform-qa-handoff\.mjs/);
   assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs/);
+  assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs .*--source-approval-markdown \.codex-tmp\/selftest\/source-approval-request\.md/);
+  assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs .*--external fixtures\/external-ko\.json/);
+  assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs .*--mac-manual \.codex-tmp\/selftest\/mac-real\.json/);
+  assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs .*--windows-static \.codex-tmp\/selftest\/windows-real\.json/);
+  assert.match(dryRun, /node scripts\/next-major-operator-packet\.mjs .*--harmony-device \.codex-tmp\/selftest\/harmony-real\.json/);
   assert.match(dryRun, /Dry-run boundary: no file readability/);
   assert.match(dryRun, /does not build, package, deploy/);
   console.log("next_major_finalize_selftest_ok");
@@ -339,6 +359,9 @@ Usage:
 
 Optional source approval path binding:
   --source-approval-request <path> --source-approval-markdown <path>
+
+Optional platform receipt path binding:
+  --mac-manual <receipt.json> --windows-static <receipt.json> --harmony-device <receipt.json>
 
 This command runs strict KO validation, then refreshes readiness, platform handoff, and operator packets.
 Dry-run only prints the command plan; it does not read or validate evidence files.
