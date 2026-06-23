@@ -542,6 +542,7 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness, pathBindi
     receiptPath: platform.receiptPath || "",
     validateCommand: platform.validateCommand || "",
     expectedRows: platform.expectedRows || 0,
+    suggestedEvidenceRoot: platform.suggestedEvidenceRoot || "",
     currentRows: {
       total: platform.currentTemplateSummary?.rows || 0,
       pass: platform.currentTemplateSummary?.pass || 0,
@@ -551,6 +552,7 @@ function buildPlatformLanes(platformHandoff, platformHandoffFreshness, pathBindi
       invalid: platform.currentTemplateSummary?.invalid || 0,
       rowsNeedingConcreteNotes: platform.currentTemplateSummary?.rowsNeedingConcreteNotes || 0
     },
+    rowEvidenceHints: platform.currentTemplateSummary?.rowEvidenceHints || [],
     requiredSessionFields: platform.currentTemplateSummary?.requiredSessionFields || [],
     nextCommands: needsFreshPlatformHandoff
       ? refreshCommands
@@ -903,9 +905,16 @@ function buildOperatorMarkdown(packet) {
       lines.push(
         `- QA template: ${markdownInline(lane.qaPath)}`,
         `- Receipt path: ${markdownInline(lane.receiptPath || "TBD")}`,
+        `- Suggested evidence root: ${markdownInline(lane.suggestedEvidenceRoot || "TBD")}`,
         `- Rows: total ${lane.currentRows.total}; PASS ${lane.currentRows.pass}; FAIL ${lane.currentRows.fail}; BLOCKED ${lane.currentRows.blocked}; NT ${lane.currentRows.nt}; invalid ${lane.currentRows.invalid}`,
         `- Rows needing concrete Notes: ${lane.currentRows.rowsNeedingConcreteNotes}`
       );
+      if (Array.isArray(lane.rowEvidenceHints) && lane.rowEvidenceHints.length) {
+        lines.push("", "Evidence note templates:", "");
+        for (const hint of lane.rowEvidenceHints) {
+          lines.push(`- Row ${hint.row} ${markdownInline(hint.area || "TBD")}: ${markdownInline(hint.suggestedNote || hint.evidenceDir || "TBD")}`);
+        }
+      }
     }
     const commands = lane.nextCommands || {};
     if (lane.validateCommand) commands.validateCommand = lane.validateCommand;

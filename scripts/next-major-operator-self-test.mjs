@@ -68,6 +68,8 @@ try {
   assert.match(realPlatformHandoffMarkdown, /windowsStaticManualQa/);
   assert.match(realPlatformOperatorMarkdown, /Execution checklist/);
   assert.match(realPlatformOperatorMarkdown, /Not accepted as evidence/);
+  assert.match(realPlatformOperatorMarkdown, /Evidence note templates/);
+  assert.match(realPlatformOperatorMarkdown, /01-mac-area-1\/notes\.md/);
   assert.deepEqual(realPlatformPacket.operatorOrder, [
     "approvedExternalReadingVideo",
     "nativeMacManualQa",
@@ -88,6 +90,8 @@ try {
   assert.equal(getLane(realPlatformPacket, "nativeMacManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
   assert.equal(getLane(realPlatformPacket, "windowsStaticManualQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.windowsStaticManualQa);
   assert.equal(getLane(realPlatformPacket, "harmonyDeviceQa").currentRows.nt, REAL_HANDOFF_ROW_COUNTS.harmonyDeviceQa);
+  assert.equal(getLane(realPlatformPacket, "nativeMacManualQa").rowEvidenceHints.length, REAL_HANDOFF_ROW_COUNTS.nativeMacManualQa);
+  assert.match(getLane(realPlatformPacket, "nativeMacManualQa").suggestedEvidenceRoot, /platform-qa-evidence\/nativeMacManualQa/);
   assert.match(getLane(realPlatformPacket, "nativeMacManualQa").executionChecklist.afterRun.join("\n"), /mac:manual:validate:real/);
   assert.match(getLane(realPlatformPacket, "windowsStaticManualQa").executionChecklist.afterRun.join("\n"), /windows:static:validate:real/);
   assert.match(getLane(realPlatformPacket, "harmonyDeviceQa").executionChecklist.afterRun.join("\n"), /harmony:device:validate:real/);
@@ -586,6 +590,10 @@ function assertPlatformLane(lane, { id, nt, validateCommandPattern, cannotBeFill
   assert.equal(lane.operatorState, "NEEDS_REAL_PLATFORM_RUN");
   assert.equal(lane.currentRows.nt, nt);
   assert.equal(lane.currentRows.rowsNeedingConcreteNotes, 0);
+  assert.match(lane.suggestedEvidenceRoot, new RegExp(`platform-qa-evidence/${id}/[a-f0-9]{40}`));
+  assert.equal(lane.rowEvidenceHints.length, nt);
+  assert.equal(lane.rowEvidenceHints[0].row, 1);
+  assert.match(lane.rowEvidenceHints[0].suggestedNote, /template only - replace before use/);
   assert.match(lane.validateCommand, validateCommandPattern);
   assert.equal(lane.nextCommands.refreshPlatformHandoff, undefined);
   assert.equal(lane.cannotBeFilledFrom.includes(cannotBeFilledFrom), true);
@@ -663,6 +671,9 @@ function buildReadiness(releaseActionAuthorized, nextCommands = null, gitHead = 
 }
 
 function buildPlatformHandoff(gitHead) {
+  const macEvidenceRoot = buildFixtureEvidenceRoot("nativeMacManualQa", gitHead);
+  const windowsEvidenceRoot = buildFixtureEvidenceRoot("windowsStaticManualQa", gitHead);
+  const harmonyEvidenceRoot = buildFixtureEvidenceRoot("harmonyDeviceQa", gitHead);
   return {
     schema: "learning-companion.platform-qa-handoff.v1",
     evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
@@ -696,6 +707,7 @@ function buildPlatformHandoff(gitHead) {
         receiptPath: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
         validateCommand: "npm run mac:manual:validate:real",
         expectedRows: 27,
+        suggestedEvidenceRoot: macEvidenceRoot,
         currentTemplateSummary: {
           rows: 27,
           pass: 0,
@@ -709,7 +721,8 @@ function buildPlatformHandoff(gitHead) {
               field: "Reviewer",
               filled: false
             }
-          ]
+          ],
+          rowEvidenceHints: buildFixtureRowEvidenceHints(macEvidenceRoot, "Mac", 27)
         },
         nextRealRunSteps: ["Fill the real Mac QA template."],
         cannotBeFilledFrom: ["fixture receipts"]
@@ -726,6 +739,7 @@ function buildPlatformHandoff(gitHead) {
         receiptPath: ".codex-tmp/windows-static-qa/real-run-receipt.json",
         validateCommand: "npm run windows:static:validate:real",
         expectedRows: 10,
+        suggestedEvidenceRoot: windowsEvidenceRoot,
         currentTemplateSummary: {
           rows: 10,
           pass: 0,
@@ -739,7 +753,8 @@ function buildPlatformHandoff(gitHead) {
               field: "Windows browser/device",
               filled: false
             }
-          ]
+          ],
+          rowEvidenceHints: buildFixtureRowEvidenceHints(windowsEvidenceRoot, "Windows", 10)
         },
         nextRealRunSteps: ["Fill the real Windows static/manual QA template."],
         cannotBeFilledFrom: ["non-Windows fixture inspection"]
@@ -756,6 +771,7 @@ function buildPlatformHandoff(gitHead) {
         receiptPath: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
         validateCommand: "npm run harmony:device:validate:real",
         expectedRows: 10,
+        suggestedEvidenceRoot: harmonyEvidenceRoot,
         currentTemplateSummary: {
           rows: 10,
           pass: 0,
@@ -769,13 +785,39 @@ function buildPlatformHandoff(gitHead) {
               field: "HarmonyOS device/build",
               filled: false
             }
-          ]
+          ],
+          rowEvidenceHints: buildFixtureRowEvidenceHints(harmonyEvidenceRoot, "Harmony", 10)
         },
         nextRealRunSteps: ["Fill the real HarmonyOS device/toolchain QA template."],
         cannotBeFilledFrom: ["Harmony scaffold smoke"]
       }
     ]
   };
+}
+
+function buildFixtureEvidenceRoot(platformId, gitHead) {
+  return `.codex-tmp/platform-qa-evidence/${platformId}/${gitHead}`;
+}
+
+function buildFixtureRowEvidenceHints(evidenceRoot, label, rows) {
+  return Array.from({ length: rows }, (_, index) => {
+    const area = `${label} area ${index + 1}`;
+    const evidenceDir = `${evidenceRoot}/${String(index + 1).padStart(2, "0")}-${slugify(area)}`;
+    return {
+      row: index + 1,
+      area,
+      evidenceDir,
+      suggestedNote: `template only - replace before use: evidence: ${evidenceDir}/notes.md; screenshot: ${evidenceDir}/screenshot.png; result: <actual-result>; observed: <observed-summary>`
+    };
+  });
+}
+
+function slugify(value) {
+  const slug = String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "row";
 }
 
 function buildApprovalRequest(gitHead, options = {}) {
