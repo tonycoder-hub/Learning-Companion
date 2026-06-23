@@ -63,7 +63,10 @@ const platformReceiptPaths = {
   harmonyDevice: String(args["harmony-device"] || DEFAULT_HARMONY_DEVICE_PATH)
 };
 if (args.refresh) {
-  await refreshKoStatus(statusPath);
+  await refreshKoStatus(statusPath, {
+    externalEvidencePath,
+    platformReceiptPaths
+  });
 }
 const readiness = await buildNextMajorReadiness(statusPath, {
   sourceApprovalRequestPath,
@@ -82,20 +85,47 @@ console.log(buildConsoleSummary(readiness, {
   markdownPath: args["markdown-out"] ? resolve(String(args["markdown-out"])) : ""
 }));
 
-async function refreshKoStatus(statusPath) {
+async function refreshKoStatus(statusPath, {
+  externalEvidencePath = "",
+  platformReceiptPaths = {}
+} = {}) {
+  const refreshArgs = [
+    "scripts/validate-ko-evidence.mjs",
+    "--allow-missing",
+    "--out",
+    statusPath
+  ];
+  if (externalEvidencePath) {
+    refreshArgs.push("--external", externalEvidencePath);
+  }
+  refreshArgs.push(...buildCustomPlatformReceiptArgv(platformReceiptPaths));
   try {
-    await execFileAsync(process.execPath, [
-      "scripts/validate-ko-evidence.mjs",
-      "--allow-missing",
-      "--out",
-      statusPath
-    ], {
+    await execFileAsync(process.execPath, refreshArgs, {
       maxBuffer: 1024 * 1024
     });
   } catch (error) {
     const stderr = String(error.stderr || error.message || "").trim();
     throw new Error(`Failed to refresh KO status: ${stderr || "unknown error"}`);
   }
+}
+
+function buildCustomPlatformReceiptArgv(platformReceiptPaths = {}) {
+  const macManual = platformReceiptPaths.macManual || DEFAULT_MAC_MANUAL_PATH;
+  const windowsStatic = platformReceiptPaths.windowsStatic || DEFAULT_WINDOWS_STATIC_PATH;
+  const harmonyDevice = platformReceiptPaths.harmonyDevice || DEFAULT_HARMONY_DEVICE_PATH;
+  if (macManual === DEFAULT_MAC_MANUAL_PATH
+    && windowsStatic === DEFAULT_WINDOWS_STATIC_PATH
+    && harmonyDevice === DEFAULT_HARMONY_DEVICE_PATH) {
+    return [];
+  }
+  return [
+    "--mac-manual",
+    macManual,
+    "--windows-static",
+    windowsStatic,
+    "--harmony-device",
+    harmonyDevice
+  ];
 }
 
 async function buildNextMajorReadiness(statusPath, {

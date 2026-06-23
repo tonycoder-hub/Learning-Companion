@@ -110,7 +110,17 @@ async function refreshInputs({
   externalEvidencePath,
   platformReceiptPaths
 }) {
-  await runNodeScript([scriptInThisDir("validate-ko-evidence.mjs"), "--allow-missing", "--out", statusPath], "KO status");
+  const koStatusArgv = [
+    scriptInThisDir("validate-ko-evidence.mjs"),
+    "--allow-missing",
+    "--out",
+    statusPath
+  ];
+  if (externalEvidencePath) {
+    koStatusArgv.push("--external", externalEvidencePath);
+  }
+  koStatusArgv.push(...buildCustomPlatformReceiptArgv(platformReceiptPaths));
+  await runNodeScript(koStatusArgv, "KO status");
   const readinessArgv = [
     scriptInThisDir("next-major-readiness.mjs"),
     "--status",

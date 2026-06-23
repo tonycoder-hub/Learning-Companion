@@ -20,6 +20,9 @@ const DEFAULTS = Object.freeze({
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   operatorMarkdownOut: ".codex-tmp/next-major-operator/current.md",
   koStatus: ".codex-tmp/ko-evidence/current-status.json",
+  macManual: ".codex-tmp/mac-manual-qa/real-run-receipt.json",
+  windowsStatic: ".codex-tmp/windows-static-qa/real-run-receipt.json",
+  harmonyDevice: ".codex-tmp/harmony-device-qa/real-run-receipt.json",
   dryRunNote: "Refresh public source preflight for current clean HEAD via next:local-evidence."
 });
 const PATH_ARGS = [
@@ -31,7 +34,10 @@ const PATH_ARGS = [
   "platform-handoff-markdown-out",
   "operator-out",
   "operator-markdown-out",
-  "ko-status"
+  "ko-status",
+  "mac-manual",
+  "windows-static",
+  "harmony-device"
 ];
 
 const args = parseArgs(process.argv.slice(2));
@@ -43,6 +49,7 @@ for (const key of PATH_ARGS) {
   if (args[key] === true) throw new Error(`--${key} requires a file path.`);
 }
 if (args["dry-run-note"] === true) throw new Error("--dry-run-note requires text.");
+assertSupportedOptions(args);
 
 if (args["self-test"]) {
   runSelfTest();
@@ -67,8 +74,19 @@ function normalizeOptions(parsed) {
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
     operatorMarkdownOut: String(parsed["operator-markdown-out"] || DEFAULTS.operatorMarkdownOut),
     koStatus: String(parsed["ko-status"] || DEFAULTS.koStatus),
+    platformReceiptPaths: {
+      macManual: String(parsed["mac-manual"] || DEFAULTS.macManual),
+      windowsStatic: String(parsed["windows-static"] || DEFAULTS.windowsStatic),
+      harmonyDevice: String(parsed["harmony-device"] || DEFAULTS.harmonyDevice)
+    },
     dryRunNote: String(parsed["dry-run-note"] || DEFAULTS.dryRunNote)
   };
+}
+
+function assertSupportedOptions(parsed) {
+  if (parsed.external) {
+    throw new Error("--external is not supported by next:local-evidence; use next:readiness, next:operator, ko:next, or next:finalize for approved external evidence binding.");
+  }
 }
 
 async function buildLocalEvidencePlan(options) {
@@ -124,6 +142,7 @@ async function buildLocalEvidencePlan(options) {
         argv: [
           "scripts/validate-ko-evidence.mjs",
           "--allow-missing",
+          ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths),
           "--out",
           options.koStatus
         ]
@@ -142,7 +161,8 @@ async function buildLocalEvidencePlan(options) {
           "--source-approval-request",
           options.sourceApprovalRequest,
           "--source-approval-markdown",
-          options.sourceApprovalMarkdown
+          options.sourceApprovalMarkdown,
+          ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths)
         ]
       },
       {
@@ -155,7 +175,8 @@ async function buildLocalEvidencePlan(options) {
           "--out",
           options.platformHandoffOut,
           "--markdown-out",
-          options.platformHandoffMarkdownOut
+          options.platformHandoffMarkdownOut,
+          ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths)
         ]
       },
       {
@@ -181,7 +202,8 @@ async function buildLocalEvidencePlan(options) {
           "--source-approval-request",
           options.sourceApprovalRequest,
           "--source-approval-markdown",
-          options.sourceApprovalMarkdown
+          options.sourceApprovalMarkdown,
+          ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths)
         ]
       },
       {
@@ -194,7 +216,8 @@ async function buildLocalEvidencePlan(options) {
           "--operator",
           options.operatorOut,
           "--status",
-          options.koStatus
+          options.koStatus,
+          ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths)
         ]
       }
     ],
@@ -306,6 +329,25 @@ function formatNodeCommand(argv) {
   return ["node", ...argv].map(shellQuote).join(" ");
 }
 
+function buildCustomPlatformReceiptArgv(platformReceiptPaths = {}) {
+  const macManual = platformReceiptPaths.macManual || DEFAULTS.macManual;
+  const windowsStatic = platformReceiptPaths.windowsStatic || DEFAULTS.windowsStatic;
+  const harmonyDevice = platformReceiptPaths.harmonyDevice || DEFAULTS.harmonyDevice;
+  if (macManual === DEFAULTS.macManual
+    && windowsStatic === DEFAULTS.windowsStatic
+    && harmonyDevice === DEFAULTS.harmonyDevice) {
+    return [];
+  }
+  return [
+    "--mac-manual",
+    macManual,
+    "--windows-static",
+    windowsStatic,
+    "--harmony-device",
+    harmonyDevice
+  ];
+}
+
 function shellQuote(value) {
   const text = String(value);
   if (/^[A-Za-z0-9_./:=@+-]+$/.test(text)) return text;
@@ -326,7 +368,11 @@ function runSelfTest() {
     currentRevision: {
       gitHead: "0123456789abcdef0123456789abcdef01234567"
     },
-    options: normalizeOptions({}),
+    options: normalizeOptions({
+      "mac-manual": "custom mac.json",
+      "windows-static": "custom windows.json",
+      "harmony-device": "custom harmony.json"
+    }),
     sourceApproval: {
       path: DEFAULTS.sourceApprovalRequest,
       readingUrl: request.sources.reading.url,
@@ -337,12 +383,12 @@ function runSelfTest() {
       { id: "refresh-bilingual-runtime", argv: ["scripts/smoke-bilingual-runtime-browser.mjs"] },
       { id: "refresh-controlled-loop", argv: ["scripts/agent-study-loop-check.mjs", "--out", ".codex-tmp/agent-study-loop-smoke/receipt.json"] },
       { id: "refresh-public-source-dry-run", argv: ["scripts/external-source-validation-browser.mjs", "--public-source-dry-run"], capturePublicDryRunReceipt: true },
-      { id: "refresh-ko-status", argv: ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", DEFAULTS.koStatus] },
-      { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown] },
-      { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut] },
+      { id: "refresh-ko-status", argv: ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json", "--out", DEFAULTS.koStatus] },
+      { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
+      { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
-      { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown] },
-      { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs"] }
+      { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
+      { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs", "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] }
     ],
     blockedOrNotExecuted: [
       "Does not grant current-turn source approval.",
@@ -367,21 +413,27 @@ function runSelfTest() {
   assert.match(dryRun, /next_major_local_evidence_refresh_dry_run/);
   assert.match(dryRun, /refresh-bilingual-runtime/);
   assert.match(dryRun, /refresh-ko-status/);
+  assert.match(dryRun, /refresh-ko-status: node scripts\/validate-ko-evidence\.mjs .*--mac-manual 'custom mac\.json'/);
   assert.match(dryRun, /refresh-readiness/);
   assert.match(dryRun, /next-major-readiness\.mjs/);
+  assert.match(dryRun, /refresh-readiness: node scripts\/next-major-readiness\.mjs .*--windows-static 'custom windows\.json'/);
   assert.match(dryRun, /--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.match(dryRun, /--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
   assert.match(dryRun, /refresh-platform-qa-handoff/);
   assert.match(dryRun, /platform-qa-handoff\.mjs/);
+  assert.match(dryRun, /refresh-platform-qa-handoff: node scripts\/platform-qa-handoff\.mjs .*--harmony-device 'custom harmony\.json'/);
   assert.match(dryRun, /regenerate-source-approval-request/);
   assert.match(dryRun, /fresh-public-dry-run-receipt\.json/);
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs/);
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
+  assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs .*--mac-manual 'custom mac\.json'/);
+  assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--windows-static 'custom windows\.json'/);
   assert.match(dryRun, /Does not run approved-source browser capture/);
   assert.doesNotMatch(dryRun, /--approved-current-turn/);
   assert.match(dryRun, /Does not build, package, deploy/);
   assert.match(dryRun, /remote acceptance/);
+  assert.throws(() => assertSupportedOptions({ external: "custom external.json" }), /--external is not supported by next:local-evidence/);
   console.log("next_major_local_evidence_refresh_selftest_ok");
 }
 
@@ -391,12 +443,15 @@ function buildHelp() {
 Usage:
   npm run next:local-evidence
   npm run next:local-evidence -- --dry-run
+  npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
 
 This command runs local bilingual/browser and controlled-loop receipts first,
 then refreshes the public-source dry-run, KO status, readiness packet,
 platform QA handoff, approval request, operator packet, and KO next summary.
 It does not grant source approval, run approved-source capture, perform
-privacy review, run real platform QA, build, deploy, or remote-accept.`;
+privacy review, run real platform QA, build, deploy, or remote-accept.
+It intentionally rejects --external; bind approved external KO evidence with
+next:readiness, next:operator, ko:next, or next:finalize instead.`;
 }
 
 function parseArgs(argv) {
