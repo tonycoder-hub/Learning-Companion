@@ -1053,6 +1053,10 @@ assert.match(koNextActionSummaryJs, /npm run external:source-help/);
 assert.match(koNextActionSummaryJs, /npm run external:source-intake/);
 assert.match(koNextActionSummaryJs, /npm run external:approval-request/);
 assert.match(koNextActionSummaryJs, /npm run external:validate -- --approved-current-turn/);
+assert.match(koNextActionSummaryJs, /--out \$\{shellQuote\(path\)\}/);
+assert.match(koNextActionSummaryJs, /--markdown-out \$\{shellQuote\(markdownSiblingPath\(path\)\)\}/);
+assert.match(koNextActionSummaryJs, /--source-approval-request \$\{shellQuote\(path\)\}/);
+assert.match(koNextActionSummaryJs, /function shellQuote/);
 assert.match(koNextActionSummaryJs, /npm run platform:qa-handoff -- --out \.codex-tmp\/platform-qa-handoff\/current\.json --markdown-out \.codex-tmp\/platform-qa-handoff\/current\.md/);
 assert.match(koNextActionSummaryJs, /Real-run platform receipts are auto-selected by ko:next\/ko:validate when present/);
 assert.match(koNextActionSummaryJs, /npm run mac:manual:validate:real/);
@@ -1440,6 +1444,13 @@ try {
   assert.match(cleanPlatformKoNextConsole, /Operator platform handoff freshness: CURRENT_CLEAN_PLATFORM_QA_HANDOFF/);
   assert.doesNotMatch(cleanPlatformKoNextConsole, /Refresh platform handoff command/);
   assert.doesNotMatch(cleanPlatformKoNextConsole, /Platform handoff freshness problem/);
+  const missingSourceKoNextConsole = execFileSync(process.execPath, [
+    resolve("scripts/ko-next-action-summary.mjs"),
+    "--status",
+    statusPath
+  ], { cwd: operatorSmokeDir, encoding: "utf8" });
+  assert.match(missingSourceKoNextConsole, /Generate an approval request packet: .*--out \.codex-tmp\/external-source-validation\/source-approval-request\.json --markdown-out \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
+  assert.match(missingSourceKoNextConsole, /Approved candidate command: .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
 } finally {
   if (cleanupSmokeArtifacts) rmSync(operatorSmokeDir, { recursive: true, force: true });
 }
