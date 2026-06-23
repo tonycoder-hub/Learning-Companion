@@ -649,6 +649,19 @@ async function runSelfTest() {
     reviewPath: join(root, "mismatched-screenshot-sha-review.json")
   }), /screenshot privacy review sha256 must match current file/);
 
+  const emptyScreenshotFile = fixture.receipt.runs[0].files[0];
+  await writeFile(emptyScreenshotFile, "");
+  try {
+    assert.throws(() => validateSelfTestPrivacyReview({
+      receipt: fixture.receipt,
+      receiptPath: fixture.receiptPath,
+      review: validReview,
+      reviewPath: join(root, "empty-screenshot-file-review.json")
+    }), /screenshot evidence file must not be empty/);
+  } finally {
+    await writeFile(emptyScreenshotFile, "fixture\n");
+  }
+
   const placeholderReviewerReview = {
     ...validReview,
     reviewer: "N/A"
@@ -889,6 +902,7 @@ async function runSelfTest() {
       "failed screenshot review status rejected",
       "mismatched screenshot review bytes rejected",
       "mismatched screenshot review sha256 rejected",
+      "empty screenshot evidence file rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
       "placeholder approval reference rejected",
@@ -1155,6 +1169,7 @@ function reviewedScreenshotsForClaim(screenshotsReviewed, expectedFiles) {
 
 function screenshotEvidence(file) {
   const data = readFileSync(file);
+  assert.ok(data.length > 0, `screenshot evidence file must not be empty: ${file}`);
   return {
     file,
     bytes: data.length,

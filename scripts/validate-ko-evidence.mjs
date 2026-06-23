@@ -1107,6 +1107,7 @@ function assertExternalRequiredEvidenceFiles(source, label, requiredNames) {
 
 function screenshotEvidence(file) {
   const data = readFileSync(file);
+  assert.ok(data.length > 0, `external claim screenshot evidence file must not be empty: ${file}`);
   return {
     file,
     bytes: data.length,
@@ -1509,6 +1510,40 @@ async function runSelfTest() {
   });
   assert.equal(prefixedVideoLearningToolsExternalReport.canClaimKo, false);
   assert.ok(prefixedVideoLearningToolsExternalReport.blockers.some((item) => item.includes("external claim video evidence missing 02b-video-learning-tools.png")));
+
+  const emptyExternalScreenshotFile = join(root, "external-empty", "reading", "01-source-and-app-before-capture.png");
+  await mkdir(dirname(emptyExternalScreenshotFile), { recursive: true, mode: 0o700 });
+  await writeFile(emptyExternalScreenshotFile, "");
+  const emptyExternalScreenshotPath = join(root, "empty-external-screenshot-source.json");
+  await writeJson(emptyExternalScreenshotPath, {
+    ...fixtures.externalClaim,
+    reading: {
+      ...fixtures.externalClaim.reading,
+      files: fixtures.externalClaim.reading.files.map((file) => file.endsWith("01-source-and-app-before-capture.png")
+        ? emptyExternalScreenshotFile
+        : file)
+    },
+    reviewedScreenshots: fixtures.externalClaim.reviewedScreenshots.map((item) => item.file.endsWith("01-source-and-app-before-capture.png")
+      ? {
+          file: emptyExternalScreenshotFile,
+          bytes: 0,
+          sha256: createHash("sha256").update("").digest("hex"),
+          status: "PASS"
+        }
+      : item)
+  });
+  const emptyExternalScreenshotReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: emptyExternalScreenshotPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(emptyExternalScreenshotReport.canClaimKo, false);
+  assert.ok(emptyExternalScreenshotReport.blockers.some((item) => item.includes("external claim screenshot evidence file must not be empty")));
 
   const staleExternalRevisionPath = join(root, "stale-external-revision-claim.json");
   await writeJson(staleExternalRevisionPath, {
@@ -2478,6 +2513,7 @@ async function runSelfTest() {
       "signed external source query key rejected",
       "missing external video learning-tools screenshot rejected",
       "prefixed external video learning-tools screenshot name rejected",
+      "empty external screenshot evidence file rejected",
       "external stale git revision rejected",
       "external dirty git revision rejected",
       "missing external source approval request rejected",
