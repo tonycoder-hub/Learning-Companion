@@ -789,6 +789,8 @@ assert.match(externalSourcePrivacyReviewJs, /function parseApprovalTokens/);
 assert.match(externalSourcePrivacyReviewJs, /requestedApprovalTextMatched/);
 assert.match(externalSourcePrivacyReviewJs, /sourceApprovalRequestPath/);
 assert.match(externalSourcePrivacyReviewJs, /approvedReadingUrl: receiptSummary\.sourceApprovalRequestBinding\.approvedReadingUrl/);
+assert.match(externalSourcePrivacyReviewJs, /review\.sourceApproval\?\.approvedVideoTimestamp/);
+assert.match(externalSourcePrivacyReviewJs, /approved video timestamp must match captured video timestamp/);
 assert.match(externalSourcePrivacyReviewJs, /approvedVideoTimestamp: receiptSummary\.sourceApprovalRequestBinding\.approvedVideoTimestamp/);
 assert.match(externalSourcePrivacyReviewJs, /gitHeadCaptured: runContext\.appRevision\.gitHeadCaptured/);
 assert.match(externalSourcePrivacyReviewJs, /statusCaptured: runContext\.appRevision\.statusCaptured/);
@@ -813,6 +815,7 @@ assert.match(externalSourcePrivacyReviewJs, /missing source approval request bin
 assert.match(externalSourcePrivacyReviewJs, /stale source approval request binding rejected/);
 assert.match(externalSourcePrivacyReviewJs, /mismatched source approval request reading URL rejected/);
 assert.match(externalSourcePrivacyReviewJs, /mismatched source approval request video timestamp rejected/);
+assert.match(externalSourcePrivacyReviewJs, /mismatched review video timestamp rejected/);
 assert.match(externalSourcePrivacyReviewJs, /APPROVED_SOURCE_PRIVACY_REVIEWED/);
 assert.match(externalSourcePrivacyReviewJs, /canClaimExternalKo: true/);
 assert.match(externalSourcePrivacyReviewJs, /fixtureOnly: true/);

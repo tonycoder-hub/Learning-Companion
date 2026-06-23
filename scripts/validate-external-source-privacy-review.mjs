@@ -55,6 +55,8 @@ function validatePrivacyReview({ receipt, receiptPath, review, reviewPath, allow
   assertConcreteReviewText(review.sourceApproval?.approvalReference, "sourceApproval.approvalReference");
   assert.equal(review.sourceApproval?.approvedReadingUrl, receiptSummary.reading.source.url, "approved reading URL must match receipt");
   assert.equal(review.sourceApproval?.approvedVideoUrl, receiptSummary.video.source.url, "approved video URL must match receipt");
+  assert.equal(review.sourceApproval?.approvedVideoTimestamp, receiptSummary.sourceApprovalRequestBinding.approvedVideoTimestamp, "approved video timestamp must match receipt binding");
+  assert.equal(review.sourceApproval?.approvedVideoTimestamp, receiptSummary.video.saved.captureTimestamp, "approved video timestamp must match captured video timestamp");
   assert.equal(review.sourceApproval?.sourceApprovalRequestPath, receiptSummary.sourceApprovalRequestBinding.requestPath, "source approval request path must match receipt binding");
   assert.equal(review.sourceApproval?.requestedApprovalText, receiptSummary.sourceApprovalRequestBinding.requestedApprovalText, "requested approval text must match receipt binding");
   assert.equal(review.sourceApproval?.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN, "source approval request freshness must match current clean public dry-run status");
@@ -252,6 +254,7 @@ function buildReviewTemplate(receipt, receiptPath) {
       approvalReference: "TBD (current-turn approval message or link)",
       approvedReadingUrl: reading.source?.url || "TBD",
       approvedVideoUrl: video.source?.url || "TBD",
+      approvedVideoTimestamp: receipt.sourceApprovalRequestBinding?.approvedVideoTimestamp || video.saved?.captureTimestamp || "TBD",
       requestedApprovalText: receipt.sourceApprovalRequestBinding?.requestedApprovalText || "TBD",
       sourceApprovalRequestPath: receipt.sourceApprovalRequestBinding?.requestPath || "TBD",
       sourceApprovalRequestFreshness: receipt.sourceApprovalRequestBinding?.freshnessStatus || "TBD",
@@ -285,6 +288,7 @@ async function runSelfTest() {
   const fixture = await createCandidateFixture(root);
   const candidateTemplate = buildReviewTemplate(fixture.receipt, fixture.receiptPath);
   assert.equal(candidateTemplate.sourceApproval.approvedReadingUrl, fixture.receipt.runs.find((run) => run.source.type === "reading").source.url);
+  assert.equal(candidateTemplate.sourceApproval.approvedVideoTimestamp, fixture.receipt.sourceApprovalRequestBinding.approvedVideoTimestamp);
   assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestFreshness, CURRENT_CLEAN_PUBLIC_DRY_RUN);
   assert.equal(candidateTemplate.sourceApproval.sourceApprovalRequestPath, fixture.receipt.sourceApprovalRequestBinding.requestPath);
   assert.equal(candidateTemplate.sourceApproval.requestedApprovalText, fixture.receipt.sourceApprovalRequestBinding.requestedApprovalText);
@@ -644,6 +648,20 @@ async function runSelfTest() {
     reviewPath: join(root, "mismatched-url-review.json")
   }), /approved reading URL must match receipt/);
 
+  const mismatchedReviewTimestamp = {
+    ...validReview,
+    sourceApproval: {
+      ...validReview.sourceApproval,
+      approvedVideoTimestamp: "01:36"
+    }
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: mismatchedReviewTimestamp,
+    reviewPath: join(root, "mismatched-review-timestamp.json")
+  }), /approved video timestamp must match receipt binding/);
+
   const missingRunContextReceipt = {
     ...fixture.receipt,
     runContext: undefined
@@ -787,6 +805,7 @@ async function runSelfTest() {
       "empty evidence file lists rejected",
       "missing source URL rejected",
       "mismatched review URL rejected",
+      "mismatched review video timestamp rejected",
       "missing run context rejected",
       "local or private source URL rejected",
       "IPv4-mapped IPv6 local source URL rejected",
