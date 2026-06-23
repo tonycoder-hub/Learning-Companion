@@ -15,6 +15,8 @@ const SELFTEST_SCHEMA = "learning-companion.ko-evidence-selftest.v1";
 const BILINGUAL_SCHEMA = "learning-companion.bilingual-browser-smoke.v1";
 const AGENT_LOOP_SCHEMA = "learning-companion.agent-study-loop-smoke.v1";
 const EXTERNAL_CLAIM_SCHEMA = "learning-companion.external-source-ko-evidence-review.v1";
+const SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA = "learning-companion.source-approval-request-binding.v1";
+const CURRENT_CLEAN_PUBLIC_DRY_RUN = "CURRENT_CLEAN_PUBLIC_DRY_RUN";
 const MAC_MANUAL_QA_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
 const WINDOWS_STATIC_QA_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
 const HARMONY_DEVICE_QA_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
@@ -872,6 +874,7 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
   assertExternalSource(claim.video, "video", { allowSelfTestFixtures });
   assertNonTbd(claim.video?.timestamp, "video timestamp");
   assertExternalRunContext(claim.runContext, { currentRevision });
+  assertExternalSourceApprovalRequest(claim.sourceApprovalRequest, claim, { currentRevision });
   return {
     detail: "Approved reading/video evidence has a privacy-reviewed external KO artifact.",
     evidence: {
@@ -883,6 +886,26 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
       readingUrl: claim.reading.url,
       videoUrl: claim.video.url,
       videoTimestamp: claim.video.timestamp,
+      sourceApprovalRequest: {
+        schema: claim.sourceApprovalRequest.schema,
+        requestPath: claim.sourceApprovalRequest.requestPath,
+        requestSchema: claim.sourceApprovalRequest.requestSchema,
+        evidenceTier: claim.sourceApprovalRequest.evidenceTier,
+        canClaimExternalKo: claim.sourceApprovalRequest.canClaimExternalKo,
+        freshnessStatus: claim.sourceApprovalRequest.freshnessStatus,
+        requestedApprovalTextMatched: claim.sourceApprovalRequest.requestedApprovalTextMatched,
+        approvedReadingUrl: claim.sourceApprovalRequest.approvedReadingUrl,
+        approvedVideoUrl: claim.sourceApprovalRequest.approvedVideoUrl,
+        approvedVideoTimestamp: claim.sourceApprovalRequest.approvedVideoTimestamp,
+        currentGitHead: claim.sourceApprovalRequest.currentGitHead,
+        currentDirtyWorktree: claim.sourceApprovalRequest.currentDirtyWorktree,
+        basisGitHead: claim.sourceApprovalRequest.basisGitHead,
+        basisDirtyWorktree: claim.sourceApprovalRequest.basisDirtyWorktree,
+        basisReceiptPath: claim.sourceApprovalRequest.basisReceiptPath,
+        basisProfileCleanupOk: claim.sourceApprovalRequest.basisProfileCleanupOk,
+        basisProfileRetained: claim.sourceApprovalRequest.basisProfileRetained,
+        problems: claim.sourceApprovalRequest.problems
+      },
       runContext: {
         appRevision: claim.runContext.appRevision,
         browser: claim.runContext.browser,
@@ -890,6 +913,34 @@ function validateExternalClaim(claim, claimPath, { allowSelfTestFixtures = false
       }
     }
   };
+}
+
+function assertExternalSourceApprovalRequest(sourceApprovalRequest, claim, { currentRevision = {} } = {}) {
+  if (!sourceApprovalRequest) {
+    throw new Error("external claim sourceApprovalRequest is missing");
+  }
+  assert.equal(sourceApprovalRequest?.schema, SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA, "external claim sourceApprovalRequest schema mismatch");
+  assertNonTbd(sourceApprovalRequest.requestPath, "external claim sourceApprovalRequest.requestPath");
+  assert.equal(sourceApprovalRequest.requestSchema, "learning-companion.external-source-approval-request.v1", "external claim sourceApprovalRequest request schema mismatch");
+  assert.equal(sourceApprovalRequest.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY", "external claim sourceApprovalRequest evidence tier mismatch");
+  assert.equal(sourceApprovalRequest.canClaimExternalKo, false, "external claim sourceApprovalRequest must be non-claiming");
+  assert.equal(sourceApprovalRequest.freshnessStatus, CURRENT_CLEAN_PUBLIC_DRY_RUN, "external claim sourceApprovalRequest freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN");
+  assert.equal(sourceApprovalRequest.requestedApprovalTextMatched, true, "external claim sourceApprovalRequest must prove requested approval text matched");
+  assert.equal(sourceApprovalRequest.approvedReadingUrl, claim.reading.url, "external claim sourceApprovalRequest reading URL must match claim");
+  assert.equal(sourceApprovalRequest.approvedVideoUrl, claim.video.url, "external claim sourceApprovalRequest video URL must match claim");
+  assert.equal(sourceApprovalRequest.approvedVideoTimestamp, claim.video.timestamp, "external claim sourceApprovalRequest video timestamp must match claim");
+  assertGitHead(sourceApprovalRequest.currentGitHead, "external claim sourceApprovalRequest.currentGitHead");
+  assertGitHead(sourceApprovalRequest.basisGitHead, "external claim sourceApprovalRequest.basisGitHead");
+  assert.equal(sourceApprovalRequest.currentGitHead, claim.runContext.appRevision.gitHead, "external claim sourceApprovalRequest current git HEAD must match runContext");
+  assert.equal(sourceApprovalRequest.currentGitHead, currentRevision.gitHead, "external claim sourceApprovalRequest current git HEAD must match current HEAD");
+  assert.equal(sourceApprovalRequest.basisGitHead, sourceApprovalRequest.currentGitHead, "external claim sourceApprovalRequest basis git HEAD must match current clean HEAD");
+  assert.equal(sourceApprovalRequest.currentDirtyWorktree, false, "external claim sourceApprovalRequest current worktree must be clean");
+  assert.equal(sourceApprovalRequest.basisDirtyWorktree, false, "external claim sourceApprovalRequest basis dry-run worktree must be clean");
+  assertNonTbd(sourceApprovalRequest.basisReceiptPath, "external claim sourceApprovalRequest.basisReceiptPath");
+  assert.equal(sourceApprovalRequest.basisProfileCleanupOk, true, "external claim sourceApprovalRequest public dry-run basis must prove browser profile cleanup");
+  assert.equal(sourceApprovalRequest.basisProfileRetained, false, "external claim sourceApprovalRequest public dry-run basis must not retain the browser profile");
+  assert.equal(Array.isArray(sourceApprovalRequest.problems), true, "external claim sourceApprovalRequest problems must be listed");
+  assert.equal(sourceApprovalRequest.problems.length, 0, "external claim sourceApprovalRequest must have no freshness problems");
 }
 
 function assertExternalSource(source, label, { allowSelfTestFixtures = false } = {}) {
@@ -1299,6 +1350,87 @@ async function runSelfTest() {
   });
   assert.equal(dirtyExternalRevisionReport.canClaimKo, false);
   assert.ok(dirtyExternalRevisionReport.blockers.some((item) => item.includes("external claim must be captured from a clean git worktree")));
+
+  const missingExternalSourceApprovalRequestPath = join(root, "missing-external-source-approval-request.json");
+  await writeJson(missingExternalSourceApprovalRequestPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: undefined
+  });
+  const missingExternalSourceApprovalRequestReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: missingExternalSourceApprovalRequestPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingExternalSourceApprovalRequestReport.canClaimKo, false);
+  assert.ok(missingExternalSourceApprovalRequestReport.blockers.some((item) => item.includes("sourceApprovalRequest is missing")));
+
+  const staleExternalSourceApprovalRequestPath = join(root, "stale-external-source-approval-request.json");
+  await writeJson(staleExternalSourceApprovalRequestPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      freshnessStatus: "STALE_OR_DIRTY_PUBLIC_DRY_RUN"
+    }
+  });
+  const staleExternalSourceApprovalRequestReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: staleExternalSourceApprovalRequestPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(staleExternalSourceApprovalRequestReport.canClaimKo, false);
+  assert.ok(staleExternalSourceApprovalRequestReport.blockers.some((item) => item.includes("sourceApprovalRequest freshness must be CURRENT_CLEAN_PUBLIC_DRY_RUN")));
+
+  const mismatchedExternalSourceApprovalRequestUrlPath = join(root, "mismatched-external-source-approval-request-url.json");
+  await writeJson(mismatchedExternalSourceApprovalRequestUrlPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      approvedReadingUrl: "https://www.wikipedia.org/other-approved-reading"
+    }
+  });
+  const mismatchedExternalSourceApprovalRequestUrlReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: mismatchedExternalSourceApprovalRequestUrlPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedExternalSourceApprovalRequestUrlReport.canClaimKo, false);
+  assert.ok(mismatchedExternalSourceApprovalRequestUrlReport.blockers.some((item) => item.includes("sourceApprovalRequest reading URL must match claim")));
+
+  const mismatchedExternalSourceApprovalRequestTimestampPath = join(root, "mismatched-external-source-approval-request-timestamp.json");
+  await writeJson(mismatchedExternalSourceApprovalRequestTimestampPath, {
+    ...fixtures.externalClaim,
+    sourceApprovalRequest: {
+      ...fixtures.externalClaim.sourceApprovalRequest,
+      approvedVideoTimestamp: "00:04"
+    }
+  });
+  const mismatchedExternalSourceApprovalRequestTimestampReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: mismatchedExternalSourceApprovalRequestTimestampPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedExternalSourceApprovalRequestTimestampReport.canClaimKo, false);
+  assert.ok(mismatchedExternalSourceApprovalRequestTimestampReport.blockers.some((item) => item.includes("sourceApprovalRequest video timestamp must match claim")));
 
   const pendingPlatformPath = join(root, "pending-mac-manual-receipt.json");
   await writeJson(pendingPlatformPath, {
@@ -1773,6 +1905,10 @@ async function runSelfTest() {
       "signed external source query key rejected",
       "external stale git revision rejected",
       "external dirty git revision rejected",
+      "missing external source approval request rejected",
+      "stale external source approval request rejected",
+      "mismatched external source approval request reading URL rejected",
+      "mismatched external source approval request video timestamp rejected",
       "pending platform evidence rejected",
       "pending platform status summarized",
       "real-run platform receipt path selected before pending receipt path",
@@ -2050,6 +2186,26 @@ async function createKoFixtures(root) {
       title: "Approved Video",
       timestamp: "01:35",
       files: evidenceFiles.filter((file) => file.includes("/video/"))
+    },
+    sourceApprovalRequest: {
+      schema: SOURCE_APPROVAL_REQUEST_BINDING_SCHEMA,
+      requestPath: join(root, "source-approval-request.json"),
+      requestSchema: "learning-companion.external-source-approval-request.v1",
+      evidenceTier: "SOURCE_APPROVAL_REQUEST_ONLY",
+      canClaimExternalKo: false,
+      freshnessStatus: CURRENT_CLEAN_PUBLIC_DRY_RUN,
+      requestedApprovalTextMatched: true,
+      approvedReadingUrl: "https://www.wikipedia.org/learning-companion-approved-reading",
+      approvedVideoUrl: "https://www.youtube.com/watch?v=learning-companion-approved-video",
+      approvedVideoTimestamp: "01:35",
+      currentGitHead: SELFTEST_GIT_HEAD,
+      currentDirtyWorktree: false,
+      basisGitHead: SELFTEST_GIT_HEAD,
+      basisDirtyWorktree: false,
+      basisReceiptPath: join(root, "public-dry-run-receipt.json"),
+      basisProfileCleanupOk: true,
+      basisProfileRetained: false,
+      problems: []
     },
     runContext: {
       schema: "learning-companion.external-source-run-context.v1",
