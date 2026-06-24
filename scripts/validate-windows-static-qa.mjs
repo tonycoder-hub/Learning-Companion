@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 import { WINDOWS_STATIC_QA_AREAS } from "./lib/platform-qa-areas.mjs";
+import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
 
 const WINDOWS_STATIC_QA_RECEIPT_SCHEMA = "learning-companion.windows-static-qa-receipt.v1";
@@ -241,6 +242,14 @@ function validateWindowsStaticQa(markdown, qaPath, currentRevision, { platformHa
     }
     platformHandoffErrors.forEach((error) => {
       errors.push(`Windows static QA platform handoff: ${error}`);
+    });
+    platformQaEvidenceFileErrors({
+      rows,
+      platformHandoffBinding,
+      platformId: "windowsStaticManualQa",
+      label: "Windows static QA"
+    }).forEach((error) => {
+      errors.push(error);
     });
   }
   const canClaimWindowsStaticLoopUsable = errors.length === 0 && allRowsPass && staticReturnContractGatePass && macReturnFilesImportPass;

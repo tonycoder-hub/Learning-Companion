@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 import { HARMONY_DEVICE_QA_AREAS } from "./lib/platform-qa-areas.mjs";
+import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
 
 const HARMONY_DEVICE_QA_RECEIPT_SCHEMA = "learning-companion.harmony-device-qa-receipt.v1";
@@ -243,6 +244,14 @@ function validateHarmonyDeviceQa(markdown, qaPath, currentRevision, { platformHa
     }
     platformHandoffErrors.forEach((error) => {
       errors.push(`HarmonyOS device QA platform handoff: ${error}`);
+    });
+    platformQaEvidenceFileErrors({
+      rows,
+      platformHandoffBinding,
+      platformId: "harmonyDeviceQa",
+      label: "HarmonyOS device QA"
+    }).forEach((error) => {
+      errors.push(error);
     });
   }
   const canClaimHarmonyDeviceRoundtripUsable = errors.length === 0 && allRowsPass && devEcoToolchainGatePass && macReturnFilesImportPass;
