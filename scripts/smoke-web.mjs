@@ -287,6 +287,9 @@ assert.match(platformQaValidatorsSelfTestJs, /evidence screenshot file must not 
 assert.match(platformQaValidatorsSelfTestJs, /evidence screenshot file must be a PNG/);
 assert.match(platformQaValidatorsSelfTestJs, /evidence file validation requires platform handoff binding/);
 assert.match(platformQaValidatorsSelfTestJs, /still scaffold template/);
+assert.match(platformQaValidatorsSelfTestJs, /must include a concrete Reviewer/);
+assert.match(platformQaValidatorsSelfTestJs, /must include Date\/time as ISO date-time with timezone/);
+assert.match(platformQaValidatorsSelfTestJs, /must include a concrete Device\/build\/browser/);
 assert.match(platformQaHandoffBindingJs, /learning-companion\.platform-qa-handoff-binding\.v1/);
 assert.match(platformQaHandoffBindingJs, /learning-companion\.platform-qa-handoff\.v1/);
 assert.match(platformQaHandoffBindingJs, /readPlatformHandoffBinding/);
@@ -309,6 +312,11 @@ assert.match(platformQaEvidenceFilesJs, /evidence screenshot file must be a PNG/
 assert.match(platformQaEvidenceFilesJs, /still scaffold template/);
 assert.match(platformQaEvidenceFilesJs, /Result must match row result/);
 assert.match(platformQaEvidenceFilesJs, /must include a concrete Observed summary/);
+assert.match(platformQaEvidenceFilesJs, /must include a concrete Reviewer/);
+assert.match(platformQaEvidenceFilesJs, /must include Date\/time as ISO date-time with timezone/);
+assert.match(platformQaEvidenceFilesJs, /must include a concrete Device\/build\/browser/);
+assert.match(platformQaEvidenceFilesJs, /ISO_DATE_TIME_PATTERN/);
+assert.match(platformQaEvidenceFilesJs, /isIsoDateTimeWithTimezone/);
 assert.match(platformQaEvidenceFilesJs, /extractEvidenceResult/);
 assert.match(platformQaEvidenceFilesJs, /isPngBuffer/);
 assert.match(platformQaEvidenceFilesJs, /PLATFORM_EVIDENCE_ROOT = "\.codex-tmp\/platform-qa-evidence"/);
