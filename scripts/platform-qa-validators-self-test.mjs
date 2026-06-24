@@ -64,6 +64,7 @@ async function assertPlatformQaEvidenceFileBinding() {
     "- Result: PASS",
     "- Observed summary: The native Mac app launched from the named build.",
     "- Reviewer: Self Test",
+    "- Date/time: 2026-06-24T08:00:00+08:00",
     "- Device/build/browser: Self-test Mac",
     ""
   ].join("\n"));
@@ -143,6 +144,7 @@ async function assertPlatformQaEvidenceFileBinding() {
     "- Result: FAIL",
     "- Observed summary: The native Mac app launched from the named build.",
     "- Reviewer: Self Test",
+    "- Date/time: 2026-06-24T08:00:00+08:00",
     "- Device/build/browser: Self-test Mac",
     ""
   ].join("\n"));
@@ -157,6 +159,7 @@ async function assertPlatformQaEvidenceFileBinding() {
     "",
     "- Result: PASS",
     "- Reviewer: Self Test",
+    "- Date/time: 2026-06-24T08:00:00+08:00",
     "- Device/build/browser: Self-test Mac",
     ""
   ].join("\n"));
@@ -166,6 +169,54 @@ async function assertPlatformQaEvidenceFileBinding() {
     platformId: "nativeMacManualQa",
     label: "Mac manual QA"
   }).some((error) => error.includes("must include a concrete Observed summary")));
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: PASS",
+    "- Observed summary: The native Mac app launched from the named build.",
+    "- Reviewer: TBD",
+    "- Date/time: 2026-06-24T08:00:00+08:00",
+    "- Device/build/browser: Self-test Mac",
+    ""
+  ].join("\n"));
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must include a concrete Reviewer")));
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: PASS",
+    "- Observed summary: The native Mac app launched from the named build.",
+    "- Reviewer: Self Test",
+    "- Date/time: today",
+    "- Device/build/browser: Self-test Mac",
+    ""
+  ].join("\n"));
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must include Date/time as ISO date-time with timezone")));
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: PASS",
+    "- Observed summary: The native Mac app launched from the named build.",
+    "- Reviewer: Self Test",
+    "- Date/time: 2026-06-24T08:00:00+08:00",
+    "- Device/build/browser: TBD",
+    ""
+  ].join("\n"));
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must include a concrete Device/build/browser")));
 }
 
 async function assertPendingMode(item) {

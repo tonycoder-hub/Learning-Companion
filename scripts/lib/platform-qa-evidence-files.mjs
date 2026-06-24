@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 const PLATFORM_EVIDENCE_ROOT = ".codex-tmp/platform-qa-evidence";
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
+const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function platformQaEvidenceFileErrors({ rows, platformHandoffBinding, platformId, label }) {
   const safeRows = Array.isArray(rows) ? rows : [];
@@ -75,6 +76,14 @@ export function platformQaEvidenceFileErrors({ rows, platformHandoffBinding, pla
       if (!hasConcreteEvidenceFileText(observedSummary)) {
         errors.push(`${label} row ${rowNumber} evidence notes file must include a concrete Observed summary: ${expectedNotesPath}`);
       }
+      platformQaEvidenceIdentityErrors({
+        evidenceText,
+        label,
+        rowNumber,
+        expectedNotesPath
+      }).forEach((error) => {
+        errors.push(error);
+      });
       if (rowResult === "PASS") {
         errors.push(...platformQaScreenshotFileErrors({
           rowNotes,
@@ -84,6 +93,23 @@ export function platformQaEvidenceFileErrors({ rows, platformHandoffBinding, pla
         }));
       }
     }
+  }
+  return errors;
+}
+
+function platformQaEvidenceIdentityErrors({ evidenceText, label, rowNumber, expectedNotesPath }) {
+  const errors = [];
+  const reviewer = extractEvidenceField(evidenceText, "Reviewer");
+  if (!hasConcreteEvidenceFileText(reviewer)) {
+    errors.push(`${label} row ${rowNumber} evidence notes file must include a concrete Reviewer: ${expectedNotesPath}`);
+  }
+  const dateTime = extractEvidenceField(evidenceText, "Date/time");
+  if (!isIsoDateTimeWithTimezone(dateTime)) {
+    errors.push(`${label} row ${rowNumber} evidence notes file must include Date/time as ISO date-time with timezone: ${expectedNotesPath}`);
+  }
+  const environment = extractEvidenceField(evidenceText, "Device/build/browser");
+  if (!hasConcreteEvidenceFileText(environment)) {
+    errors.push(`${label} row ${rowNumber} evidence notes file must include a concrete Device/build/browser: ${expectedNotesPath}`);
   }
   return errors;
 }
@@ -173,6 +199,11 @@ function extractEvidenceResult(text) {
   const value = extractEvidenceField(text, "Result").toUpperCase();
   const match = value.match(/^(PASS|FAIL|BLOCKED)\b/);
   return match ? match[1] : value;
+}
+
+function isIsoDateTimeWithTimezone(value) {
+  const text = String(value || "").trim();
+  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
 function normalizeResult(value) {
