@@ -79,7 +79,7 @@ const virtualRoutes = new Map();
 
 mkdirSync(profile, { recursive: true, mode: 0o700 });
 await mkdir(runRoot, { recursive: true, mode: 0o700 });
-if (selfTest) runApprovedUrlBoundarySelfChecks();
+if (selfTest) await runApprovedUrlBoundarySelfChecks();
 
 const server = createServer(async (request, response) => {
   try {
@@ -588,11 +588,11 @@ async function buildSourceSet({ appUrl, selfTest, publicSourceDryRun, args }) {
     : requireStringArg(args["approval-note"], "approval-note", "External validation requires --approval-note.");
   const readingUrl = requireApprovedUrl(args["reading-url"], "reading-url");
   const videoUrl = requireApprovedUrl(args["video-url"], "video-url");
-  const videoTimestamp = requireStringArg(
+  const videoTimestamp = normalizeVideoTimestamp(requireStringArg(
     args["video-timestamp"],
     "video-timestamp",
     "External video validation requires --video-timestamp for timestamp/resume evidence."
-  );
+  ));
   if (!publicSourceDryRun) {
     const sourceApprovalRequestPath = requireStringArg(
       args["source-approval-request"],
@@ -1564,7 +1564,7 @@ function assertApprovedExternalHost(hostname, label) {
   }
 }
 
-function runApprovedUrlBoundarySelfChecks() {
+async function runApprovedUrlBoundarySelfChecks() {
   assert.throws(() => requireApprovedUrl("http://127.0.0.1:12345/source", "reading-url"), /public, non-private approved source URL/);
   assert.throws(() => requireApprovedUrl("http://[::ffff:127.0.0.1]/source", "reading-url"), /public, non-private approved source URL/);
   assert.throws(() => requireApprovedUrl("http://10.0.0.12/source", "reading-url"), /public, non-private approved source URL/);
@@ -1602,6 +1602,42 @@ function runApprovedUrlBoundarySelfChecks() {
   assert.equal(intakeHandoff.canClaimExternalKo, false);
   assert.match(intakeHandoff.nextCommands.approvedCandidateAfterCurrentTurnApproval, /--approved-current-turn/);
   assert.ok(intakeHandoff.blockedOrNotExecuted.includes("No browser was launched."));
+  const directPublicDryRunSourceSet = await buildSourceSet({
+    appUrl: "http://127.0.0.1:4173",
+    selfTest: false,
+    publicSourceDryRun: true,
+    args: {
+      "dry-run-note": "source timestamp normalization self-check",
+      "reading-url": intake.readingUrl,
+      "video-url": intake.videoUrl,
+      "video-timestamp": "0:03"
+    }
+  });
+  assert.equal(directPublicDryRunSourceSet.sourceApprovalRequestBinding, null);
+  assert.equal(directPublicDryRunSourceSet.sources.find((source) => source.type === "video")?.timestamp, "00:03");
+  const directPublicDryRunHourTimestamp = await buildSourceSet({
+    appUrl: "http://127.0.0.1:4173",
+    selfTest: false,
+    publicSourceDryRun: true,
+    args: {
+      "dry-run-note": "source timestamp normalization self-check",
+      "reading-url": intake.readingUrl,
+      "video-url": intake.videoUrl,
+      "video-timestamp": "1:02:03"
+    }
+  });
+  assert.equal(directPublicDryRunHourTimestamp.sources.find((source) => source.type === "video")?.timestamp, "01:02:03");
+  await assert.rejects(() => buildSourceSet({
+    appUrl: "http://127.0.0.1:4173",
+    selfTest: false,
+    publicSourceDryRun: true,
+    args: {
+      "dry-run-note": "source timestamp normalization self-check",
+      "reading-url": intake.readingUrl,
+      "video-url": intake.videoUrl,
+      "video-timestamp": "00:99"
+    }
+  }), /Invalid video timestamp/);
   const approvalFromIntake = buildSourceApprovalRequest(buildApprovalRequestSourceFromIntake(intakeHandoff, ".codex-tmp/source-intake-handoff.json"));
   assert.equal(approvalFromIntake.schema, "learning-companion.external-source-approval-request.v1");
   assert.equal(approvalFromIntake.evidenceTier, "SOURCE_APPROVAL_REQUEST_ONLY");
@@ -1677,6 +1713,12 @@ function runApprovedUrlBoundarySelfChecks() {
     readingUrl: intake.readingUrl,
     videoUrl: intake.videoUrl,
     videoTimestamp: "00:03",
+    approvalNote: approvalFromDryRun.requestedApprovalText
+  }));
+  assert.doesNotThrow(() => validateApprovedRunSourceApprovalRequestObject(approvalFromDryRun, {
+    readingUrl: intake.readingUrl,
+    videoUrl: intake.videoUrl,
+    videoTimestamp: normalizeVideoTimestamp("0:03"),
     approvalNote: approvalFromDryRun.requestedApprovalText
   }));
   assert.throws(() => validateApprovedRunSourceApprovalRequestObject({
