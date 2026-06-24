@@ -1264,12 +1264,15 @@ assert.match(refreshNextMajorLocalEvidenceJs, /id: "refresh-operator-packet"[\s\
 assert.match(refreshNextMajorLocalEvidenceJs, /id: "refresh-operator-packet"[\s\S]*"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
 assert.match(refreshNextMajorLocalEvidenceJs, /print-ko-next/);
 assert.match(refreshNextMajorLocalEvidenceJs, /koNextOut/);
+assert.match(refreshNextMajorLocalEvidenceJs, /koNextMarkdownOut/);
 assert.match(refreshNextMajorLocalEvidenceJs, /id: "print-ko-next"[\s\S]*"--source-approval-request",\s*options\.sourceApprovalRequest/);
 assert.match(refreshNextMajorLocalEvidenceJs, /id: "print-ko-next"[\s\S]*"--source-approval-markdown",\s*options\.sourceApprovalMarkdown/);
 assert.match(refreshNextMajorLocalEvidenceJs, /"--json-out",\s*options\.koNextOut/);
+assert.match(refreshNextMajorLocalEvidenceJs, /"--markdown-out",\s*options\.koNextMarkdownOut/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Readiness packet:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Platform QA handoff:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /KO next action summary:/);
+assert.match(refreshNextMajorLocalEvidenceJs, /KO next action summary markdown:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Local evidence snapshot:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Local evidence snapshot markdown:/);
 assert.match(refreshNextMajorLocalEvidenceJs, /Does not run approved-source browser capture/);
@@ -1282,6 +1285,8 @@ assert.match(koNextActionSummaryJs, /KO_NEXT_ACTION_SUMMARY_ONLY/);
 assert.match(koNextActionSummaryJs, /canClaimKoFromThisArtifact: false/);
 assert.match(koNextActionSummaryJs, /releaseActionAuthorized: false/);
 assert.match(koNextActionSummaryJs, /--json-out/);
+assert.match(koNextActionSummaryJs, /--markdown-out/);
+assert.match(koNextActionSummaryJs, /function buildNextActionMarkdown/);
 assert.match(koNextActionSummaryJs, /writePrivateFile/);
 [macManualQaValidatorJs, windowsStaticQaValidatorJs, harmonyDeviceQaValidatorJs].forEach((validatorJs) => {
   assert.match(validatorJs, /PLACEHOLDER_EVIDENCE_NOTES/);
@@ -1821,6 +1826,7 @@ try {
   const customWindowsStaticPath = join(operatorSmokeDir, "custom windows receipt.json");
   const customHarmonyDevicePath = join(operatorSmokeDir, "custom harmony receipt.json");
   const koNextJsonPath = join(operatorSmokeDir, "ko-next.json");
+  const koNextMarkdownPath = join(operatorSmokeDir, "ko-next.md");
   const koNextConsole = execFileSync(process.execPath, [
     "scripts/ko-next-action-summary.mjs",
     "--status",
@@ -1840,9 +1846,12 @@ try {
     "--operator",
     operatorJsonPath,
     "--json-out",
-    koNextJsonPath
+    koNextJsonPath,
+    "--markdown-out",
+    koNextMarkdownPath
   ], { encoding: "utf8" });
   const koNextArtifact = JSON.parse(readFileSync(koNextJsonPath, "utf8"));
+  const koNextMarkdown = readFileSync(koNextMarkdownPath, "utf8");
   assert.equal(koNextArtifact.schema, "learning-companion.ko-next-action-summary.v1");
   assert.equal(koNextArtifact.evidenceTier, "KO_NEXT_ACTION_SUMMARY_ONLY");
   assert.equal(koNextArtifact.canClaimKoFromThisArtifact, false);
@@ -1855,6 +1864,10 @@ try {
   assert.match(koNextArtifact.finalGateCommands.finalKoGateWithExplicitPlatformReceipts, /custom harmony receipt\.json/);
   assert.equal(koNextArtifact.blockedOrNotExecuted.some((item) => /No build, package, deployment/.test(item)), true);
   assert.equal(statSync(koNextJsonPath).mode & 0o777, 0o600);
+  assert.equal(statSync(koNextMarkdownPath).mode & 0o777, 0o600);
+  assert.match(koNextMarkdown, /^# Learning Companion KO Next Actions/m);
+  assert.match(koNextMarkdown, /KO claimable: NO/);
+  assert.match(koNextMarkdown, /Current KO remains blocked until approved external evidence plus Mac\/Windows\/HarmonyOS real QA all pass/);
   assert.match(koNextConsole, /Operator critical path:/);
   const expectedOperatorFreshness = operatorPacket.currentRevision?.dirtyWorktree === false
     ? "CURRENT_CLEAN_OPERATOR_PACKET"
