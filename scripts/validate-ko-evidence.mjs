@@ -37,6 +37,7 @@ const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const SELFTEST_GIT_HEAD = "0123456789abcdef0123456789abcdef01234567";
+const PNG_1X1 = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c636000000200015d0b2a0b0000000049454e44ae426082", "hex");
 const SELFTEST_CURRENT_REVISION = Object.freeze({
   gitAvailable: true,
   gitHead: SELFTEST_GIT_HEAD,
@@ -2399,6 +2400,26 @@ async function runSelfTest() {
   assert.equal(nonSpecificEvidenceNotesReport.canClaimKo, false);
   assert.ok(nonSpecificEvidenceNotesReport.blockers.some((item) => item.includes("must reference row-specific evidence notes")));
 
+  const missingScreenshotReferencePath = join(root, "missing-platform-row-screenshot-reference-receipt.json");
+  await writeJson(missingScreenshotReferencePath, {
+    ...fixtures.macManualReceipt,
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: row.notes.replace(/;\s*screenshot:\s*[^;]+/, "") } : row
+    ))
+  });
+  const missingScreenshotReferenceReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: missingScreenshotReferencePath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(missingScreenshotReferenceReport.canClaimKo, false);
+  assert.ok(missingScreenshotReferenceReport.blockers.some((item) => item.includes("must reference row-specific evidence screenshot")));
+
   const templateEvidenceDir = `.codex-tmp/platform-qa-evidence/selftest/${basename(root)}/nativeMacManualQa/${SELFTEST_GIT_HEAD}/template-row`;
   const templateEvidenceNotesPath = `${templateEvidenceDir}/notes.md`;
   const templateEvidenceHandoffPath = join(root, "template-platform-evidence-handoff.json");
@@ -3038,6 +3059,7 @@ async function runSelfTest() {
       "Windows platform PASS rows with numbered placeholder evidence notes rejected",
       "Harmony platform PASS rows with blockquote placeholder evidence notes rejected",
       "platform PASS rows without row-specific evidence notes rejected",
+      "platform PASS rows without row-specific evidence screenshot rejected",
       "platform PASS rows with scaffold template evidence file rejected",
       "platform evidence notes result mismatch rejected",
       "platform placeholder reviewer rejected",
@@ -3582,6 +3604,7 @@ async function buildPlatformQaEvidenceFixture(root, platformId, areas, label) {
     const row = index + 1;
     const evidenceDir = `${evidenceRoot}/${String(row).padStart(2, "0")}-${slugify(area)}`;
     const notesPath = `${evidenceDir}/notes.md`;
+    const screenshotPath = `${evidenceDir}/screenshot.png`;
     await mkdir(evidenceDir, { recursive: true, mode: 0o700 });
     await writeFile(notesPath, [
       `# ${label} row ${row}: ${area}`,
@@ -3593,18 +3616,19 @@ async function buildPlatformQaEvidenceFixture(root, platformId, areas, label) {
       "- Device/build/browser: Self-test fixture environment",
       ""
     ].join("\n"));
+    await writeFile(screenshotPath, PNG_1X1);
     rowEvidenceHints.push({
       row,
       area,
       evidenceDir,
-      suggestedNote: `template only - replace before use: evidence: ${notesPath}; screenshot: ${evidenceDir}/screenshot.png; result: <actual-result>; observed: <observed-summary>`
+      suggestedNote: `template only - replace before use: evidence: ${notesPath}; screenshot: ${screenshotPath}; result: <actual-result>; observed: <observed-summary>`
     });
     rows.push({
       area,
       steps: "Self-test fixture step",
       expected: "Self-test fixture expected result",
       result: "PASS",
-      notes: `evidence: ${notesPath}; result: PASS; observed: Self-test fixture observed expected behavior.`
+      notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: Self-test fixture observed expected behavior.`
     });
   }
   return {
