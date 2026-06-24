@@ -31,7 +31,7 @@ const platformReceiptPaths = {
 };
 const operatorPath = args.operator || ".codex-tmp/next-major-operator/current.json";
 const execFileAsync = promisify(execFile);
-const PATH_ARGS = ["status", "source-approval-request", "source-approval-markdown", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device", "json-out"];
+const PATH_ARGS = ["status", "source-approval-request", "source-approval-markdown", "operator", "external", "bilingual", "agent-loop", "mac-manual", "windows-static", "harmony-device", "json-out", "markdown-out"];
 const CURRENT_CLEAN_OPERATOR_PACKET = "CURRENT_CLEAN_OPERATOR_PACKET";
 const STALE_OR_DIRTY_OPERATOR_PACKET = "STALE_OR_DIRTY_OPERATOR_PACKET";
 const CURRENT_CLEAN_PLATFORM_QA_HANDOFF = "CURRENT_CLEAN_PLATFORM_QA_HANDOFF";
@@ -83,10 +83,15 @@ const summaryContext = {
   platformReceiptPaths,
   cliExternalPath
 };
+const summaryText = buildSummary(status, statusPath, summaryContext);
+const artifact = buildNextActionArtifact(status, statusPath, summaryContext);
 if (args["json-out"]) {
-  await writePrivateFile(resolve(String(args["json-out"])), `${JSON.stringify(buildNextActionArtifact(status, statusPath, summaryContext), null, 2)}\n`);
+  await writePrivateFile(resolve(String(args["json-out"])), `${JSON.stringify(artifact, null, 2)}\n`);
 }
-console.log(buildSummary(status, statusPath, summaryContext));
+if (args["markdown-out"]) {
+  await writePrivateFile(resolve(String(args["markdown-out"])), buildNextActionMarkdown(summaryText));
+}
+console.log(summaryText);
 
 async function refreshKoStatus(outPath, parsedArgs) {
   const refreshArgs = ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--out", outPath];
@@ -350,6 +355,10 @@ function buildNextActionArtifact(status, statusPath, { sourceApprovalRequest, so
       "No build, package, deployment, Mew-Test, main-site, or remote acceptance check was run by this summary."
     ]
   };
+}
+
+function buildNextActionMarkdown(summaryText) {
+  return `# Learning Companion KO Next Actions\n\n${String(summaryText || "").replace(/^Learning Companion KO next actions\n+/, "")}`;
 }
 
 function formatRequirementArtifact(item) {
@@ -814,6 +823,7 @@ Usage:
   node scripts/ko-next-action-summary.mjs --source-approval-request .codex-tmp/external-source-validation/source-approval-request.json --source-approval-markdown .codex-tmp/external-source-validation/source-approval-request.md
   node scripts/ko-next-action-summary.mjs --operator .codex-tmp/next-major-operator/current.json
   node scripts/ko-next-action-summary.mjs --json-out .codex-tmp/ko-next/current.json
+  node scripts/ko-next-action-summary.mjs --json-out .codex-tmp/ko-next/current.json --markdown-out .codex-tmp/ko-next/current.md
 
 The summary explains:
 - which KO requirements already pass,
@@ -822,8 +832,10 @@ The summary explains:
 - the current operator critical path when available,
 - which privacy-review and final KO commands to run next.
 
-With --json-out, the command writes a private 0600
-learning-companion.ko-next-action-summary.v1 artifact for handoff tooling.`;
+With --json-out and/or --markdown-out, the command writes private 0600
+handoff artifacts. The JSON artifact uses schema
+learning-companion.ko-next-action-summary.v1; the Markdown artifact mirrors
+the same non-claiming operator summary for human handoff.`;
 }
 
 function parseArgs(argv) {

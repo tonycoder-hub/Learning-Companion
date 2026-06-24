@@ -38,6 +38,7 @@ const DEFAULTS = Object.freeze({
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   operatorMarkdownOut: ".codex-tmp/next-major-operator/current.md",
   koNextOut: ".codex-tmp/ko-next/current.json",
+  koNextMarkdownOut: ".codex-tmp/ko-next/current.md",
   localEvidenceOut: ".codex-tmp/next-major-local-evidence/current.json",
   localEvidenceMarkdownOut: ".codex-tmp/next-major-local-evidence/current.md",
   koStatus: ".codex-tmp/ko-evidence/current-status.json",
@@ -73,7 +74,8 @@ const SNAPSHOT_REQUIRED_OUTPUTS = Object.freeze([
   ["platformQaEvidenceScaffoldMarkdown", "platform QA evidence scaffold markdown"],
   ["operatorPacket", "operator packet"],
   ["operatorMarkdown", "operator markdown"],
-  ["koNextActionSummary", "KO next action summary"]
+  ["koNextActionSummary", "KO next action summary"],
+  ["koNextActionSummaryMarkdown", "KO next action summary markdown"]
 ]);
 const LOCAL_EVIDENCE_BLOCKED_OR_NOT_EXECUTED = Object.freeze([
   "Does not grant current-turn source approval.",
@@ -94,6 +96,7 @@ const PATH_ARGS = [
   "operator-out",
   "operator-markdown-out",
   "ko-next-out",
+  "ko-next-markdown-out",
   "local-evidence-out",
   "local-evidence-markdown-out",
   "ko-status",
@@ -141,6 +144,7 @@ function normalizeOptions(parsed) {
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
     operatorMarkdownOut: String(parsed["operator-markdown-out"] || DEFAULTS.operatorMarkdownOut),
     koNextOut: String(parsed["ko-next-out"] || DEFAULTS.koNextOut),
+    koNextMarkdownOut: String(parsed["ko-next-markdown-out"] || DEFAULTS.koNextMarkdownOut),
     localEvidenceOut: String(parsed["local-evidence-out"] || DEFAULTS.localEvidenceOut),
     localEvidenceMarkdownOut: String(parsed["local-evidence-markdown-out"] || DEFAULTS.localEvidenceMarkdownOut),
     koStatus: String(parsed["ko-status"] || DEFAULTS.koStatus),
@@ -368,6 +372,8 @@ async function buildLocalEvidencePlan(options) {
           options.koStatus,
           "--json-out",
           options.koNextOut,
+          "--markdown-out",
+          options.koNextMarkdownOut,
           ...buildCustomPlatformReceiptArgv(options.platformReceiptPaths)
         ]
       }
@@ -466,7 +472,8 @@ function buildLocalEvidenceSnapshot(plan, publicDryRunReceipt, outputs, localRec
       platformQaEvidenceScaffoldMarkdown: plan.options.platformEvidenceScaffoldMarkdownOut,
       operatorPacket: plan.options.operatorOut,
       operatorMarkdown: plan.options.operatorMarkdownOut,
-      koNextActionSummary: plan.options.koNextOut
+      koNextActionSummary: plan.options.koNextOut,
+      koNextActionSummaryMarkdown: plan.options.koNextMarkdownOut
     },
     localReceipts,
     koNextSummaryText: koNext,
@@ -493,6 +500,7 @@ function buildLocalEvidenceSnapshotMarkdown(snapshot) {
     `- Platform QA evidence scaffold: ${snapshot.outputs.platformQaEvidenceScaffold}`,
     `- Operator packet: ${snapshot.outputs.operatorPacket}`,
     `- KO next action summary: ${snapshot.outputs.koNextActionSummary}`,
+    `- KO next action summary markdown: ${snapshot.outputs.koNextActionSummaryMarkdown}`,
     "",
     "## Local Receipts",
     "",
@@ -669,11 +677,21 @@ async function assertLocalEvidenceOutputsFresh(snapshot, currentRevision) {
     outputs.publicDryRunReceipt,
     "KO next source approval basis receipt"
   );
+  const koNextMarkdown = await readTextOutput(outputs.koNextActionSummaryMarkdown, "KO next action summary markdown");
+  assert.match(koNextMarkdown, /^# Learning Companion KO Next Actions/m, "KO next markdown must include the handoff title");
+  assert.match(koNextMarkdown, /KO claimable: NO/, "KO next markdown must keep the KO claim boundary visible");
+  assert.match(koNextMarkdown, /Boundary:/, "KO next markdown must include the boundary section");
+  assert.match(koNextMarkdown, /Current KO remains blocked until approved external evidence plus Mac\/Windows\/HarmonyOS real QA all pass/, "KO next markdown must keep the remaining blocker explicit");
 }
 
 async function readJsonOutput(path, label) {
   assert.ok(path && path !== "TBD", `${label} path must be present`);
   return JSON.parse(await readFile(path, "utf8"));
+}
+
+async function readTextOutput(path, label) {
+  assert.ok(path && path !== "TBD", `${label} path must be present`);
+  return readFile(path, "utf8");
 }
 
 function assertCleanCurrentRevision(revision, currentRevision, label) {
@@ -730,6 +748,7 @@ function buildSuccessSummary(plan, publicDryRunReceipt, outputs, localReceipts) 
     `Platform QA evidence scaffold: ${plan.options.platformEvidenceScaffoldOut}`,
     `Operator packet: ${plan.options.operatorOut}`,
     `KO next action summary: ${plan.options.koNextOut}`,
+    `KO next action summary markdown: ${plan.options.koNextMarkdownOut}`,
     `Local evidence snapshot: ${plan.options.localEvidenceOut}`,
     `Local evidence snapshot markdown: ${plan.options.localEvidenceMarkdownOut}`,
     "",
@@ -886,7 +905,7 @@ async function runSelfTest() {
       { id: "refresh-platform-qa-evidence-scaffold", argv: ["scripts/platform-qa-evidence-scaffold.mjs", "--platform-handoff", DEFAULTS.platformHandoffOut, "--out", DEFAULTS.platformEvidenceScaffoldOut, "--markdown-out", DEFAULTS.platformEvidenceScaffoldMarkdownOut] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
       { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
-      { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs", "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--json-out", DEFAULTS.koNextOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] }
+      { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs", "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--json-out", DEFAULTS.koNextOut, "--markdown-out", DEFAULTS.koNextMarkdownOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] }
     ],
     blockedOrNotExecuted: [
       "Does not grant current-turn source approval.",
@@ -945,6 +964,7 @@ async function runSelfTest() {
   assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--source-approval-request \.codex-tmp\/external-source-validation\/source-approval-request\.json/);
   assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--source-approval-markdown \.codex-tmp\/external-source-validation\/source-approval-request\.md/);
   assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--json-out \.codex-tmp\/ko-next\/current\.json/);
+  assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--markdown-out \.codex-tmp\/ko-next\/current\.md/);
   assert.match(dryRun, /print-ko-next: node scripts\/ko-next-action-summary\.mjs .*--windows-static 'custom windows\.json'/);
   assert.match(dryRun, /Does not run approved-source browser capture/);
   assert.doesNotMatch(dryRun, /--approved-current-turn/);
@@ -968,6 +988,7 @@ async function runSelfTest() {
   assert.equal(snapshot.outputs.publicDryRunReceipt, "public-dry-run.json");
   assert.equal(snapshot.outputs.sourceApprovalRequest, DEFAULTS.sourceApprovalRequest);
   assert.equal(snapshot.outputs.platformQaEvidenceScaffold, DEFAULTS.platformEvidenceScaffoldOut);
+  assert.equal(snapshot.outputs.koNextActionSummaryMarkdown, DEFAULTS.koNextMarkdownOut);
   assert.equal(snapshot.localReceipts[0].claim, "no-dogfood-claim");
   const snapshotMarkdown = buildLocalEvidenceSnapshotMarkdown(snapshot);
   assert.match(snapshotMarkdown, /Next Major Local Evidence Snapshot/);
@@ -997,6 +1018,7 @@ async function runSelfTest() {
   const platformHandoffMarkdownPath = resolve(selfTestOutputDir, "platform-handoff.md");
   const platformEvidenceScaffoldMarkdownPath = resolve(selfTestOutputDir, "platform-evidence-scaffold.md");
   const operatorMarkdownPath = resolve(selfTestOutputDir, "operator.md");
+  const koNextMarkdownPath = resolve(selfTestOutputDir, "ko-next.md");
   const publicDryRunFixture = {
     schema: PUBLIC_DRY_RUN_RECEIPT_SCHEMA,
     evidenceTier: "PUBLIC_SOURCE_DRY_RUN",
@@ -1183,7 +1205,16 @@ async function runSelfTest() {
     writePrivateFile(readinessMarkdownPath, "readiness\n"),
     writePrivateFile(platformHandoffMarkdownPath, "platform handoff\n"),
     writePrivateFile(platformEvidenceScaffoldMarkdownPath, "platform evidence scaffold\n"),
-    writePrivateFile(operatorMarkdownPath, "operator\n")
+    writePrivateFile(operatorMarkdownPath, "operator\n"),
+    writePrivateFile(koNextMarkdownPath, [
+      "# Learning Companion KO Next Actions",
+      "",
+      "KO claimable: NO",
+      "",
+      "Boundary:",
+      "- Current KO remains blocked until approved external evidence plus Mac/Windows/HarmonyOS real QA all pass.",
+      ""
+    ].join("\n"))
   ]);
   const outputBackedSnapshot = {
     ...snapshot,
@@ -1199,7 +1230,8 @@ async function runSelfTest() {
       platformQaEvidenceScaffoldMarkdown: platformEvidenceScaffoldMarkdownPath,
       operatorPacket: operatorPath,
       operatorMarkdown: operatorMarkdownPath,
-      koNextActionSummary: koNextPath
+      koNextActionSummary: koNextPath,
+      koNextActionSummaryMarkdown: koNextMarkdownPath
     },
     localReceipts: EXPECTED_LOCAL_RECEIPT_IDS.map((id) => ({
       id,
@@ -1263,7 +1295,7 @@ Usage:
   npm run next:local-evidence
   npm run next:local-evidence -- --dry-run
   npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
-  npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json
+  npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json --ko-next-markdown-out .codex-tmp/ko-next/current.md
   npm run next:local-evidence -- --platform-evidence-scaffold-out .codex-tmp/platform-qa-evidence/scaffold-summary.json --platform-evidence-scaffold-markdown-out .codex-tmp/platform-qa-evidence/scaffold-summary.md
   npm run next:local-evidence -- --local-evidence-out .codex-tmp/next-major-local-evidence/current.json --local-evidence-markdown-out .codex-tmp/next-major-local-evidence/current.md
   npm run next:local-evidence:check
