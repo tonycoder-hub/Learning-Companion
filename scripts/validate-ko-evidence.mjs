@@ -1275,11 +1275,24 @@ function assertExternalRequiredEvidenceFiles(source, label, requiredNames) {
 function screenshotEvidence(file) {
   const data = readFileSync(file);
   assert.ok(data.length > 0, `external claim screenshot evidence file must not be empty: ${file}`);
+  assert.ok(isPngBuffer(data), `external claim screenshot evidence file must be a PNG: ${file}`);
   return {
     file,
     bytes: data.length,
     sha256: createHash("sha256").update(data).digest("hex")
   };
+}
+
+function isPngBuffer(data) {
+  return data.length >= 8
+    && data[0] === 0x89
+    && data[1] === 0x50
+    && data[2] === 0x4e
+    && data[3] === 0x47
+    && data[4] === 0x0d
+    && data[5] === 0x0a
+    && data[6] === 0x1a
+    && data[7] === 0x0a;
 }
 
 function assertApprovedExternalUrl(value, label) {
@@ -1671,7 +1684,7 @@ async function runSelfTest() {
   assert.ok(missingVideoLearningToolsExternalReport.blockers.some((item) => item.includes("external claim video evidence missing 02b-video-learning-tools.png")));
 
   const prefixedVideoLearningToolsFile = join(root, "external", "video", "not-02b-video-learning-tools.png");
-  await writeFile(prefixedVideoLearningToolsFile, "fixture\n");
+  await writeFile(prefixedVideoLearningToolsFile, PNG_1X1);
   const prefixedVideoLearningToolsExternalPath = join(root, "prefixed-video-learning-tools-external-source.json");
   await writeJson(prefixedVideoLearningToolsExternalPath, {
     ...fixtures.externalClaim,
@@ -1731,6 +1744,40 @@ async function runSelfTest() {
   });
   assert.equal(emptyExternalScreenshotReport.canClaimKo, false);
   assert.ok(emptyExternalScreenshotReport.blockers.some((item) => item.includes("external claim screenshot evidence file must not be empty")));
+
+  const nonPngExternalScreenshotFile = join(root, "external-non-png", "reading", "01-source-and-app-before-capture.png");
+  await mkdir(dirname(nonPngExternalScreenshotFile), { recursive: true, mode: 0o700 });
+  await writeFile(nonPngExternalScreenshotFile, "not a png\n");
+  const nonPngExternalScreenshotPath = join(root, "non-png-external-screenshot-source.json");
+  await writeJson(nonPngExternalScreenshotPath, {
+    ...fixtures.externalClaim,
+    reading: {
+      ...fixtures.externalClaim.reading,
+      files: fixtures.externalClaim.reading.files.map((file) => file.endsWith("01-source-and-app-before-capture.png")
+        ? nonPngExternalScreenshotFile
+        : file)
+    },
+    reviewedScreenshots: fixtures.externalClaim.reviewedScreenshots.map((item) => item.file.endsWith("01-source-and-app-before-capture.png")
+      ? {
+          file: nonPngExternalScreenshotFile,
+          bytes: 10,
+          sha256: createHash("sha256").update("not a png\n").digest("hex"),
+          status: "PASS"
+        }
+      : item)
+  });
+  const nonPngExternalScreenshotReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: nonPngExternalScreenshotPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(nonPngExternalScreenshotReport.canClaimKo, false);
+  assert.ok(nonPngExternalScreenshotReport.blockers.some((item) => item.includes("external claim screenshot evidence file must be a PNG")));
 
   const staleExternalRevisionPath = join(root, "stale-external-revision-claim.json");
   await writeJson(staleExternalRevisionPath, {
@@ -3036,6 +3083,7 @@ async function runSelfTest() {
       "missing external video learning-tools screenshot rejected",
       "prefixed external video learning-tools screenshot name rejected",
       "empty external screenshot evidence file rejected",
+      "non-PNG external screenshot evidence file rejected",
       "external stale git revision rejected",
       "external dirty git revision rejected",
       "missing external source approval request rejected",
@@ -3109,7 +3157,7 @@ async function createKoFixtures(root) {
   ];
   await Promise.all(evidenceFiles.map(async (file) => {
     await mkdir(dirname(file), { recursive: true, mode: 0o700 });
-    await writeFile(file, "fixture\n");
+    await writeFile(file, PNG_1X1);
   }));
   const receiptPath = join(root, "candidate-receipt.json");
   const reviewPath = join(root, "privacy-review.json");
