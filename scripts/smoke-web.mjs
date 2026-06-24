@@ -1922,10 +1922,15 @@ assert.match(platformQaHandoffJs, /function buildCustomPlatformReceiptCommandArg
 assert.match(platformQaHandoffJs, /function buildPlatformReceiptCommandArgs/);
 assert.match(platformQaHandoffJs, /function platformReceiptPathsFromConfigs/);
 assert.match(platformQaHandoffJs, /PLATFORM_EVIDENCE_ROOT/);
+assert.match(platformQaHandoffJs, /function buildEvidenceRequirements/);
 assert.match(platformQaHandoffJs, /suggestedEvidenceRoot/);
+assert.match(platformQaHandoffJs, /passRowScreenshot/);
+assert.match(platformQaHandoffJs, /Every PASS row.*screenshot\.png/);
+assert.match(platformQaHandoffJs, /row-specific PNG screenshot/);
 assert.match(platformQaHandoffJs, /rowEvidenceHints/);
 assert.match(platformQaHandoffJs, /function buildRowEvidenceHints/);
 assert.match(platformQaHandoffJs, /Evidence note templates/);
+assert.match(platformQaHandoffJs, /Evidence requirements/);
 assert.match(platformQaHandoffJs, /function isEvidenceNoteTemplateText/);
 assert.match(platformQaHandoffJs, /function shellQuote/);
 assert.match(platformQaHandoffJs, /"mac-manual"/);

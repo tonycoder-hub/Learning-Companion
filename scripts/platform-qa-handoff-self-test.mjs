@@ -124,6 +124,23 @@ try {
   assert.equal(mac.currentTemplateSummary.anyRealRowsFilled, false);
   assert.equal(mac.currentTemplateSummary.requiredSessionFields.every((field) => field.filled === false), true);
   assert.equal(mac.currentTemplateSummary.rowEvidenceHints.length, 27);
+  assert.equal(mac.evidenceRequirements.evidenceRoot, `.codex-tmp/platform-qa-evidence/nativeMacManualQa/${cleanRevision.gitHead}`);
+  assert.match(mac.evidenceRequirements.executedRowNotes, /must include a concrete row-specific notes\.md reference/);
+  assert.match(mac.evidenceRequirements.passRowScreenshot, /must reference the exact row-specific screenshot\.png/);
+  assert.match(mac.evidenceRequirements.passRowScreenshot, /PNG signature/);
+  assert.equal(mac.evidenceRequirements.rowFilePattern, `.codex-tmp/platform-qa-evidence/nativeMacManualQa/${cleanRevision.gitHead}/<zero-padded-row-number>-<row-area-slug>/{notes.md,screenshot.png}`);
+  assert.equal(
+    mac.evidenceRequirements.rowFilePattern
+      .replace("<zero-padded-row-number>-<row-area-slug>", "01-mac-area-1")
+      .replace("{notes.md,screenshot.png}", "notes.md"),
+    `${mac.currentTemplateSummary.rowEvidenceHints[0].evidenceDir}/notes.md`
+  );
+  assert.equal(
+    mac.evidenceRequirements.rowFilePattern
+      .replace("<zero-padded-row-number>-<row-area-slug>", "01-mac-area-1")
+      .replace("{notes.md,screenshot.png}", "screenshot.png"),
+    `${mac.currentTemplateSummary.rowEvidenceHints[0].evidenceDir}/screenshot.png`
+  );
   assert.deepEqual(mac.currentTemplateSummary.rowEvidenceHints[0], {
     row: 1,
     area: "Mac area 1",
@@ -143,9 +160,12 @@ try {
   ]);
   assert.match(mac.executionChecklist.beforeRun.join("\n"), /exact clean git HEAD/);
   assert.match(mac.executionChecklist.duringRun.join("\n"), /required session field/);
+  assert.match(mac.executionChecklist.duringRun.join("\n"), /row-specific PNG screenshot/);
+  assert.match(mac.executionChecklist.duringRun.join("\n"), /include that exact screenshot path in Notes/);
   assert.match(mac.executionChecklist.afterRun.join("\n"), /mac:manual:validate:real/);
   assert.equal(mac.executionChecklist.notAcceptedEvidence.includes("Fixture receipts"), true);
   assert.match(mac.nextRealRunSteps.join("\n"), /traceably produced from git HEAD [0-9a-f]{40}/);
+  assert.match(mac.nextRealRunSteps.join("\n"), /Every PASS row must also reference the row-specific screenshot\.png/);
   assert.match(mac.cannotBeFilledFrom.join("\n"), /Fixture receipts/);
   assert.equal((await stat(cleanRun.jsonPath)).mode & 0o777, 0o600);
   assert.equal((await stat(cleanRun.markdownPath)).mode & 0o777, 0o600);
@@ -155,6 +175,9 @@ try {
   assert.match(cleanMarkdown, /KO status freshness: CURRENT\\_CLEAN\\_HEAD\\_KO\\_STATUS/);
   assert.match(cleanMarkdown, /npm run next:finalize -- --external <ko-evidence-review\.json>/);
   assert.match(cleanMarkdown, /Execution checklist/);
+  assert.match(cleanMarkdown, /Evidence requirements/);
+  assert.match(cleanMarkdown, /PASS screenshot/);
+  assert.match(cleanMarkdown, /screenshot\.png/);
   assert.match(cleanMarkdown, /Before run/);
   assert.match(cleanMarkdown, /Suggested evidence root/);
   assert.match(cleanMarkdown, /Evidence note templates/);

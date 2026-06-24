@@ -302,6 +302,7 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
     },
     validateCommand: config.validateCommand,
     expectedRows: config.expectedRows,
+    evidenceRequirements: buildEvidenceRequirements(config, evidenceRoot),
     currentTemplateSummary: {
       rows: parsed.rows.length,
       ...counts,
@@ -320,9 +321,19 @@ async function summarizePlatform(config, currentStatus = {}, currentRevision = {
       "Use ISO Date/time with timezone, a concrete reviewer, and a concrete platform environment.",
       "Set every executed row to PASS, FAIL, or BLOCKED; full KO platform evidence requires all rows PASS.",
       `Every non-NT row must include a concrete Notes evidence reference. Suggested evidence root: ${evidenceRoot}.`,
+      "Every PASS row must also reference the row-specific screenshot.png in Notes; that file must exist, be non-empty, and have a PNG signature.",
       `Validate with: ${config.validateCommand}`
     ],
     cannotBeFilledFrom: config.cannotBeFilledFrom
+  };
+}
+
+function buildEvidenceRequirements(config, evidenceRoot) {
+  return {
+    evidenceRoot,
+    executedRowNotes: `Every PASS, FAIL, or BLOCKED row in ${config.qaPath} must include a concrete row-specific notes.md reference under ${evidenceRoot}.`,
+    passRowScreenshot: `Every PASS row in ${config.qaPath} must reference the exact row-specific screenshot.png in Notes, and that file must exist, be non-empty, and have a PNG signature.`,
+    rowFilePattern: `${evidenceRoot}/<zero-padded-row-number>-<row-area-slug>/{notes.md,screenshot.png}`
   };
 }
 
@@ -363,7 +374,8 @@ function buildExecutionChecklist(config, currentRevision) {
     duringRun: [
       `Fill ${config.qaPath} during the real ${config.label} run.`,
       "Fill every required session field with concrete values before treating row results as evidence.",
-      `For every PASS, FAIL, or BLOCKED row, add a concrete Notes reference to what was observed. Use the row-specific evidence directory under ${buildPlatformEvidenceRoot(config.id, currentRevision)}, then replace template placeholders before writing Notes.`
+      `For every PASS, FAIL, or BLOCKED row, add a concrete Notes reference to what was observed. Use the row-specific evidence directory under ${buildPlatformEvidenceRoot(config.id, currentRevision)}, then replace template placeholders before writing Notes.`,
+      `For every PASS row, capture a row-specific PNG screenshot at ${buildPlatformEvidenceRoot(config.id, currentRevision)}/<zero-padded-row-number>-<row-area-slug>/screenshot.png and include that exact screenshot path in Notes.`
     ],
     afterRun: [
       `Validate the filled receipt with: ${config.validateCommand}`,
@@ -531,6 +543,12 @@ function buildPlatformQaHandoffMarkdown(handoff) {
       `- Current rows: ${summary.rows} total; PASS ${summary.pass}; FAIL ${summary.fail}; BLOCKED ${summary.blocked}; NT ${summary.nt}; invalid ${summary.invalid}`,
       `- Rows needing concrete Notes: ${summary.rowsNeedingConcreteNotes}`,
       `- Can claim from this handoff: ${platform.canClaimPlatform ? "true" : "false"}`,
+      "",
+      "Evidence requirements:",
+      "",
+      `- Notes: ${markdownInline(platform.evidenceRequirements?.executedRowNotes || "TBD")}`,
+      `- PASS screenshot: ${markdownInline(platform.evidenceRequirements?.passRowScreenshot || "TBD")}`,
+      `- Row file pattern: ${markdownInline(platform.evidenceRequirements?.rowFilePattern || "TBD")}`,
       "",
       "Required session fields:",
       ""
