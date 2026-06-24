@@ -75,7 +75,42 @@ export function platformQaEvidenceFileErrors({ rows, platformHandoffBinding, pla
       if (!hasConcreteEvidenceFileText(observedSummary)) {
         errors.push(`${label} row ${rowNumber} evidence notes file must include a concrete Observed summary: ${expectedNotesPath}`);
       }
+      if (rowResult === "PASS") {
+        errors.push(...platformQaScreenshotFileErrors({
+          rowNotes,
+          rowNumber,
+          screenshotPath: `${hint.evidenceDir}/screenshot.png`,
+          label
+        }));
+      }
     }
+  }
+  return errors;
+}
+
+function platformQaScreenshotFileErrors({ rowNotes, rowNumber, screenshotPath, label }) {
+  const errors = [];
+  if (!isSafeEvidenceScreenshotPath(screenshotPath)) {
+    return [`${label} row ${rowNumber} evidence screenshot path is outside platform evidence root: ${screenshotPath}`];
+  }
+  if (!String(rowNotes || "").includes(screenshotPath)) {
+    errors.push(`${label} row ${rowNumber} must reference row-specific evidence screenshot: ${screenshotPath}`);
+  }
+  if (!existsSync(screenshotPath)) {
+    errors.push(`${label} row ${rowNumber} evidence screenshot missing: ${screenshotPath}`);
+    return errors;
+  }
+  let data;
+  try {
+    data = readFileSync(screenshotPath);
+  } catch (error) {
+    errors.push(`${label} row ${rowNumber} evidence screenshot unreadable: ${error.message}`);
+    return errors;
+  }
+  if (!data.length) {
+    errors.push(`${label} row ${rowNumber} evidence screenshot file must not be empty: ${screenshotPath}`);
+  } else if (!isPngBuffer(data)) {
+    errors.push(`${label} row ${rowNumber} evidence screenshot file must be a PNG: ${screenshotPath}`);
   }
   return errors;
 }
@@ -96,6 +131,30 @@ function isSafeEvidenceNotesPath(value) {
       && text.startsWith(`${PLATFORM_EVIDENCE_ROOT}/`)
       && text.endsWith("/notes.md")
   );
+}
+
+function isSafeEvidenceScreenshotPath(value) {
+  const text = String(value || "");
+  return Boolean(
+    text
+      && !text.startsWith("/")
+      && !text.includes("\\")
+      && !text.split("/").includes("..")
+      && text.startsWith(`${PLATFORM_EVIDENCE_ROOT}/`)
+      && text.endsWith("/screenshot.png")
+  );
+}
+
+function isPngBuffer(data) {
+  return data.length >= 8
+    && data[0] === 0x89
+    && data[1] === 0x50
+    && data[2] === 0x4e
+    && data[3] === 0x47
+    && data[4] === 0x0d
+    && data[5] === 0x0a
+    && data[6] === 0x1a
+    && data[7] === 0x0a;
 }
 
 function isPlaceholderEvidenceFileText(text) {

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 
 const execFileAsync = promisify(execFile);
 const ROOT = ".codex-tmp/platform-qa-validators-selftest";
+const PNG_1X1 = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c636000000200015d0b2a0b0000000049454e44ae426082", "hex");
 const CASES = Object.freeze([
   {
     id: "mac",
@@ -54,6 +55,7 @@ async function assertPlatformQaEvidenceFileBinding() {
   const gitHead = "0123456789abcdef0123456789abcdef01234567";
   const evidenceDir = `.codex-tmp/platform-qa-evidence/selftest/${RUN_ROOT.split("/").at(-1)}/nativeMacManualQa/${gitHead}/01-launch`;
   const notesPath = `${evidenceDir}/notes.md`;
+  const screenshotPath = `${evidenceDir}/screenshot.png`;
   const handoffPath = join(RUN_ROOT, "platform-qa-handoff.json");
   await mkdir(evidenceDir, { recursive: true, mode: 0o700 });
   await writeFile(notesPath, [
@@ -65,6 +67,7 @@ async function assertPlatformQaEvidenceFileBinding() {
     "- Device/build/browser: Self-test Mac",
     ""
   ].join("\n"));
+  await writeFile(screenshotPath, PNG_1X1);
   const binding = {
     handoffPath
   };
@@ -88,11 +91,39 @@ async function assertPlatformQaEvidenceFileBinding() {
     ]
   });
   assert.deepEqual(platformQaEvidenceFileErrors({
-    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
     platformHandoffBinding: binding,
     platformId: "nativeMacManualQa",
     label: "Mac manual QA"
   }), []);
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must reference row-specific evidence screenshot")));
+  await rm(screenshotPath, { force: true });
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("evidence screenshot missing")));
+  await writeFile(screenshotPath, "");
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("evidence screenshot file must not be empty")));
+  await writeFile(screenshotPath, "not a png\n");
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("evidence screenshot file must be a PNG")));
+  await writeFile(screenshotPath, PNG_1X1);
   assert.ok(platformQaEvidenceFileErrors({
     rows: [{ area: "Launch", result: "PASS", notes: "launch succeeded" }],
     platformHandoffBinding: binding,
@@ -101,7 +132,7 @@ async function assertPlatformQaEvidenceFileBinding() {
   }).some((error) => error.includes("must reference row-specific evidence notes")));
   await writeFile(notesPath, "TEMPLATE ONLY - replace before use. This file is not QA evidence.\n");
   assert.ok(platformQaEvidenceFileErrors({
-    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
     platformHandoffBinding: binding,
     platformId: "nativeMacManualQa",
     label: "Mac manual QA"
@@ -116,7 +147,7 @@ async function assertPlatformQaEvidenceFileBinding() {
     ""
   ].join("\n"));
   assert.ok(platformQaEvidenceFileErrors({
-    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
     platformHandoffBinding: binding,
     platformId: "nativeMacManualQa",
     label: "Mac manual QA"
@@ -130,7 +161,7 @@ async function assertPlatformQaEvidenceFileBinding() {
     ""
   ].join("\n"));
   assert.ok(platformQaEvidenceFileErrors({
-    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
     platformHandoffBinding: binding,
     platformId: "nativeMacManualQa",
     label: "Mac manual QA"
