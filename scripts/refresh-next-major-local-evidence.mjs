@@ -14,6 +14,7 @@ const PUBLIC_DRY_RUN_RECEIPT_SCHEMA = "learning-companion.external-source-valida
 const SOURCE_APPROVAL_REQUEST_SCHEMA = "learning-companion.external-source-approval-request.v1";
 const NEXT_MAJOR_READINESS_SCHEMA = "learning-companion.next-major-readiness.v1";
 const PLATFORM_QA_HANDOFF_SCHEMA = "learning-companion.platform-qa-handoff.v1";
+const PLATFORM_QA_EVIDENCE_SCAFFOLD_SCHEMA = "learning-companion.platform-qa-evidence-scaffold.v1";
 const NEXT_MAJOR_OPERATOR_PACKET_SCHEMA = "learning-companion.next-major-operator-packet.v1";
 const KO_NEXT_ACTION_SUMMARY_SCHEMA = "learning-companion.ko-next-action-summary.v1";
 const PUBLIC_DRY_RUN_RECEIPT_PATTERN = /external_source_validation_public_dry_run_ok\s+(.+\.json)\s*$/m;
@@ -32,6 +33,8 @@ const DEFAULTS = Object.freeze({
   readinessMarkdownOut: ".codex-tmp/next-major-readiness/current.md",
   platformHandoffOut: ".codex-tmp/platform-qa-handoff/current.json",
   platformHandoffMarkdownOut: ".codex-tmp/platform-qa-handoff/current.md",
+  platformEvidenceScaffoldOut: ".codex-tmp/platform-qa-evidence/scaffold-summary.json",
+  platformEvidenceScaffoldMarkdownOut: ".codex-tmp/platform-qa-evidence/scaffold-summary.md",
   operatorOut: ".codex-tmp/next-major-operator/current.json",
   operatorMarkdownOut: ".codex-tmp/next-major-operator/current.md",
   koNextOut: ".codex-tmp/ko-next/current.json",
@@ -66,6 +69,8 @@ const SNAPSHOT_REQUIRED_OUTPUTS = Object.freeze([
   ["readinessMarkdown", "readiness markdown"],
   ["platformQaHandoff", "platform QA handoff"],
   ["platformQaHandoffMarkdown", "platform QA handoff markdown"],
+  ["platformQaEvidenceScaffold", "platform QA evidence scaffold"],
+  ["platformQaEvidenceScaffoldMarkdown", "platform QA evidence scaffold markdown"],
   ["operatorPacket", "operator packet"],
   ["operatorMarkdown", "operator markdown"],
   ["koNextActionSummary", "KO next action summary"]
@@ -84,6 +89,8 @@ const PATH_ARGS = [
   "readiness-markdown-out",
   "platform-handoff-out",
   "platform-handoff-markdown-out",
+  "platform-evidence-scaffold-out",
+  "platform-evidence-scaffold-markdown-out",
   "operator-out",
   "operator-markdown-out",
   "ko-next-out",
@@ -129,6 +136,8 @@ function normalizeOptions(parsed) {
     readinessMarkdownOut: String(parsed["readiness-markdown-out"] || DEFAULTS.readinessMarkdownOut),
     platformHandoffOut: String(parsed["platform-handoff-out"] || DEFAULTS.platformHandoffOut),
     platformHandoffMarkdownOut: String(parsed["platform-handoff-markdown-out"] || DEFAULTS.platformHandoffMarkdownOut),
+    platformEvidenceScaffoldOut: String(parsed["platform-evidence-scaffold-out"] || DEFAULTS.platformEvidenceScaffoldOut),
+    platformEvidenceScaffoldMarkdownOut: String(parsed["platform-evidence-scaffold-markdown-out"] || DEFAULTS.platformEvidenceScaffoldMarkdownOut),
     operatorOut: String(parsed["operator-out"] || DEFAULTS.operatorOut),
     operatorMarkdownOut: String(parsed["operator-markdown-out"] || DEFAULTS.operatorMarkdownOut),
     koNextOut: String(parsed["ko-next-out"] || DEFAULTS.koNextOut),
@@ -305,6 +314,19 @@ async function buildLocalEvidencePlan(options) {
         ]
       },
       {
+        id: "refresh-platform-qa-evidence-scaffold",
+        label: "platform QA evidence scaffold",
+        argv: [
+          "scripts/platform-qa-evidence-scaffold.mjs",
+          "--platform-handoff",
+          options.platformHandoffOut,
+          "--out",
+          options.platformEvidenceScaffoldOut,
+          "--markdown-out",
+          options.platformEvidenceScaffoldMarkdownOut
+        ]
+      },
+      {
         id: "regenerate-source-approval-request",
         label: "source approval request",
         argvFrom: "publicDryRunReceipt"
@@ -440,6 +462,8 @@ function buildLocalEvidenceSnapshot(plan, publicDryRunReceipt, outputs, localRec
       readinessMarkdown: plan.options.readinessMarkdownOut,
       platformQaHandoff: plan.options.platformHandoffOut,
       platformQaHandoffMarkdown: plan.options.platformHandoffMarkdownOut,
+      platformQaEvidenceScaffold: plan.options.platformEvidenceScaffoldOut,
+      platformQaEvidenceScaffoldMarkdown: plan.options.platformEvidenceScaffoldMarkdownOut,
       operatorPacket: plan.options.operatorOut,
       operatorMarkdown: plan.options.operatorMarkdownOut,
       koNextActionSummary: plan.options.koNextOut
@@ -466,6 +490,7 @@ function buildLocalEvidenceSnapshotMarkdown(snapshot) {
     `- Source approval request: ${snapshot.outputs.sourceApprovalRequest}`,
     `- Readiness packet: ${snapshot.outputs.readinessPacket}`,
     `- Platform QA handoff: ${snapshot.outputs.platformQaHandoff}`,
+    `- Platform QA evidence scaffold: ${snapshot.outputs.platformQaEvidenceScaffold}`,
     `- Operator packet: ${snapshot.outputs.operatorPacket}`,
     `- KO next action summary: ${snapshot.outputs.koNextActionSummary}`,
     "",
@@ -593,6 +618,16 @@ async function assertLocalEvidenceOutputsFresh(snapshot, currentRevision) {
     requireBasisStatusLineCount: true
   });
 
+  const platformEvidenceScaffold = await readJsonOutput(outputs.platformQaEvidenceScaffold, "platform QA evidence scaffold");
+  assert.equal(platformEvidenceScaffold.schema, PLATFORM_QA_EVIDENCE_SCAFFOLD_SCHEMA, "platform QA evidence scaffold schema");
+  assert.equal(platformEvidenceScaffold.evidenceTier, "PLATFORM_QA_EVIDENCE_SCAFFOLD_ONLY", "platform QA evidence scaffold tier");
+  assert.equal(platformEvidenceScaffold.canClaimKo, false, "platform QA evidence scaffold must not claim KO");
+  assert.equal(platformEvidenceScaffold.canClaimPlatformQa, false, "platform QA evidence scaffold must not claim platform QA");
+  assertCleanCurrentRevision(platformEvidenceScaffold.currentRevision, currentRevision, "platform QA evidence scaffold");
+  assert.equal(platformEvidenceScaffold.handoffGitHead, currentRevision.gitHead, "platform QA evidence scaffold handoff git HEAD must match current HEAD");
+  assert.equal(Number(platformEvidenceScaffold.summary?.screenshotsCreated || 0), 0, "platform QA evidence scaffold must not create screenshots");
+  assertOutputPathMatches(platformEvidenceScaffold.platformHandoffPath, outputs.platformQaHandoff, "platform QA evidence scaffold handoff");
+
   const operator = await readJsonOutput(outputs.operatorPacket, "operator packet");
   assert.equal(operator.schema, NEXT_MAJOR_OPERATOR_PACKET_SCHEMA, "operator packet schema");
   assert.equal(operator.evidenceTier, "NEXT_MAJOR_OPERATOR_PACKET_ONLY", "operator packet evidence tier");
@@ -692,6 +727,7 @@ function buildSuccessSummary(plan, publicDryRunReceipt, outputs, localReceipts) 
     `Source approval request: ${plan.options.sourceApprovalRequest}`,
     `Readiness packet: ${plan.options.readinessOut}`,
     `Platform QA handoff: ${plan.options.platformHandoffOut}`,
+    `Platform QA evidence scaffold: ${plan.options.platformEvidenceScaffoldOut}`,
     `Operator packet: ${plan.options.operatorOut}`,
     `KO next action summary: ${plan.options.koNextOut}`,
     `Local evidence snapshot: ${plan.options.localEvidenceOut}`,
@@ -847,6 +883,7 @@ async function runSelfTest() {
       { id: "refresh-ko-status", argv: ["scripts/validate-ko-evidence.mjs", "--allow-missing", "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json", "--out", DEFAULTS.koStatus] },
       { id: "refresh-readiness", argv: ["scripts/next-major-readiness.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.readinessOut, "--markdown-out", DEFAULTS.readinessMarkdownOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
       { id: "refresh-platform-qa-handoff", argv: ["scripts/platform-qa-handoff.mjs", "--status", DEFAULTS.koStatus, "--out", DEFAULTS.platformHandoffOut, "--markdown-out", DEFAULTS.platformHandoffMarkdownOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
+      { id: "refresh-platform-qa-evidence-scaffold", argv: ["scripts/platform-qa-evidence-scaffold.mjs", "--platform-handoff", DEFAULTS.platformHandoffOut, "--out", DEFAULTS.platformEvidenceScaffoldOut, "--markdown-out", DEFAULTS.platformEvidenceScaffoldMarkdownOut] },
       { id: "regenerate-source-approval-request", argvFrom: "publicDryRunReceipt" },
       { id: "refresh-operator-packet", argv: ["scripts/next-major-operator-packet.mjs", "--status", DEFAULTS.koStatus, "--readiness", DEFAULTS.readinessOut, "--platform-handoff", DEFAULTS.platformHandoffOut, "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] },
       { id: "print-ko-next", argv: ["scripts/ko-next-action-summary.mjs", "--source-approval-request", DEFAULTS.sourceApprovalRequest, "--source-approval-markdown", DEFAULTS.sourceApprovalMarkdown, "--json-out", DEFAULTS.koNextOut, "--mac-manual", "custom mac.json", "--windows-static", "custom windows.json", "--harmony-device", "custom harmony.json"] }
@@ -872,6 +909,7 @@ async function runSelfTest() {
     "refresh-ko-status",
     "refresh-readiness",
     "refresh-platform-qa-handoff",
+    "refresh-platform-qa-evidence-scaffold",
     "regenerate-source-approval-request",
     "refresh-operator-packet",
     "print-ko-next"
@@ -897,6 +935,7 @@ async function runSelfTest() {
   assert.match(dryRun, /refresh-platform-qa-handoff/);
   assert.match(dryRun, /platform-qa-handoff\.mjs/);
   assert.match(dryRun, /refresh-platform-qa-handoff: node scripts\/platform-qa-handoff\.mjs .*--harmony-device 'custom harmony\.json'/);
+  assert.match(dryRun, /refresh-platform-qa-evidence-scaffold: node scripts\/platform-qa-evidence-scaffold\.mjs .*--platform-handoff \.codex-tmp\/platform-qa-handoff\/current\.json/);
   assert.match(dryRun, /regenerate-source-approval-request/);
   assert.match(dryRun, /fresh-public-dry-run-receipt\.json/);
   assert.match(dryRun, /refresh-operator-packet: node scripts\/next-major-operator-packet\.mjs/);
@@ -928,6 +967,7 @@ async function runSelfTest() {
   assert.equal(snapshot.releaseActionAuthorized, false);
   assert.equal(snapshot.outputs.publicDryRunReceipt, "public-dry-run.json");
   assert.equal(snapshot.outputs.sourceApprovalRequest, DEFAULTS.sourceApprovalRequest);
+  assert.equal(snapshot.outputs.platformQaEvidenceScaffold, DEFAULTS.platformEvidenceScaffoldOut);
   assert.equal(snapshot.localReceipts[0].claim, "no-dogfood-claim");
   const snapshotMarkdown = buildLocalEvidenceSnapshotMarkdown(snapshot);
   assert.match(snapshotMarkdown, /Next Major Local Evidence Snapshot/);
@@ -949,11 +989,13 @@ async function runSelfTest() {
   const sourceApprovalRequestPath = resolve(selfTestOutputDir, "source-approval-request.json");
   const readinessPath = resolve(selfTestOutputDir, "readiness.json");
   const platformHandoffPath = resolve(selfTestOutputDir, "platform-handoff.json");
+  const platformEvidenceScaffoldPath = resolve(selfTestOutputDir, "platform-evidence-scaffold.json");
   const operatorPath = resolve(selfTestOutputDir, "operator.json");
   const koNextPath = resolve(selfTestOutputDir, "ko-next.json");
   const sourceApprovalMarkdownPath = resolve(selfTestOutputDir, "source-approval-request.md");
   const readinessMarkdownPath = resolve(selfTestOutputDir, "readiness.md");
   const platformHandoffMarkdownPath = resolve(selfTestOutputDir, "platform-handoff.md");
+  const platformEvidenceScaffoldMarkdownPath = resolve(selfTestOutputDir, "platform-evidence-scaffold.md");
   const operatorMarkdownPath = resolve(selfTestOutputDir, "operator.md");
   const publicDryRunFixture = {
     schema: PUBLIC_DRY_RUN_RECEIPT_SCHEMA,
@@ -1020,6 +1062,41 @@ async function runSelfTest() {
       basisStatusLineCount: 0,
       problems: []
     }
+  };
+  const platformEvidenceScaffoldFixture = {
+    schema: PLATFORM_QA_EVIDENCE_SCAFFOLD_SCHEMA,
+    evidenceTier: "PLATFORM_QA_EVIDENCE_SCAFFOLD_ONLY",
+    canClaimKo: false,
+    canClaimPlatformQa: false,
+    platformHandoffPath,
+    handoffGitHead: cleanRevision.gitHead,
+    currentRevision: cleanRevision,
+    summary: {
+      platforms: 1,
+      rows: 1,
+      notesCreated: 1,
+      notesSkippedExisting: 0,
+      screenshotTodoCreated: 1,
+      screenshotTodoSkippedExisting: 0,
+      screenshotsCreated: 0
+    },
+    platforms: [
+      {
+        id: "nativeMacManualQa",
+        label: "Native Mac manual QA",
+        suggestedEvidenceRoot: ".codex-tmp/platform-qa-evidence/nativeMacManualQa/0123456789abcdef0123456789abcdef01234567",
+        rowsScaffolded: 1,
+        rows: [
+          {
+            row: 1,
+            area: "Launch",
+            notesPath: ".codex-tmp/platform-qa-evidence/nativeMacManualQa/0123456789abcdef0123456789abcdef01234567/01-launch/notes.md",
+            screenshotPath: ".codex-tmp/platform-qa-evidence/nativeMacManualQa/0123456789abcdef0123456789abcdef01234567/01-launch/screenshot.png",
+            screenshotCreated: false
+          }
+        ]
+      }
+    ]
   };
   const operatorFixture = {
     schema: NEXT_MAJOR_OPERATOR_PACKET_SCHEMA,
@@ -1099,11 +1176,13 @@ async function runSelfTest() {
     writePrivateFile(sourceApprovalRequestPath, `${JSON.stringify(sourceApprovalRequestFixture, null, 2)}\n`),
     writePrivateFile(readinessPath, `${JSON.stringify(readinessFixture, null, 2)}\n`),
     writePrivateFile(platformHandoffPath, `${JSON.stringify(platformHandoffFixture, null, 2)}\n`),
+    writePrivateFile(platformEvidenceScaffoldPath, `${JSON.stringify(platformEvidenceScaffoldFixture, null, 2)}\n`),
     writePrivateFile(operatorPath, `${JSON.stringify(operatorFixture, null, 2)}\n`),
     writePrivateFile(koNextPath, `${JSON.stringify(koNextFixture, null, 2)}\n`),
     writePrivateFile(sourceApprovalMarkdownPath, "source approval request\n"),
     writePrivateFile(readinessMarkdownPath, "readiness\n"),
     writePrivateFile(platformHandoffMarkdownPath, "platform handoff\n"),
+    writePrivateFile(platformEvidenceScaffoldMarkdownPath, "platform evidence scaffold\n"),
     writePrivateFile(operatorMarkdownPath, "operator\n")
   ]);
   const outputBackedSnapshot = {
@@ -1116,6 +1195,8 @@ async function runSelfTest() {
       readinessMarkdown: readinessMarkdownPath,
       platformQaHandoff: platformHandoffPath,
       platformQaHandoffMarkdown: platformHandoffMarkdownPath,
+      platformQaEvidenceScaffold: platformEvidenceScaffoldPath,
+      platformQaEvidenceScaffoldMarkdown: platformEvidenceScaffoldMarkdownPath,
       operatorPacket: operatorPath,
       operatorMarkdown: operatorMarkdownPath,
       koNextActionSummary: koNextPath
@@ -1183,14 +1264,15 @@ Usage:
   npm run next:local-evidence -- --dry-run
   npm run next:local-evidence -- --mac-manual <mac-receipt.json> --windows-static <windows-receipt.json> --harmony-device <harmony-receipt.json>
   npm run next:local-evidence -- --ko-next-out .codex-tmp/ko-next/current.json
+  npm run next:local-evidence -- --platform-evidence-scaffold-out .codex-tmp/platform-qa-evidence/scaffold-summary.json --platform-evidence-scaffold-markdown-out .codex-tmp/platform-qa-evidence/scaffold-summary.md
   npm run next:local-evidence -- --local-evidence-out .codex-tmp/next-major-local-evidence/current.json --local-evidence-markdown-out .codex-tmp/next-major-local-evidence/current.md
   npm run next:local-evidence:check
 
 This command runs local bilingual/browser, controlled-loop, static-return,
 return-import, dogfood, and pending platform QA receipts first. It then
 refreshes the public-source dry-run, KO status, readiness packet, platform QA
-handoff, approval request, operator packet, KO next summary, and local evidence
-snapshot JSON/Markdown output.
+handoff, platform QA evidence scaffold, approval request, operator packet,
+KO next summary, and local evidence snapshot JSON/Markdown output.
 It does not grant source approval, run approved-source capture, perform
 privacy review, run real platform QA, build, deploy, or remote-accept.
 It intentionally rejects --external; bind approved external KO evidence with
