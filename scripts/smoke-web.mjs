@@ -1979,6 +1979,9 @@ assert.match(externalSourceValidationBrowserJs, /function validateApprovedRunSou
 assert.match(externalSourceValidationBrowserJs, /function validateApprovedRunSourceApprovalRequestObject/);
 assert.match(externalSourceValidationBrowserJs, /assessSourceApprovalFreshness/);
 assert.match(externalSourceValidationBrowserJs, /CURRENT_CLEAN_PUBLIC_DRY_RUN/);
+assert.match(externalSourceValidationBrowserJs, /await runApprovedUrlBoundarySelfChecks\(\)/);
+assert.match(externalSourceValidationBrowserJs, /function normalizeVideoTimestamp/);
+assert.match(externalSourceValidationBrowserJs, /normalizeVideoTimestamp\(requireStringArg\(/);
 assert.match(externalSourceValidationBrowserJs, /sourceApprovalRequestBinding/);
 assert.match(externalSourceValidationBrowserJs, /function buildSourceApprovalRequestBinding/);
 assert.match(externalSourceValidationBrowserJs, /source-approval-request-binding\.v1/);
