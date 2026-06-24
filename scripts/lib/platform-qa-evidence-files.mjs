@@ -61,6 +61,20 @@ export function platformQaEvidenceFileErrors({ rows, platformHandoffBinding, pla
     }
     if (!hasConcreteEvidenceFileText(evidenceText)) {
       errors.push(`${label} row ${rowNumber} evidence notes file is empty, placeholder, or still scaffold template: ${expectedNotesPath}`);
+      continue;
+    }
+    const rowResult = normalizeResult(row?.result);
+    if (["PASS", "FAIL", "BLOCKED"].includes(rowResult)) {
+      const evidenceResult = extractEvidenceResult(evidenceText);
+      if (!evidenceResult) {
+        errors.push(`${label} row ${rowNumber} evidence notes file must include Result: ${rowResult}: ${expectedNotesPath}`);
+      } else if (evidenceResult !== rowResult) {
+        errors.push(`${label} row ${rowNumber} evidence notes file Result must match row result ${rowResult}: ${expectedNotesPath}`);
+      }
+      const observedSummary = extractEvidenceField(evidenceText, "Observed summary");
+      if (!hasConcreteEvidenceFileText(observedSummary)) {
+        errors.push(`${label} row ${rowNumber} evidence notes file must include a concrete Observed summary: ${expectedNotesPath}`);
+      }
     }
   }
   return errors;
@@ -90,6 +104,22 @@ function isPlaceholderEvidenceFileText(text) {
     || /(?:\btemplate only\b|\breplace before use\b|\bthis file is not qa evidence\b|<actual-result>|<observed-summary>|<reviewer>|<iso-8601-with-timezone>|<actual-environment>|<paths-or-none>|\bpass\s*\|\s*fail\s*\|\s*blocked\b)/.test(text);
 }
 
+function extractEvidenceField(text, fieldName) {
+  const pattern = new RegExp(`(?:^|\\n)\\s*(?:[-*]\\s*)?${escapeRegExp(fieldName)}\\s*:\\s*([^\\n]+)`, "i");
+  const match = String(text || "").match(pattern);
+  return match ? match[1].trim() : "";
+}
+
+function extractEvidenceResult(text) {
+  const value = extractEvidenceField(text, "Result").toUpperCase();
+  const match = value.match(/^(PASS|FAIL|BLOCKED)\b/);
+  return match ? match[1] : value;
+}
+
 function normalizeResult(value) {
   return String(value || "").trim().toUpperCase();
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

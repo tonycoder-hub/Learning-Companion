@@ -2442,6 +2442,57 @@ async function runSelfTest() {
   assert.equal(templateEvidenceReport.canClaimKo, false);
   assert.ok(templateEvidenceReport.blockers.some((item) => item.includes("still scaffold template")));
 
+  const mismatchedResultEvidenceDir = `.codex-tmp/platform-qa-evidence/selftest/${basename(root)}/nativeMacManualQa/${SELFTEST_GIT_HEAD}/mismatched-result-row`;
+  const mismatchedResultNotesPath = `${mismatchedResultEvidenceDir}/notes.md`;
+  const mismatchedResultHandoffPath = join(root, "mismatched-result-platform-evidence-handoff.json");
+  const mismatchedResultReceiptPath = join(root, "mismatched-result-platform-evidence-receipt.json");
+  await mkdir(mismatchedResultEvidenceDir, { recursive: true, mode: 0o700 });
+  await writeFile(mismatchedResultNotesPath, [
+    "# Mac manual QA row 1: Launch",
+    "",
+    "- Result: FAIL",
+    "- Observed summary: Self-test fixture observed a contradictory platform result.",
+    "- Reviewer: Self Test",
+    "- Device/build/browser: Self-test fixture environment",
+    ""
+  ].join("\n"));
+  await writeJson(mismatchedResultHandoffPath, {
+    ...fixtures.platformHandoff,
+    platforms: fixtures.platformHandoff.platforms.map((platform) => platform.id === "nativeMacManualQa"
+      ? {
+          ...platform,
+          currentTemplateSummary: {
+            ...platform.currentTemplateSummary,
+            rowEvidenceHints: platform.currentTemplateSummary.rowEvidenceHints.map((hint, index) => (
+              index === 0 ? { ...hint, evidenceDir: mismatchedResultEvidenceDir } : hint
+            ))
+          }
+        }
+      : platform)
+  });
+  await writeJson(mismatchedResultReceiptPath, {
+    ...fixtures.macManualReceipt,
+    platformHandoffBinding: {
+      ...fixtures.macManualReceipt.platformHandoffBinding,
+      handoffPath: mismatchedResultHandoffPath
+    },
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: `evidence: ${mismatchedResultNotesPath}; result: PASS; observed: launch succeeded` } : row
+    ))
+  });
+  const mismatchedResultReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: mismatchedResultReceiptPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(mismatchedResultReport.canClaimKo, false);
+  assert.ok(mismatchedResultReport.blockers.some((item) => item.includes("Result must match row result PASS")));
+
   const placeholderPlatformReviewerPath = join(root, "placeholder-platform-reviewer-receipt.json");
   await writeJson(placeholderPlatformReviewerPath, {
     ...fixtures.macManualReceipt,
@@ -2988,6 +3039,7 @@ async function runSelfTest() {
       "Harmony platform PASS rows with blockquote placeholder evidence notes rejected",
       "platform PASS rows without row-specific evidence notes rejected",
       "platform PASS rows with scaffold template evidence file rejected",
+      "platform evidence notes result mismatch rejected",
       "platform placeholder reviewer rejected",
       "platform relative Date/time rejected",
       "platform summary/row mismatch rejected",

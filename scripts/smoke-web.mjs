@@ -299,6 +299,9 @@ assert.match(platformQaEvidenceFilesJs, /rowEvidenceHints/);
 assert.match(platformQaEvidenceFilesJs, /must reference row-specific evidence notes/);
 assert.match(platformQaEvidenceFilesJs, /evidence notes file missing/);
 assert.match(platformQaEvidenceFilesJs, /still scaffold template/);
+assert.match(platformQaEvidenceFilesJs, /Result must match row result/);
+assert.match(platformQaEvidenceFilesJs, /must include a concrete Observed summary/);
+assert.match(platformQaEvidenceFilesJs, /extractEvidenceResult/);
 assert.match(platformQaEvidenceFilesJs, /PLATFORM_EVIDENCE_ROOT = "\.codex-tmp\/platform-qa-evidence"/);
 assert.match(nextMajorReadinessSelfTestJs, /next_major_readiness_selftest_ok/);
 assert.match(nextMajorReadinessSelfTestJs, /NEXT_MAJOR_READINESS_SUMMARY_ONLY/);
@@ -1046,6 +1049,7 @@ assert.match(koEvidenceReviewJs, /Windows platform PASS rows with numbered place
 assert.match(koEvidenceReviewJs, /Harmony platform PASS rows with blockquote placeholder evidence notes rejected/);
 assert.match(koEvidenceReviewJs, /platform PASS rows without row-specific evidence notes rejected/);
 assert.match(koEvidenceReviewJs, /platform PASS rows with scaffold template evidence file rejected/);
+assert.match(koEvidenceReviewJs, /platform evidence notes result mismatch rejected/);
 assert.match(koEvidenceReviewJs, /platform placeholder reviewer rejected/);
 assert.match(koEvidenceReviewJs, /platform relative Date\/time rejected/);
 assert.match(koEvidenceReviewJs, /platform summary\/row mismatch rejected/);
