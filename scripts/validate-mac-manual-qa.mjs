@@ -4,6 +4,7 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
 import { MAC_MANUAL_QA_AREAS } from "./lib/platform-qa-areas.mjs";
+import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
 
 const MAC_MANUAL_QA_RECEIPT_SCHEMA = "learning-companion.mac-manual-qa-receipt.v1";
@@ -238,6 +239,14 @@ function validateMacManualQa(markdown, qaPath, currentRevision, { platformHandof
     }
     platformHandoffErrors.forEach((error) => {
       errors.push(`Mac manual QA platform handoff: ${error}`);
+    });
+    platformQaEvidenceFileErrors({
+      rows,
+      platformHandoffBinding,
+      platformId: "nativeMacManualQa",
+      label: "Mac manual QA"
+    }).forEach((error) => {
+      errors.push(error);
     });
   }
 

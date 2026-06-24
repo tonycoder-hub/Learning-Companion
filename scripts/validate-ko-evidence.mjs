@@ -10,6 +10,7 @@ import {
   MAC_MANUAL_QA_AREAS,
   WINDOWS_STATIC_QA_AREAS
 } from "./lib/platform-qa-areas.mjs";
+import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 import {
   CURRENT_CLEAN_HEAD_KO_STATUS,
   CURRENT_CLEAN_HEAD_PLATFORM_QA_HANDOFF,
@@ -373,6 +374,12 @@ function summarizePlatformQaStatus(items, context = {}) {
       const claimAllowed = receipt.claimBoundary?.[item.claimKey] === true;
       const platformEvidenceErrors = [
         ...platformRowEvidenceErrors(receipt, item),
+        ...platformQaEvidenceFileErrors({
+          rows: receipt.rows,
+          platformHandoffBinding: receipt.platformHandoffBinding,
+          platformId: item.id,
+          label: item.label
+        }),
         ...platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath })
       ];
       const blockingReasons = summarizePlatformBlockingReasons({ summary, gates, claimAllowed, platformEvidenceErrors });
@@ -847,8 +854,16 @@ function validateMacManualQaReceipt(receipt, path = "", context = {}) {
     ],
     claimKey: "canClaimMacManualQaUsable"
   };
-  assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Mac manual QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path }), [], "Mac manual QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
+  assertNoPlatformEvidenceErrors([
+    ...platformRowEvidenceErrors(receipt, item),
+    ...platformQaEvidenceFileErrors({
+      rows: receipt.rows,
+      platformHandoffBinding: receipt.platformHandoffBinding,
+      platformId: item.id,
+      label: item.label
+    }),
+    ...platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path })
+  ], "Mac manual QA platform evidence must match the expected matrix, row-specific notes, session fields, tier, errors, revision, and claim boundary");
   assertTrue(receipt.summary?.ok, "Mac manual QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Mac manual QA rows must all PASS");
   assertTrue(receipt.summary?.nativeBuildGatePass, "Mac native build gate must PASS");
@@ -885,8 +900,16 @@ function validateWindowsStaticQaReceipt(receipt, path = "", context = {}) {
     ],
     claimKey: "canClaimWindowsStaticLoopUsable"
   };
-  assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "Windows static QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path }), [], "Windows static QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
+  assertNoPlatformEvidenceErrors([
+    ...platformRowEvidenceErrors(receipt, item),
+    ...platformQaEvidenceFileErrors({
+      rows: receipt.rows,
+      platformHandoffBinding: receipt.platformHandoffBinding,
+      platformId: item.id,
+      label: item.label
+    }),
+    ...platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path })
+  ], "Windows static QA platform evidence must match the expected matrix, row-specific notes, session fields, tier, errors, revision, and claim boundary");
   assertTrue(receipt.summary?.ok, "Windows static QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "Windows static QA rows must all PASS");
   assertTrue(receipt.summary?.staticReturnContractGatePass, "Windows static-return contract gate must PASS");
@@ -923,8 +946,16 @@ function validateHarmonyDeviceQaReceipt(receipt, path = "", context = {}) {
     ],
     claimKey: "canClaimHarmonyDeviceRoundtripUsable"
   };
-  assert.deepEqual(platformRowEvidenceErrors(receipt, item), [], "HarmonyOS device QA rows must match the expected QA matrix and include evidence notes for every non-NT result");
-  assert.deepEqual(platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path }), [], "HarmonyOS device QA session fields, tier, errors, revision, and claim boundary must match derived evidence");
+  assertNoPlatformEvidenceErrors([
+    ...platformRowEvidenceErrors(receipt, item),
+    ...platformQaEvidenceFileErrors({
+      rows: receipt.rows,
+      platformHandoffBinding: receipt.platformHandoffBinding,
+      platformId: item.id,
+      label: item.label
+    }),
+    ...platformClaimEvidenceErrors(receipt, item, { ...context, evidencePath: path })
+  ], "HarmonyOS device QA platform evidence must match the expected matrix, row-specific notes, session fields, tier, errors, revision, and claim boundary");
   assertTrue(receipt.summary?.ok, "HarmonyOS device QA receipt must be structurally valid");
   assertTrue(receipt.summary?.allRowsPass, "HarmonyOS device QA rows must all PASS");
   assertTrue(receipt.summary?.devEcoToolchainGatePass, "HarmonyOS DevEco/toolchain gate must PASS");
@@ -2348,6 +2379,69 @@ async function runSelfTest() {
   const harmonyPlaceholderNotesStatus = harmonyPlaceholderPlatformNotesReport.platformQaStatus.find((item) => item.id === "harmonyDeviceQa");
   assert.equal(harmonyPlaceholderNotesStatus?.status, "INVALID_OR_INCOMPLETE");
 
+  const nonSpecificEvidenceNotesPath = join(root, "non-specific-platform-row-notes-receipt.json");
+  await writeJson(nonSpecificEvidenceNotesPath, {
+    ...fixtures.macManualReceipt,
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: "evidence: .codex-tmp/platform-qa-evidence/other/notes.md; result: PASS; observed: launch succeeded" } : row
+    ))
+  });
+  const nonSpecificEvidenceNotesReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: nonSpecificEvidenceNotesPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(nonSpecificEvidenceNotesReport.canClaimKo, false);
+  assert.ok(nonSpecificEvidenceNotesReport.blockers.some((item) => item.includes("must reference row-specific evidence notes")));
+
+  const templateEvidenceDir = `.codex-tmp/platform-qa-evidence/selftest/${basename(root)}/nativeMacManualQa/${SELFTEST_GIT_HEAD}/template-row`;
+  const templateEvidenceNotesPath = `${templateEvidenceDir}/notes.md`;
+  const templateEvidenceHandoffPath = join(root, "template-platform-evidence-handoff.json");
+  const templateEvidenceReceiptPath = join(root, "template-platform-evidence-receipt.json");
+  await mkdir(templateEvidenceDir, { recursive: true, mode: 0o700 });
+  await writeFile(templateEvidenceNotesPath, "TEMPLATE ONLY - replace before use. This file is not QA evidence.\n");
+  await writeJson(templateEvidenceHandoffPath, {
+    ...fixtures.platformHandoff,
+    platforms: fixtures.platformHandoff.platforms.map((platform) => platform.id === "nativeMacManualQa"
+      ? {
+          ...platform,
+          currentTemplateSummary: {
+            ...platform.currentTemplateSummary,
+            rowEvidenceHints: platform.currentTemplateSummary.rowEvidenceHints.map((hint, index) => (
+              index === 0 ? { ...hint, evidenceDir: templateEvidenceDir } : hint
+            ))
+          }
+        }
+      : platform)
+  });
+  await writeJson(templateEvidenceReceiptPath, {
+    ...fixtures.macManualReceipt,
+    platformHandoffBinding: {
+      ...fixtures.macManualReceipt.platformHandoffBinding,
+      handoffPath: templateEvidenceHandoffPath
+    },
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, notes: `evidence: ${templateEvidenceNotesPath}; result: PASS; observed: launch succeeded` } : row
+    ))
+  });
+  const templateEvidenceReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: templateEvidenceReceiptPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(templateEvidenceReport.canClaimKo, false);
+  assert.ok(templateEvidenceReport.blockers.some((item) => item.includes("still scaffold template")));
+
   const placeholderPlatformReviewerPath = join(root, "placeholder-platform-reviewer-receipt.json");
   await writeJson(placeholderPlatformReviewerPath, {
     ...fixtures.macManualReceipt,
@@ -2490,7 +2584,7 @@ async function runSelfTest() {
   await writeJson(nonClaimableManualTierPath, {
     ...fixtures.harmonyDeviceReceipt,
     rows: fixtures.harmonyDeviceReceipt.rows.map((row, index) => (
-      index === 0 ? { ...row, result: "FAIL", notes: ".codex-tmp/ko-evidence-selftest/harmony-fail-note.txt" } : row
+      index === 0 ? { ...row, result: "FAIL" } : row
     )),
     summary: {
       ...fixtures.harmonyDeviceReceipt.summary,
@@ -2661,7 +2755,7 @@ async function runSelfTest() {
     allowSelfTestFixtures: true
   });
   assert.equal(missingPlatformHandoffBindingReport.canClaimKo, false);
-  assert.ok(missingPlatformHandoffBindingReport.blockers.some((item) => item.includes("platformHandoffBinding schema mismatch")));
+  assert.ok(missingPlatformHandoffBindingReport.blockers.some((item) => item.includes("evidence file validation requires platform handoff binding")));
 
   const missingPlatformHandoffArtifactPath = join(root, "missing-platform-handoff-artifact-receipt.json");
   await writeJson(missingPlatformHandoffArtifactPath, {
@@ -2892,6 +2986,8 @@ async function runSelfTest() {
       "platform PASS rows with decorated placeholder evidence notes rejected",
       "Windows platform PASS rows with numbered placeholder evidence notes rejected",
       "Harmony platform PASS rows with blockquote placeholder evidence notes rejected",
+      "platform PASS rows without row-specific evidence notes rejected",
+      "platform PASS rows with scaffold template evidence file rejected",
       "platform placeholder reviewer rejected",
       "platform relative Date/time rejected",
       "platform summary/row mismatch rejected",
@@ -3046,6 +3142,9 @@ async function createKoFixtures(root) {
     currentDirtyWorktree: false,
     problems: []
   });
+  const macPlatformEvidence = await buildPlatformQaEvidenceFixture(root, "nativeMacManualQa", MAC_MANUAL_QA_AREAS, "Mac manual QA");
+  const windowsPlatformEvidence = await buildPlatformQaEvidenceFixture(root, "windowsStaticManualQa", WINDOWS_STATIC_QA_AREAS, "Windows static QA");
+  const harmonyPlatformEvidence = await buildPlatformQaEvidenceFixture(root, "harmonyDeviceQa", HARMONY_DEVICE_QA_AREAS, "HarmonyOS device QA");
   const macManualReceipt = {
     schema: MAC_MANUAL_QA_SCHEMA,
     fixtureOnly: true,
@@ -3080,7 +3179,7 @@ async function createKoFixtures(root) {
       nativeSaveImportFrictionObserved: "None observed during self-test fixture",
       biggestFriction: "None observed during self-test fixture"
     },
-    rows: buildPlatformQaRows(MAC_MANUAL_QA_AREAS, "Mac manual QA"),
+    rows: macPlatformEvidence.rows,
     errors: [],
     platformHandoffBinding: platformHandoffBinding({
       platformId: "nativeMacManualQa",
@@ -3127,7 +3226,7 @@ async function createKoFixtures(root) {
       returnFileTransferFrictionObserved: "None observed during self-test fixture",
       biggestFriction: "None observed during self-test fixture"
     },
-    rows: buildPlatformQaRows(WINDOWS_STATIC_QA_AREAS, "Windows static QA"),
+    rows: windowsPlatformEvidence.rows,
     errors: [],
     platformHandoffBinding: platformHandoffBinding({
       platformId: "windowsStaticManualQa",
@@ -3175,7 +3274,7 @@ async function createKoFixtures(root) {
       patchExportImportFrictionObserved: "None observed during self-test fixture",
       biggestFriction: "None observed during self-test fixture"
     },
-    rows: buildPlatformQaRows(HARMONY_DEVICE_QA_AREAS, "HarmonyOS device QA"),
+    rows: harmonyPlatformEvidence.rows,
     errors: [],
     platformHandoffBinding: platformHandoffBinding({
       platformId: "harmonyDeviceQa",
@@ -3219,7 +3318,11 @@ async function createKoFixtures(root) {
         evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
         canClaimPlatform: false,
         validateCommand: "npm run mac:manual:validate:real",
-        expectedRows: MAC_MANUAL_QA_AREAS.length
+        expectedRows: MAC_MANUAL_QA_AREAS.length,
+        suggestedEvidenceRoot: macPlatformEvidence.evidenceRoot,
+        currentTemplateSummary: {
+          rowEvidenceHints: macPlatformEvidence.rowEvidenceHints
+        }
       },
       {
         id: "windowsStaticManualQa",
@@ -3229,7 +3332,11 @@ async function createKoFixtures(root) {
         evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
         canClaimPlatform: false,
         validateCommand: "npm run windows:static:validate:real",
-        expectedRows: WINDOWS_STATIC_QA_AREAS.length
+        expectedRows: WINDOWS_STATIC_QA_AREAS.length,
+        suggestedEvidenceRoot: windowsPlatformEvidence.evidenceRoot,
+        currentTemplateSummary: {
+          rowEvidenceHints: windowsPlatformEvidence.rowEvidenceHints
+        }
       },
       {
         id: "harmonyDeviceQa",
@@ -3239,7 +3346,11 @@ async function createKoFixtures(root) {
         evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
         canClaimPlatform: false,
         validateCommand: "npm run harmony:device:validate:real",
-        expectedRows: HARMONY_DEVICE_QA_AREAS.length
+        expectedRows: HARMONY_DEVICE_QA_AREAS.length,
+        suggestedEvidenceRoot: harmonyPlatformEvidence.evidenceRoot,
+        currentTemplateSummary: {
+          rowEvidenceHints: harmonyPlatformEvidence.rowEvidenceHints
+        }
       }
     ],
     blockedOrNotExecuted: [
@@ -3411,21 +3522,63 @@ async function createKoFixtures(root) {
   };
 }
 
-function buildPlatformQaRows(areas, label) {
-  const slug = label.toLowerCase().replaceAll(" ", "-");
-  return areas.map((area, index) => ({
-    area,
-    steps: "Self-test fixture step",
-    expected: "Self-test fixture expected result",
-    result: "PASS",
-    notes: `.codex-tmp/ko-evidence-selftest/${slug}-row-${index + 1}.txt`
-  }));
+async function buildPlatformQaEvidenceFixture(root, platformId, areas, label) {
+  const evidenceRoot = `.codex-tmp/platform-qa-evidence/selftest/${basename(root)}/${platformId}/${SELFTEST_GIT_HEAD}`;
+  const rowEvidenceHints = [];
+  const rows = [];
+  for (const [index, area] of areas.entries()) {
+    const row = index + 1;
+    const evidenceDir = `${evidenceRoot}/${String(row).padStart(2, "0")}-${slugify(area)}`;
+    const notesPath = `${evidenceDir}/notes.md`;
+    await mkdir(evidenceDir, { recursive: true, mode: 0o700 });
+    await writeFile(notesPath, [
+      `# ${label} row ${row}: ${area}`,
+      "",
+      "- Result: PASS",
+      "- Observed summary: Self-test fixture observed the expected platform behavior.",
+      "- Reviewer: Self Test",
+      `- Date/time: ${new Date().toISOString()}`,
+      "- Device/build/browser: Self-test fixture environment",
+      ""
+    ].join("\n"));
+    rowEvidenceHints.push({
+      row,
+      area,
+      evidenceDir,
+      suggestedNote: `template only - replace before use: evidence: ${notesPath}; screenshot: ${evidenceDir}/screenshot.png; result: <actual-result>; observed: <observed-summary>`
+    });
+    rows.push({
+      area,
+      steps: "Self-test fixture step",
+      expected: "Self-test fixture expected result",
+      result: "PASS",
+      notes: `evidence: ${notesPath}; result: PASS; observed: Self-test fixture observed expected behavior.`
+    });
+  }
+  return {
+    evidenceRoot,
+    rowEvidenceHints,
+    rows
+  };
+}
+
+function slugify(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "row";
 }
 
 function rejectSelfTestPath(value, label) {
   assertNonTbd(value, label);
   assert.equal(String(value).includes("external-source-privacy-review-selftest"), false, `${label} must not come from privacy-review self-test artifacts`);
   assert.equal(String(value).includes("ko-evidence-selftest"), false, `${label} must not come from KO self-test artifacts`);
+}
+
+function assertNoPlatformEvidenceErrors(errors, label) {
+  if (errors.length) {
+    throw new Error(`${label}: ${errors.join("; ")}`);
+  }
 }
 
 function assertTrue(value, message) {

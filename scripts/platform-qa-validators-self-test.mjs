@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
+import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 
 const execFileAsync = promisify(execFile);
 const ROOT = ".codex-tmp/platform-qa-validators-selftest";
@@ -14,6 +15,7 @@ const CASES = Object.freeze([
     qa: "dist/morning-demo/MAC_MANUAL_QA.md",
     schema: "learning-companion.mac-manual-qa-receipt.v1",
     claimKey: "canClaimMacManualQaUsable",
+    requiredFilledField: "macOS version",
     claimableMessage: "Mac manual QA --require-claimable needs a full all-PASS real run"
   },
   {
@@ -22,6 +24,7 @@ const CASES = Object.freeze([
     qa: "dist/morning-demo/WINDOWS_STATIC_QA.md",
     schema: "learning-companion.windows-static-qa-receipt.v1",
     claimKey: "canClaimWindowsStaticLoopUsable",
+    requiredFilledField: "Windows browser/device",
     claimableMessage: "Windows static QA --require-claimable needs a full all-PASS real run"
   },
   {
@@ -30,6 +33,7 @@ const CASES = Object.freeze([
     qa: "dist/morning-demo/HARMONY_DEVICE_QA.md",
     schema: "learning-companion.harmony-device-qa-receipt.v1",
     claimKey: "canClaimHarmonyDeviceRoundtripUsable",
+    requiredFilledField: "HarmonyOS device/build",
     claimableMessage: "HarmonyOS device QA --require-claimable needs a full all-PASS real run"
   }
 ]);
@@ -37,12 +41,72 @@ const CASES = Object.freeze([
 await mkdir(ROOT, { recursive: true, mode: 0o700 });
 const RUN_ROOT = await mkdtemp(join(ROOT, "run-"));
 
+await assertPlatformQaEvidenceFileBinding();
 for (const item of CASES) {
   await assertPendingMode(item);
   await assertClaimableModeRejectsPendingTemplate(item);
+  await assertFilledRowsRequirePlatformHandoff(item);
 }
 
 console.log("platform_qa_validators_selftest_ok");
+
+async function assertPlatformQaEvidenceFileBinding() {
+  const gitHead = "0123456789abcdef0123456789abcdef01234567";
+  const evidenceDir = `.codex-tmp/platform-qa-evidence/selftest/${RUN_ROOT.split("/").at(-1)}/nativeMacManualQa/${gitHead}/01-launch`;
+  const notesPath = `${evidenceDir}/notes.md`;
+  const handoffPath = join(RUN_ROOT, "platform-qa-handoff.json");
+  await mkdir(evidenceDir, { recursive: true, mode: 0o700 });
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: PASS",
+    "- Observed summary: The native Mac app launched from the named build.",
+    "- Reviewer: Self Test",
+    "- Device/build/browser: Self-test Mac",
+    ""
+  ].join("\n"));
+  const binding = {
+    handoffPath
+  };
+  await writeJson(handoffPath, {
+    schema: "learning-companion.platform-qa-handoff.v1",
+    evidenceTier: "PLATFORM_QA_HANDOFF_ONLY",
+    canClaimKo: false,
+    platforms: [
+      {
+        id: "nativeMacManualQa",
+        currentTemplateSummary: {
+          rowEvidenceHints: [
+            {
+              row: 1,
+              area: "Launch",
+              evidenceDir
+            }
+          ]
+        }
+      }
+    ]
+  });
+  assert.deepEqual(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }), []);
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: "launch succeeded" }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must reference row-specific evidence notes")));
+  await writeFile(notesPath, "TEMPLATE ONLY - replace before use. This file is not QA evidence.\n");
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("still scaffold template")));
+}
 
 async function assertPendingMode(item) {
   const outPath = join(RUN_ROOT, `${item.id}-pending.json`);
@@ -85,6 +149,34 @@ async function assertClaimableModeRejectsPendingTemplate(item) {
   assert.equal(receipt.claimBoundary?.[item.claimKey], false, `${item.id} claimable-negative must not claim platform QA`);
 }
 
+async function assertFilledRowsRequirePlatformHandoff(item) {
+  const qaPath = join(RUN_ROOT, `${item.id}-filled-no-handoff.md`);
+  const outPath = join(RUN_ROOT, `${item.id}-filled-no-handoff.json`);
+  const source = await readFile(item.qa, "utf8");
+  await writeFile(qaPath, createFilledNoHandoffMarkdown(source, item));
+  const result = await runNode([
+    item.script,
+    "--qa",
+    qaPath,
+    "--out",
+    outPath
+  ]);
+  assert.notEqual(result.code, 0, `${item.id} filled rows without platform handoff must fail`);
+  const receipt = await readReceipt(outPath);
+  assert.equal(receipt.schema, item.schema, `${item.id} filled-no-handoff schema`);
+  assert.equal(receipt.summary?.anyRealRowsFilled, true, `${item.id} filled-no-handoff should have real rows`);
+  assert.equal(receipt.summary?.ok, false, `${item.id} filled-no-handoff must not be structurally valid`);
+  assert.ok(
+    receipt.errors?.some((error) => error.includes("--platform-handoff is required")),
+    `${item.id} filled-no-handoff must require platform handoff`
+  );
+  assert.ok(
+    receipt.errors?.some((error) => error.includes("evidence file validation requires platform handoff binding")),
+    `${item.id} filled-no-handoff must require row evidence file binding`
+  );
+  assert.equal(receipt.claimBoundary?.[item.claimKey], false, `${item.id} filled-no-handoff must not claim platform QA`);
+}
+
 async function runNode(args) {
   try {
     const result = await execFileAsync(process.execPath, args, {
@@ -110,6 +202,35 @@ async function readReceipt(path) {
   const text = await readFile(path, "utf8");
   assert.notEqual(text.trim(), "", `${path} must contain a receipt JSON object`);
   return JSON.parse(text);
+}
+
+function createFilledNoHandoffMarkdown(source, item) {
+  let text = source
+    .replace("| Date/time | TBD |", "| Date/time | 2026-06-24T08:00:00+08:00 |")
+    .replace("| Reviewer | TBD |", "| Reviewer | Self Test |")
+    .replace(`| ${item.requiredFilledField} | TBD |`, `| ${item.requiredFilledField} | Self-test environment |`);
+  const lines = text.split("\n");
+  const rowIndex = lines.findIndex((line) => (
+    line.startsWith("| ")
+      && !line.startsWith("| Area |")
+      && !line.includes("| ---")
+      && line.includes(" | NT |  |")
+  ));
+  assert.notEqual(rowIndex, -1, `${item.id} fixture should contain at least one pending QA row`);
+  const updatedLine = lines[rowIndex].replace(
+    " | NT |  |",
+    " | PASS | evidence: self-test-no-handoff-notes.md; result: PASS; observed: self-test filled row |"
+  );
+  assert.notEqual(updatedLine, lines[rowIndex], `${item.id} fixture row should be fillable`);
+  lines[rowIndex] = updatedLine;
+  text = lines.join("\n");
+  assert.match(text, /\| PASS \| evidence: self-test-no-handoff-notes\.md/);
+  return text;
+}
+
+async function writeJson(path, value) {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 function escapeRegExp(value) {
