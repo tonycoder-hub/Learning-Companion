@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { isIsoDateTimeWithTimezone } from "./lib/iso-date-time.mjs";
 
 const RECEIPT_SCHEMA = "learning-companion.external-source-validation-browser.v1";
 const REVIEW_SCHEMA = "learning-companion.external-source-privacy-review.v1";
@@ -16,7 +17,6 @@ const PLACEHOLDER_REVIEW_TEXT = new Set(["tbd", "-", "--", "n/a", "na", "none", 
 const LEADING_REVIEW_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
 const TRAILING_REVIEW_DECORATION_PATTERN = /[`"'()[\]{}<>*_.,;:#\-\s]+$/;
 const PLACEHOLDER_REVIEW_PREFIX_PATTERN = /^(tbd|todo|placeholder|n\s*\/\s*a)(\b|[\s:;,.()[\]{}_-]|$)/;
-const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const PRIVACY_REVIEW_SELF_TEST_PATH = ".codex-tmp/external-source-privacy-review-selftest/";
 const PNG_1X1 = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c636000000200015d0b2a0b0000000049454e44ae426082", "hex");
 
@@ -735,6 +735,17 @@ async function runSelfTest() {
     reviewPath: join(root, "relative-reviewed-at-review.json")
   }), /reviewedAt must be an ISO date-time with timezone/);
 
+  const invalidCalendarReviewedAtReview = {
+    ...validReview,
+    reviewedAt: "2026-02-31T08:00:00+08:00"
+  };
+  assert.throws(() => validateSelfTestPrivacyReview({
+    receipt: fixture.receipt,
+    receiptPath: fixture.receiptPath,
+    review: invalidCalendarReviewedAtReview,
+    reviewPath: join(root, "invalid-calendar-reviewed-at-review.json")
+  }), /reviewedAt must be an ISO date-time with timezone/);
+
   const placeholderApprovalReferenceReview = {
     ...validReview,
     sourceApproval: {
@@ -959,6 +970,7 @@ async function runSelfTest() {
       "non-PNG screenshot evidence file rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
+      "invalid calendar reviewedAt timestamp rejected",
       "placeholder approval reference rejected",
       "placeholder review notes rejected",
       "empty evidence file lists rejected",
@@ -1328,8 +1340,7 @@ function assertConcreteReviewText(value, label) {
 
 function assertIsoDateTime(value, label) {
   assertConcreteReviewText(value, label);
-  const text = String(value).trim();
-  assert.ok(ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text)), `${label} must be an ISO date-time with timezone`);
+  assert.ok(isIsoDateTimeWithTimezone(value), `${label} must be an ISO date-time with timezone`);
 }
 
 function assertRequestedApprovalTextCoversSources(text, { readingUrl, videoUrl, videoTimestamp }) {

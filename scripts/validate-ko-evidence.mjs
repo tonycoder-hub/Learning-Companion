@@ -5,6 +5,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { readCurrentRevisionSync } from "./lib/git-revision.mjs";
+import { isIsoDateTimeWithTimezone } from "./lib/iso-date-time.mjs";
 import {
   HARMONY_DEVICE_QA_AREAS,
   MAC_MANUAL_QA_AREAS,
@@ -35,7 +36,6 @@ const HARMONY_DEVICE_QA_SCHEMA = "learning-companion.harmony-device-qa-receipt.v
 const PLATFORM_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
-const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const SELFTEST_GIT_HEAD = "0123456789abcdef0123456789abcdef01234567";
 const PNG_1X1 = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c636000000200015d0b2a0b0000000049454e44ae426082", "hex");
 const SELFTEST_CURRENT_REVISION = Object.freeze({
@@ -773,11 +773,6 @@ function hasConcretePlatformText(value) {
 function isPlaceholderPlatformText(text) {
   return PLACEHOLDER_EVIDENCE_NOTES.has(text)
     || /^(tbd|todo|placeholder|no evidence|n\s*\/\s*a|na)(\b|[\s:;,.()[\]{}_-]|$)/.test(text);
-}
-
-function isIsoDateTimeWithTimezone(value) {
-  const text = String(value || "").trim();
-  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
 function isPlaceholderEvidenceNote(value) {
@@ -2167,6 +2162,24 @@ async function runSelfTest() {
   assert.equal(relativeExternalReviewedAtReport.canClaimKo, false);
   assert.ok(relativeExternalReviewedAtReport.blockers.some((item) => item.includes("external claim reviewedAt must be an ISO date-time with timezone")));
 
+  const invalidCalendarExternalReviewedAtPath = join(root, "invalid-calendar-external-reviewed-at.json");
+  await writeJson(invalidCalendarExternalReviewedAtPath, {
+    ...fixtures.externalClaim,
+    reviewedAt: "2026-02-31T08:00:00+08:00"
+  });
+  const invalidCalendarExternalReviewedAtReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: invalidCalendarExternalReviewedAtPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(invalidCalendarExternalReviewedAtReport.canClaimKo, false);
+  assert.ok(invalidCalendarExternalReviewedAtReport.blockers.some((item) => item.includes("external claim reviewedAt must be an ISO date-time with timezone")));
+
   const failedExternalReviewArtifactPath = join(root, "failed-external-review-artifact.json");
   const failedExternalReviewPath = join(root, "failed-privacy-review.json");
   await writeJson(failedExternalReviewPath, {
@@ -2606,6 +2619,29 @@ async function runSelfTest() {
   assert.ok(relativePlatformDateReport.blockers.some((item) => item.includes("Date/time must be an ISO date-time with timezone")));
   const relativeDateWindowsStatus = relativePlatformDateReport.platformQaStatus.find((item) => item.id === "windowsStaticManualQa");
   assert.equal(relativeDateWindowsStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const invalidCalendarPlatformDatePath = join(root, "invalid-calendar-platform-date-receipt.json");
+  await writeJson(invalidCalendarPlatformDatePath, {
+    ...fixtures.windowsStaticReceipt,
+    sessionFields: {
+      ...fixtures.windowsStaticReceipt.sessionFields,
+      dateTime: "2026-02-31T08:00:00+08:00"
+    }
+  });
+  const invalidCalendarPlatformDateReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: fixtures.macManualPath,
+    windowsStaticPath: invalidCalendarPlatformDatePath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(invalidCalendarPlatformDateReport.canClaimKo, false);
+  assert.ok(invalidCalendarPlatformDateReport.blockers.some((item) => item.includes("Date/time must be an ISO date-time with timezone")));
+  const invalidCalendarDateWindowsStatus = invalidCalendarPlatformDateReport.platformQaStatus.find((item) => item.id === "windowsStaticManualQa");
+  assert.equal(invalidCalendarDateWindowsStatus?.status, "INVALID_OR_INCOMPLETE");
 
   const mismatchedPlatformSummaryPath = join(root, "mismatched-platform-summary-receipt.json");
   await writeJson(mismatchedPlatformSummaryPath, {
@@ -3095,6 +3131,7 @@ async function runSelfTest() {
       "mismatched external reviewed screenshot sha256 rejected",
       "placeholder external reviewer rejected",
       "relative external reviewedAt timestamp rejected",
+      "invalid calendar external reviewedAt timestamp rejected",
       "failed external privacy review artifact rejected",
       "mismatched external privacy review receipt path rejected",
       "mismatched external privacy review screenshot rejected",
@@ -3112,6 +3149,7 @@ async function runSelfTest() {
       "platform evidence notes result mismatch rejected",
       "platform placeholder reviewer rejected",
       "platform relative Date/time rejected",
+      "platform invalid calendar Date/time rejected",
       "platform summary/row mismatch rejected",
       "platform truncated row set rejected",
       "platform receipt errors rejected",

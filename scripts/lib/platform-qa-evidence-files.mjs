@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
+import { isIsoDateTimeWithTimezone } from "./iso-date-time.mjs";
 
 const PLATFORM_EVIDENCE_ROOT = ".codex-tmp/platform-qa-evidence";
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
-const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export function platformQaEvidenceFileErrors({ rows, platformHandoffBinding, platformId, label }) {
   const safeRows = Array.isArray(rows) ? rows : [];
@@ -199,11 +199,6 @@ function extractEvidenceResult(text) {
   const value = extractEvidenceField(text, "Result").toUpperCase();
   const match = value.match(/^(PASS|FAIL|BLOCKED)\b/);
   return match ? match[1] : value;
-}
-
-function isIsoDateTimeWithTimezone(value) {
-  const text = String(value || "").trim();
-  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
 function normalizeResult(value) {

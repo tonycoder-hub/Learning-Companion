@@ -207,6 +207,22 @@ async function assertPlatformQaEvidenceFileBinding() {
     "- Result: PASS",
     "- Observed summary: The native Mac app launched from the named build.",
     "- Reviewer: Self Test",
+    "- Date/time: 2026-02-31T08:00:00+08:00",
+    "- Device/build/browser: Self-test Mac",
+    ""
+  ].join("\n"));
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; screenshot: ${screenshotPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must include Date/time as ISO date-time with timezone")));
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: PASS",
+    "- Observed summary: The native Mac app launched from the named build.",
+    "- Reviewer: Self Test",
     "- Date/time: 2026-06-24T08:00:00+08:00",
     "- Device/build/browser: TBD",
     ""

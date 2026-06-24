@@ -3,13 +3,13 @@ import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { readCurrentRevision } from "./lib/git-revision.mjs";
+import { isIsoDateTimeWithTimezone } from "./lib/iso-date-time.mjs";
 import { CURRENT_CLEAN_KO_STATUS, assessKoStatusFreshness } from "./lib/ko-status-freshness.mjs";
 
 const PLATFORM_QA_HANDOFF_SCHEMA = "learning-companion.platform-qa-handoff.v1";
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
-const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const STATUS_PATH = ".codex-tmp/ko-evidence/current-status.json";
 const PLATFORM_EVIDENCE_ROOT = ".codex-tmp/platform-qa-evidence";
 
@@ -451,11 +451,6 @@ function isPlaceholderEvidenceText(text) {
 
 function isEvidenceNoteTemplateText(text) {
   return /(?:\btemplate only\b|\breplace before use\b|<actual-result>|<observed-summary>|\bpass\s*\|\s*fail\s*\|\s*blocked\b)/.test(text);
-}
-
-function isIsoDateTimeWithTimezone(value) {
-  const text = String(value || "").trim();
-  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
 function buildConsoleSummary(handoff, outPath, markdownPath = "") {

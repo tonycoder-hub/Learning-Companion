@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readCurrentRevision, revisionCanClaim } from "./lib/git-revision.mjs";
+import { isIsoDateTimeWithTimezone } from "./lib/iso-date-time.mjs";
 import { WINDOWS_STATIC_QA_AREAS } from "./lib/platform-qa-areas.mjs";
 import { platformQaEvidenceFileErrors } from "./lib/platform-qa-evidence-files.mjs";
 import { readPlatformHandoffBinding } from "./lib/platform-qa-handoff-binding.mjs";
@@ -11,7 +12,6 @@ const WINDOWS_STATIC_QA_RECEIPT_SCHEMA = "learning-companion.windows-static-qa-r
 const VALID_RESULTS = new Set(["PASS", "FAIL", "BLOCKED", "NT"]);
 const PLACEHOLDER_EVIDENCE_NOTES = new Set(["tbd", "-", "--", "n/a", "na", "none", "no evidence", "placeholder", "todo"]);
 const LEADING_EVIDENCE_DECORATION_PATTERN = /^(?:[`"'()[\]{}<>*_.,;:#\-\s]+|\d+[.)]\s*)+/;
-const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const EXPECTED_QA_ROWS = WINDOWS_STATIC_QA_AREAS.length;
 const REQUIRED_FULL_RUN_FIELDS = [
   ["dateTime", "Date/time"],
@@ -103,11 +103,6 @@ function hasConcreteQaText(value) {
   const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
   const unwrappedText = text.replace(LEADING_EVIDENCE_DECORATION_PATTERN, "");
   return Boolean(text && !isPlaceholderQaText(text) && !isPlaceholderQaText(unwrappedText));
-}
-
-function isIsoDateTimeWithTimezone(value) {
-  const text = String(value || "").trim();
-  return ISO_DATE_TIME_PATTERN.test(text) && Number.isFinite(Date.parse(text));
 }
 
 function isPlaceholderQaText(text) {
