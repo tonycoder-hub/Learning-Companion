@@ -924,6 +924,8 @@ assert.match(externalSourcePrivacyReviewJs, /videoLearningToolsPass/);
 assert.match(externalSourcePrivacyReviewJs, /function validateScreenshotReviewCoverage/);
 assert.match(externalSourcePrivacyReviewJs, /function reviewedScreenshotsForClaim/);
 assert.match(externalSourcePrivacyReviewJs, /function screenshotEvidence/);
+assert.match(externalSourcePrivacyReviewJs, /function isPngBuffer/);
+assert.match(externalSourcePrivacyReviewJs, /PNG_1X1/);
 assert.match(externalSourcePrivacyReviewJs, /createHash\("sha256"\)/);
 assert.match(externalSourcePrivacyReviewJs, /unexpected screenshot privacy review file/);
 assert.match(externalSourcePrivacyReviewJs, /duplicate screenshot privacy review entry/);
@@ -931,6 +933,7 @@ assert.match(externalSourcePrivacyReviewJs, /screenshot privacy review must be P
 assert.match(externalSourcePrivacyReviewJs, /screenshot privacy review bytes must match current file/);
 assert.match(externalSourcePrivacyReviewJs, /screenshot privacy review sha256 must match current file/);
 assert.match(externalSourcePrivacyReviewJs, /screenshot evidence file must not be empty/);
+assert.match(externalSourcePrivacyReviewJs, /screenshot evidence file must be a PNG/);
 assert.match(externalSourcePrivacyReviewJs, /receipt evidence files must be unique/);
 assert.match(externalSourcePrivacyReviewJs, /02b-video-learning-tools\.png/);
 assert.match(externalSourcePrivacyReviewJs, /timestampNoteInserted/);
@@ -943,6 +946,7 @@ assert.match(externalSourcePrivacyReviewJs, /failed screenshot review status rej
 assert.match(externalSourcePrivacyReviewJs, /mismatched screenshot review bytes rejected/);
 assert.match(externalSourcePrivacyReviewJs, /mismatched screenshot review sha256 rejected/);
 assert.match(externalSourcePrivacyReviewJs, /empty screenshot evidence file rejected/);
+assert.match(externalSourcePrivacyReviewJs, /non-PNG screenshot evidence file rejected/);
 assert.match(externalSourcePrivacyReviewJs, /relative reviewedAt timestamp rejected/);
 assert.match(externalSourcePrivacyReviewJs, /placeholder approval reference rejected/);
 assert.match(externalSourcePrivacyReviewJs, /placeholder review notes rejected/);
@@ -981,6 +985,7 @@ assert.match(koEvidenceReviewJs, /external claim review screenshot sha256 must m
 assert.match(koEvidenceReviewJs, /function assertExternalRequiredEvidenceFiles/);
 assert.match(koEvidenceReviewJs, /basename\(file\) === name/);
 assert.match(koEvidenceReviewJs, /function screenshotEvidence/);
+assert.match(koEvidenceReviewJs, /function isPngBuffer/);
 assert.match(koEvidenceReviewJs, /reviewedScreenshots/);
 assert.match(koEvidenceReviewJs, /external claim video evidence missing 02b-video-learning-tools\.png/);
 assert.match(koEvidenceReviewJs, /external claim reviewer must be filled with concrete review evidence/);
@@ -988,6 +993,7 @@ assert.match(koEvidenceReviewJs, /external claim reviewedAt must be an ISO date-
 assert.match(koEvidenceReviewJs, /external claim reviewedScreenshots bytes must match current file/);
 assert.match(koEvidenceReviewJs, /external claim reviewedScreenshots sha256 must match current file/);
 assert.match(koEvidenceReviewJs, /external claim screenshot evidence file must not be empty/);
+assert.match(koEvidenceReviewJs, /external claim screenshot evidence file must be a PNG/);
 assert.match(koEvidenceReviewJs, /source-approval-request-binding\.v1/);
 assert.match(koEvidenceReviewJs, /source-approval-check\.v1/);
 assert.match(koEvidenceReviewJs, /SOURCE_APPROVAL_CHECK_ONLY/);
@@ -1005,6 +1011,7 @@ assert.match(koEvidenceReviewJs, /signed external source query key rejected/);
 assert.match(koEvidenceReviewJs, /missing external video learning-tools screenshot rejected/);
 assert.match(koEvidenceReviewJs, /prefixed external video learning-tools screenshot name rejected/);
 assert.match(koEvidenceReviewJs, /empty external screenshot evidence file rejected/);
+assert.match(koEvidenceReviewJs, /non-PNG external screenshot evidence file rejected/);
 assert.match(koEvidenceReviewJs, /external stale git revision rejected/);
 assert.match(koEvidenceReviewJs, /external dirty git revision rejected/);
 assert.match(koEvidenceReviewJs, /missing external source approval request rejected/);

@@ -18,6 +18,7 @@ const TRAILING_REVIEW_DECORATION_PATTERN = /[`"'()[\]{}<>*_.,;:#\-\s]+$/;
 const PLACEHOLDER_REVIEW_PREFIX_PATTERN = /^(tbd|todo|placeholder|n\s*\/\s*a)(\b|[\s:;,.()[\]{}_-]|$)/;
 const ISO_DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const PRIVACY_REVIEW_SELF_TEST_PATH = ".codex-tmp/external-source-privacy-review-selftest/";
+const PNG_1X1 = Buffer.from("89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c636000000200015d0b2a0b0000000049454e44ae426082", "hex");
 
 const args = parseArgs(process.argv.slice(2));
 if (args.out === true) throw new Error("--out requires a file path.");
@@ -683,7 +684,33 @@ async function runSelfTest() {
       reviewPath: join(root, "empty-screenshot-file-review.json")
     }), /screenshot evidence file must not be empty/);
   } finally {
-    await writeFile(emptyScreenshotFile, "fixture\n");
+    await writeFile(emptyScreenshotFile, PNG_1X1);
+  }
+
+  const nonPngScreenshotFile = fixture.receipt.runs[0].files[0];
+  await writeFile(nonPngScreenshotFile, "not a png\n");
+  try {
+    assert.throws(() => validateSelfTestPrivacyReview({
+      receipt: fixture.receipt,
+      receiptPath: fixture.receiptPath,
+      review: {
+        ...validReview,
+        privacyReview: {
+          ...validReview.privacyReview,
+          screenshotsReviewed: validReview.privacyReview.screenshotsReviewed.map((item, index) => index === 0
+            ? {
+                file: item.file,
+                bytes: 10,
+                sha256: createHash("sha256").update("not a png\n").digest("hex"),
+                status: "PASS"
+              }
+            : item)
+        }
+      },
+      reviewPath: join(root, "non-png-screenshot-file-review.json")
+    }), /screenshot evidence file must be a PNG/);
+  } finally {
+    await writeFile(nonPngScreenshotFile, PNG_1X1);
   }
 
   const placeholderReviewerReview = {
@@ -929,6 +956,7 @@ async function runSelfTest() {
       "mismatched screenshot review bytes rejected",
       "mismatched screenshot review sha256 rejected",
       "empty screenshot evidence file rejected",
+      "non-PNG screenshot evidence file rejected",
       "placeholder reviewer rejected",
       "relative reviewedAt timestamp rejected",
       "placeholder approval reference rejected",
@@ -961,7 +989,7 @@ async function createCandidateFixture(root) {
   ];
   await Promise.all(files.map(async (file) => {
     await mkdir(dirname(file), { recursive: true, mode: 0o700 });
-    await writeFile(file, "fixture\n");
+    await writeFile(file, PNG_1X1);
   }));
   const receipt = {
     schema: RECEIPT_SCHEMA,
@@ -1196,11 +1224,24 @@ function reviewedScreenshotsForClaim(screenshotsReviewed, expectedFiles) {
 function screenshotEvidence(file) {
   const data = readFileSync(file);
   assert.ok(data.length > 0, `screenshot evidence file must not be empty: ${file}`);
+  assert.ok(isPngBuffer(data), `screenshot evidence file must be a PNG: ${file}`);
   return {
     file,
     bytes: data.length,
     sha256: createHash("sha256").update(data).digest("hex")
   };
+}
+
+function isPngBuffer(data) {
+  return data.length >= 8
+    && data[0] === 0x89
+    && data[1] === 0x50
+    && data[2] === 0x4e
+    && data[3] === 0x47
+    && data[4] === 0x0d
+    && data[5] === 0x0a
+    && data[6] === 0x1a
+    && data[7] === 0x0a;
 }
 
 function validateRunContext(runContext) {
