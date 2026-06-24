@@ -190,6 +190,7 @@ async function buildKoReport({
       ]
     }
   ], { currentRevision, allowSelfTestFixtures });
+  const platformQaStatusById = new Map(platformQaStatus.map((item) => [item.id, item]));
 
   collectRequirement({
     requirements,
@@ -224,7 +225,9 @@ async function buildKoReport({
     evidenceKey: "nativeMacManualQa",
     evidence,
     allowSelfTestFixtures,
-    currentRevision
+    currentRevision,
+    failureStatus: platformFailureStatus(platformQaStatusById, "nativeMacManualQa"),
+    failureDetail: platformFailureDetail(platformQaStatusById, "nativeMacManualQa")
   });
 
   collectRequirement({
@@ -236,7 +239,9 @@ async function buildKoReport({
     evidenceKey: "windowsStaticManualQa",
     evidence,
     allowSelfTestFixtures,
-    currentRevision
+    currentRevision,
+    failureStatus: platformFailureStatus(platformQaStatusById, "windowsStaticManualQa"),
+    failureDetail: platformFailureDetail(platformQaStatusById, "windowsStaticManualQa")
   });
 
   collectRequirement({
@@ -248,7 +253,9 @@ async function buildKoReport({
     evidenceKey: "harmonyDeviceQa",
     evidence,
     allowSelfTestFixtures,
-    currentRevision
+    currentRevision,
+    failureStatus: platformFailureStatus(platformQaStatusById, "harmonyDeviceQa"),
+    failureDetail: platformFailureDetail(platformQaStatusById, "harmonyDeviceQa")
   });
 
   if (!externalPath) {
@@ -308,7 +315,7 @@ async function buildKoReport({
   };
 }
 
-function collectRequirement({ requirements, blockers, label, path, validate, evidenceKey, evidence, allowSelfTestFixtures = false, currentRevision }) {
+function collectRequirement({ requirements, blockers, label, path, validate, evidenceKey, evidence, allowSelfTestFixtures = false, currentRevision, failureStatus, failureDetail }) {
   try {
     assertNonTbd(path, `${label} evidence path`);
     if (!allowSelfTestFixtures) rejectSelfTestPath(path, `${label} evidence path`);
@@ -323,14 +330,27 @@ function collectRequirement({ requirements, blockers, label, path, validate, evi
     });
     evidence[evidenceKey] = summary.evidence;
   } catch (error) {
+    const status = typeof failureStatus === "function" ? failureStatus(error) : "FAIL";
+    const detail = typeof failureDetail === "function" ? failureDetail(error) : error.message;
     requirements.push({
       id: evidenceKey,
-      status: "FAIL",
+      status,
       evidencePath: path || "",
-      detail: error.message
+      detail
     });
     blockers.push(`${label}: ${error.message}`);
   }
+}
+
+function platformFailureStatus(platformQaStatusById, platformId) {
+  return () => {
+    const status = platformQaStatusById.get(platformId)?.status || "FAIL";
+    return status === "PASSING_REAL_RUN" ? "FAIL" : status;
+  };
+}
+
+function platformFailureDetail(platformQaStatusById, platformId) {
+  return (error) => platformQaStatusById.get(platformId)?.detail || error.message;
 }
 
 function selectPlatformReceiptPath({ realRunPath, pendingPath }) {
@@ -2286,6 +2306,9 @@ async function runSelfTest() {
   });
   assert.equal(pendingPlatformReport.canClaimKo, false);
   assert.ok(pendingPlatformReport.blockers.some((item) => item.includes("Mac manual QA rows must all PASS")));
+  const pendingMacRequirement = pendingPlatformReport.requirements.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(pendingMacRequirement?.status, "PENDING_NOT_RUN");
+  assert.ok(pendingMacRequirement?.detail.includes("no real platform rows are filled"));
   const pendingMacStatus = pendingPlatformReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
   assert.equal(pendingMacStatus?.status, "PENDING_NOT_RUN");
   assert.ok(pendingMacStatus?.detail.includes("no real platform rows are filled"));
@@ -2322,8 +2345,62 @@ async function runSelfTest() {
   });
   assert.equal(missingPlatformNotesReport.canClaimKo, false);
   assert.ok(missingPlatformNotesReport.blockers.some((item) => item.includes("without a concrete QA note or evidence reference")));
+  const missingNotesMacRequirement = missingPlatformNotesReport.requirements.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(missingNotesMacRequirement?.status, "INVALID_OR_INCOMPLETE");
+  assert.ok(missingNotesMacRequirement?.detail.includes("without a concrete QA note or evidence reference"));
   const missingNotesMacStatus = missingPlatformNotesReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
   assert.equal(missingNotesMacStatus?.status, "INVALID_OR_INCOMPLETE");
+
+  const partialPlatformPath = join(root, "partial-mac-manual-receipt.json");
+  const partialPlatformHandoffPath = join(root, "partial-platform-qa-handoff.json");
+  await writeJson(partialPlatformHandoffPath, {
+    ...fixtures.platformHandoff,
+    platforms: fixtures.platformHandoff.platforms.map((platform) => (
+      platform.id === "nativeMacManualQa" ? { ...platform, receiptPath: partialPlatformPath } : platform
+    ))
+  });
+  await writeJson(partialPlatformPath, {
+    ...fixtures.macManualReceipt,
+    evidenceTier: "PARTIAL_PLATFORM_QA",
+    platformHandoffBinding: {
+      ...fixtures.macManualReceipt.platformHandoffBinding,
+      handoffPath: partialPlatformHandoffPath,
+      receiptPath: partialPlatformPath
+    },
+    rows: fixtures.macManualReceipt.rows.map((row, index) => (
+      index === 0 ? { ...row, result: "NT", notes: "" } : row
+    )),
+    summary: {
+      ...fixtures.macManualReceipt.summary,
+      pass: fixtures.macManualReceipt.summary.pass - 1,
+      nt: 1,
+      allRowsExecuted: false,
+      allRowsPass: false,
+      anyRealRowsFilled: true
+    },
+    claimBoundary: {
+      ...fixtures.macManualReceipt.claimBoundary,
+      canClaimMacManualQaUsable: false
+    }
+  });
+  const partialPlatformReport = await buildKoReport({
+    bilingualPath: fixtures.bilingualPath,
+    agentLoopPath: fixtures.agentLoopPath,
+    macManualPath: partialPlatformPath,
+    windowsStaticPath: fixtures.windowsStaticPath,
+    harmonyDevicePath: fixtures.harmonyDevicePath,
+    externalPath: fixtures.externalPath,
+    allowMissing: true,
+    allowSelfTestFixtures: true
+  });
+  assert.equal(partialPlatformReport.canClaimKo, false);
+  assert.ok(partialPlatformReport.blockers.some((item) => item.includes("Mac manual QA rows must all PASS")));
+  const partialMacRequirement = partialPlatformReport.requirements.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(partialMacRequirement?.status, "PARTIAL_OR_BLOCKED_RUN");
+  assert.ok(partialMacRequirement?.detail.includes("rows are not all PASS"));
+  const partialMacStatus = partialPlatformReport.platformQaStatus.find((item) => item.id === "nativeMacManualQa");
+  assert.equal(partialMacStatus?.status, "PARTIAL_OR_BLOCKED_RUN");
+  assert.ok(partialMacStatus?.detail.includes("rows are not all PASS"));
 
   const placeholderPlatformNotesPath = join(root, "placeholder-platform-row-notes-receipt.json");
   await writeJson(placeholderPlatformNotesPath, {
