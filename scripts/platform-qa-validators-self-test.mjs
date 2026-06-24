@@ -106,6 +106,35 @@ async function assertPlatformQaEvidenceFileBinding() {
     platformId: "nativeMacManualQa",
     label: "Mac manual QA"
   }).some((error) => error.includes("still scaffold template")));
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: FAIL",
+    "- Observed summary: The native Mac app launched from the named build.",
+    "- Reviewer: Self Test",
+    "- Device/build/browser: Self-test Mac",
+    ""
+  ].join("\n"));
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("Result must match row result PASS")));
+  await writeFile(notesPath, [
+    "# Row 1 Launch",
+    "",
+    "- Result: PASS",
+    "- Reviewer: Self Test",
+    "- Device/build/browser: Self-test Mac",
+    ""
+  ].join("\n"));
+  assert.ok(platformQaEvidenceFileErrors({
+    rows: [{ area: "Launch", result: "PASS", notes: `evidence: ${notesPath}; result: PASS; observed: launch succeeded` }],
+    platformHandoffBinding: binding,
+    platformId: "nativeMacManualQa",
+    label: "Mac manual QA"
+  }).some((error) => error.includes("must include a concrete Observed summary")));
 }
 
 async function assertPendingMode(item) {
