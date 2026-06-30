@@ -966,6 +966,25 @@ dom.notesPreviewBtn.addEventListener("click", () => {
   renderNotesMode();
 });
 
+// Clicking a [[topic]] wikilink in the notes preview filters captures by that topic.
+dom.notesPreview?.addEventListener("click", (event) => {
+  const link = event.target.closest(".note-wikilink");
+  if (!link || !dom.notesPreview.contains(link)) return;
+  event.preventDefault();
+  applyWikilinkFilter(link.dataset.wikilink || link.textContent);
+});
+
+function applyWikilinkFilter(topic) {
+  const term = String(topic || "").trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
+  if (!term) return;
+  dom.searchInput.value = term;
+  searchResultsCollapsed = false;
+  activeSearchIndex = 0;
+  renderSessions();
+  renderSearchResults();
+  dom.searchInput.focus();
+}
+
 dom.notesCanvasBtn?.addEventListener("click", () => {
   notesCanvasVisible = !notesCanvasVisible;
   dom.notesCanvasBtn.classList.toggle("active", notesCanvasVisible);

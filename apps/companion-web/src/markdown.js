@@ -157,21 +157,37 @@ function findValidCaptureMarkerLines(lines) {
 }
 
 function appendInline(parent, text) {
-  const pattern = /\[([^\]]+)\]\(([^)]+)\)/g;
+  // Match wikilinks [[topic]] and markdown links [label](href) in one pass so
+  // the cursor stays consistent. Wikilink alternative is listed first.
+  const pattern = /\[\[([^\]]+)\]\]|\[([^\]]+)\]\(([^)]+)\)/g;
   let cursor = 0;
   let match = pattern.exec(text);
   while (match) {
     if (match.index > cursor) parent.append(document.createTextNode(text.slice(cursor, match.index)));
-    const href = safeHref(match[2]);
-    if (href === "#") {
-      parent.append(document.createTextNode(match[1]));
+    if (match[1] !== undefined) {
+      const topic = match[1].trim();
+      if (topic) {
+        const link = document.createElement("button");
+        link.type = "button";
+        link.className = "note-wikilink";
+        link.dataset.wikilink = topic;
+        link.textContent = topic;
+        parent.append(link);
+      } else {
+        parent.append(document.createTextNode(match[0]));
+      }
     } else {
-      const anchor = document.createElement("a");
-      anchor.href = href;
-      anchor.textContent = match[1];
-      anchor.target = "_blank";
-      anchor.rel = "noopener noreferrer";
-      parent.append(anchor);
+      const href = safeHref(match[3]);
+      if (href === "#") {
+        parent.append(document.createTextNode(match[2]));
+      } else {
+        const anchor = document.createElement("a");
+        anchor.href = href;
+        anchor.textContent = match[2];
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        parent.append(anchor);
+      }
     }
     cursor = match.index + match[0].length;
     match = pattern.exec(text);

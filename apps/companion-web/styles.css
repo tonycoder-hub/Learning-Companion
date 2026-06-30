@@ -1591,6 +1591,32 @@ textarea:focus {
   scroll-margin: 18px;
 }
 
+.note-wikilink {
+  display: inline;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(82, 119, 76, 0.12);
+  color: var(--blue);
+  font: inherit;
+  cursor: pointer;
+}
+
+.note-wikilink::before {
+  content: "[[";
+  opacity: 0.5;
+}
+
+.note-wikilink::after {
+  content: "]]";
+  opacity: 0.5;
+}
+
+.note-wikilink:hover {
+  background: rgba(82, 119, 76, 0.22);
+  text-decoration: underline;
+}
+
 .capture-thought,
 .review-answer {
   font-size: 14px;

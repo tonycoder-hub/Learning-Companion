@@ -636,6 +636,13 @@ assert.match(markdownJs, /CAPTURE_MARKER_PATTERN/);
 assert.match(markdownJs, /findValidCaptureMarkerLines/);
 assert.match(markdownJs, /aria-label", "Generated capture note"/);
 assert.match(markdownJs, /tabIndex = -1/);
+// Wikilinks: [[topic]] renders as a .note-wikilink button (DOM nodes, no innerHTML).
+assert.ok(markdownJs.includes("\\[\\[([^\\]]+)\\]\\]"), "markdown.js parses [[topic]] wikilinks");
+assert.match(markdownJs, /className = "note-wikilink"/);
+assert.match(markdownJs, /dataset\.wikilink = topic/);
+assert.match(appJs, /function applyWikilinkFilter/);
+assert.match(appJs, /\.closest\(".note-wikilink"\)/);
+assert.match(appCss, /\.note-wikilink/);
 assert.match(appJs, /resumeCurrentSource/);
 assert.match(appJs, /handleCaptureContextSourceAction/);
 assert.match(appJs, /promptForSource/);
