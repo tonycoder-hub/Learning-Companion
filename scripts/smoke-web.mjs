@@ -76,6 +76,7 @@ import {
   reviewIntervalDays,
   safeHref,
   sanitizeWorkspace,
+  summarizeWorkspaceImport,
   searchWorkspace,
   searchHighlightSegments,
   secondsToTimestamp,
@@ -4830,6 +4831,29 @@ assert.deepEqual(searchHighlightSegments("no query here", ""), [{ text: "no quer
 // Locale-lowercasing length change (İ -> i̇) must degrade to no-highlight, never lose chars.
 const unicodeGuard = searchHighlightSegments("İstanbul", "i");
 assert.equal(unicodeGuard.map((segment) => segment.text).join(""), "İstanbul");
+
+// Import diff summary: new / overwritten / dropped sessions + capture totals.
+const importDiff = summarizeWorkspaceImport(
+  { sessions: [{ id: "a", captures: [{}, {}] }, { id: "b", captures: [{}] }] },
+  { sessions: [{ id: "a", captures: [{}, {}, {}] }, { id: "c", captures: [] }] }
+);
+assert.equal(importDiff.currentSessions, 2);
+assert.equal(importDiff.incomingSessions, 2);
+assert.equal(importDiff.newSessions, 1);
+assert.equal(importDiff.overlappingSessions, 1);
+assert.equal(importDiff.droppedSessions, 1);
+assert.equal(importDiff.currentCaptures, 3);
+assert.equal(importDiff.incomingCaptures, 3);
+const emptyImportDiff = summarizeWorkspaceImport({}, {});
+assert.equal(emptyImportDiff.newSessions, 0);
+assert.equal(emptyImportDiff.droppedSessions, 0);
+// Malformed session entries (null) are ignored, never throw.
+const malformedImportDiff = summarizeWorkspaceImport({ sessions: [null, { id: "x", captures: [{}] }] }, { sessions: [null] });
+assert.equal(malformedImportDiff.currentSessions, 1);
+assert.equal(malformedImportDiff.incomingSessions, 0);
+assert.equal(malformedImportDiff.droppedSessions, 1);
+assert.match(appJs, /function importDiffLine/);
+assert.match(appJs, /summarizeWorkspaceImport\(workspace, incoming\)/);
 
 const sanitized = sanitizeWorkspace(JSON.parse(JSON.stringify(workspace)));
 assert.equal(sanitized.activeSessionId, workspace.activeSessionId);

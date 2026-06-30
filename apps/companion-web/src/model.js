@@ -669,6 +669,41 @@ export function isMirrorBundle(input) {
   return Boolean(input && typeof input === "object" && input.schema === "learning-companion.mirror-bundle.staging.v1");
 }
 
+// Summarize what a full-replace import would change, comparing the current
+// workspace against the incoming one by session id. Pure: takes already-parsed
+// workspace objects, returns counts only (no side effects, no DOM).
+export function summarizeWorkspaceImport(currentWorkspace, incomingWorkspace) {
+  const sessionsOf = (workspace) =>
+    (Array.isArray(workspace?.sessions) ? workspace.sessions : []).filter(
+      (session) => session && typeof session === "object"
+    );
+  const current = sessionsOf(currentWorkspace);
+  const incoming = sessionsOf(incomingWorkspace);
+  const currentById = new Map(current.map((session) => [session.id, session]));
+  const incomingById = new Map(incoming.map((session) => [session.id, session]));
+  const captureCount = (session) => (Array.isArray(session?.captures) ? session.captures.length : 0);
+
+  let newSessions = 0;
+  let overlappingSessions = 0;
+  for (const session of incoming) {
+    if (currentById.has(session.id)) overlappingSessions += 1;
+    else newSessions += 1;
+  }
+  let droppedSessions = 0;
+  for (const session of current) {
+    if (!incomingById.has(session.id)) droppedSessions += 1;
+  }
+  return {
+    currentSessions: current.length,
+    incomingSessions: incoming.length,
+    newSessions,
+    overlappingSessions,
+    droppedSessions,
+    currentCaptures: current.reduce((sum, session) => sum + captureCount(session), 0),
+    incomingCaptures: incoming.reduce((sum, session) => sum + captureCount(session), 0)
+  };
+}
+
 export function isMobileInboxPatch(input) {
   return Boolean(input && typeof input === "object" && input.schema === MOBILE_INBOX_PATCH_SCHEMA);
 }

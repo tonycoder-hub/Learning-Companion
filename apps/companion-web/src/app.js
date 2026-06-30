@@ -70,6 +70,7 @@ import {
   timestampToSeconds,
   updateCaptureThought,
   updateSession,
+  summarizeWorkspaceImport,
   workspaceBackupFingerprint,
   workspaceFingerprint,
   workspaceStorageNotice,
@@ -8908,10 +8909,28 @@ function hasUserWorkspace(value) {
 function confirmBundleImport(bundle) {
   const exportedAt = bundle.exportedAt ? new Date(bundle.exportedAt).toLocaleString() : "";
   const count = bundle.workspace?.sessionCount ?? bundle.files?.length ?? 0;
-  return window.confirm(langText(
+  const header = langText(
     `Replace current workspace with mirror bundle${exportedAt ? ` from ${exportedAt}` : ""}? (${count} ${count === 1 ? "session" : "sessions"})`,
     `用镜像 bundle${exportedAt ? `（${exportedAt} 导出）` : ""}替换当前工作区？（${count} 个主题）`
-  ));
+  );
+  const diff = importDiffLine(bundle);
+  return window.confirm(diff ? `${header}\n\n${diff}` : header);
+}
+
+// Build a one-line change summary (EN+ZH) comparing the incoming bundle against
+// the current workspace, so the replace confirm is informed rather than blind.
+function importDiffLine(imported) {
+  let incoming;
+  try {
+    incoming = workspaceFromPortableData(imported);
+  } catch {
+    return "";
+  }
+  const summary = summarizeWorkspaceImport(workspace, incoming);
+  return langText(
+    `Changes: +${summary.newSessions} new, ${summary.overlappingSessions} overwritten, ${summary.droppedSessions} dropped. Captures: ${summary.currentCaptures} → ${summary.incomingCaptures}.`,
+    `变更：新增 ${summary.newSessions}、覆盖 ${summary.overlappingSessions}、丢弃 ${summary.droppedSessions}。摘录：${summary.currentCaptures} → ${summary.incomingCaptures}。`
+  );
 }
 
 function confirmSeedWorkspaceLoad(seed) {
