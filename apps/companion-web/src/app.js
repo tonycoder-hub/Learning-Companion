@@ -57,6 +57,7 @@ import {
   resolveDraftSourceMaterialType,
   sanitizeWorkspace,
   searchWorkspace,
+  searchHighlightSegments,
   isYouTubeHost,
   isBilibiliHost,
   isVimeoHost,
@@ -5471,9 +5472,9 @@ function renderSearchResults() {
     button.setAttribute("aria-selected", index === activeSearchIndex ? "true" : "false");
     button.append(
       textEl("span", "search-result-type", searchTypeLabel(result.type)),
-      textEl("strong", "search-result-title", result.title),
+      highlightedTextEl("strong", "search-result-title", result.title, query),
       textEl("span", "search-result-meta", [result.matchLabel, result.meta].filter(Boolean).join(" · ")),
-      textEl("span", "search-result-excerpt", result.excerpt)
+      highlightedTextEl("span", "search-result-excerpt", result.excerpt, query)
     );
     button.addEventListener("click", () => openSearchResult(result));
     dom.searchResults.append(button);
@@ -9023,6 +9024,26 @@ function textEl(tagName, className, text) {
   const node = document.createElement(tagName);
   if (className) node.className = className;
   node.textContent = String(text || "");
+  return node;
+}
+
+// Like textEl, but wraps runs matching `query` in <mark> for search highlighting.
+// Uses textContent per segment (never innerHTML) so result text stays XSS-safe.
+function highlightedTextEl(tagName, className, text, query) {
+  const node = document.createElement(tagName);
+  if (className) node.className = className;
+  const segments = searchHighlightSegments(text, query);
+  for (const segment of segments) {
+    if (!segment.text) continue;
+    if (segment.match) {
+      const mark = document.createElement("mark");
+      mark.className = "search-mark";
+      mark.textContent = segment.text;
+      node.appendChild(mark);
+    } else {
+      node.appendChild(document.createTextNode(segment.text));
+    }
+  }
   return node;
 }
 

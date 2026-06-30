@@ -77,6 +77,7 @@ import {
   safeHref,
   sanitizeWorkspace,
   searchWorkspace,
+  searchHighlightSegments,
   secondsToTimestamp,
   setCaptureQuestionParked,
   setCaptureQuestionResolved,
@@ -755,6 +756,10 @@ assert.match(appCss, /\.storage-notice\.update-notice/);
 assert.match(appCss, /\.shortcut-overlay/);
 assert.match(appCss, /\.shortcut-dialog/);
 assert.match(appCss, /\.shortcut-row dt/);
+assert.match(appCss, /\.search-mark/);
+assert.match(appJs, /function highlightedTextEl/);
+assert.match(appJs, /highlightedTextEl\("strong", "search-result-title", result\.title, query\)/);
+assert.match(appJs, /highlightedTextEl\("span", "search-result-excerpt", result\.excerpt, query\)/);
 assert.match(appCss, /prefers-reduced-motion: reduce/);
 assert.match(serviceWorker, /CACHE_NAME/);
 assert.match(serviceWorker, /learning-companion-static-v\d+/);
@@ -4801,6 +4806,23 @@ const noteSearch = searchWorkspace(workspace, "borrow checker", 5);
 assert.equal(noteSearch.some((result) => result.type === "note" && result.sessionId === session.id), true);
 const cappedSearch = searchWorkspace(workspace, `${"x".repeat(MAX_SEARCH_QUERY_LENGTH + 50)}lifetime`, 5);
 assert.equal(cappedSearch.length, 0);
+
+// Search term highlighting: segments split matched runs from plain text, are
+// case-insensitive, cover each query token, and never lose characters.
+const highlightSegments = searchHighlightSegments("Rust lifetime basics", "lifetime");
+assert.equal(highlightSegments.map((segment) => segment.text).join(""), "Rust lifetime basics");
+assert.equal(highlightSegments.some((segment) => segment.match && segment.text === "lifetime"), true);
+const caseInsensitiveHighlight = searchHighlightSegments("LIFETIME rules", "lifetime");
+assert.equal(caseInsensitiveHighlight.some((segment) => segment.match && segment.text === "LIFETIME"), true);
+const multiTokenHighlight = searchHighlightSegments("rust lifetime checker", "rust checker");
+const highlightedTerms = multiTokenHighlight.filter((segment) => segment.match).map((segment) => segment.text);
+assert.equal(highlightedTerms.includes("rust"), true);
+assert.equal(highlightedTerms.includes("checker"), true);
+assert.equal(highlightedTerms.includes("lifetime"), false);
+assert.deepEqual(searchHighlightSegments("no query here", ""), [{ text: "no query here", match: false }]);
+// Locale-lowercasing length change (İ -> i̇) must degrade to no-highlight, never lose chars.
+const unicodeGuard = searchHighlightSegments("İstanbul", "i");
+assert.equal(unicodeGuard.map((segment) => segment.text).join(""), "İstanbul");
 
 const sanitized = sanitizeWorkspace(JSON.parse(JSON.stringify(workspace)));
 assert.equal(sanitized.activeSessionId, workspace.activeSessionId);

@@ -287,6 +287,14 @@ textarea {
   font-size: 12px;
 }
 
+.search-mark {
+  background: rgba(255, 214, 102, 0.55);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 1px;
+  font-weight: 760;
+}
+
 .search-empty {
   color: var(--muted);
   font-size: 12px;

@@ -4151,6 +4151,40 @@ function buildSearchExcerpt(value, needle) {
   return cleanText(`${prefix}${text.slice(start, end)}${suffix}`, 180);
 }
 
+// Split `text` into plain/match segments for a search query so the UI can wrap
+// matched runs in <mark> without building HTML strings (XSS-safe rendering).
+// Matches the whole query plus each individual search token, case-insensitive.
+export function searchHighlightSegments(text, query) {
+  const source = String(text || "");
+  const needle = cleanText(query, MAX_SEARCH_QUERY_LENGTH).toLocaleLowerCase();
+  if (!source || !needle) return [{ text: source, match: false }];
+  const terms = [needle, ...searchTokens(needle)]
+    .filter((term, index, all) => term && all.indexOf(term) === index)
+    .sort((a, b) => b.length - a.length);
+  const lower = source.toLocaleLowerCase();
+  // Locale lowercasing can change string length (e.g. "İ" -> "i̇"), which would
+  // break the index map between `lower` and `source`. If that happens, skip
+  // highlighting rather than risk mis-placing or dropping characters.
+  if (lower.length !== source.length) return [{ text: source, match: false }];
+  const flags = new Array(source.length).fill(false);
+  for (const term of terms) {
+    let from = lower.indexOf(term);
+    while (from !== -1) {
+      for (let i = from; i < from + term.length; i += 1) flags[i] = true;
+      from = lower.indexOf(term, from + term.length);
+    }
+  }
+  const segments = [];
+  let runStart = 0;
+  for (let i = 1; i <= source.length; i += 1) {
+    if (i === source.length || flags[i] !== flags[runStart]) {
+      segments.push({ text: source.slice(runStart, i), match: flags[runStart] });
+      runStart = i;
+    }
+  }
+  return segments.length ? segments : [{ text: source, match: false }];
+}
+
 function resolveInboxPatchTarget(workspace, patch) {
   const targetId = cleanText(patch.target?.topicId, 128);
   const targetTitle = cleanText(patch.target?.topicTitle, MAX_TITLE_LENGTH);
