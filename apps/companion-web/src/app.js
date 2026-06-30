@@ -235,6 +235,11 @@ const dom = {
   mirrorExport: document.querySelector("#mirrorExport"),
   copyBookmarkletBtn: document.querySelector("#copyBookmarkletBtn"),
   bookmarkletExport: document.querySelector("#bookmarkletExport"),
+  shortcutOverlay: document.querySelector("#shortcutOverlay"),
+  shortcutOverlayKicker: document.querySelector("#shortcutOverlayKicker"),
+  shortcutOverlayTitle: document.querySelector("#shortcutOverlayTitle"),
+  shortcutGrid: document.querySelector("#shortcutGrid"),
+  shortcutCloseBtn: document.querySelector("#shortcutCloseBtn"),
   toast: document.querySelector("#toast"),
   viewerPane: document.querySelector("#viewerPane"),
   desk: document.querySelector(".desk")
@@ -299,6 +304,46 @@ function installShellCompatibilityNodes() {
   } else if (!dom.activityHint.dataset.hintInstalled) {
     dom.activityHint.dataset.hintInstalled = "true";
   }
+  if (!dom.shortcutOverlay) {
+    const overlay = document.createElement("div");
+    overlay.id = "shortcutOverlay";
+    overlay.className = "shortcut-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-labelledby", "shortcutOverlayTitle");
+    overlay.hidden = true;
+    const dialog = document.createElement("div");
+    dialog.className = "shortcut-dialog";
+    const header = document.createElement("div");
+    header.className = "shortcut-header";
+    const copy = document.createElement("div");
+    const kicker = document.createElement("p");
+    kicker.id = "shortcutOverlayKicker";
+    kicker.className = "shortcut-kicker";
+    kicker.textContent = langText("Keyboard", "键盘");
+    const title = document.createElement("h2");
+    title.id = "shortcutOverlayTitle";
+    title.textContent = langText("Shortcuts", "快捷键");
+    copy.append(kicker, title);
+    const close = document.createElement("button");
+    close.id = "shortcutCloseBtn";
+    close.className = "icon-button shortcut-close";
+    close.type = "button";
+    close.textContent = "×";
+    close.setAttribute("aria-label", langText("Close shortcuts", "关闭快捷键"));
+    const grid = document.createElement("div");
+    grid.id = "shortcutGrid";
+    grid.className = "shortcut-grid";
+    header.append(copy, close);
+    dialog.append(header, grid);
+    overlay.append(dialog);
+    document.body.append(overlay);
+    dom.shortcutOverlay = overlay;
+    dom.shortcutOverlayKicker = kicker;
+    dom.shortcutOverlayTitle = title;
+    dom.shortcutGrid = grid;
+    dom.shortcutCloseBtn = close;
+  }
 }
 
 let workspace = loadWorkspace();
@@ -326,6 +371,7 @@ let returnFilesPickerArmed = false;
 let firstNoteDeviceFlowRevealed = false;
 let notesCanvas = null;
 let notesCanvasVisible = false;
+let shortcutReturnFocus = null;
 
 installShellCompatibilityNodes();
 pruneCurrentCaptureDrafts();
@@ -405,6 +451,10 @@ dom.importReceiptDismissBtn.addEventListener("click", () => {
 dom.importReceiptActionBtn?.addEventListener("click", () => {
   const action = importReceiptAction(lastImportReceipt);
   if (action) action.run();
+});
+dom.shortcutCloseBtn?.addEventListener("click", () => closeShortcutOverlay());
+dom.shortcutOverlay?.addEventListener("click", (event) => {
+  if (event.target === dom.shortcutOverlay) closeShortcutOverlay();
 });
 
 dom.importWorkspaceInput.addEventListener("change", async (event) => {
@@ -1095,6 +1145,27 @@ dom.deskReviewGoodBtn.addEventListener("click", () => gradeActiveReview("good"))
 
 document.addEventListener("keydown", (event) => {
   const isMod = event.metaKey || event.ctrlKey;
+  if (event.isComposing) return;
+  if (isShortcutOverlayOpen()) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeShortcutOverlay();
+      return;
+    }
+    if (event.key === "Tab") {
+      event.preventDefault();
+      dom.shortcutCloseBtn?.focus({ preventScroll: true });
+      return;
+    }
+    return;
+  }
+  const isShortcutHelpKey = !isMod && !event.altKey && !isEditableTarget(event.target)
+    && (event.key === "?" || (event.key === "/" && event.shiftKey));
+  if (isShortcutHelpKey) {
+    event.preventDefault();
+    openShortcutOverlay();
+    return;
+  }
   if (handleReviewShortcut(event)) return;
   if (handleCaptureStarterShortcut(event, isMod)) return;
   if (isMod && event.shiftKey && event.key.toLowerCase() === "c") {
@@ -2390,6 +2461,7 @@ function renderStaticBilingualShell() {
   setText("#notesPreviewBtn", "Preview", "预览");
   setText("#notesCanvasBtn", "✏️ Draw", "✏️ 手写");
   renderNotesToolbarCopy();
+  renderShortcutOverlayCopy();
   if (dom.reviewNextBtn) dom.reviewNextBtn.textContent = langText("Review Next", "复习下一张");
   document.querySelector("#captureStarters")?.setAttribute("aria-label", langText("Capture starters", "摘录开头"));
   if (dom.captureStarterLabel) dom.captureStarterLabel.textContent = langText("Write as", "写成");
@@ -2417,6 +2489,86 @@ function renderNotesToolbarCopy() {
     dom.insertTimestampNoteBtn.textContent = langText("Time", "时间");
     renderNotesAssistControls(getActiveSession(workspace));
   }
+}
+
+function renderShortcutOverlayCopy() {
+  if (!dom.shortcutOverlay || !dom.shortcutGrid) return;
+  if (dom.shortcutOverlayKicker) dom.shortcutOverlayKicker.textContent = langText("Keyboard", "键盘");
+  if (dom.shortcutOverlayTitle) dom.shortcutOverlayTitle.textContent = langText("Shortcuts", "快捷键");
+  if (dom.shortcutCloseBtn) {
+    dom.shortcutCloseBtn.title = langText("Close shortcuts", "关闭快捷键");
+    dom.shortcutCloseBtn.setAttribute("aria-label", langText("Close shortcuts", "关闭快捷键"));
+  }
+  clearChildren(dom.shortcutGrid);
+  shortcutGroups().forEach((group) => {
+    const section = document.createElement("section");
+    section.className = "shortcut-group";
+    section.append(textEl("h3", "", group.title));
+    const list = document.createElement("dl");
+    group.items.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "shortcut-row";
+      row.append(textEl("dt", "", item.keys), textEl("dd", "", item.label));
+      list.append(row);
+    });
+    section.append(list);
+    dom.shortcutGrid.append(section);
+  });
+}
+
+function shortcutGroups() {
+  return [
+    {
+      title: langText("Capture", "摘录"),
+      items: [
+        { keys: "Cmd/Ctrl + Enter", label: langText("Capture current draft", "保存当前摘录草稿") },
+        { keys: "Cmd/Ctrl + Shift + Enter", label: langText("Capture and save for recall", "摘录并保存到复习") },
+        { keys: "Cmd/Ctrl + Shift + 1/2/3", label: langText("Start question, answer, or takeaway", "开始问题、回答或要点") },
+        { keys: "Cmd/Ctrl + Shift + C", label: langText("Focus Quick Capture", "聚焦快速摘录") }
+      ]
+    },
+    {
+      title: langText("Navigate", "导航"),
+      items: [
+        { keys: "Cmd/Ctrl + K", label: langText("Search workspace", "搜索工作区") },
+        { keys: "Cmd/Ctrl + \\", label: langText("Toggle focus sidecar", "切换专注侧栏") },
+        { keys: "?", label: langText("Open this shortcuts sheet", "打开这个快捷键表") },
+        { keys: "Esc", label: langText("Close shortcuts or search results", "关闭快捷键或搜索结果") }
+      ]
+    },
+    {
+      title: langText("Time & Review", "时间和复习"),
+      items: [
+        { keys: langText("Time", "时间") + " ↑ / ↓", label: langText("Nudge video time by 15 seconds", "按 15 秒调整视频时间") },
+        { keys: langText("Space", "空格") + " / Enter", label: langText("Reveal focused review card", "显示当前复习卡答案") },
+        { keys: "1 / 2", label: langText("Grade Again or Good after reveal", "显示后标记再来或掌握") }
+      ]
+    }
+  ];
+}
+
+function openShortcutOverlay() {
+  if (!dom.shortcutOverlay) return;
+  shortcutReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  renderShortcutOverlayCopy();
+  dom.shortcutOverlay.hidden = false;
+  document.body.classList.add("shortcut-overlay-open");
+  dom.shortcutCloseBtn?.focus({ preventScroll: true });
+}
+
+function closeShortcutOverlay(options = {}) {
+  if (!dom.shortcutOverlay) return;
+  const restoreFocus = options.restoreFocus !== false;
+  dom.shortcutOverlay.hidden = true;
+  document.body.classList.remove("shortcut-overlay-open");
+  if (restoreFocus && shortcutReturnFocus?.isConnected) {
+    shortcutReturnFocus.focus({ preventScroll: true });
+  }
+  shortcutReturnFocus = null;
+}
+
+function isShortcutOverlayOpen() {
+  return Boolean(dom.shortcutOverlay && !dom.shortcutOverlay.hidden);
 }
 
 function renderExportShellCopy() {
